@@ -21,17 +21,14 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.util.UUID
-import java.util.Calendar
-import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -147,16 +144,17 @@ class ReminderRepositoryImpl @Inject constructor(
         ReminderStats(
             dueToday = dueList.count { 
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Today || cat is DateCategory.GracePeriod || cat is DateCategory.Yesterday
+                cat is DateCategory.Today
             },
             dueTomorrow = dueList.count { DateClassifier.classify(it.nextDueDate, todayCal) is DateCategory.Tomorrow },
             overdue = dueList.count { 
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Overdue || cat is DateCategory.Yesterday
+                cat is DateCategory.Overdue || cat is DateCategory.Yesterday || cat is DateCategory.GracePeriod
             },
             completedToday = reminders.count { it.status == "COMPLETED" && (it.completionDate ?: 0) >= todayStart },
             rescheduledToday = reminders.count { it.status == "RESCHEDULED" && it.updatedAt >= todayStart },
             externalToday = reminders.count { it.status == "EXTERNAL" && it.updatedAt >= todayStart },
+            dismissedToday = reminders.count { it.status == "DISMISSED" && (it.dismissalDate ?: 0) >= todayStart },
             notificationsSentToday = reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }
         )
     }
@@ -171,57 +169,97 @@ class ReminderRepositoryImpl @Inject constructor(
         val reminderMap = reminderEntities.associateBy { "${it.patientId}_${it.originalVisitId}_${it.vaccineName}" }
         val result = mutableListOf<Vaccination>()
 
-        // 1. Process Potential (Due/Overdue)
-        potential.forEach { req ->
-            val key = "${req.patientId}_${req.originalVisitId}_${req.vaccineName}"
-            val savedState = reminderMap[key]
+        // 1. Group potential requirements by patient and due date
+        val groupedPotential = potential.groupBy { it.patientId to PatientUtils.formatDate(it.dueDate) }
+
+        groupedPotential.forEach { (key, requirements) ->
+            val (patientId, dueDateStr) = key
             
-            // If it's already completed or dismissed elsewhere, skip adding as "potential"
-            if (savedState?.status == "COMPLETED" || savedState?.status == "DISMISSED" || savedState?.status == "EXTERNAL") {
-                // Will be handled in step 2/3/4
-            } else {
-                val status = try {
-                    savedState?.status?.let { ReminderStatus.valueOf(it) } ?: ReminderStatus.ACTIVE
-                } catch (_: Exception) {
-                    ReminderStatus.ACTIVE
-                }
+            val terminalStates = requirements.map { req ->
+                val rKey = "${req.patientId}_${req.originalVisitId}_${req.vaccineName}"
+                reminderMap[rKey]
+            }
 
-                val finalDueDate = if (status == ReminderStatus.RESCHEDULED && savedState != null) {
-                    savedState.dueDate
-                } else {
-                    PatientUtils.formatDate(req.dueDate)
-                }
-
-                allVaccinations.find { it.id == req.originalVisitId }?.copy(
-                    nxtVaccineNames = listOf(req.vaccineName),
-                    nextDueDate = finalDueDate,
+            // If any in group are ACTIVE or RESCHEDULED, they should appear in the "Due" pool
+            val activeReminders = terminalStates.filter { it == null || (it.status != "COMPLETED" && it.status != "DISMISSED" && it.status != "EXTERNAL") }
+            
+            if (activeReminders.isNotEmpty()) {
+                val status = if (activeReminders.any { it?.status == "RESCHEDULED" }) ReminderStatus.RESCHEDULED else ReminderStatus.ACTIVE
+                val vaccineNames = requirements.map { it.vaccineName }.distinct()
+                val firstReq = requirements.first()
+                
+                allVaccinations.find { it.id == firstReq.originalVisitId }?.copy(
+                    nxtVaccineNames = vaccineNames,
+                    nextDueDate = dueDateStr,
                     isDone = false,
                     status = status,
-                    performedBy = savedState?.performedBy ?: ""
+                    performedBy = activeReminders.firstOrNull { it?.performedBy?.isNotBlank() == true }?.performedBy ?: ""
                 )?.let { result.add(it) }
             }
         }
 
-        // 2. Process Terminal States (Completed, Dismissed, External)
-        reminderEntities.filter { it.status != "ACTIVE" && it.status != "RESCHEDULED" }.forEach { state ->
-            val vaccination = allVaccinations.find { it.id == state.originalVisitId }
+        // 2. Process Terminal States (Completed, Dismissed, External) - Grouped by patient, date and status
+        val terminalReminders = reminderEntities.filter { it.status != "ACTIVE" && it.status != "RESCHEDULED" }
+        val groupedTerminal = terminalReminders.groupBy { Triple(it.patientId, it.dueDate, it.status) }
+
+        groupedTerminal.forEach { (key, group) ->
+            val (patientId, dueDate, statusStr) = key
+            val status = try { ReminderStatus.valueOf(statusStr) } catch (_: Exception) { ReminderStatus.ACTIVE }
+            
+            val firstState = group.first()
+            val vaccination = allVaccinations.find { it.id == firstState.originalVisitId }
             if (vaccination != null) {
-                val status = try { ReminderStatus.valueOf(state.status) } catch (_: Exception) { ReminderStatus.ACTIVE }
                 result.add(vaccination.copy(
-                    nxtVaccineNames = listOf(state.vaccineName),
-                    nextDueDate = state.dueDate,
+                    nxtVaccineNames = group.map { it.vaccineName }.distinct(),
+                    nextDueDate = dueDate,
                     isDone = status == ReminderStatus.COMPLETED || status == ReminderStatus.EXTERNAL,
                     status = status,
-                    dateGiven = if (status == ReminderStatus.COMPLETED) PatientUtils.formatDate(Date(state.completionDate ?: 0)) 
-                                else if (status == ReminderStatus.EXTERNAL) state.externalDate ?: "" 
-                                else "",
-                    performedBy = state.performedBy ?: "",
-                    notes = state.notes ?: state.dismissalReason ?: ""
+                    dateGiven = when (status) {
+                        ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(firstState.completionDate ?: 0))
+                        ReminderStatus.EXTERNAL -> firstState.externalDate ?: ""
+                        ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(firstState.dismissalDate ?: 0))
+                        else -> ""
+                    },
+                    performedBy = firstState.performedBy ?: "",
+                    notes = group.mapNotNull { it.notes ?: it.dismissalReason }.distinct().joinToString(", ")
                 ))
             }
         }
 
         return result
+    }
+
+    override fun getCompletedDueRecords(): Flow<List<CompletedDueRecord>> = callbackFlow {
+        val listener = firestore.collection("completed_due_vaccinations")
+            .addSnapshotListener { snapshot, _ ->
+                val records = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(CompletedDueRecord::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
+                trySend(records)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override fun getDismissedDueRecords(): Flow<List<DismissedDueRecord>> = callbackFlow {
+        val listener = firestore.collection("dismissed_due_vaccinations")
+            .addSnapshotListener { snapshot, _ ->
+                val records = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(DismissedDueRecord::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
+                trySend(records)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override fun getOtherEstablishmentDueRecords(): Flow<List<OtherEstablishmentDueRecord>> = callbackFlow {
+        val listener = firestore.collection("other_establishment_due_vaccinations")
+            .addSnapshotListener { snapshot, _ ->
+                val records = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(OtherEstablishmentDueRecord::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
+                trySend(records)
+            }
+        awaitClose { listener.remove() }
     }
 
     private suspend fun enqueueReminderSync(
@@ -280,7 +318,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String) {
+    override suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String?) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderByStableId(requirement.patientId, requirement.originalVisitId, requirement.vaccineName)
@@ -304,6 +342,19 @@ class ReminderRepositoryImpl @Inject constructor(
                     dueReminderDao.insertReminder(completed)
                     enqueueReminderSync("REMINDER_STATE", requirement.patientId, requirement.originalVisitId, requirement.vaccineName, SyncOperation.CREATE, SyncPriority.MEDIUM)
                 }
+
+                // Firestore: Write to separate collection
+                val now = Calendar.getInstance()
+                val record = CompletedDueRecord(
+                    patientId = requirement.patientId,
+                    originalDueDate = PatientUtils.formatDate(requirement.dueDate),
+                    completedDate = PatientUtils.formatDate(now.time),
+                    completedTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time),
+                    completedBy = performedBy,
+                    linkedVaccinationId = linkedVaccinationId ?: "",
+                    remarks = "Requirement satisfied"
+                )
+                firestore.collection("completed_due_vaccinations").add(record)
             }
             triggerImmediateCheck()
         }
@@ -348,18 +399,24 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markVaccinatedElsewhere(requirement: PendingRequirement, source: VaccinationSource, date: String, notes: String, performedBy: String) {
+    override suspend fun markVaccinatedElsewhere(
+        requirement: PendingRequirement,
+        hospitalName: String,
+        vaccinatedDate: String,
+        notes: String,
+        performedBy: String
+    ) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 // 1. Record Visit (Vaccinated elsewhere is still a visit record)
                 val visit = VisitEntity(
                     id = UUID.randomUUID().toString(),
                     patientId = requirement.patientId,
-                    dateGiven = date,
+                    dateGiven = vaccinatedDate,
                     doctor = performedBy,
                     vaccineNames = requirement.vaccineName,
                     notes = notes,
-                    source = source.name,
+                    source = "EXTERNAL",
                     isDone = true
                 )
                 vaccinationDao.insertVaccination(visit)
@@ -371,12 +428,12 @@ class ReminderRepositoryImpl @Inject constructor(
                 logReminderUndoableChange(
                     reminder = existing,
                     action = "EXTERNAL",
-                    remarks = "Vaccinated elsewhere: ${source.name}",
+                    remarks = "Vaccinated elsewhere: $hospitalName",
                     explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}"
                 )
 
                 if (existing != null) {
-                    dueReminderDao.moveDueToExternal(existing, source.name, date, performedBy, notes)
+                    dueReminderDao.moveDueToExternal(existing, hospitalName, vaccinatedDate, performedBy, notes)
                 } else {
                     val external = ReminderEntity(
                         patientId = requirement.patientId,
@@ -384,8 +441,8 @@ class ReminderRepositoryImpl @Inject constructor(
                         vaccineName = requirement.vaccineName,
                         dueDate = PatientUtils.formatDate(requirement.dueDate),
                         status = "EXTERNAL",
-                        externalDate = date,
-                        source = source.name,
+                        externalDate = vaccinatedDate,
+                        source = hospitalName,
                         performedBy = performedBy,
                         notes = notes
                     )
@@ -393,6 +450,20 @@ class ReminderRepositoryImpl @Inject constructor(
                 }
                 
                 enqueueReminderSync("REMINDER_STATE", requirement.patientId, requirement.originalVisitId, requirement.vaccineName, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                
+                // Firestore: Write to separate collection
+                val now = Calendar.getInstance()
+                val record = OtherEstablishmentDueRecord(
+                    patientId = requirement.patientId,
+                    originalDueDate = PatientUtils.formatDate(requirement.dueDate),
+                    vaccinatedDate = vaccinatedDate,
+                    hospitalName = hospitalName,
+                    recordedBy = performedBy,
+                    recordedDate = PatientUtils.formatDate(now.time),
+                    recordedTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time),
+                    remarks = notes
+                )
+                firestore.collection("other_establishment_due_vaccinations").add(record)
             }
             triggerImmediateCheck()
         }
@@ -426,14 +497,18 @@ class ReminderRepositoryImpl @Inject constructor(
                     dueReminderDao.insertReminder(dismissed)
                 }
 
-                auditLogger.recordLog(
-                    module = "PATIENT",
-                    entityType = "REMINDER",
-                    entityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}",
-                    action = "DISMISSED",
+                // Firestore: Write to separate collection
+                val now = Calendar.getInstance()
+                val record = DismissedDueRecord(
                     patientId = requirement.patientId,
-                    remarks = "Dismissed: $reason"
+                    originalDueDate = PatientUtils.formatDate(requirement.dueDate),
+                    dismissedDate = PatientUtils.formatDate(now.time),
+                    dismissedTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time),
+                    dismissedBy = performedBy,
+                    dismissReason = reason,
+                    remarks = ""
                 )
+                firestore.collection("dismissed_due_vaccinations").add(record)
                 
                 enqueueReminderSync("REMINDER_STATE", requirement.patientId, requirement.originalVisitId, requirement.vaccineName, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             }

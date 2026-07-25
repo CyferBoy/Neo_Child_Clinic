@@ -8,7 +8,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -82,18 +82,25 @@ class AdminViewModel @Inject constructor(
         val currentApp = FirebaseApp.getInstance()
         val options = currentApp.options
         val secondaryAppName = "SecondaryRegisterApp"
+        
+        var isNewApp = false
         val secondaryApp = try {
-            FirebaseApp.initializeApp(currentApp.applicationContext, options, secondaryAppName)
-        } catch (e: Exception) {
             FirebaseApp.getInstance(secondaryAppName)
+        } catch (e: Exception) {
+            isNewApp = true
+            FirebaseApp.initializeApp(currentApp.applicationContext, options, secondaryAppName)
         }
 
-        try {
-            val appCheck = FirebaseAppCheck.getInstance(secondaryApp)
-            val factory = PlayIntegrityAppCheckProviderFactory.getInstance()
-            appCheck.installAppCheckProviderFactory(factory)
-        } catch (e: Exception) {
-            Log.e("AdminViewModel", "App Check initialization failed for secondary app: ${e.message}")
+        if (isNewApp) {
+            try {
+                val appCheck = FirebaseAppCheck.getInstance(secondaryApp)
+                // Use Debug provider to match the primary app's configuration and avoid broker security issues in debug
+                val factory = DebugAppCheckProviderFactory.getInstance()
+                appCheck.installAppCheckProviderFactory(factory)
+                Log.d("AdminViewModel", "App Check initialized with Debug provider for secondary app")
+            } catch (e: Exception) {
+                Log.e("AdminViewModel", "App Check initialization failed for secondary app: ${e.message}")
+            }
         }
 
         val secondaryAuth = FirebaseAuth.getInstance(secondaryApp)

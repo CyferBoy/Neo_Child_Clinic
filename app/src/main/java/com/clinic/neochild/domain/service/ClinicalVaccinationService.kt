@@ -31,7 +31,7 @@ class ClinicalVaccinationService @Inject constructor(
 
             // 2. Reminder Engine Satisfaction
             if (requirement != null) {
-                reminderRepository.markRequirementSatisfied(requirement, user)
+                reminderRepository.markRequirementSatisfied(requirement, user, vaccination.id)
             } else if (isNew) {
                 satisfyRelatedReminders(vaccination, user)
             }
@@ -68,7 +68,8 @@ class ClinicalVaccinationService @Inject constructor(
                         dueDate = PatientUtils.parseDate(reminder.dueDate) ?: java.util.Date(),
                         originalVisitId = reminder.originalVisitId
                     ),
-                    user
+                    user,
+                    vaccination.id
                 )
             }
         }

@@ -20,6 +20,7 @@ hilt = "2.51.1"
 hiltNavigationCompose = "1.2.0"
 hiltWork = "1.2.0"
 biometric = "1.1.0"
+playServicesBase = "18.5.0"
 kotlinxSerialization = "1.7.1"
 
 [libraries]
@@ -62,6 +63,7 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" }
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]

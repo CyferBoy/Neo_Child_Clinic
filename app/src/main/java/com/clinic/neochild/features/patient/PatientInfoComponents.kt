@@ -47,7 +47,6 @@ fun PatientDetailsContent(
     notes: List<PatientNotesEntity>,
     onEditVaccination: (String) -> Unit,
     onDeleteVaccination: (Vaccination) -> Unit,
-    onMarkAsDone: (Vaccination) -> Unit,
     viewModel: PatientViewModel
 ) {
     val scope = rememberCoroutineScope()
@@ -84,7 +83,6 @@ fun PatientDetailsContent(
                     patient = patient,
                     onEdit = { onEditVaccination(vaccination.id) },
                     onDelete = { onDeleteVaccination(vaccination) },
-                    onMarkAsDone = { onMarkAsDone(vaccination) },
                     onShowInventoryIssues = { id ->
                         selectedVisitForDeductions = id
                         scope.launch {

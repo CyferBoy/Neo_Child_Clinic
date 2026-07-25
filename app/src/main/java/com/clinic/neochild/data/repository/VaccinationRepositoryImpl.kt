@@ -33,6 +33,7 @@ class VaccinationRepositoryImpl @Inject constructor(
 
     private val vaccinationDao = database.vaccinationDao()
     private val inventoryDeductionDao = database.inventoryDeductionDao()
+    private val patientDao = database.patientDao()
 
     override val allVaccinations: Flow<List<Vaccination>> = 
         vaccinationDao.getAllVaccinations().map { list -> list.map { it.toVaccination() } }
@@ -48,6 +49,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 var imported = 0
                 var failedMapping = 0
                 var failedValidation = 0
+                var skippedMissingPatient = 0
 
                 val vaccinations = snapshot.documents.mapNotNull { doc ->
                     val domain = FirestoreMappers.toVaccination(doc)
@@ -68,6 +70,14 @@ class VaccinationRepositoryImpl @Inject constructor(
 
                 database.withTransaction {
                     for (remote in vaccinations) {
+                        // FOREIGN KEY CHECK: Ensure patient exists locally before inserting visit
+                        val patientExists = patientDao.getPatientById(remote.patientId) != null
+                        if (!patientExists) {
+                            android.util.Log.e("VaccinationRepo", "FK Violation Avoided: Skipping Vaccination ${remote.id} because Patient ${remote.patientId} is missing locally.")
+                            skippedMissingPatient++
+                            continue
+                        }
+
                         val local = vaccinationDao.getVaccinationById(remote.id)
                         if (local == null || local.isSynced) {
                             vaccinationDao.insertVaccination(remote.toEntity(isSynced = true))
@@ -82,6 +92,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                     - Successfully Imported: $imported
                     - Failed Mapping (Schema Issues): $failedMapping
                     - Failed Validation (Missing Data): $failedValidation
+                    - Skipped (Missing Patients): $skippedMissingPatient
                 """.trimIndent())
                 
             } catch (e: Exception) {
@@ -121,18 +132,25 @@ class VaccinationRepositoryImpl @Inject constructor(
 
     override suspend fun deleteVaccination(id: String) {
         database.withTransaction {
-            val existing = vaccinationDao.getVaccinationById(id)
+            val existing = vaccinationDao.getVaccinationById(id) ?: return@withTransaction
             
-            // STEP 6: Undo/delete handling - Reverse deductions
-            val user = "Unknown" // ideally pass from caller, but repository signature is limited
-            val deductions = inventoryDeductionDao.getCompletedForVaccination(id)
-            for (deduction in deductions) {
-                deduction.batchId?.let { batchId ->
-                    inventoryRepository.reverseDeduction(batchId, deduction.quantity, user)
+            // 1. Identify batches used in this vaccination
+            val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
+            val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email ?: "Unknown"
+
+            // 2. Replenish inventory atomically
+            for (batchId in batchIds) {
+                try {
+                    inventoryRepository.reverseDeduction(batchId, 1, user)
+                } catch (e: Exception) {
+                    android.util.Log.e("VaccinationRepo", "Failed to replenish stock for batch $batchId: ${e.message}")
                 }
             }
+
+            // 3. Clean up deduction logs
             inventoryDeductionDao.deleteForVaccination(id)
 
+            // 4. Soft-delete the record
             vaccinationDao.deleteVaccination(id)
             
             syncRepository.enqueue(
@@ -147,8 +165,8 @@ class VaccinationRepositoryImpl @Inject constructor(
                 entityType = "VACCINATION",
                 entityId = id,
                 action = "DELETED",
-                patientId = existing?.patientId,
-                remarks = "Vaccines: ${existing?.vaccineNames ?: "Unknown"}"
+                patientId = existing.patientId,
+                remarks = "Vaccines: ${existing.vaccineNames}"
             )
         }
     }

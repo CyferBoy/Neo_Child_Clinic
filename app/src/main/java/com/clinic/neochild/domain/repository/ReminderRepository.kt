@@ -2,10 +2,7 @@ package com.clinic.neochild.domain.repository
 
 import com.clinic.neochild.data.local.entity.ReminderAuditEntity
 import com.clinic.neochild.data.local.entity.ReminderEntity
-import com.clinic.neochild.domain.model.ReminderStatus
-import com.clinic.neochild.domain.model.Vaccination
-import com.clinic.neochild.domain.model.VaccinationSource
-import com.clinic.neochild.domain.model.PendingRequirement
+import com.clinic.neochild.domain.model.*
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -23,6 +20,11 @@ interface ReminderRepository {
     fun getDueTomorrow(): Flow<List<Vaccination>>
     fun getOverdue(): Flow<List<Vaccination>>
     
+    // New Manual Management Observation
+    fun getCompletedDueRecords(): Flow<List<CompletedDueRecord>>
+    fun getDismissedDueRecords(): Flow<List<DismissedDueRecord>>
+    fun getOtherEstablishmentDueRecords(): Flow<List<OtherEstablishmentDueRecord>>
+
     // Smart Follow-up logic
     suspend fun scheduleFollowUp(
         patientId: String,
@@ -36,9 +38,15 @@ interface ReminderRepository {
     )
 
     // Core Business Actions (Atomic)
-    suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String)
+    suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String? = null)
     suspend fun reschedule(requirement: PendingRequirement, newDate: String, reminderDate: String, reason: String, performedBy: String)
-    suspend fun markVaccinatedElsewhere(requirement: PendingRequirement, source: VaccinationSource, date: String, notes: String, performedBy: String)
+    suspend fun markVaccinatedElsewhere(
+        requirement: PendingRequirement,
+        hospitalName: String,
+        vaccinatedDate: String,
+        notes: String,
+        performedBy: String
+    )
     suspend fun dismissReminder(requirement: PendingRequirement, reason: String, performedBy: String)
     suspend fun restoreReminder(requirement: PendingRequirement, performedBy: String)
     suspend fun deleteReminder(requirement: PendingRequirement, performedBy: String) // Admin only check usually in VM
@@ -69,5 +77,6 @@ data class ReminderStats(
     val completedToday: Int = 0,
     val rescheduledToday: Int = 0,
     val externalToday: Int = 0,
+    val dismissedToday: Int = 0,
     val notificationsSentToday: Int = 0
 )

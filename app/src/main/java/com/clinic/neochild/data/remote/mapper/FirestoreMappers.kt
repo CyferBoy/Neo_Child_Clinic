@@ -146,7 +146,9 @@ object FirestoreMappers {
                 id = doc.id,
                 type = safeGetString(doc, "type"),
                 brandName = safeGetString(doc, "brandName"),
-                companyName = safeGetString(doc, "companyName")
+                companyName = safeGetString(doc, "companyName"),
+                mrp = safeGetDouble(doc, "mrp"),
+                netRate = safeGetDouble(doc, "netRate")
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error mapping VaccineEntity ${doc.id}", e)

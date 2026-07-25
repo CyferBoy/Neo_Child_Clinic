@@ -111,6 +111,13 @@ object PatientUtils {
     }
 
     /**
+     * Formats a timestamp to date and time.
+     */
+    fun formatDateTime(date: Date): String {
+        return SimpleDateFormat("${Constants.DATE_FORMAT}, hh:mm a", Locale.ENGLISH).format(date)
+    }
+
+    /**
      * Standardizes any date string to the current app format (e.g. 9 May 2026).
      */
     fun formatDateForDisplay(dateStr: String): String {
@@ -163,8 +170,8 @@ object PatientUtils {
         return pendingVaccinations.filter { v ->
             val category = DateClassifier.classify(v.nextDueDate)
             when (filter) {
-                "Overdue" -> category is DateCategory.Overdue || category is DateCategory.Yesterday
-                "Today" -> category is DateCategory.Today || category is DateCategory.GracePeriod || category is DateCategory.Yesterday
+                "Overdue" -> category is DateCategory.Overdue || category is DateCategory.Yesterday || category is DateCategory.GracePeriod
+                "Today" -> category is DateCategory.Today
                 "Tomorrow" -> category is DateCategory.Tomorrow
                 "This Week" -> {
                     val date = parseDate(v.nextDueDate)

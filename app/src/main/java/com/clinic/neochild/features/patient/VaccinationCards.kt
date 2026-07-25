@@ -18,8 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.clinic.neochild.domain.model.Patient
 import com.clinic.neochild.domain.model.Vaccination
-import com.clinic.neochild.core.utils.DateClassifier
-import com.clinic.neochild.core.utils.DateCategory
 import com.clinic.neochild.core.utils.PatientUtils.cleanVaccineName
 import com.clinic.neochild.core.utils.PatientUtils.formatDateForDisplay
 import com.clinic.neochild.core.utils.ReceiptManager
@@ -33,7 +31,6 @@ fun VaccinationRecordCard(
     patient: Patient,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onMarkAsDone: (Vaccination) -> Unit,
     onShowInventoryIssues: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -78,7 +75,7 @@ fun VaccinationRecordCard(
                 onDismiss = { menuExpanded = false },
                 onEdit = onEdit,
                 onDelete = onDelete,
-                onMarkAsDone = if (!vaccination.isDone) { { onMarkAsDone(vaccination) } } else null,
+                onMarkAsDone = null,
                 onDownload = { 
                     (context as? androidx.activity.ComponentActivity)?.lifecycleScope?.launch {
                         ReceiptManager.downloadReceipt(context, patient, vaccination)
@@ -116,22 +113,6 @@ fun VaccinationCardHeader(vaccination: Vaccination, onShowInventoryIssues: (Stri
             }
         }
         
-        if (vaccination.isDone) {
-            Icon(Icons.Default.CheckCircle, contentDescription = "Done", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
-        } else {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    text = "DUE", 
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-        }
-
         Spacer(modifier = Modifier.width(8.dp))
 
         if (vaccination.totalPaid > 0) {
@@ -183,10 +164,6 @@ fun VaccinationCardDates(vaccination: Vaccination) {
                     fontWeight = FontWeight.Medium, 
                     color = if (vaccination.nextDueDate.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
                 )
-                if (vaccination.isDone && vaccination.nextDueDate.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "✅ Done", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
-                }
             }
         }
     }

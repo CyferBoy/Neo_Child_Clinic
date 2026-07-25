@@ -20,16 +20,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
-        // Ensure native libs are aligned to 16KB
-        externalNativeBuild {
-            ndkBuild {
-                arguments("APP_STL:=c++_shared", "D_PAGE_SIZE=16384", "APP_SUPPORT_FLEXIBLE_PAGE_SIZES:=true")
-            }
-            cmake {
-                arguments("-DANDROID_STL=c++_shared", "-DCMAKE_CXX_FLAGS=-Wl,-z,max-page-size=16384", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
-            }
-        }
     }
 
     buildTypes {
@@ -53,11 +43,11 @@ android {
         disable += "NullSafeMutableLiveData"
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -92,6 +82,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.play.services.base)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -122,7 +113,6 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
     implementation(libs.kotlinx.serialization.json)
 
     // Firebase App Check

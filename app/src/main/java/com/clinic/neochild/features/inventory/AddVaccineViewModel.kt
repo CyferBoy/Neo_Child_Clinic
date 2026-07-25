@@ -18,7 +18,9 @@ data class AddVaccineUiState(
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val error: String? = null,
-    val vaccine: VaccineEntity? = null
+    val vaccine: VaccineEntity? = null,
+    val allTypes: List<String> = emptyList(),
+    val brandSuggestions: Map<String, List<String>> = emptyMap() // Type -> List of Brands
 )
 
 @HiltViewModel
@@ -29,10 +31,28 @@ class AddVaccineViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AddVaccineUiState())
     val uiState: StateFlow<AddVaccineUiState> = _uiState.asStateFlow()
 
+    init {
+        loadSuggestions()
+    }
+
+    private fun loadSuggestions() {
+        viewModelScope.launch {
+            inventoryRepository.getInventoryItems().collect { items ->
+                val types = items.map { it.type }.distinct().sorted()
+                val brands = items.groupBy { it.type }
+                    .mapValues { entry -> entry.value.map { it.brandName }.distinct().sorted() }
+                
+                _uiState.update { it.copy(
+                    allTypes = types,
+                    brandSuggestions = brands
+                ) }
+            }
+        }
+    }
+
     fun loadVaccine(vaccineId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            // Assuming we have a way to get vaccine by ID, or we can use getInventoryItems and find
             inventoryRepository.getInventoryItems().collect { items ->
                 val item = items.find { it.id == vaccineId }
                 if (item != null) {
@@ -40,7 +60,9 @@ class AddVaccineViewModel @Inject constructor(
                         id = item.id,
                         type = item.type,
                         brandName = item.brandName,
-                        companyName = item.company
+                        companyName = item.company,
+                        mrp = item.mrp,
+                        netRate = item.netRate
                     )
                     _uiState.update { it.copy(vaccine = entity, isLoading = false) }
                 } else {
@@ -54,7 +76,9 @@ class AddVaccineViewModel @Inject constructor(
         id: String?,
         brandName: String,
         type: String,
-        companyName: String
+        companyName: String,
+        mrp: Double,
+        netRate: Double
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -63,9 +87,11 @@ class AddVaccineViewModel @Inject constructor(
                 val vaccineId = id ?: UUID.randomUUID().toString()
                 val vaccine = VaccineEntity(
                     id = vaccineId,
-                    brandName = brandName,
                     type = type,
-                    companyName = companyName
+                    brandName = brandName,
+                    companyName = companyName,
+                    mrp = mrp,
+                    netRate = netRate
                 )
 
                 if (id != null) {

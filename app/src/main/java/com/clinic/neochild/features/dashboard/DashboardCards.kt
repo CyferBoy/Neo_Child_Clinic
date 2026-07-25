@@ -1,5 +1,6 @@
 package com.clinic.neochild.features.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -9,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,17 +84,20 @@ fun DashboardCard(
     contentColor: Color = MaterialTheme.colorScheme.onErrorContainer,
     badge: String? = null,
     height: Dp = 160.dp,
+    isRestricted: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
-        onClick = onClick,
+        onClick = { if (!isRestricted) onClick() },
         modifier = modifier.height(height).fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isRestricted) containerColor.copy(alpha = 0.4f) else containerColor
+        ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isRestricted) 0.dp else 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (badge != null) {
+            if (badge != null && !isRestricted) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -112,7 +118,8 @@ fun DashboardCard(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .alpha(if (isRestricted) 0.5f else 1f),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -130,6 +137,24 @@ fun DashboardCard(
                     color = contentColor,
                     fontSize = 15.sp
                 )
+            }
+
+            if (isRestricted) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.05f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Don't have access",
+                        modifier = Modifier.rotate(-20f),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Red.copy(alpha = 0.4f),
+                        letterSpacing = 1.sp
+                    )
+                }
             }
         }
     }

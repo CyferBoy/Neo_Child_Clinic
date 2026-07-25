@@ -1,8 +1,11 @@
 package com.clinic.neochild.app
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,6 +33,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -58,6 +62,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        logSigningFingerprint()
         handleIntent(intent)
         
         notificationHelper.cancelSummaryNotification()
@@ -166,8 +171,14 @@ class MainActivity : FragmentActivity() {
                 .set(mapOf("email" to currentUser.email, "fcmToken" to token), SetOptions.merge())
 
             // 2. Update staff collection (ONLY if user already has a profile)
-            firestore.collection("staff").document(currentUser.uid)
-                .update(updateData)
+            // We check existence first to avoid "NOT_FOUND" warnings in logs
+            firestore.collection("staff").document(currentUser.uid).get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        firestore.collection("staff").document(currentUser.uid)
+                            .update(updateData)
+                    }
+                }
         }
     }
 
@@ -182,6 +193,33 @@ class MainActivity : FragmentActivity() {
         // The key is usually the string name used in ActionParameters.Key
         if (intent?.extras?.containsKey("OPEN_DUE_TAB") == true) {
             openDueTab = intent.getBooleanExtra("OPEN_DUE_TAB", false)
+        }
+    }
+
+    private fun logSigningFingerprint() {
+        try {
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            }
+
+            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+
+            signatures?.forEach { signature ->
+                val md = MessageDigest.getInstance("SHA-1")
+                md.update(signature.toByteArray())
+                val sha1 = md.digest().joinToString(":") { "%02X".format(it) }
+                Log.d("DIAGNOSTIC", "App SHA-1: $sha1")
+            }
+        } catch (e: Exception) {
+            Log.e("DIAGNOSTIC", "Failed to log SHA-1", e)
         }
     }
 }

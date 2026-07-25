@@ -6,6 +6,8 @@ import com.clinic.neochild.data.local.entity.AuditLogEntity
 import com.clinic.neochild.data.local.database.AppDatabase
 import com.clinic.neochild.data.local.entity.ReminderEntity
 import com.clinic.neochild.data.local.entity.PatientNotesEntity
+import com.clinic.neochild.data.remote.mapper.FirestoreMappers
+import com.clinic.neochild.domain.model.Staff
 import com.clinic.neochild.domain.model.Patient
 import com.clinic.neochild.domain.model.Vaccination
 import com.clinic.neochild.domain.repository.PatientRepository
@@ -15,14 +17,16 @@ import com.clinic.neochild.domain.usecase.patient.GetPatientByIdUseCase
 import com.clinic.neochild.domain.usecase.patient.GetPatientsUseCase
 import com.clinic.neochild.domain.usecase.patient.SavePatientUseCase
 import com.clinic.neochild.domain.usecase.sync.RefreshDataUseCase
-import com.clinic.neochild.domain.usecase.vaccination.CompleteVaccinationUseCase
 import com.clinic.neochild.domain.usecase.vaccination.DeleteVaccinationUseCase
 import com.clinic.neochild.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.clinic.neochild.domain.usecase.vaccination.SaveVaccinationUseCase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.clinic.neochild.core.utils.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
@@ -34,18 +38,23 @@ class PatientViewModel @Inject constructor(
     private val deletePatientUseCase: DeletePatientUseCase,
     private val saveVaccinationUseCase: SaveVaccinationUseCase,
     private val deleteVaccinationUseCase: DeleteVaccinationUseCase,
-    private val completeVaccinationUseCase: CompleteVaccinationUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
     private val reminderRepository: ReminderRepository,
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    private val auth: FirebaseAuth,
+    private val db: FirebaseFirestore
 ) : ViewModel() {
     
     val allPatients: StateFlow<List<Patient>>
     val allVaccinations: StateFlow<List<Vaccination>>
     val patientsWithMissingPrice: StateFlow<Set<String>>
+    
+    private val _staff = MutableStateFlow<Staff?>(null)
+    val currentStaff: StateFlow<Staff?> = _staff.asStateFlow()
 
     init {
+        fetchStaffProfile()
         // State Streams
         allPatients = getPatientsUseCase().stateIn(
             scope = viewModelScope,
@@ -68,6 +77,40 @@ class PatientViewModel @Inject constructor(
         )
 
         refresh()
+    }
+
+    private fun fetchStaffProfile() {
+        val currentUser = auth.currentUser ?: return
+        
+        viewModelScope.launch {
+            try {
+                val doc = db.collection("staff").document(currentUser.uid).get().await()
+                if (doc.exists()) {
+                    _staff.value = FirestoreMappers.toStaff(doc)
+                } else {
+                    val email = currentUser.email
+                    if (email != null) {
+                        val query = db.collection("staff")
+                            .whereEqualTo("email", email)
+                            .get().await()
+                        
+                        if (query.documents.isNotEmpty()) {
+                            val staffDoc = query.documents.first()
+                            _staff.value = FirestoreMappers.toStaff(staffDoc)
+                            return@launch
+                        }
+                    }
+
+                    _staff.value = Staff(
+                        id = currentUser.uid,
+                        email = currentUser.email ?: "",
+                        name = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "User",
+                        role = "User",
+                        createdAt = currentUser.metadata?.creationTimestamp ?: 0L
+                    )
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     fun refresh() {
@@ -110,15 +153,10 @@ class PatientViewModel @Inject constructor(
         }
     }
 
-    fun markAsDone(vaccination: Vaccination) {
-        viewModelScope.launch {
-            val user = FirebaseAuth.getInstance().currentUser?.email ?: "Unknown"
-            completeVaccinationUseCase.satisfyExisting(vaccination.id, user)
-        }
-    }
-
     fun getPatientHistory(patientId: String): Flow<List<Vaccination>> {
-        return getVaccinationsUseCase.forPatient(patientId)
+        return getVaccinationsUseCase.forPatient(patientId).map { vaccinations ->
+            vaccinations.sortedByDescending { PatientUtils.parseDate(it.dateGiven)?.time ?: 0L }
+        }
     }
 
     fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {

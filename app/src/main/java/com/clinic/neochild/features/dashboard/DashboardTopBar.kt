@@ -20,7 +20,8 @@ import com.clinic.neochild.domain.model.Staff
 @Composable
 fun DashboardTopBar(
     staff: Staff?,
-    isAdmin: Boolean,
+    showManageStaff: Boolean,
+    showAuditLogs: Boolean,
     onManageStaff: () -> Unit,
     onSettings: () -> Unit,
     onSync: () -> Unit,
@@ -72,7 +73,7 @@ fun DashboardTopBar(
                         },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
                     )
-                    if (isAdmin) {
+                    if (showManageStaff) {
                         DropdownMenuItem(
                             text = { Text("Manage Staff") },
                             onClick = {
@@ -91,14 +92,16 @@ fun DashboardTopBar(
                         },
                         leadingIcon = { Icon(Icons.Default.Sync, contentDescription = null) }
                     )
-                    DropdownMenuItem(
-                        text = { Text("Audit Log") },
-                        onClick = {
-                            profileMenuExpanded = false
-                            onAuditLogs()
-                        },
-                        leadingIcon = { Icon(Icons.Default.History, contentDescription = null) }
-                    )
+                    if (showAuditLogs) {
+                        DropdownMenuItem(
+                            text = { Text("Audit Log") },
+                            onClick = {
+                                profileMenuExpanded = false
+                                onAuditLogs()
+                            },
+                            leadingIcon = { Icon(Icons.Default.History, contentDescription = null) }
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Settings") },
                         onClick = {

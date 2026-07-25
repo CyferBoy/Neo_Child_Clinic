@@ -40,7 +40,10 @@ fun DashboardScreen(
     dashboardViewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by dashboardViewModel.uiState.collectAsState()
-    val isAdmin = Constants.ADMIN_EMAILS.contains(authViewModel.currentUser?.email)
+    val role = uiState.staff?.role ?: "Staff"
+    val showManageStaff = role == "Admin" || role == "Doctor"
+    val showAuditLogs = role == "Admin"
+    val showStatistics = role == "Admin" || role == "Doctor"
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -58,7 +61,8 @@ fun DashboardScreen(
             topBar = {
                 DashboardTopBar(
                     staff = uiState.staff,
-                    isAdmin = isAdmin,
+                    showManageStaff = showManageStaff,
+                    showAuditLogs = showAuditLogs,
                     onManageStaff = onManageStaff,
                     onSettings = onSettings,
                     onSync = onSync,
@@ -101,6 +105,7 @@ fun DashboardScreen(
                     DashboardMainGrid(
                         isWideScreen = isWideScreen,
                         uiState = uiState,
+                        showStatistics = showStatistics,
                         onPatientList = onPatientList,
                         onAddPatient = onAddPatient,
                         onInventory = onAddVaccine,

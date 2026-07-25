@@ -1,11 +1,15 @@
 package com.clinic.neochild.domain.manager
 
+import androidx.room.withTransaction
+import com.clinic.neochild.core.utils.InventoryUtils
+import com.clinic.neochild.core.utils.PatientUtils
+import com.clinic.neochild.data.local.dao.VaccinationDao
+import com.clinic.neochild.data.local.dao.VaccineDao
+import com.clinic.neochild.data.local.database.AppDatabase
 import com.clinic.neochild.domain.model.*
 import com.clinic.neochild.domain.repository.*
 import com.clinic.neochild.domain.service.ClinicalVaccinationService
 import com.clinic.neochild.domain.service.InventoryProcessingService
-import com.clinic.neochild.data.local.dao.VaccineDao
-import com.clinic.neochild.core.utils.PatientUtils
 import kotlinx.coroutines.flow.first
 import java.util.*
 import javax.inject.Inject
@@ -17,14 +21,17 @@ import javax.inject.Singleton
  */
 @Singleton
 class VaccinationManager @Inject constructor(
+    private val database: AppDatabase,
     private val clinicalService: ClinicalVaccinationService,
     private val inventoryService: InventoryProcessingService,
     private val vaccinationRepository: VaccinationRepository,
-    private val vaccineDao: VaccineDao
+    private val vaccinationDao: VaccinationDao,
+    private val vaccineDao: VaccineDao,
+    private val inventoryRepository: InventoryRepository
 ) {
     /**
      * Completes a vaccination event with explicit parameters.
-     * Decouples Clinical save from Inventory deduction.
+     * Orchestrates clinical record saving and inventory management atomically.
      */
     suspend fun completeVaccination(
         vaccination: Vaccination,
@@ -34,26 +41,51 @@ class VaccinationManager @Inject constructor(
         requirement: PendingRequirement? = null,
         selectedBatchIds: List<String> = emptyList()
     ): String? {
-        // 1. Clinical Domain ALWAYS Saves First
-        clinicalService.recordVaccination(
-            vaccination = vaccination,
-            user = user,
-            isNew = isNew,
-            requirement = requirement
-        )
-
-        // 2. Attempt Inventory Domain deduction (Secondary)
-        if (isNew) {
-            return inventoryService.processVaccinationInventory(
-                vaccinationId = vaccination.id,
-                patientId = vaccination.patientId,
-                vaccineIds = selectedVaccineIds,
-                batchIds = selectedBatchIds,
-                user = user
+        return database.withTransaction {
+            val oldRecord = if (!isNew) vaccinationDao.getVaccinationById(vaccination.id) else null
+            
+            // 1. Clinical Domain Save
+            clinicalService.recordVaccination(
+                vaccination = vaccination,
+                user = user,
+                isNew = isNew,
+                requirement = requirement
             )
+
+            // 2. Inventory Management Logic
+            if (isNew) {
+                // For new records, simply deduct stock
+                inventoryService.processVaccinationInventory(
+                    vaccinationId = vaccination.id,
+                    patientId = vaccination.patientId,
+                    vaccineIds = selectedVaccineIds,
+                    batchIds = selectedBatchIds,
+                    user = user
+                )
+            } else if (oldRecord != null) {
+                // For edited records, check if vaccines changed
+                val oldBatchIds = oldRecord.batchIds.split(",").filter { it.isNotBlank() }
+                
+                // Compare batches to determine if stock needs to be adjusted
+                // If the selected batches are different, we perform a swap
+                if (oldBatchIds != selectedBatchIds) {
+                    // Return old stock
+                    for (oldBatchId in oldBatchIds) {
+                        inventoryRepository.reverseDeduction(oldBatchId, 1, user)
+                    }
+                    
+                    // Deduct new stock
+                    inventoryService.processVaccinationInventory(
+                        vaccinationId = vaccination.id,
+                        patientId = vaccination.patientId,
+                        vaccineIds = selectedVaccineIds,
+                        batchIds = selectedBatchIds,
+                        user = user
+                    )
+                }
+            }
+            null // Return null on success
         }
-        
-        return null
     }
 
     /**
@@ -91,7 +123,7 @@ class VaccinationManager @Inject constructor(
         
         if (matchingVaccineId != null) {
             val activeBatches = vaccineDao.getActiveBatchesByExpiry(matchingVaccineId)
-            val firstBatch = activeBatches.firstOrNull { it.remainingQuantity > 0 && !com.clinic.neochild.core.utils.InventoryUtils.isExpired(it.expiryDate) }
+            val firstBatch = activeBatches.firstOrNull { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
             if (firstBatch != null) {
                 enrichedVaccination = vaccination.copy(
                     batchNumbers = listOf(firstBatch.batchNumber),
@@ -118,13 +150,6 @@ class VaccinationManager @Inject constructor(
         vaccinationId: String,
         user: String
     ) {
-        // Delegating clinical part to service would require more refactoring of repository.
-        // For now, satisfy existing is purely clinical.
         vaccinationRepository.markAsDone(vaccinationId)
-        val target = vaccinationRepository.allVaccinations.first().find { it.id == vaccinationId } ?: return
-        
-        // This logic is duplicated in clinicalService.recordVaccination for internal use, 
-        // but satisfyExisting calls it on an OLD record.
-        // I'll keep it here but using the repository markAsDone which handles internal satisfaction if needed.
     }
 }

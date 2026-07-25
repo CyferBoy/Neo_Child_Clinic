@@ -27,6 +27,7 @@ import com.clinic.neochild.features.inventory.BorrowedScreen
 import com.clinic.neochild.features.inventory.VaccineInventoryScreen
 import com.clinic.neochild.features.inventory.WasteScreen
 import com.clinic.neochild.features.inventory.InventoryIssuesScreen
+import com.clinic.neochild.features.reminder.CompletedDismissedScreen
 
 @Composable
 fun AppNavigation(
@@ -305,6 +306,21 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onNavigateToAddVaccination = { patientId, vaccineName ->
                     navController.navigate("add_vaccine_with_details/$patientId/$vaccineName")
+                },
+                onNavigateToCompletedDismissed = {
+                    navController.navigate(Routes.COMPLETED_DISMISSED)
+                },
+                onPatientClick = { patientId ->
+                    navController.navigate("patient_details/$patientId")
+                }
+            )
+        }
+
+        composable(Routes.COMPLETED_DISMISSED) {
+            CompletedDismissedScreen(
+                onBack = { navController.popBackStack() },
+                onPatientClick = { patientId ->
+                    navController.navigate("patient_details/$patientId")
                 }
             )
         }

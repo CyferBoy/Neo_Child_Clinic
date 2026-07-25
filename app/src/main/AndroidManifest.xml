@@ -8,6 +8,16 @@
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
+    <queries>
+        <package android:name="com.google.android.gms" />
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.signin.SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.integrity.service.BIND" />
+        </intent>
+    </queries>
+
     <application
         android:name=".app.NeoChildApp"
         android:allowBackup="true"

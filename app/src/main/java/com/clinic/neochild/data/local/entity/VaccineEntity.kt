@@ -19,6 +19,8 @@ data class VaccineEntity(
     val category: String? = null, // e.g. Mandatory, Optional, Adult
     val doseSchedule: String? = null, // JSON
     val storageDetails: String? = null,
+    val mrp: Double = 0.0,
+    val netRate: Double = 0.0,
     
     val lastUpdated: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false
@@ -91,5 +93,7 @@ fun VaccineEntity.toVaccine(totalStock: Int = 0) = Vaccine(
     type = type,
     brandName = brandName,
     companyName = companyName,
-    stock = totalStock
+    stock = totalStock,
+    mrp = mrp,
+    netRate = netRate
 )

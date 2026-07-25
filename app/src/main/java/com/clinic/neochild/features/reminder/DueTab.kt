@@ -8,14 +8,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.clinic.neochild.domain.model.Patient
 import com.clinic.neochild.domain.model.Vaccination
 import com.clinic.neochild.domain.model.VaccinationSource
 import com.clinic.neochild.domain.model.ReminderStatus
+import com.clinic.neochild.domain.repository.ReminderStats
 import com.clinic.neochild.core.designsystem.NeoChildTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -24,17 +25,20 @@ fun DueTab(
     patients: List<Patient>, 
     filteredVaccinations: List<Vaccination>,
     overdueCount: Int,
+    stats: ReminderStats,
     initialFilter: String = "Today",
     onFilterChanged: (String) -> Unit = {},
     onSearchQueryChanged: (String) -> Unit = {},
     onMarkAsDone: (Vaccination) -> Unit = {},
     onDismissReminder: (Vaccination, String) -> Unit = { _, _ -> },
     onReschedule: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
-    onVaccinatedElsewhere: (Vaccination, VaccinationSource, String, String) -> Unit = { _, _, _, _ -> },
-    onRestoreReminder: (Vaccination) -> Unit = {}
+    onVaccinatedElsewhere: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
+    onRestoreReminder: (Vaccination) -> Unit = {},
+    onNavigateToCompletedDismissed: () -> Unit = {},
+    onPatientClick: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val filters = remember { listOf("Overdue", "Today", "Tomorrow", "This Week", "Upcoming", "Completed", "Dismissed", "Vaccinated Elsewhere") }
+    val filters = remember { listOf("Overdue", "All", "Today", "Week", "Month") }
     var selectedVaccination by remember { mutableStateOf<Vaccination?>(null) }
     var showManageSheet by remember { mutableStateOf(false) }
     var showReschedulePicker by remember { mutableStateOf(false) }
@@ -46,7 +50,11 @@ fun DueTab(
         contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp)
     ) {
         item {
-            Text("Due Vaccination Analytics", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            CompletedDismissedSummaryCard(
+                completedCount = stats.completedToday,
+                dismissedCount = stats.dismissedToday,
+                onClick = onNavigateToCompletedDismissed
+            )
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -58,18 +66,11 @@ fun DueTab(
                     onSearchQueryChanged(it)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search by name, phone or vaccine...") },
+                placeholder = { Text("Search by name or phone...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        item {
-            if (initialFilter == "Overdue") {
-                OverdueSummaryCard(overdueCount = overdueCount)
-                Spacer(modifier = Modifier.height(16.dp))
-            }
         }
 
         item {
@@ -83,7 +84,9 @@ fun DueTab(
 
         if (filteredVaccinations.isEmpty()) {
             item {
-                EmptyDueState(selectedFilter = initialFilter)
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+                    Text("No vaccinations due.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         } else {
             items(
@@ -98,9 +101,10 @@ fun DueTab(
                         selectedVaccination = v
                         showManageSheet = true 
                     },
+                    onClick = { onPatientClick(v.patientId) },
                     modifier = Modifier.animateItem()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -170,8 +174,8 @@ fun DueTab(
     if (showElsewhereSheet && selectedVaccination != null) {
         VaccinatedElsewhereBottomSheet(
             onDismiss = { showElsewhereSheet = false },
-            onSave = { source, date, notes ->
-                selectedVaccination?.let { onVaccinatedElsewhere(it, source, date, notes) }
+            onSave = { hospitalName, date, notes ->
+                selectedVaccination?.let { onVaccinatedElsewhere(it, hospitalName, date, notes) }
                 showElsewhereSheet = false
             }
         )
@@ -202,6 +206,7 @@ private fun DueTabPreview() {
                 )
             ),
             overdueCount = 1,
+            stats = ReminderStats(completedToday = 12, dismissedToday = 3),
             onMarkAsDone = {},
             onDismissReminder = { _, _ -> },
             onReschedule = { _, _, _, _ -> },

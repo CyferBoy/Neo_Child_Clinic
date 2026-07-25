@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.clinic.neochild.data.local.entity.ReminderEntity
 import com.clinic.neochild.domain.model.Vaccination
-import com.clinic.neochild.domain.model.VaccinationSource
 import com.clinic.neochild.domain.model.PendingRequirement
 import com.clinic.neochild.domain.repository.ReminderRepository
 import com.clinic.neochild.domain.usecase.patient.GetPatientsUseCase
@@ -80,9 +79,9 @@ class FollowUpViewModel @Inject constructor(
         }
     }
 
-    fun markVaccinatedElsewhere(reminder: ReminderEntity, source: VaccinationSource, date: String, notes: String) {
+    fun markVaccinatedElsewhere(reminder: ReminderEntity, hospitalName: String, date: String, notes: String) {
         viewModelScope.launch {
-            reminderRepository.markVaccinatedElsewhere(reminder.toPendingRequirement(), source, date, notes, currentUserEmail)
+            reminderRepository.markVaccinatedElsewhere(reminder.toPendingRequirement(), hospitalName, date, notes, currentUserEmail)
         }
     }
 

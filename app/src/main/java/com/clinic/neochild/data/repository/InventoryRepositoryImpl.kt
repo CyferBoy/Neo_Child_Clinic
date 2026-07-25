@@ -58,12 +58,19 @@ class InventoryRepositoryImpl @Inject constructor(
                 val isOutOfStock = totalStock <= 0
                 val activeBatches = batches.filter { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
 
+                // Fallback pricing from latest batch if not set in definition
+                val latestBatch = batches.maxByOrNull { it.purchaseDate }
+                val displayMrp = if (vaccine.mrp == 0.0) latestBatch?.sellingPrice ?: 0.0 else vaccine.mrp
+                val displayNetRate = if (vaccine.netRate == 0.0) latestBatch?.purchaseCost ?: 0.0 else vaccine.netRate
+
                 InventoryItem(
                     id = vaccine.id,
                     brandName = vaccine.brandName,
                     stock = totalStock,
                     type = vaccine.type,
                     company = vaccine.companyName,
+                    mrp = displayMrp,
+                    netRate = displayNetRate,
                     batches = batches.sortedBy { parseDate(it.expiryDate) },
                     isLowStock = isLowStock,
                     isNearExpiry = isNearExpiry,
@@ -227,23 +234,6 @@ class InventoryRepositoryImpl @Inject constructor(
                 remarks = "Batch: ${batch.batchNumber}, Removed Qty: ${batch.remainingQuantity}"
             )
             syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-
-            // Check if this was the last batch
-            val remainingBatches = vaccineDao.getBatchesByVaccineSync(batch.vaccineId)
-            if (remainingBatches.isEmpty()) {
-                val vaccine = vaccineDao.getVaccineById(batch.vaccineId)
-                if (vaccine != null && !vaccine.isDeleted) {
-                    vaccineDao.updateVaccine(vaccine.copy(isDeleted = true))
-                    syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                    auditLogger.recordLog(
-                        module = "VACCINE",
-                        entityType = "VACCINE",
-                        entityId = vaccine.id,
-                        action = "ARCHIVED",
-                        remarks = "Vaccine: ${vaccine.brandName} (Final batch removed)"
-                    )
-                }
-            }
         }
     }
 
@@ -302,6 +292,12 @@ class InventoryRepositoryImpl @Inject constructor(
         patientId: String?
     ) {
         database.withTransaction {
+            // Ensure stock is available before proceeding
+            val totalAvailable = vaccineDao.getTotalStockForVaccine(vaccineId) ?: 0
+            if (totalAvailable < quantity) {
+                throw IllegalStateException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
+            }
+
             var remaining = quantity
             val batches = vaccineDao.getActiveBatchesByExpiry(vaccineId)
                 .filter { !InventoryUtils.isExpired(it.expiryDate) }
@@ -349,8 +345,12 @@ class InventoryRepositoryImpl @Inject constructor(
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
-            if (transactionType == InventoryTransactionType.VACCINATION && InventoryUtils.isExpired(batch.expiryDate)) throw IllegalStateException("Batch expired")
-            if (batch.remainingQuantity < quantity) throw IllegalStateException("Insufficient stock")
+            if (transactionType == InventoryTransactionType.VACCINATION && InventoryUtils.isExpired(batch.expiryDate)) {
+                throw IllegalStateException("Cannot deduct stock from an expired batch.")
+            }
+            if (batch.remainingQuantity < quantity) {
+                throw IllegalStateException("Insufficient stock in Batch ${batch.batchNumber}. Available: ${batch.remainingQuantity}")
+            }
 
             val current = vaccineDao.getTotalStockForVaccine(batch.vaccineId) ?: 0
             vaccineDao.updateBatch(batch.copy(remainingQuantity = batch.remainingQuantity - quantity))

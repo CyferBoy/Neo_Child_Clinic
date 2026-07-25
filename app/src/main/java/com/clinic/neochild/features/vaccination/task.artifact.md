@@ -1,8 +1,0 @@
-- `[x]` 1. Update `AddVaccinationViewModel.kt`
-    - `[x]` Change inventory filter to `ALL`
-    - `[x]` Support nullable batch in `addVaccineToForm`
-    - `[x]` Handle empty batch list in `onVaccineSelected`
-- `[x]` 2. Update `VaccinationSections.kt`
-    - `[x]` Enable selecting out-of-stock items in dropdown
-- `[x]` 3. Verification
-    - `[x]` Gradle Build

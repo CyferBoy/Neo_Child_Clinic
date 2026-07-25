@@ -98,9 +98,9 @@ fun ManageDueBottomSheet(
 @Composable
 fun VaccinatedElsewhereBottomSheet(
     onDismiss: () -> Unit,
-    onSave: (VaccinationSource, String, String) -> Unit
+    onSave: (String, String, String) -> Unit
 ) {
-    var source by remember { mutableStateOf(VaccinationSource.GOVERNMENT) }
+    var hospitalName by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(SimpleDateFormat("d MMM yyyy", Locale.ENGLISH).format(Date())) }
@@ -145,22 +145,13 @@ fun VaccinatedElsewhereBottomSheet(
             )
             Spacer(modifier = Modifier.height(16.dp))
             
-            Text("Where was the vaccine given?", style = MaterialTheme.typography.titleMedium)
-            
-            VaccinationSource.entries.filter { it != VaccinationSource.CLINIC }.forEach { entry ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { source = entry }
-                ) {
-                    RadioButton(selected = source == entry, onClick = { source = entry })
-                    Text(
-                        text = entry.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = hospitalName,
+                onValueChange = { hospitalName = it },
+                label = { Text("Hospital / Clinic Name") },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("e.g. Civil Hospital, private clinic etc.") }
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -185,7 +176,8 @@ fun VaccinatedElsewhereBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
             
             Button(
-                onClick = { onSave(source, selectedDate, notes) },
+                onClick = { onSave(hospitalName, selectedDate, notes) },
+                enabled = hospitalName.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Save")

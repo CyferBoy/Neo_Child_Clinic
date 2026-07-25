@@ -8,6 +8,8 @@ data class InventoryItem(
     val stock: Int,
     val type: String,
     val company: String,
+    val mrp: Double = 0.0,
+    val netRate: Double = 0.0,
     val batches: List<VaccineBatchEntity> = emptyList(),
     val isLowStock: Boolean = false,
     val isNearExpiry: Boolean = false,

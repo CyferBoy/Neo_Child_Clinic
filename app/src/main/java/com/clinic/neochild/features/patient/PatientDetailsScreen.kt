@@ -22,11 +22,12 @@ fun PatientDetailsScreen(
     onBack: () -> Unit = {}, 
     onAddVaccine: (String) -> Unit = {},
     onEditVaccination: (String) -> Unit = {},
-    onNavigateToTimeline: (String) -> Unit = {},
     viewModel: PatientViewModel = hiltViewModel()
 ) {
     val allPatients by viewModel.allPatients.collectAsState()
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
+    val staff by viewModel.currentStaff.collectAsState()
+    val isAdmin = staff?.role == "Admin"
     
     // Correct way to observe patient-specific history
     val patientVaccinations by viewModel.getPatientHistory(patientId).collectAsState(initial = emptyList())
@@ -34,7 +35,6 @@ fun PatientDetailsScreen(
     val notes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
 
     var vaccinationToDelete by remember { mutableStateOf<Vaccination?>(null) }
-    var vaccinationToMarkDone by remember { mutableStateOf<Vaccination?>(null) }
     var showAuditLog by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -48,23 +48,6 @@ fun PatientDetailsScreen(
         title = "Delete Vaccination",
         message = "Are you sure you want to delete this vaccination record?"
     )
-
-    if (vaccinationToMarkDone != null) {
-        AlertDialog(
-            onDismissRequest = { vaccinationToMarkDone = null },
-            title = { Text("Mark as Done") },
-            text = { Text("Are you sure you want to mark this vaccination as done?") },
-            confirmButton = {
-                Button(onClick = {
-                    vaccinationToMarkDone?.let { viewModel.markAsDone(it) }
-                    vaccinationToMarkDone = null
-                }) { Text("Confirm") }
-            },
-            dismissButton = {
-                TextButton(onClick = { vaccinationToMarkDone = null }) { Text("Cancel") }
-            }
-        )
-    }
 
     if (showAuditLog) {
         val auditLogs by viewModel.getAuditLogs(patientId).collectAsState(initial = emptyList())
@@ -95,22 +78,16 @@ fun PatientDetailsScreen(
                                 expanded = menuExpanded,
                                 onDismissRequest = { menuExpanded = false }
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("Audit Log") },
-                                    leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        showAuditLog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Timeline") },
-                                    leadingIcon = { Icon(Icons.Default.Timeline, contentDescription = null) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onNavigateToTimeline(patientId)
-                                    }
-                                )
+                                if (isAdmin) {
+                                    DropdownMenuItem(
+                                        text = { Text("Audit Log") },
+                                        leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            showAuditLog = true
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
@@ -144,7 +121,6 @@ fun PatientDetailsScreen(
                     notes = notes,
                     onEditVaccination = onEditVaccination,
                     onDeleteVaccination = { vaccinationToDelete = it },
-                    onMarkAsDone = { vaccinationToMarkDone = it },
                     viewModel = viewModel
                 )
             }

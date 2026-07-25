@@ -15,8 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.clinic.neochild.core.ui.AppBackground
-import com.clinic.neochild.core.ui.StandardButton
-import com.clinic.neochild.core.ui.StandardTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.clinic.neochild.core.ui.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,6 +32,11 @@ fun AddVaccineScreen(
     var brandName by rememberSaveable { mutableStateOf("") }
     var type by rememberSaveable { mutableStateOf("") }
     var companyName by rememberSaveable { mutableStateOf("") }
+    var mrp by rememberSaveable { mutableStateOf("") }
+    var netRate by rememberSaveable { mutableStateOf("") }
+
+    var typeExpanded by remember { mutableStateOf(false) }
+    var brandExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(vaccineId) {
         if (vaccineId != null) {
@@ -43,6 +49,8 @@ fun AddVaccineScreen(
             brandName = it.brandName
             type = it.type
             companyName = it.companyName
+            mrp = if (it.mrp > 0) it.mrp.toString() else ""
+            netRate = if (it.netRate > 0) it.netRate.toString() else ""
         }
     }
 
@@ -88,18 +96,53 @@ fun AddVaccineScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StandardTextField(
-                    value = brandName,
-                    onValueChange = { brandName = it },
-                    label = "Brand Name*",
-                    placeholder = "e.g. Pentaxim"
+                StandardAutoCompleteField(
+                    value = type,
+                    onValueChange = { 
+                        type = it
+                        typeExpanded = true 
+                    },
+                    label = "Vaccine Type*",
+                    placeholder = "e.g. DTaP, BCG, Polio",
+                    expanded = typeExpanded,
+                    onExpandedChange = { typeExpanded = it },
+                    dropdownContent = {
+                        val filteredTypes = uiState.allTypes.filter { it.contains(type, ignoreCase = true) }
+                        filteredTypes.forEach { suggestion ->
+                            DropdownMenuItem(
+                                text = { Text(suggestion) },
+                                onClick = {
+                                    type = suggestion
+                                    typeExpanded = false
+                                }
+                            )
+                        }
+                    }
                 )
 
-                StandardTextField(
-                    value = type,
-                    onValueChange = { type = it },
-                    label = "Vaccine Type*",
-                    placeholder = "e.g. DTaP-IPV-Hib"
+                StandardAutoCompleteField(
+                    value = brandName,
+                    onValueChange = { 
+                        brandName = it
+                        brandExpanded = true
+                    },
+                    label = "Brand Name*",
+                    placeholder = "e.g. Pentaxim",
+                    expanded = brandExpanded,
+                    onExpandedChange = { brandExpanded = it },
+                    dropdownContent = {
+                        val typeBrands = uiState.brandSuggestions[type] ?: emptyList()
+                        val filteredBrands = typeBrands.filter { it.contains(brandName, ignoreCase = true) }
+                        filteredBrands.forEach { suggestion ->
+                            DropdownMenuItem(
+                                text = { Text(suggestion) },
+                                onClick = {
+                                    brandName = suggestion
+                                    brandExpanded = false
+                                }
+                            )
+                        }
+                    }
                 )
 
                 StandardTextField(
@@ -109,6 +152,29 @@ fun AddVaccineScreen(
                     placeholder = "e.g. Sanofi"
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StandardTextField(
+                        value = mrp,
+                        onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) mrp = it },
+                        label = "MRP (Standard)",
+                        placeholder = "0.00",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    StandardTextField(
+                        value = netRate,
+                        onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) netRate = it },
+                        label = "Net Rate (Standard)",
+                        placeholder = "0.00",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 StandardButton(
@@ -117,7 +183,14 @@ fun AddVaccineScreen(
                             Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
                             return@StandardButton
                         }
-                        viewModel.saveVaccine(vaccineId, brandName, type, companyName)
+                        viewModel.saveVaccine(
+                            vaccineId, 
+                            brandName, 
+                            type, 
+                            companyName,
+                            mrp.toDoubleOrNull() ?: 0.0,
+                            netRate.toDoubleOrNull() ?: 0.0
+                        )
                     },
                     isLoading = uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()

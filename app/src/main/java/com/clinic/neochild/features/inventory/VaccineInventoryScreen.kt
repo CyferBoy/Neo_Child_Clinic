@@ -2,7 +2,6 @@ package com.clinic.neochild.features.inventory
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -19,13 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import android.widget.Toast
 import androidx.compose.ui.unit.dp
-import com.clinic.neochild.core.ui.AppBackground
-import com.clinic.neochild.core.ui.DeleteConfirmationDialog
-import com.clinic.neochild.core.ui.SearchTopAppBar
-import com.clinic.neochild.core.ui.ActionDropdownMenu
+import com.clinic.neochild.core.ui.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.clinic.neochild.core.designsystem.NeoChildTheme
-import com.clinic.neochild.core.ui.*
 import com.clinic.neochild.core.utils.InventoryUtils
 import com.clinic.neochild.core.utils.PatientUtils.formatDateForDisplay
 import com.clinic.neochild.data.local.entity.VaccineBatchEntity
@@ -178,6 +173,13 @@ private fun VaccineItemCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var showHiddenBatches by remember { mutableStateOf(false) }
+
+    val hiddenBatches = remember(item.batches) {
+        item.batches.filter { InventoryUtils.isExpired(it.expiryDate) && it.remainingQuantity <= 0 }
+    }
+    
+    val visibleBatches = if (showHiddenBatches) item.batches else item.batches.filterNot { it in hiddenBatches }
 
     Card(
         modifier = Modifier
@@ -200,6 +202,13 @@ private fun VaccineItemCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(item.brandName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(item.company, style = MaterialTheme.typography.bodySmall)
+                        if (item.mrp > 0) {
+                            Text(
+                                text = "Standard MRP: ₹${item.mrp}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            )
+                        }
                     }
                     StockStatusBadge(item)
                 }
@@ -208,6 +217,17 @@ private fun VaccineItemCard(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
                 ) {
+                    if (hiddenBatches.isNotEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(if (showHiddenBatches) "Hide Expired & Empty" else "Show Hidden Batches") },
+                            onClick = {
+                                showHiddenBatches = !showHiddenBatches
+                                menuExpanded = false
+                                if (showHiddenBatches) expanded = true
+                            },
+                            leadingIcon = { Icon(if (showHiddenBatches) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) }
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Edit Vaccine") },
                         onClick = {
@@ -250,8 +270,14 @@ private fun VaccineItemCard(
                     HorizontalDivider()
                     Spacer(Modifier.height(8.dp))
 
-                    item.batches.forEach { batch ->
+                    visibleBatches.forEach { batch ->
                         BatchRow(batch, onEditBatch, onDeleteBatch, item.brandName)
+                    }
+
+                    if (visibleBatches.isEmpty() && item.batches.isNotEmpty()) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Text("No active batches. Long press to show hidden.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
                     }
                 }
             }
