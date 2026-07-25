@@ -207,7 +207,7 @@ fun DuePatientCard(
                 is DateCategory.Overdue -> "🔴 ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
                 is DateCategory.Yesterday -> "🔴 1 Day Overdue" to MaterialTheme.colorScheme.error
                 is DateCategory.Today -> "🟡 Due Today" to Color(0xFFFBC02D) // Material Yellow 700
-                is DateCategory.GracePeriod -> "🟡 Due Today" to Color(0xFFFBC02D)
+                is DateCategory.GracePeriod -> "🔴 ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
                 is DateCategory.Tomorrow -> "🟢 Due Tomorrow" to Color(0xFF4CAF50)
                 is DateCategory.Future -> {
                     val targetDate = PatientUtils.parseDate(vaccination.nextDueDate)

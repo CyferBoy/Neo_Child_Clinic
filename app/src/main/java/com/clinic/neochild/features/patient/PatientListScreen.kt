@@ -43,9 +43,12 @@ fun PatientListScreen(
     viewModel: PatientListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val staff by viewModel.currentStaff.collectAsState()
+    val isAdmin = staff?.role == "Admin"
     val context = LocalContext.current
     
     var patientToDelete by remember { mutableStateOf<Patient?>(null) }
+    var patientForAuditLog by remember { mutableStateOf<Patient?>(null) }
     var showManualMergeDialog by rememberSaveable { mutableStateOf(false) }
 
     // Error handling
@@ -67,6 +70,15 @@ fun PatientListScreen(
         message = "Are you sure you want to delete ${patientToDelete?.name}? This will remove all their records."
     )
 
+    if (patientForAuditLog != null) {
+        val auditLogs by viewModel.getAuditLogs(patientForAuditLog!!.id).collectAsState(initial = emptyList())
+        AuditLogDialog(
+            show = true,
+            onDismiss = { patientForAuditLog = null },
+            logs = auditLogs
+        )
+    }
+
     if (showManualMergeDialog && uiState.selectedPatients.size == 2) {
         ManualMergeDialog(
             selectedPatients = uiState.selectedPatients.toList(),
@@ -81,6 +93,7 @@ fun PatientListScreen(
 
     PatientListContent(
         uiState = uiState,
+        isAdmin = isAdmin,
         onBack = {
             if (uiState.isMergeSelectionMode) viewModel.clearSelection()
             else onBack()
@@ -98,7 +111,8 @@ fun PatientListScreen(
         },
         onEditPatient = onEditPatient,
         onDeletePatient = { patientToDelete = it },
-        onToggleSelection = viewModel::toggleSelection
+        onToggleSelection = viewModel::toggleSelection,
+        onViewAuditLog = { patientForAuditLog = it }
     )
 }
 
@@ -106,6 +120,7 @@ fun PatientListScreen(
 @Composable
 private fun PatientListContent(
     uiState: PatientListUiState,
+    isAdmin: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onAddPatient: () -> Unit,
@@ -115,7 +130,8 @@ private fun PatientListContent(
     onPatientLongClick: (Patient) -> Unit,
     onEditPatient: (String) -> Unit,
     onDeletePatient: (Patient) -> Unit,
-    onToggleSelection: (Patient) -> Unit
+    onToggleSelection: (Patient) -> Unit,
+    onViewAuditLog: (Patient) -> Unit
 ) {
     AppBackground {
         Scaffold(
@@ -175,12 +191,14 @@ private fun PatientListContent(
                                 patient = patient,
                                 isSelected = uiState.selectedPatients.contains(patient),
                                 isMergeMode = uiState.isMergeSelectionMode,
+                                isAdmin = isAdmin,
                                 hasMissingPrice = uiState.patientsWithMissingPrice.contains(patient.id),
                                 onClick = { onPatientClick(patient) },
                                 onLongClick = { onPatientLongClick(patient) },
                                 onEdit = { onEditPatient(patient.id) },
                                 onDelete = { onDeletePatient(patient) },
                                 onToggleSelection = { onToggleSelection(patient) },
+                                onViewAuditLog = { onViewAuditLog(patient) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -224,12 +242,14 @@ private fun PatientCard(
     patient: Patient,
     isSelected: Boolean,
     isMergeMode: Boolean,
+    isAdmin: Boolean,
     hasMissingPrice: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleSelection: () -> Unit,
+    onViewAuditLog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -284,7 +304,9 @@ private fun PatientCard(
                         onDismiss = { menuExpanded = false },
                         onEdit = onEdit,
                         onDelete = onDelete,
-                        onMerge = onLongClick
+                        onMerge = onLongClick,
+                        isAdmin = isAdmin,
+                        onAuditLog = if (isAdmin) onViewAuditLog else null
                     )
                 }
             }
@@ -378,6 +400,7 @@ private fun PatientListPreview() {
                     Patient("2", "Jane Smith", "0987654321", "", "2021-05-15", "Female", "", "2024-02-10")
                 )
             ),
+            isAdmin = true,
             onBack = {},
             onAddPatient = {},
             onSearchQueryChange = {},
@@ -387,6 +410,7 @@ private fun PatientListPreview() {
             onEditPatient = {},
             onDeletePatient = {},
             onToggleSelection = {},
+            onViewAuditLog = {},
             onRefresh = {}
         )
     }

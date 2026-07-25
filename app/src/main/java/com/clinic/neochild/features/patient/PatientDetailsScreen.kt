@@ -1,5 +1,7 @@
 package com.clinic.neochild.features.patient
 
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -9,11 +11,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.clinic.neochild.domain.model.Vaccination
 import com.clinic.neochild.core.ui.*
 import com.clinic.neochild.core.utils.PatientUtils.parseDate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,11 +33,12 @@ fun PatientDetailsScreen(
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
     val staff by viewModel.currentStaff.collectAsState()
     val isAdmin = staff?.role == "Admin"
+    val context = LocalContext.current
     
     // Correct way to observe patient-specific history
     val patientVaccinations by viewModel.getPatientHistory(patientId).collectAsState(initial = emptyList())
     val followUps by viewModel.getPatientFollowUps(patientId).collectAsState(initial = emptyList())
-    val notes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
+    val patientNotes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
 
     var vaccinationToDelete by remember { mutableStateOf<Vaccination?>(null) }
     var showAuditLog by remember { mutableStateOf(false) }
@@ -42,7 +48,11 @@ fun PatientDetailsScreen(
         show = vaccinationToDelete != null,
         onDismiss = { vaccinationToDelete = null },
         onConfirm = {
-            vaccinationToDelete?.id?.let { viewModel.deleteVaccination(it) }
+            val vId = vaccinationToDelete?.id
+            if (vId != null) {
+                viewModel.deleteVaccination(vId)
+                Toast.makeText(context, "Vaccination record deleted", Toast.LENGTH_SHORT).show()
+            }
             vaccinationToDelete = null
         },
         title = "Delete Vaccination",
@@ -118,8 +128,9 @@ fun PatientDetailsScreen(
                     patient = patient,
                     vaccinations = patientVaccinations,
                     followUps = followUps,
-                    notes = notes,
-                    onEditVaccination = onEditVaccination,
+                    notes = patientNotes,
+                    isAdmin = isAdmin,
+                    onEdit_vaccination = onEditVaccination,
                     onDeleteVaccination = { vaccinationToDelete = it },
                     viewModel = viewModel
                 )

@@ -38,7 +38,7 @@ fun DueTab(
     onPatientClick: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val filters = remember { listOf("Overdue", "All", "Today", "Week", "Month") }
+    val filters = remember { listOf("All", "Overdue", "Today", "Week", "Month") }
     var selectedVaccination by remember { mutableStateOf<Vaccination?>(null) }
     var showManageSheet by remember { mutableStateOf(false) }
     var showReschedulePicker by remember { mutableStateOf(false) }

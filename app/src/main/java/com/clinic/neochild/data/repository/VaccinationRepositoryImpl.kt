@@ -132,7 +132,7 @@ class VaccinationRepositoryImpl @Inject constructor(
 
     override suspend fun deleteVaccination(id: String) {
         database.withTransaction {
-            val existing = vaccinationDao.getVaccinationById(id) ?: return@withTransaction
+            val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction
             
             // 1. Identify batches used in this vaccination
             val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
@@ -160,20 +160,24 @@ class VaccinationRepositoryImpl @Inject constructor(
                 priority = SyncPriority.MEDIUM
             )
             
-            auditLogger.recordLog(
-                module = "PATIENT",
-                entityType = "VACCINATION",
-                entityId = id,
-                action = "DELETED",
-                patientId = existing.patientId,
-                remarks = "Vaccines: ${existing.vaccineNames}"
-            )
+            try {
+                auditLogger.recordLog(
+                    module = "PATIENT",
+                    entityType = "VACCINATION",
+                    entityId = id,
+                    action = "DELETED",
+                    patientId = existing.patientId,
+                    remarks = "Vaccines: ${existing.vaccineNames}"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("VaccinationRepo", "Audit log failed but deletion proceeded", e)
+            }
         }
     }
 
     override suspend fun markAsDone(id: String) {
         database.withTransaction {
-            val current = vaccinationDao.getVaccinationById(id)
+            val current = vaccinationDao.getActiveVaccinationById(id)
             if (current != null) {
                 val updated = current.copy(isDone = true, isSynced = false)
                 vaccinationDao.insertVaccination(updated)

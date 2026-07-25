@@ -70,45 +70,14 @@ class DueViewModel @Inject constructor(
         val processedVaccinations = reminderRepository.getDueList(query, filterStatus).first()
         
         var filtered = when (filter) {
-            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue" -> {
+            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "All" -> {
                 PatientUtils.filterVaccinationsByPeriod(processedVaccinations, filter)
             }
             "Week" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "This Week")
-            "Month" -> {
-                val cal = Calendar.getInstance()
-                val today = cal.timeInMillis
-                cal.add(Calendar.DAY_OF_YEAR, 30)
-                val monthEnd = cal.timeInMillis
-                processedVaccinations.filter { v ->
-                    val date = PatientUtils.parseDate(v.nextDueDate)
-                    date != null && date.time in today..monthEnd
-                }.sortedBy { PatientUtils.parseDate(it.nextDueDate)?.time ?: Long.MAX_VALUE }
-            }
-            "All" -> {
-                processedVaccinations.sortedWith { a, b ->
-                    val catA = DateClassifier.classify(a.nextDueDate)
-                    val catB = DateClassifier.classify(b.nextDueDate)
-                    
-                    val weightA = getCategoryWeight(catA)
-                    val weightB = getCategoryWeight(catB)
-                    
-                    if (weightA != weightB) {
-                        weightA.compareTo(weightB)
-                    } else {
-                        val timeA = PatientUtils.parseDate(a.nextDueDate)?.time ?: 0L
-                        val timeB = PatientUtils.parseDate(b.nextDueDate)?.time ?: 0L
-                        if (weightA <= 1) { // Overdue categories
-                            timeB.compareTo(timeA) // Latest (newest) first
-                        } else {
-                            timeA.compareTo(timeB) // Nearest first
-                        }
-                    }
-                }
-            }
             else -> processedVaccinations
         }
 
-        // Apply custom sorting for Overdue (latest first as per latest instruction)
+        // Apply custom sorting for Overdue (latest first as per request)
         if (filter == "Overdue") {
             filtered = filtered.sortedByDescending { PatientUtils.parseDate(it.nextDueDate)?.time ?: 0L }
         }
@@ -152,20 +121,6 @@ class DueViewModel @Inject constructor(
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
     }
-
-    private fun getCategoryWeight(category: DateCategory): Int {
-        return when (category) {
-            is DateCategory.Overdue -> 0
-            is DateCategory.Yesterday -> 1
-            is DateCategory.Today -> 2
-            is DateCategory.GracePeriod -> 3
-            is DateCategory.Tomorrow -> 4
-            is DateCategory.Future -> 5
-        }
-    }
-
-    // Removed markAsDone background action to satisfy "no automatic entry" requirement.
-    // UI now navigates to Add Vaccination screen.
 
     fun dismissReminder(vaccination: Vaccination, reason: String) {
         viewModelScope.launch {

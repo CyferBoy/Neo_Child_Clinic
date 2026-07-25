@@ -45,7 +45,8 @@ fun PatientDetailsContent(
     vaccinations: List<Vaccination>,
     followUps: List<ReminderEntity>,
     notes: List<PatientNotesEntity>,
-    onEditVaccination: (String) -> Unit,
+    isAdmin: Boolean,
+    onEdit_vaccination: (String) -> Unit,
     onDeleteVaccination: (Vaccination) -> Unit,
     viewModel: PatientViewModel
 ) {
@@ -81,7 +82,8 @@ fun PatientDetailsContent(
                 VaccinationRecordCard(
                     vaccination = vaccination,
                     patient = patient,
-                    onEdit = { onEditVaccination(vaccination.id) },
+                    isAdmin = isAdmin,
+                    onEdit = { onEdit_vaccination(vaccination.id) },
                     onDelete = { onDeleteVaccination(vaccination) },
                     onShowInventoryIssues = { id ->
                         selectedVisitForDeductions = id

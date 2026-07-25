@@ -8,7 +8,7 @@ sealed class DateCategory {
     object Yesterday : DateCategory()
     object Today : DateCategory()
     object Tomorrow : DateCategory()
-    data class GracePeriod(val dateStr: String) : DateCategory()
+    data class GracePeriod(val dateStr: String, val days: Int) : DateCategory()
     data class Future(val dateStr: String) : DateCategory()
 }
 
@@ -46,7 +46,7 @@ object DateClassifier {
         return when {
             diffDays < -4 -> DateCategory.Overdue(-diffDays)
             diffDays == -1 -> DateCategory.Yesterday
-            diffDays < 0 -> DateCategory.GracePeriod(PatientUtils.formatDateForDisplay(dateStr))
+            diffDays < 0 -> DateCategory.GracePeriod(PatientUtils.formatDateForDisplay(dateStr), -diffDays)
             diffDays == 0 -> DateCategory.Today
             diffDays == 1 -> DateCategory.Tomorrow
             else -> DateCategory.Future(PatientUtils.formatDateForDisplay(dateStr))
@@ -74,13 +74,6 @@ object DateClassifier {
      */
     fun getSortWeight(dateStr: String): Long {
         val targetDate = PatientUtils.parseDate(dateStr) ?: return Long.MAX_VALUE
-        val category = classify(dateStr)
-        return if (category is DateCategory.Overdue || category is DateCategory.Yesterday) {
-            // Overdue: we want the largest timestamp (latest date) to have the smallest weight
-            // Using a large constant minus time to invert sorting for overdue
-            Long.MAX_VALUE - targetDate.time
-        } else {
-            targetDate.time
-        }
+        return targetDate.time
     }
 }

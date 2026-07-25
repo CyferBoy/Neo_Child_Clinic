@@ -35,8 +35,6 @@ fun AddVaccinationScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var showFollowUpDialog by remember { mutableStateOf(false) }
-
     // Initialize initial data
     LaunchedEffect(initialPatientId) {
         if (initialPatientId.isNotEmpty()) {
@@ -72,7 +70,8 @@ fun AddVaccinationScreen(
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
-            showFollowUpDialog = true
+            viewModel.resetSaveState()
+            onBack()
         }
     }
 
@@ -81,33 +80,6 @@ fun AddVaccinationScreen(
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             viewModel.clearError()
         }
-    }
-
-    if (showFollowUpDialog) {
-        AlertDialog(
-            onDismissRequest = { 
-                viewModel.resetSaveState()
-                onBack() 
-            },
-            title = { Text("Vaccination Saved") },
-            text = { Text("Vaccination saved successfully. Would you like to schedule a follow-up?") },
-            confirmButton = {
-                Button(onClick = {
-                    val saved = uiState.savedVaccination
-                    if (saved != null) {
-                        viewModel.scheduleFollowUp(saved)
-                    }
-                    viewModel.resetSaveState()
-                    onBack()
-                }) { Text("Schedule Follow-up") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    viewModel.resetSaveState()
-                    onBack()
-                }) { Text("Finish") }
-            }
-        )
     }
 
     uiState.vaccineRequiringBatchSelection?.let { vaccine ->

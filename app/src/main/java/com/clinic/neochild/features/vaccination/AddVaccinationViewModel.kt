@@ -11,7 +11,6 @@ import com.clinic.neochild.domain.usecase.inventory.ReconcileInventoryUseCase
 import com.clinic.neochild.domain.usecase.vaccination.CompleteVaccinationUseCase
 import com.clinic.neochild.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.clinic.neochild.domain.repository.InventoryRepository
-import com.clinic.neochild.domain.repository.ReminderRepository
 import com.clinic.neochild.features.settings.NotificationSettingsManager
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,7 +52,6 @@ class AddVaccinationViewModel @Inject constructor(
     private val completeVaccinationUseCase: CompleteVaccinationUseCase,
     private val getVaccinationsUseCase: GetVaccinationsUseCase,
     private val reconcileInventoryUseCase: ReconcileInventoryUseCase,
-    private val reminderRepository: ReminderRepository,
     private val settingsManager: NotificationSettingsManager
 ) : ViewModel() {
 
@@ -73,7 +71,7 @@ class AddVaccinationViewModel @Inject constructor(
                 inventoryRepository.getInventoryItems(filter = InventoryFilter.ALL),
                 settingsManager.settingsFlow
             ) { items, _ ->
-                val vaccines = items.map { item ->
+                val vaccines = items.filter { it.stock > 0 }.map { item ->
                     Vaccine(
                         id = item.id,
                         type = item.type,
@@ -249,24 +247,6 @@ class AddVaccinationViewModel @Inject constructor(
             val online = amount.toDoubleOrNull() ?: 0.0
             val cash = state.cashAmount.toDoubleOrNull() ?: 0.0
             state.copy(onlineAmount = amount, totalPaid = cash + online)
-        }
-    }
-
-    fun scheduleFollowUp(v: Vaccination) {
-        if (v.nextDueDate.isBlank() || v.nxtVaccineNames.isEmpty()) return
-        
-        viewModelScope.launch {
-            val user = FirebaseAuth.getInstance().currentUser?.email ?: "Unknown"
-            reminderRepository.scheduleFollowUp(
-                patientId = v.patientId,
-                originalVisitId = v.id,
-                vaccineNames = v.nxtVaccineNames,
-                dueDate = v.nextDueDate,
-                notes = "Scheduled automatically from vaccination",
-                priority = "NORMAL",
-                reminderEnabled = true,
-                performedBy = user
-            )
         }
     }
 }

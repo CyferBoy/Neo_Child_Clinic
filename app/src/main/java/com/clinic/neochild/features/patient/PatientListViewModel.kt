@@ -9,9 +9,15 @@ import com.clinic.neochild.domain.usecase.patient.SearchPatientsUseCase
 import com.clinic.neochild.domain.usecase.sync.RefreshDataUseCase
 import com.clinic.neochild.domain.repository.PatientRepository
 import com.clinic.neochild.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.clinic.neochild.domain.model.Staff
+import com.clinic.neochild.data.remote.mapper.FirestoreMappers
+import com.clinic.neochild.data.local.entity.AuditLogEntity
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 enum class PatientSortOption {
@@ -40,59 +46,79 @@ class PatientListViewModel @Inject constructor(
     private val mergePatientsUseCase: MergePatientsUseCase,
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
-    private val patientRepository: PatientRepository
+    private val patientRepository: PatientRepository,
+    private val auth: FirebaseAuth,
+    private val db: FirebaseFirestore
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+
     private val _sortOption = MutableStateFlow(PatientSortOption.NAME_AZ)
     private val _isMergeSelectionMode = MutableStateFlow(false)
     private val _selectedPatients = MutableStateFlow<Set<Patient>>(emptySet())
     private val _isMerging = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
-
     private val _isRefreshing = MutableStateFlow(false)
 
+    private val _staff = MutableStateFlow<Staff?>(null)
+    val currentStaff: StateFlow<Staff?> = _staff.asStateFlow()
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
-    val uiState: StateFlow<PatientListUiState> = _searchQuery
-        .debounce(300)
-        .flatMapLatest { query ->
-            combine(
-                searchPatientsUseCase(query),
-                _sortOption,
-                getVaccinationsUseCase(),
-                combine(_isMergeSelectionMode, _selectedPatients, _isMerging, _error, _isRefreshing) { mode, selected, merging, err, refreshing ->
-                    RefreshState(mode, selected, merging, err, refreshing)
-                },
-                flow { emit(patientRepository.getTotalPatientCount()) }
-            ) { patients, sort, vaccinations, internalState, total ->
-                
-                val missingPrice = if (query.isEmpty()) {
-                    vaccinations.filter { it.cost <= 0.0 }.map { it.patientId }.toSet()
-                } else emptySet()
+    private val _debouncedSearchQuery = _searchQuery.debounce(300).distinctUntilChanged()
 
-                val sorted = when (sort) {
-                    PatientSortOption.NAME_AZ -> patients.sortedBy { it.name.lowercase() }
-                    PatientSortOption.NEWEST -> patients.sortedByDescending { it.registrationDate }
-                }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
+    val uiState: StateFlow<PatientListUiState> = combine(
+        _debouncedSearchQuery.flatMapLatest { searchPatientsUseCase(it) },
+        _sortOption,
+        getVaccinationsUseCase(),
+        combine(_isMergeSelectionMode, _selectedPatients, _isMerging, _error, _isRefreshing) { mode, selected, merging, err, refreshing ->
+            RefreshState(mode, selected, merging, err, refreshing)
+        },
+        flow { emit(patientRepository.getTotalPatientCount()) }
+    ) { patients, sort, vaccinations, internalState, total ->
+        
+        val missingPrice = vaccinations.filter { it.cost <= 0.0 }.map { it.patientId }.toSet()
 
-                PatientListUiState(
-                    patients = sorted,
-                    isLoading = false,
-                    searchQuery = query,
-                    sortOption = sort,
-                    isMergeSelectionMode = internalState.mode,
-                    selectedPatients = internalState.selected,
-                    isMerging = internalState.merging,
-                    error = internalState.error,
-                    patientsWithMissingPrice = missingPrice,
-                    totalCount = total,
-                    isRefreshing = internalState.refreshing
-                )
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientListUiState(isLoading = true))
+        val sorted = when (sort) {
+            PatientSortOption.NAME_AZ -> patients.sortedBy { it.name.lowercase() }
+            PatientSortOption.NEWEST -> patients.sortedByDescending { it.registrationDate }
+        }
+
+        PatientListUiState(
+            patients = sorted,
+            isLoading = false,
+            searchQuery = _searchQuery.value,
+            sortOption = sort,
+            isMergeSelectionMode = internalState.mode,
+            selectedPatients = internalState.selected,
+            isMerging = internalState.merging,
+            error = internalState.error,
+            patientsWithMissingPrice = missingPrice,
+            totalCount = total,
+            isRefreshing = internalState.refreshing
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientListUiState(isLoading = true))
 
     init {
+        fetchStaffProfile()
         refresh()
+    }
+
+    private fun fetchStaffProfile() {
+        val currentUser = auth.currentUser ?: return
+        viewModelScope.launch {
+            try {
+                val doc = db.collection("staff").document(currentUser.uid).get().await()
+                if (doc.exists()) {
+                    _staff.value = FirestoreMappers.toStaff(doc)
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {
+        return patientRepository.getPatientTimeline(patientId)
     }
 
     fun refresh() {

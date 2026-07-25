@@ -30,6 +30,8 @@ fun ActionDropdownMenu(
     onMerge: (() -> Unit)? = null,
     onMarkAsDone: (() -> Unit)? = null,
     onEditRole: (() -> Unit)? = null,
+    onAuditLog: (() -> Unit)? = null,
+    isAdmin: Boolean = true,
     editText: String = "Edit"
 ) {
     DropdownMenu(
@@ -46,6 +48,16 @@ fun ActionDropdownMenu(
                 leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50)) }
             )
             HorizontalDivider()
+        }
+        if (onAuditLog != null) {
+            DropdownMenuItem(
+                text = { Text("View Audit Log") },
+                onClick = {
+                    onDismiss()
+                    onAuditLog()
+                },
+                leadingIcon = { Icon(Icons.Default.History, contentDescription = null) }
+            )
         }
         if (onPrint != null) {
             DropdownMenuItem(
@@ -67,15 +79,19 @@ fun ActionDropdownMenu(
                 leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) }
             )
         }
-        DropdownMenuItem(
-            text = { Text(editText) },
-            onClick = {
-                onDismiss()
-                onEdit()
-            },
-            leadingIcon = { Icon(if (editText == "Edit") Icons.Default.Edit else Icons.Default.LockReset, contentDescription = null) }
-        )
-        if (onEditRole != null) {
+        
+        if (isAdmin) {
+            DropdownMenuItem(
+                text = { Text(editText) },
+                onClick = {
+                    onDismiss()
+                    onEdit()
+                },
+                leadingIcon = { Icon(if (editText == "Edit") Icons.Default.Edit else Icons.Default.LockReset, contentDescription = null) }
+            )
+        }
+
+        if (onEditRole != null && isAdmin) {
             DropdownMenuItem(
                 text = { Text("Change Role") },
                 onClick = {
@@ -95,14 +111,17 @@ fun ActionDropdownMenu(
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = null) }
             )
         }
-        DropdownMenuItem(
-            text = { Text("Delete") },
-            onClick = {
-                onDismiss()
-                onDelete()
-            },
-            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
-        )
+
+        if (isAdmin) {
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                onClick = {
+                    onDismiss()
+                    onDelete()
+                },
+                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+            )
+        }
     }
 }
 
