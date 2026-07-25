@@ -68,4 +68,4 @@ Enable the following services in your Firebase console:
 - **Dependency Injection:** Hilt
 
 ## License
-This project is for demonstration purposes. Please contact the developer for licensing information.
+This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.
