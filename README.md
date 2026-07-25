@@ -1,45 +1,35 @@
-# Neo Child Clinic - Vaccine Manager (v1.2)
+# Neo Child Clinic - Vaccine Manager (v1.3)
 
-Neo Child Clinic is a modern Android application designed for pediatric clinics to manage patient records, vaccination schedules, and consultations efficiently.
+Neo Child Clinic is a modern, production-grade Android application designed for pediatric clinics to manage patient records, vaccination schedules, inventory, and clinical workflows with high security and data integrity.
 
-## Recent Updates (v1.2)
-- **Biometric Security Lock:** Integrated Android Biometric API for secure app access with configurable inactivity timeouts and "Always Authenticate" options.
-- **Full Clinic Audit Log:** App-wide historical tracking for every medical and administrative action, including patient registration, vaccinations, and inventory changes.
-- **Redesigned Expandable Settings:** Consolidated notification, inventory, backup, and security settings into a clean, accordion-style user interface.
-- **Comprehensive Profile Page:** Personalized user view showing clinic role, membership duration, and administrative actions.
-- **Staff Management Upgrades:** Ability to reset staff passwords via automated emails and a unified view of all authenticated clinic users.
-- **Sequential Clinic ID System:** Replaced random ID generation with a production-safe sequential system (`NEO-1000`, `NEO-1001`). 
-- **Automated Legacy Migration:** One-time background migration job to assign sequential IDs to all existing patients without data loss.
-- **Improved Room Schema Integrity:** Critical repair of the database migration path to ensure 100% schema alignment and prevent crashes on existing installations.
-- **Enhanced Data Integrity:** Automated "Requirement Satisfaction" logic that closes alerts when matching vaccines are administered manually.
-- **UI/UX Refinements:** Added password visibility toggles, organized navigation menus with dividers, and optimized dashboard tiles for better readability.
-- **Offline-First ID Assignment:** New IDs are assigned locally and queued for background sync, ensuring functionality even without internet.
-- **Data Deduplication Logic:** Intelligent conflict resolution that preserves unique clinic IDs across multiple devices and sync cycles.
+## Recent Updates (v1.3)
+- **Unified Follow-up Management:** Complete system for scheduling and tracking follow-up visits. Includes support for "Terminal States" such as **Marked as Done**, **Vaccinated Elsewhere**, and **Dismissed Reminder**.
+- **Precise Due Logic:** Refined "Due Today" filtering to show only vaccinations due on the current date. Overdue items and grace-period reminders are automatically moved to the "Overdue" category for better focus.
+- **External Vaccination Tracking:** Dedicated workflow to record vaccinations administered at other hospitals or government clinics, ensuring complete patient history without impacting local inventory.
+- **Enhanced Audit Trail:** Improved tracking for reminder status changes, recording the staff member responsible, the reason for changes (e.g., dismissal reasons), and timestamps.
+- **UI Architecture Cleanup:** Refactored reminder screens into specialized tabs (Due, Overdue, Completed/Dismissed) for a more organized administrative workflow.
 
-## Previous Updates (v1.1)
-- **Advanced Reminder Engine:** Implemented a "Requirement-Based Satisfaction" model. Reminders are now tracked per vaccine rather than per visit.
-- **Improved Workflow:** Added "Mark as Done" action to vaccination history via long-press, allowing staff to quickly clear requirements without creating new visits.
-- **Real-time Widget Sync:** The home screen widget and "Due" tab now update immediately when vaccinations are marked as completed, ensuring the interface is always accurate.
-- **Smart Due Filtering:** Completed vaccinations are now automatically filtered out of the "Due" list and widget for a cleaner, action-oriented interface.
-- **Automated Staff Notifications:** Integrated a battery-efficient WorkManager system that alerts staff about:
-    - Vaccinations due today or tomorrow.
-    - Overdue patients (with configurable frequency).
-    - Low stock and out-of-stock inventory alerts.
-    - Upcoming vaccine expiry warnings.
-- **Notification Settings:** New settings screen for clinic staff to customize reminder times, stock thresholds, and overdue alert intervals.
-- **Interactive Notifications:** Support for "Mark Vaccinated" and "Dismiss" actions directly from the notification shade.
-- **Enhanced Security:** Database version 3 with optimized Room-Firestore sync.
+## Previous Updates (v1.2)
+- **Biometric Security Lock:** Integrated Android Biometric API for secure app access with configurable inactivity timeouts.
+- **Full Clinic Audit Log:** App-wide historical tracking for every medical and administrative action.
+- **Redesigned Expandable Settings:** Consolidated notification, inventory, backup, and security settings.
+- **Sequential Clinic ID System:** Replaced random IDs with production-safe sequential system (`NEO-1000`).
+- **Improved Room Schema Integrity:** Critical repair of database migration paths for 100% schema alignment.
 
 ## Features
 
-- **Patient Management:** Easily add, edit, and view patient details.
-- **Vaccination Tracking:** Manage vaccination history and automated due date calculation.
-- **Consultations:** Record clinical notes and generate receipts.
-- **Inventory Management:** Track vaccine stock, batches, and expiry dates.
-- **Offline Support:** Local database (Room) with SQLCipher encryption.
-- **Real-time Sync:** Powered by Firebase Firestore.
-- **Notifications:** Integrated with Firebase Cloud Messaging (FCM).
-- **Widgets:** Quick view of upcoming vaccinations on the home screen.
+- **Patient Management:** Comprehensive records with automated age calculation and sequential ID generation.
+- **Smart Vaccination Engine:** Requirement-based tracking per vaccine. Automatically calculates next due dates based on clinic protocols.
+- **Follow-up & Reminder System:** Schedule future visits, manage active/overdue reminders, and track completions or dismissals.
+- **External Record Support:** Maintain a holistic view of patient health by recording vaccinations given elsewhere.
+- **Inventory Management:** Track vaccine stock, batches, expiry dates, and low-stock alerts.
+- **Secure Offline-First Architecture:** 
+    - **Encryption:** 256-bit SQLCipher encryption for the local Room database.
+    - **Offline Sync:** Robust background sync with Firebase Firestore via WorkManager.
+- **Security & Privacy:** Biometric authentication and granular staff audit logs.
+- **Clinical Tools:** Record consultations, generate digital receipts, and manage staff access.
+- **Notification Suite:** Automated alerts for due vaccinations, overdue patients, and inventory warnings.
+- **Home Screen Widgets:** Quick-access widgets for immediate visibility of today's tasks.
 
 ## Setup Instructions
 
@@ -59,9 +49,9 @@ git clone https://github.com/CyferBoy/Vaccine_Manager.git
 ### 3. Firebase Services Setup
 Enable the following services in your Firebase console:
 - **Authentication:** Email/Password provider.
-- **Firestore Database:** Create a database in production or test mode.
+- **Firestore Database:** Create a database in production mode.
 - **Cloud Messaging:** To enable notifications.
-- **App Check (Optional):** The app is configured with Play Integrity/Debug provider.
+- **App Check:** Recommended for production security.
 
 ### 4. Build and Run
 - Open the project in Android Studio.
@@ -71,11 +61,11 @@ Enable the following services in your Firebase console:
 ## Tech Stack
 
 - **UI:** Jetpack Compose (Material 3)
-- **Architecture:** MVVM (Model-View-ViewModel)
-- **Database:** Room with SQLCipher
-- **Backend:** Firebase (Firestore, Auth, FCM)
+- **Architecture:** MVVM + Clean Architecture principles
+- **Database:** Room + SQLCipher (Encryption)
+- **Backend:** Firebase (Firestore, Auth, FCM, App Check)
 - **Background Tasks:** WorkManager
-- **Navigation:** Compose Navigation
+- **Dependency Injection:** Hilt
 
 ## License
 This project is for demonstration purposes. Please contact the developer for licensing information.
