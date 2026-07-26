@@ -31,7 +31,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         FinanceEntity::class,
         BorrowEntity::class
     ], 
-    version = 25,
+    version = 27,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -557,6 +557,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE patient_visits ADD COLUMN batchNumbers TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE patients ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE patient_visits ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE waste_records ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE vaccine_batches ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val dbFile = context.getDatabasePath(DB_NAME)
@@ -597,7 +612,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25)
+                .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27)
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 INSTANCE = instance

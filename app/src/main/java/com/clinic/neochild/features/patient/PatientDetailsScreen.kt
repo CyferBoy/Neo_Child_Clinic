@@ -33,6 +33,7 @@ fun PatientDetailsScreen(
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
     val staff by viewModel.currentStaff.collectAsState()
     val isAdmin = staff?.role == "Admin"
+    val canEditOrDelete = isAdmin || staff?.role == "Doctor"
     val context = LocalContext.current
     
     // Correct way to observe patient-specific history
@@ -50,8 +51,10 @@ fun PatientDetailsScreen(
         onConfirm = {
             val vId = vaccinationToDelete?.id
             if (vId != null) {
-                viewModel.deleteVaccination(vId)
-                Toast.makeText(context, "Vaccination record deleted", Toast.LENGTH_SHORT).show()
+                viewModel.deleteVaccination(vId) { success ->
+                    val msg = if (success) "Vaccination record deleted" else "Failed to delete — please try again"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
             }
             vaccinationToDelete = null
         },
@@ -129,7 +132,7 @@ fun PatientDetailsScreen(
                     vaccinations = patientVaccinations,
                     followUps = followUps,
                     notes = patientNotes,
-                    isAdmin = isAdmin,
+                    canEditOrDelete = canEditOrDelete,
                     onEdit_vaccination = onEditVaccination,
                     onDeleteVaccination = { vaccinationToDelete = it },
                     viewModel = viewModel

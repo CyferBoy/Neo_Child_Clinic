@@ -68,7 +68,7 @@ class VaccinationManager @Inject constructor(
                 
                 // Compare batches to determine if stock needs to be adjusted
                 // If the selected batches are different, we perform a swap
-                if (oldBatchIds != selectedBatchIds) {
+                if (oldBatchIds.sorted() != selectedBatchIds.sorted()) {
                     // Return old stock
                     for (oldBatchId in oldBatchIds) {
                         inventoryRepository.reverseDeduction(oldBatchId, 1, user)

@@ -140,9 +140,14 @@ class PatientViewModel @Inject constructor(
         }
     }
 
-    fun deleteVaccination(id: String) {
+    fun deleteVaccination(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            deleteVaccinationUseCase(id)
+            try {
+                deleteVaccinationUseCase(id)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
         }
     }
 

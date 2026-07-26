@@ -18,7 +18,7 @@ object VaccinationValidator {
     fun createVaccination(
         id: String?, patientId: String, vaccines: List<String>, vaccineIds: List<String>, nextVaccine: String, dateGiven: String, nextDue: String,
         cost: String, cash: String, online: String, total: Double, withFees: Boolean, doctorsAcc: Boolean,
-        batches: List<String>, expiries: List<String>, performedBy: String = "", receiptNumber: String? = null
+        batches: List<String>, batchIds: List<String>, expiries: List<String>, performedBy: String = "", receiptNumber: String? = null
     ): Vaccination {
         val finalId = id ?: UUID.randomUUID().toString()
         val finalReceipt = if (receiptNumber.isNullOrBlank()) {
@@ -47,6 +47,7 @@ object VaccinationValidator {
             doctorsAcc = doctorsAcc,
             isDone = true, // Ensure administered vaccinations are marked as done
             batchNumbers = batches,
+            batchIds = batchIds,
             expiryDates = expiries,
             performedBy = performedBy,
             inventoryStatus = "PENDING"

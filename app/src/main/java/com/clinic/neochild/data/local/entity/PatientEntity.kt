@@ -34,6 +34,7 @@ data class PatientEntity(
     val guardianPhone: String? = null,
     val attachments: String? = null, // JSON path or metadata
 
+    val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = true,
     val isDeleted: Boolean = false
 )
@@ -50,6 +51,7 @@ fun PatientEntity.toPatient() = Patient(
     village = village,
     address = address,
     registrationDate = registrationDate,
+    updatedAt = updatedAt,
     isDeleted = isDeleted
 )
 
@@ -65,6 +67,7 @@ fun Patient.toEntity(isSynced: Boolean = true) = PatientEntity(
     village = village,
     address = address,
     registrationDate = registrationDate,
+    updatedAt = updatedAt,
     isSynced = isSynced,
     isDeleted = isDeleted
 )

@@ -99,4 +99,7 @@ interface VaccineDao {
 
     @Query("SELECT COUNT(*) FROM audit_logs WHERE remarks LIKE '%' || :brandName || '%'")
     suspend fun getAuditCountForVaccine(brandName: String): Int
+
+    @Query("SELECT COUNT(*) FROM audit_logs WHERE remarks LIKE '%' || :brandName || '%' AND `action` NOT IN ('CREATED', 'VACCINE_CREATED')")
+    suspend fun getAuditCountExcludingCreation(brandName: String): Int
 }

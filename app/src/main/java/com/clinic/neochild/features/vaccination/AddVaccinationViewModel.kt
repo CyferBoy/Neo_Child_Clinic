@@ -195,6 +195,7 @@ class AddVaccinationViewModel @Inject constructor(
             selectedVaccines = v.vaccineNames,
             selectedVaccineIds = v.vaccineIds,
             batchNumbers = v.batchNumbers,
+            selectedBatchIds = v.batchIds,
             expiryDates = v.expiryDates,
             nextBrandSearch = v.nxtVaccineNames.joinToString(", "),
             dateGiven = v.dateGiven,

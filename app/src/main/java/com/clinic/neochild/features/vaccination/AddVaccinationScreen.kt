@@ -150,7 +150,7 @@ fun AddVaccinationScreen(
                     vaccinationId, uiState.patientId, uiState.selectedVaccines, uiState.selectedVaccineIds, 
                     uiState.nextBrandSearch, uiState.dateGiven, uiState.nextDueDate, uiState.cost, 
                     uiState.cashAmount, uiState.onlineAmount, uiState.totalPaid, uiState.withFees, 
-                    uiState.doctorsAcc, uiState.batchNumbers, uiState.expiryDates, user, uiState.receiptNumber
+                    uiState.doctorsAcc, uiState.batchNumbers, uiState.selectedBatchIds, uiState.expiryDates, user, uiState.receiptNumber
                 )
                 viewModel.saveVaccination(v, vaccinationId == null, uiState.selectedVaccineIds, uiState.selectedBatchIds) {}
             }
@@ -163,7 +163,7 @@ fun AddVaccinationScreen(
                     vaccinationId, uiState.patientId, uiState.selectedVaccines, uiState.selectedVaccineIds, 
                     uiState.nextBrandSearch, uiState.dateGiven, uiState.nextDueDate, uiState.cost, 
                     uiState.cashAmount, uiState.onlineAmount, uiState.totalPaid, uiState.withFees, 
-                    uiState.doctorsAcc, uiState.batchNumbers, uiState.expiryDates, user, uiState.receiptNumber
+                    uiState.doctorsAcc, uiState.batchNumbers, uiState.selectedBatchIds, uiState.expiryDates, user, uiState.receiptNumber
                 )
                 viewModel.saveVaccination(v, vaccinationId == null, uiState.selectedVaccineIds, uiState.selectedBatchIds) {
                     scope.launch {

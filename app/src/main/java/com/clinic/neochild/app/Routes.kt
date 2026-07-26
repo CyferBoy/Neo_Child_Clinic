@@ -19,7 +19,7 @@ object Routes {
     const val ADD_VACCINE_DEFINITION = "add_vaccine_definition"
     const val EDIT_VACCINE_DEFINITION = "edit_vaccine_definition/{vaccineId}"
     const val ADD_BATCH = "add_batch/{vaccineId}/{brandName}"
-    const val EDIT_BATCH = "edit_batch/{batchId}"
+    const val EDIT_BATCH = "edit_batch/{batchId}?vaccineId={vaccineId}&brandName={brandName}"
     const val SETTINGS = "settings"
     const val PROFILE = "profile"
     const val NOTIFICATION_SETTINGS = "notification_settings"

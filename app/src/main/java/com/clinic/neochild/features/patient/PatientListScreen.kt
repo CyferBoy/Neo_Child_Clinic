@@ -45,6 +45,7 @@ fun PatientListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val staff by viewModel.currentStaff.collectAsState()
     val isAdmin = staff?.role == "Admin"
+    val canEditOrDelete = isAdmin || staff?.role == "Doctor"
     val context = LocalContext.current
     
     var patientToDelete by remember { mutableStateOf<Patient?>(null) }
@@ -94,6 +95,7 @@ fun PatientListScreen(
     PatientListContent(
         uiState = uiState,
         isAdmin = isAdmin,
+        canEditOrDelete = canEditOrDelete,
         onBack = {
             if (uiState.isMergeSelectionMode) viewModel.clearSelection()
             else onBack()
@@ -121,6 +123,7 @@ fun PatientListScreen(
 private fun PatientListContent(
     uiState: PatientListUiState,
     isAdmin: Boolean,
+    canEditOrDelete: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onAddPatient: () -> Unit,
@@ -192,6 +195,7 @@ private fun PatientListContent(
                                 isSelected = uiState.selectedPatients.contains(patient),
                                 isMergeMode = uiState.isMergeSelectionMode,
                                 isAdmin = isAdmin,
+                                canEditOrDelete = canEditOrDelete,
                                 hasMissingPrice = uiState.patientsWithMissingPrice.contains(patient.id),
                                 onClick = { onPatientClick(patient) },
                                 onLongClick = { onPatientLongClick(patient) },
@@ -243,6 +247,7 @@ private fun PatientCard(
     isSelected: Boolean,
     isMergeMode: Boolean,
     isAdmin: Boolean,
+    canEditOrDelete: Boolean,
     hasMissingPrice: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -305,7 +310,7 @@ private fun PatientCard(
                         onEdit = onEdit,
                         onDelete = onDelete,
                         onMerge = onLongClick,
-                        isAdmin = isAdmin,
+                        isAdmin = canEditOrDelete,
                         onAuditLog = if (isAdmin) onViewAuditLog else null
                     )
                 }
@@ -401,6 +406,7 @@ private fun PatientListPreview() {
                 )
             ),
             isAdmin = true,
+            canEditOrDelete = true,
             onBack = {},
             onAddPatient = {},
             onSearchQueryChange = {},

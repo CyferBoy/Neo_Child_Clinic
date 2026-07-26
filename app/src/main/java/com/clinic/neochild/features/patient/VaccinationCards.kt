@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 fun VaccinationRecordCard(
     vaccination: Vaccination,
     patient: Patient,
-    isAdmin: Boolean,
+    canEditOrDelete: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onShowInventoryIssues: (String) -> Unit = {}
@@ -77,7 +77,7 @@ fun VaccinationRecordCard(
                 onEdit = onEdit,
                 onDelete = onDelete,
                 onMarkAsDone = null,
-                isAdmin = isAdmin,
+                isAdmin = canEditOrDelete,
                 onDownload = { 
                     (context as? androidx.activity.ComponentActivity)?.lifecycleScope?.launch {
                         ReceiptManager.downloadReceipt(context, patient, vaccination)

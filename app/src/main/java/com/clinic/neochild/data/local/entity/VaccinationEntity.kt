@@ -36,6 +36,7 @@ data class VisitEntity(
     val vaccineNames: String,
     val vaccineIds: String = "",
     val batchIds: String = "", // Comma separated list of batch UUIDs
+    val batchNumbers: String = "", // Comma separated list of human-readable lot numbers
     val materialsUsed: String? = null,
     val notes: String = "",
     val receiptNumber: String = "",
@@ -54,6 +55,7 @@ data class VisitEntity(
     val source: String = "CLINIC",
     val inventoryStatus: String = "PENDING",
     
+    val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = true,
     val isDeleted: Boolean = false
 )
@@ -80,8 +82,10 @@ fun VisitEntity.toVaccination() = Vaccination(
     source = source,
     notes = notes,
     performedBy = doctor,
-    batchNumbers = if (batchIds.isBlank()) emptyList() else batchIds.split(","),
+    batchNumbers = if (batchNumbers.isBlank()) emptyList() else batchNumbers.split(","),
+    batchIds = if (batchIds.isBlank()) emptyList() else batchIds.split(","),
     expiryDates = emptyList(), // Not stored directly in visit anymore, link to batch
+    updatedAt = updatedAt,
     inventoryStatus = inventoryStatus
 )
 
@@ -104,7 +108,9 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = VisitEntity(
     source = source,
     notes = notes,
     doctor = performedBy,
-    batchIds = batchNumbers.joinToString(","),
+    batchIds = this.batchIds.joinToString(","),
+    batchNumbers = batchNumbers.joinToString(","),
     inventoryStatus = inventoryStatus,
+    updatedAt = updatedAt,
     isSynced = isSynced
 )

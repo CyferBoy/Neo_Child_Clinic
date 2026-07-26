@@ -112,6 +112,18 @@ class PatientListViewModel @Inject constructor(
                 val doc = db.collection("staff").document(currentUser.uid).get().await()
                 if (doc.exists()) {
                     _staff.value = FirestoreMappers.toStaff(doc)
+                } else {
+                    val email = currentUser.email
+                    if (email != null) {
+                        val query = db.collection("staff")
+                            .whereEqualTo("email", email)
+                            .get().await()
+                        
+                        if (query.documents.isNotEmpty()) {
+                            val staffDoc = query.documents.first()
+                            _staff.value = FirestoreMappers.toStaff(staffDoc)
+                        }
+                    }
                 }
             } catch (_: Exception) { }
         }

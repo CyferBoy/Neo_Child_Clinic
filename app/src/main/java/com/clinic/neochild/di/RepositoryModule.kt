@@ -26,10 +26,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindVaccineRepository(impl: VaccineRepositoryImpl): VaccineRepository
-
-    @Binds
-    @Singleton
     abstract fun bindInventoryRepository(impl: InventoryRepositoryImpl): InventoryRepository
 
     @Binds

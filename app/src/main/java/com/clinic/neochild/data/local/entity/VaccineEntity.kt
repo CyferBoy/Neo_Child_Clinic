@@ -58,6 +58,7 @@ data class VaccineBatchEntity(
     val purchaseCost: Double,
     val sellingPrice: Double,
     val status: String = BatchStatus.ACTIVE.name,
+    val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false
 )
 

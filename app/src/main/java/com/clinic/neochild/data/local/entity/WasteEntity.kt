@@ -15,6 +15,7 @@ data class WasteEntity(
     val dateWasted: String,
     val reason: String,
     val quantity: Int,
+    val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = false,
     val isDeleted: Boolean = false
 )
@@ -28,7 +29,8 @@ fun WasteEntity.toDomain() = WasteRecord(
     expiryDate = expiryDate,
     dateWasted = dateWasted,
     reason = reason,
-    quantity = quantity
+    quantity = quantity,
+    updatedAt = updatedAt
 )
 
 fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
@@ -41,5 +43,6 @@ fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
     dateWasted = dateWasted,
     reason = reason,
     quantity = quantity,
+    updatedAt = updatedAt,
     isSynced = isSynced
 )

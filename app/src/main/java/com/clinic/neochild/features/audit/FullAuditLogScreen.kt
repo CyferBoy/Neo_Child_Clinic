@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.clinic.neochild.core.ui.AppBackground
+import com.clinic.neochild.core.ui.AppPullToRefresh
 import com.clinic.neochild.core.utils.PatientUtils
 import com.clinic.neochild.data.local.entity.AuditLogEntity
 import java.util.*
@@ -47,22 +48,32 @@ fun FullAuditLogScreen(
                 )
             }
         ) { paddingValues ->
-            if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (uiState.logs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    Text("No audit logs found", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.logs, key = { it.id }) { log ->
-                        AuditLogItem(log)
+            AppPullToRefresh(
+                isRefreshing = uiState.isLoading,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.padding(paddingValues)
+            ) {
+                if (uiState.isLoading && uiState.logs.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (uiState.error != null) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
+                    }
+                } else if (uiState.logs.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No audit logs found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(uiState.logs, key = { it.id }) { log ->
+                            AuditLogItem(log)
+                        }
                     }
                 }
             }

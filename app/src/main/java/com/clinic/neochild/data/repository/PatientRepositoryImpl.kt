@@ -150,6 +150,7 @@ class PatientRepositoryImpl @Inject constructor(
 
     override suspend fun addPatient(patient: Patient) {
         database.withTransaction {
+            val isUpdate = patientDao.getPatientById(patient.id) != null
             // Business Rule: patientClinicId must be unique. 
             // If empty, generate one.
             val finalClinicId = if (patient.patientClinicId.isBlank()) {
@@ -170,7 +171,7 @@ class PatientRepositoryImpl @Inject constructor(
             syncRepository.enqueue(
                 entityName = "PATIENT",
                 entityId = patient.id,
-                operation = SyncOperation.CREATE,
+                operation = if (isUpdate) SyncOperation.UPDATE else SyncOperation.CREATE,
                 priority = SyncPriority.HIGH
             )
 
@@ -178,24 +179,29 @@ class PatientRepositoryImpl @Inject constructor(
                 module = "PATIENT",
                 entityType = "PATIENT",
                 entityId = patient.id,
-                action = "CREATED",
+                action = if (isUpdate) "UPDATED" else "CREATED",
                 patientId = patient.id,
-                remarks = "Patient ${patient.name} registered"
+                remarks = if (isUpdate) "Patient ${patient.name} updated" else "Patient ${patient.name} registered"
             )
         }
     }
 
     override suspend fun deletePatient(id: String) {
         database.withTransaction {
+            val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
+            val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
+
             patientDao.deletePatient(id)
             vaccinationDao.deleteVaccinationsForPatient(id)
             dueReminderDao.softDeleteRemindersForPatient(id)
             
             syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
-            // We should also enqueue deletion for vaccinations and reminders if they are stored as individual docs in Firestore
-            // But usually, Firestore structure might mirror this. 
-            // In SyncRepositoryImpl, VISIT/VACCINATION and REMINDER_STATE are enqueued individually.
-            // For a patient delete, we might need to enqueue all their sub-entities too if they are top-level collections.
+            vaccinationIds.forEach {
+                syncRepository.enqueue("VACCINATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
+            }
+            reminderIds.forEach {
+                syncRepository.enqueue("REMINDER_STATE", it.toString(), SyncOperation.DELETE, SyncPriority.LOW)
+            }
         }
 
         auditLogger.recordLog(

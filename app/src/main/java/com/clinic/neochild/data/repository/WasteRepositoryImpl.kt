@@ -94,6 +94,14 @@ class WasteRepositoryImpl @Inject constructor(
             // 3. Update Waste Record
             wasteDao.insertWaste(newRecord.toEntity(isSynced = false))
 
+            auditLogger.log(
+                module = "INVENTORY",
+                entityType = "WASTE",
+                entityId = newRecord.id,
+                action = "WASTE_UPDATED",
+                remarks = "${newRecord.brandName} x${newRecord.quantity} - ${newRecord.reason}"
+            )
+
             // 4. Queue Sync
             syncRepository.enqueue(
                 entityName = "WASTE",

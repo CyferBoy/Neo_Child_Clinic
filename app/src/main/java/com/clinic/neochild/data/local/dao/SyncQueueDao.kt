@@ -27,6 +27,9 @@ interface SyncQueueDao {
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
     suspend fun incrementRetryCount(id: Long, error: String, timestamp: Long = System.currentTimeMillis())
 
+    @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND updatedAt < :staleBeforeMillis")
+    suspend fun requeueStaleSyncingItems(staleBeforeMillis: Long)
+
     @Delete
     suspend fun deleteItem(item: SyncQueueEntity)
 

@@ -1,7 +1,6 @@
 package com.clinic.neochild.domain.service
 
 import androidx.room.withTransaction
-import com.clinic.neochild.core.logger.AuditLogger
 import com.clinic.neochild.data.local.database.AppDatabase
 import com.clinic.neochild.domain.model.PendingRequirement
 import com.clinic.neochild.domain.model.Vaccination
@@ -16,8 +15,7 @@ import javax.inject.Singleton
 class ClinicalVaccinationService @Inject constructor(
     private val database: AppDatabase,
     private val vaccinationRepository: VaccinationRepository,
-    private val reminderRepository: ReminderRepository,
-    private val auditLogger: AuditLogger
+    private val reminderRepository: ReminderRepository
 ) {
     suspend fun recordVaccination(
         vaccination: Vaccination,
@@ -35,16 +33,6 @@ class ClinicalVaccinationService @Inject constructor(
             } else if (isNew) {
                 satisfyRelatedReminders(vaccination, user)
             }
-
-            // 3. Audit Logging
-            auditLogger.log(
-                module = "VACCINATION",
-                entityType = "VACCINATION",
-                entityId = vaccination.id,
-                action = "VACCINATION",
-                patientId = vaccination.patientId,
-                remarks = "${vaccination.vaccineNames.joinToString(", ")} recorded by $user"
-            )
         }
     }
 

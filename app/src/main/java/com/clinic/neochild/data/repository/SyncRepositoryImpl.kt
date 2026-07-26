@@ -2,6 +2,9 @@ package com.clinic.neochild.data.repository
 
 import com.clinic.neochild.data.local.database.AppDatabase
 import com.clinic.neochild.data.local.entity.*
+import com.clinic.neochild.domain.model.Patient
+import com.clinic.neochild.domain.model.Vaccination
+import com.clinic.neochild.domain.model.WasteRecord
 import com.clinic.neochild.core.model.SyncItem
 import com.clinic.neochild.core.model.SyncOperation
 import com.clinic.neochild.core.model.SyncPriority
@@ -56,6 +59,7 @@ class SyncRepositoryImpl @Inject constructor(
 
     override suspend fun processNextItems() {
         syncDao.cleanCorruptedItems()
+        syncDao.requeueStaleSyncingItems(staleBeforeMillis = System.currentTimeMillis() - 5 * 60 * 1000)
 
         val pending = syncDao.getItemsByStatus(SyncStatus.PENDING.name)
         if (pending.isEmpty()) return
@@ -106,7 +110,29 @@ class SyncRepositoryImpl @Inject constructor(
 
         val finalData = fetchEntityData(item)
         if (finalData != null) {
+            // Last-write-wins check
+            val remoteDoc = docRef.get().await()
+            if (remoteDoc.exists()) {
+                val remoteUpdatedAt = remoteDoc.getLong("updatedAt") ?: 0L
+                val localUpdatedAt = getEntityUpdatedAt(finalData)
+                if (remoteUpdatedAt > localUpdatedAt) {
+                    // Remote is newer, skip upload
+                    return
+                }
+            }
             docRef.set(finalData).await()
+        }
+    }
+
+    private fun getEntityUpdatedAt(data: Any?): Long {
+        return when (data) {
+            is Patient -> data.updatedAt
+            is Vaccination -> data.updatedAt
+            is WasteRecord -> data.updatedAt
+            is ReminderEntity -> data.updatedAt
+            is VaccineEntity -> data.lastUpdated
+            is VaccineBatchEntity -> data.updatedAt
+            else -> 0L
         }
     }
     

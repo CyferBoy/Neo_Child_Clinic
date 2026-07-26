@@ -9,5 +9,6 @@ data class WasteRecord(
     val expiryDate: String = "",
     val dateWasted: String = "",
     val reason: String = "",
-    val quantity: Int = 1
+    val quantity: Int = 1,
+    val updatedAt: Long = System.currentTimeMillis()
 )

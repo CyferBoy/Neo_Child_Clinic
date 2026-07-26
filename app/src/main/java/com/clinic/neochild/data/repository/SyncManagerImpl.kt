@@ -33,7 +33,7 @@ class SyncManagerImpl @Inject constructor(
 
         workManager.enqueueUniqueWork(
             "AUTOMATIC_SYNC",
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             syncRequest
         )
     }

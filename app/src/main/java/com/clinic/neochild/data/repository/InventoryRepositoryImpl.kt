@@ -123,13 +123,17 @@ class InventoryRepositoryImpl @Inject constructor(
         database.withTransaction {
             vaccineDao.insertVaccine(vaccine.copy(isDeleted = false))
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
-            auditLogger.recordLog(
-                module = "VACCINE",
-                entityType = "VACCINE",
-                entityId = vaccine.id,
-                action = "CREATED",
-                remarks = "Vaccine Definition: ${vaccine.brandName}"
-            )
+            try {
+                auditLogger.recordLog(
+                    module = "VACCINE",
+                    entityType = "VACCINE",
+                    entityId = vaccine.id,
+                    action = "CREATED",
+                    remarks = "Vaccine Definition: ${vaccine.brandName}"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+            }
         }
     }
 
@@ -137,13 +141,17 @@ class InventoryRepositoryImpl @Inject constructor(
         database.withTransaction {
             vaccineDao.updateVaccine(vaccine.copy(lastUpdated = System.currentTimeMillis()))
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-            auditLogger.recordLog(
-                module = "VACCINE",
-                entityType = "VACCINE",
-                entityId = vaccine.id,
-                action = "UPDATED",
-                remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
-            )
+            try {
+                auditLogger.recordLog(
+                    module = "VACCINE",
+                    entityType = "VACCINE",
+                    entityId = vaccine.id,
+                    action = "UPDATED",
+                    remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+            }
         }
     }
 
@@ -165,13 +173,17 @@ class InventoryRepositoryImpl @Inject constructor(
                 notes = "Batch Added: ${batch.batchNumber}"
             ))
 
-            auditLogger.recordLog(
-                module = "INVENTORY",
-                entityType = "BATCH",
-                entityId = batch.batchId,
-                action = "CREATED",
-                remarks = "Vaccine: ${vaccine.brandName}, Batch: ${batch.batchNumber}, Qty: ${batch.purchaseQuantity}"
-            )
+            try {
+                auditLogger.recordLog(
+                    module = "INVENTORY",
+                    entityType = "BATCH",
+                    entityId = batch.batchId,
+                    action = "CREATED",
+                    remarks = "Vaccine: ${vaccine.brandName}, Batch: ${batch.batchNumber}, Qty: ${batch.purchaseQuantity}"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+            }
             syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.CREATE, SyncPriority.MEDIUM)
         }
     }
@@ -197,13 +209,17 @@ class InventoryRepositoryImpl @Inject constructor(
                 ))
             }
 
-            auditLogger.recordLog(
-                module = "INVENTORY",
-                entityType = "BATCH",
-                entityId = batch.batchId,
-                action = "UPDATED",
-                remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
-            )
+            try {
+                auditLogger.recordLog(
+                    module = "INVENTORY",
+                    entityType = "BATCH",
+                    entityId = batch.batchId,
+                    action = "UPDATED",
+                    remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+            }
             syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         }
     }
@@ -226,13 +242,17 @@ class InventoryRepositoryImpl @Inject constructor(
                 notes = "Batch Deleted: ${batch.batchNumber}"
             ))
 
-            auditLogger.recordLog(
-                module = "INVENTORY",
-                entityType = "BATCH",
-                entityId = batchId,
-                action = "DELETED",
-                remarks = "Batch: ${batch.batchNumber}, Removed Qty: ${batch.remainingQuantity}"
-            )
+            try {
+                auditLogger.recordLog(
+                    module = "INVENTORY",
+                    entityType = "BATCH",
+                    entityId = batchId,
+                    action = "DELETED",
+                    remarks = "Batch: ${batch.batchNumber}, Removed Qty: ${batch.remainingQuantity}"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+            }
             syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         }
     }
@@ -251,7 +271,7 @@ class InventoryRepositoryImpl @Inject constructor(
             val vaccinationCount = vaccineDao.getVaccinationCountForVaccine(vaccineId)
             val wasteCount = vaccineDao.getWasteCountForVaccine(vaccineId)
             val transactionCount = vaccineDao.getTransactionCountForVaccine(vaccineId)
-            val auditCount = vaccineDao.getAuditCountForVaccine(vaccine.brandName)
+            val auditCount = vaccineDao.getAuditCountExcludingCreation(vaccine.brandName)
             
             val hasHistory = vaccinationCount > 0 || wasteCount > 0 || transactionCount > 0 || auditCount > 0
             
@@ -260,25 +280,33 @@ class InventoryRepositoryImpl @Inject constructor(
                 if (!vaccine.isDeleted) {
                     vaccineDao.updateVaccine(vaccine.copy(isDeleted = true))
                     syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                    auditLogger.recordLog(
-                        module = "VACCINE",
-                        entityType = "VACCINE",
-                        entityId = vaccineId,
-                        action = "ARCHIVED",
-                        remarks = "Vaccine: ${vaccine.brandName} (Historical records exist)"
-                    )
+                    try {
+                        auditLogger.recordLog(
+                            module = "VACCINE",
+                            entityType = "VACCINE",
+                            entityId = vaccineId,
+                            action = "ARCHIVED",
+                            remarks = "Vaccine: ${vaccine.brandName} (Historical records exist)"
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+                    }
                 }
             } else {
                 // Permanent Delete
                 vaccineDao.deleteVaccinePermanently(vaccine)
                 syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
-                auditLogger.recordLog(
-                    module = "VACCINE",
-                    entityType = "VACCINE",
-                    entityId = vaccineId,
-                    action = "DELETED_PERMANENTLY",
-                    remarks = "Vaccine: ${vaccine.brandName}"
-                )
+                try {
+                    auditLogger.recordLog(
+                        module = "VACCINE",
+                        entityType = "VACCINE",
+                        entityId = vaccineId,
+                        action = "DELETED_PERMANENTLY",
+                        remarks = "Vaccine: ${vaccine.brandName}"
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
+                }
             }
         }
     }

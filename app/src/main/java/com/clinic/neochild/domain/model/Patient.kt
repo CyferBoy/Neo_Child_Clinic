@@ -12,5 +12,6 @@ data class Patient(
     val village: String = "",
     val address: String = "",
     val registrationDate: String = "",
+    val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false
 )
