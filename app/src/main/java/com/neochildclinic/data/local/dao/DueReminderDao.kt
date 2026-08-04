@@ -9,19 +9,19 @@ interface DueReminderDao {
     
     // Unified Reminder State Queries
     
-    @Query("SELECT * FROM reminder_states WHERE isDeleted = 0 AND status IN ('ACTIVE', 'RESCHEDULED') ORDER BY dueDate ASC")
+    @Query("SELECT * FROM reminder_states WHERE status IN ('ACTIVE', 'RESCHEDULED') ORDER BY dueDate ASC")
     fun getAllDueReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminder_states WHERE isDeleted = 0 AND status = 'COMPLETED' ORDER BY completionDate DESC")
+    @Query("SELECT * FROM reminder_states WHERE status = 'COMPLETED' ORDER BY completionDate DESC")
     fun getAllCompletedReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminder_states WHERE isDeleted = 0 AND status = 'DISMISSED' ORDER BY dismissalDate DESC")
+    @Query("SELECT * FROM reminder_states WHERE status = 'DISMISSED' ORDER BY dismissalDate DESC")
     fun getAllDismissedReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminder_states WHERE isDeleted = 0 AND status = 'EXTERNAL' ORDER BY dueDate ASC")
+    @Query("SELECT * FROM reminder_states WHERE status = 'EXTERNAL' ORDER BY dueDate ASC")
     fun getAllExternalReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminder_states WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND isDeleted = 0 LIMIT 1")
+    @Query("SELECT * FROM reminder_states WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName LIMIT 1")
     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String): ReminderEntity?
 
     @Query("SELECT * FROM reminder_states WHERE id = :id LIMIT 1")
@@ -42,10 +42,10 @@ interface DueReminderDao {
     @Query("DELETE FROM reminder_states WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName")
     suspend fun deleteReminder(patientId: String, visitId: String, vaccineName: String)
 
-    @Query("UPDATE reminder_states SET isDeleted = 1, isSynced = 0 WHERE id = :id")
+    @Query("DELETE FROM reminder_states WHERE id = :id")
     suspend fun softDeleteReminder(id: Long)
 
-    @Query("UPDATE reminder_states SET isDeleted = 1, isSynced = 0 WHERE patientId = :patientId")
+    @Query("DELETE FROM reminder_states WHERE patientId = :patientId")
     suspend fun softDeleteRemindersForPatient(patientId: String)
 
     // Legacy Support Mappings (redirected to unified table)
@@ -55,16 +55,16 @@ interface DueReminderDao {
     suspend fun insertDismissedReminder(reminder: DismissedReminderEntity) = insertReminder(reminder)
     suspend fun insertExternalReminder(reminder: ExternalReminderEntity) = insertReminder(reminder)
     
-    @Query("UPDATE reminder_states SET isDeleted = 1, isSynced = 0 WHERE id = :id")
+    @Query("DELETE FROM reminder_states WHERE id = :id")
     suspend fun softDeleteDueReminder(id: Long) = softDeleteReminder(id)
 
     @Query("UPDATE reminder_states SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)
 
-    @Query("SELECT * FROM reminder_states WHERE isDeleted = 0")
+    @Query("SELECT * FROM reminder_states")
     fun getAllReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminder_states WHERE patientId = :patientId AND isDeleted = 0")
+    @Query("SELECT * FROM reminder_states WHERE patientId = :patientId")
     fun getDueRemindersForPatient(patientId: String): Flow<List<ReminderEntity>>
 
     @Transaction

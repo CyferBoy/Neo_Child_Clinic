@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.services)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.hilt)
     kotlin("plugin.serialization") version libs.versions.kotlin.get()
@@ -83,10 +82,6 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.cio)
-    
-    // Firebase (Keeping Messaging for notifications)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.messaging)
     
     // Utilities
     implementation(libs.play.services.base)

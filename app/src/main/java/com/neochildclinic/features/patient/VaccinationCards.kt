@@ -119,7 +119,7 @@ fun VaccinationCardHeader(vaccination: Vaccination, onShowInventoryIssues: (Stri
 
         if (vaccination.totalPaid > 0) {
             PaymentInfoColumn(vaccination)
-        } else if (vaccination.cost <= 0.0) {
+        } else if (vaccination.totalPaid <= 0.0) {
              Text(text = "FREE", style = MaterialTheme.typography.labelMedium, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
         }
     }

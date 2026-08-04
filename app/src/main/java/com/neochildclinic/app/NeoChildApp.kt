@@ -8,8 +8,6 @@ import com.neochildclinic.notification.ReminderScheduler
 import com.neochildclinic.worker.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
-import com.google.firebase.Firebase
-import com.google.firebase.initialize
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -41,9 +39,6 @@ class NeoChildApp : Application(), Configuration.Provider {
 
         // Initialize GMS Security Provider
         installSecurityProvider()
-
-        // Initialize Firebase for Messaging
-        Firebase.initialize(context = this)
 
         setupSync()
         

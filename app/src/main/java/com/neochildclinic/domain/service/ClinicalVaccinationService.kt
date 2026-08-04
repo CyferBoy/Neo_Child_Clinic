@@ -39,26 +39,30 @@ class ClinicalVaccinationService @Inject constructor(
     private suspend fun satisfyRelatedReminders(vaccination: Vaccination, user: String) {
         val existingReminders = reminderRepository.getPatientFollowUps(vaccination.patientId).first()
         val activeReminders = existingReminders.filter { 
-            (it.status == "ACTIVE" || it.status == "RESCHEDULED") && !it.isDeleted 
+            (it.status == "ACTIVE" || it.status == "RESCHEDULED") 
         }
 
-        val givenCleaned = vaccination.vaccineNames.map { 
-            PatientUtils.cleanVaccineName(it).lowercase().trim() 
+        val givenCleaned = vaccination.items.map { 
+            PatientUtils.cleanVaccineName(it.vaccineName).lowercase().trim() 
         }
 
         for (reminder in activeReminders) {
-            val reminderCleaned = PatientUtils.cleanVaccineName(reminder.vaccineName).lowercase().trim()
-            if (givenCleaned.contains(reminderCleaned)) {
-                reminderRepository.markRequirementSatisfied(
-                    PendingRequirement(
-                        patientId = reminder.patientId,
-                        vaccineName = reminder.vaccineName,
-                        dueDate = PatientUtils.parseDate(reminder.dueDate) ?: java.util.Date(),
-                        originalVisitId = reminder.originalVisitId
-                    ),
-                    user,
-                    vaccination.id
-                )
+            // Split grouped reminders and check if any match what was given today
+            val reminderVaccines = reminder.vaccineName.split(", ")
+            for (rv in reminderVaccines) {
+                val rvCleaned = PatientUtils.cleanVaccineName(rv).lowercase().trim()
+                if (givenCleaned.contains(rvCleaned)) {
+                    reminderRepository.markRequirementSatisfied(
+                        PendingRequirement(
+                            patientId = reminder.patientId,
+                            vaccineName = rv, // Use the specific vaccine name from the group
+                            dueDate = PatientUtils.parseDate(reminder.dueDate) ?: java.util.Date(),
+                            originalVisitId = reminder.originalVisitId
+                        ),
+                        user,
+                        vaccination.id
+                    )
+                }
             }
         }
     }

@@ -2,6 +2,7 @@ package com.neochildclinic.core.utils
 
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.ReminderStatus
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -144,7 +145,7 @@ object PatientUtils {
      */
     fun getPendingVaccinations(allVaccinations: List<Vaccination>): List<Vaccination> {
         return allVaccinations.filter { v ->
-            if (v.isDone) return@filter false
+            if (v.status != ReminderStatus.ACTIVE && v.status != ReminderStatus.RESCHEDULED) return@filter false
             if (v.nextDueDate.isBlank()) return@filter false
             
             val thisDateGiven = parseDate(v.dateGiven)

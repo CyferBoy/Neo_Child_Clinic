@@ -1,13 +1,28 @@
 package com.neochildclinic.app
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.features.dashboard.AuthViewModel
+import com.neochildclinic.features.dashboard.DashboardViewModel
 import com.neochildclinic.features.dashboard.LoginScreen
 import com.neochildclinic.features.dashboard.ManageStaffScreen
+import com.neochildclinic.features.dashboard.StaffDetailsScreen
+import com.neochildclinic.features.dashboard.AddStaffScreen
+import com.neochildclinic.features.dashboard.EditStaffScreen
 import com.neochildclinic.features.dashboard.DashboardScreen
 import com.neochildclinic.features.patient.AddPatientScreen
 import com.neochildclinic.features.patient.AddConsultationScreen
@@ -34,8 +49,11 @@ import com.neochildclinic.features.reminder.CompletedDismissedScreen
 fun AppNavigation(
     navController: androidx.navigation.NavHostController = rememberNavController()
 ) {
-
     val authViewModel: AuthViewModel = hiltViewModel()
+    val dashboardViewModel: DashboardViewModel = hiltViewModel()
+    val dashboardUiState by dashboardViewModel.uiState.collectAsState()
+    val userRole = dashboardUiState.userRole
+    
     val startDest = if (authViewModel.currentUser != null) Routes.DASHBOARD else Routes.LOGIN
 
     NavHost(
@@ -54,45 +72,19 @@ fun AppNavigation(
 
         composable(Routes.DASHBOARD) {
             DashboardScreen(
-                onAddPatient = {
-                    navController.navigate(Routes.ADD_PATIENT)
-                },
-                onPatientList = {
-                    navController.navigate(Routes.PATIENT_LIST)
-                },
-                onAddVaccine = {
-                    navController.navigate(Routes.VACCINE_INVENTORY)
-                },
-                onStatistics = {
-                    navController.navigate(Routes.STATISTICS)
-                },
-                onBorrowed = {
-                    navController.navigate(Routes.BORROWED)
-                },
-                onDue = {
-                    navController.navigate(Routes.DUE)
-                },
-                onWaste = {
-                    navController.navigate(Routes.WASTE)
-                },
-                onManageStaff = {
-                    navController.navigate(Routes.MANAGE_STAFF)
-                },
-                onSettings = {
-                    navController.navigate(Routes.SETTINGS)
-                },
-                onSync = {
-                    navController.navigate(Routes.SYNC)
-                },
-                onAuditLogs = {
-                    navController.navigate(Routes.AUDIT_LOGS)
-                },
-                onProfile = {
-                    navController.navigate(Routes.PROFILE)
-                },
-                onSearch = {
-                    navController.navigate(Routes.SEARCH)
-                },
+                onAddPatient = { navController.navigate(Routes.ADD_PATIENT) },
+                onPatientList = { navController.navigate(Routes.PATIENT_LIST) },
+                onAddVaccine = { navController.navigate(Routes.VACCINE_INVENTORY) },
+                onStatistics = { navController.navigate(Routes.STATISTICS) },
+                onBorrowed = { navController.navigate(Routes.BORROWED) },
+                onDue = { navController.navigate(Routes.DUE) },
+                onWaste = { navController.navigate(Routes.WASTE) },
+                onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
+                onSettings = { navController.navigate(Routes.SETTINGS) },
+                onSync = { navController.navigate(Routes.SYNC) },
+                onAuditLogs = { navController.navigate(Routes.AUDIT_LOGS) },
+                onProfile = { navController.navigate(Routes.PROFILE) },
+                onSearch = { navController.navigate(Routes.SEARCH) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.DASHBOARD) { inclusive = true }
@@ -129,7 +121,56 @@ fun AppNavigation(
         }
 
         composable(Routes.MANAGE_STAFF) {
-            ManageStaffScreen(onBack = { navController.popBackStack() })
+            if (userRole == UserRole.admin) {
+                ManageStaffScreen(
+                    onBack = { navController.popBackStack() },
+                    onAddStaff = { navController.navigate(Routes.ADD_STAFF) },
+                    onStaffClick = { staffId ->
+                        navController.navigate("staff_details/$staffId")
+                    }
+                )
+            } else {
+                AccessDeniedScreen { navController.popBackStack() }
+            }
+        }
+
+        composable(
+            route = Routes.STAFF_DETAILS,
+            arguments = listOf(navArgument("staffId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val staffId = backStackEntry.arguments?.getString("staffId") ?: ""
+            if (userRole == UserRole.admin) {
+                StaffDetailsScreen(
+                    staffId = staffId,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate("edit_staff/$id") }
+                )
+            } else {
+                AccessDeniedScreen { navController.popBackStack() }
+            }
+        }
+
+        composable(Routes.ADD_STAFF) {
+            if (userRole == UserRole.admin) {
+                AddStaffScreen(onBack = { navController.popBackStack() })
+            } else {
+                AccessDeniedScreen { navController.popBackStack() }
+            }
+        }
+
+        composable(
+            route = Routes.EDIT_STAFF,
+            arguments = listOf(navArgument("staffId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val staffId = backStackEntry.arguments?.getString("staffId") ?: ""
+            if (userRole == UserRole.admin) {
+                EditStaffScreen(
+                    staffId = staffId,
+                    onBack = { navController.popBackStack() }
+                )
+            } else {
+                AccessDeniedScreen { navController.popBackStack() }
+            }
         }
 
         composable(Routes.SEARCH) {
@@ -247,7 +288,6 @@ fun AppNavigation(
             arguments = listOf(navArgument("monthKey") { type = NavType.StringType }),
         ) { backStackEntry ->
             val monthKey = backStackEntry.arguments?.getString("monthKey") ?: ""
-            // MonthlyFinanceDetailsScreen will be created next
             MonthlyFinanceDetailsScreen(
                 monthKey = monthKey,
                 onBack = { navController.popBackStack() }
@@ -350,7 +390,7 @@ fun AppNavigation(
             val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
             val vaccineName = backStackEntry.arguments?.getString("vaccineName") ?: ""
             AddVaccinationScreen(
-                initialPatientId = patientId,
+                patientId = patientId,
                 initialVaccineName = vaccineName,
                 onBack = { navController.popBackStack() }
             )
@@ -368,7 +408,10 @@ fun AppNavigation(
         }
 
         composable(Routes.ADD_VACCINE) {
-            AddVaccinationScreen(onBack = { navController.popBackStack() })
+            AddVaccinationScreen(
+                patientId = "",
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(
@@ -377,9 +420,21 @@ fun AppNavigation(
         ) { backStackEntry ->
             val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
             AddVaccinationScreen(
-                initialPatientId = patientId,
+                patientId = patientId,
                 onBack = { navController.popBackStack() },
             )
+        }
+    }
+}
+
+@Composable
+fun AccessDeniedScreen(onBack: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Access Denied", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.error)
+            androidx.compose.material3.Button(onClick = onBack, modifier = Modifier.padding(top = 16.dp)) {
+                Text("Go Back")
+            }
         }
     }
 }

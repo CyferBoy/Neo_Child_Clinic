@@ -381,10 +381,6 @@ fun PatientInfoSection(patient: Patient) {
                 )
             }
 
-            if (patient.village.isNotBlank()) {
-                InfoRow(Icons.Default.LocationCity, patient.village)
-            }
-
             if (patient.address.isNotBlank()) {
                 InfoRow(Icons.Default.Home, patient.address)
             }

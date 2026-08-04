@@ -6,7 +6,8 @@ import com.neochildclinic.data.local.entity.AuditLogEntity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
-import com.neochildclinic.domain.model.Staff
+import com.neochildclinic.domain.model.Profile
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
@@ -29,7 +30,6 @@ import io.github.jan.supabase.postgrest.Postgrest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
@@ -88,11 +88,11 @@ class PatientViewModel @Inject constructor(
     val allVaccinations: StateFlow<List<Vaccination>>
     val patientsWithMissingPrice: StateFlow<Set<String>>
     
-    private val _staff = MutableStateFlow<Staff?>(null)
-    val currentStaff: StateFlow<Staff?> = _staff.asStateFlow()
+    private val _profile = MutableStateFlow<Profile?>(null)
+    val currentProfile: StateFlow<Profile?> = _profile.asStateFlow()
 
     init {
-        fetchStaffProfile()
+        fetchProfile()
         // State Streams
         allPatients = getPatientsUseCase().stateIn(
             scope = viewModelScope,
@@ -107,7 +107,7 @@ class PatientViewModel @Inject constructor(
         )
 
         patientsWithMissingPrice = allVaccinations.map { vaccinations ->
-            vaccinations.filter { it.cost <= 0.0 }.map { it.patientId }.toSet()
+            vaccinations.filter { it.totalPaid <= 0.0 }.map { it.patientId }.toSet()
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -117,36 +117,35 @@ class PatientViewModel @Inject constructor(
         refresh()
     }
 
-    private fun fetchStaffProfile() {
+    private fun fetchProfile() {
         val currentUser = auth.currentSessionOrNull()?.user ?: return
         
         viewModelScope.launch {
             try {
-                val staff = postgrest.from("staff").select {
+                val profile = postgrest.from("profiles").select {
                     filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Staff>()
+                }.decodeSingleOrNull<Profile>()
 
-                if (staff != null) {
-                    _staff.value = staff
+                if (profile != null) {
+                    _profile.value = profile
                 } else {
                     val email = currentUser.email
                     if (email != null) {
-                        val staffByEmail = postgrest.from("staff").select {
+                        val profileByEmail = postgrest.from("profiles").select {
                             filter { eq("email", email) }
-                        }.decodeSingleOrNull<Staff>()
+                        }.decodeSingleOrNull<Profile>()
                         
-                        if (staffByEmail != null) {
-                            _staff.value = staffByEmail
+                        if (profileByEmail != null) {
+                            _profile.value = profileByEmail
                             return@launch
                         }
                     }
 
-                    _staff.value = Staff(
+                    _profile.value = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        name = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
-                        role = "User",
-                        createdAt = 0L
+                        displayName = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
+                        role = UserRole.nurse
                     )
                 }
             } catch (_: Exception) { }

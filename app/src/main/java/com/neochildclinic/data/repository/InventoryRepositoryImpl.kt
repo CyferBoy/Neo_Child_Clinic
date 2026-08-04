@@ -47,7 +47,7 @@ class InventoryRepositoryImpl @Inject constructor(
         ) { vaccines, allBatches, settings ->
             val globalThreshold = settings.lowStockThreshold
             vaccines.map { vaccine ->
-                val batches = allBatches.filter { it.vaccineId == vaccine.id && !it.isDeleted }
+                val batches = allBatches.filter { it.vaccineId == vaccine.id }
                 val totalStock = batches.sumOf { it.remainingQuantity }
                 
                 val hasExpired = batches.any { InventoryUtils.isExpired(it.expiryDate) }
@@ -108,7 +108,7 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 
         vaccineDao.getBatchesByVaccine(vaccineId).map { batches ->
-            batches.filter { !it.isDeleted }.sortedBy { parseDate(it.expiryDate) }
+            batches.sortedBy { parseDate(it.expiryDate) }
         }
 
     override fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>> = 
@@ -119,7 +119,7 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
-            vaccineDao.insertVaccine(vaccine.copy(isDeleted = false))
+            vaccineDao.insertVaccine(vaccine)
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
             try {
                 auditLogger.recordLog(
@@ -227,7 +227,7 @@ class InventoryRepositoryImpl @Inject constructor(
             val batch = vaccineDao.getBatchById(batchId) ?: return@withTransaction
             val currentTotal = vaccineDao.getTotalStockForVaccine(batch.vaccineId) ?: 0
 
-            vaccineDao.updateBatch(batch.copy(isDeleted = true))
+            vaccineDao.deleteBatch(batchId)
 
             vaccineDao.insertTransaction(InventoryTransactionEntity(
                 vaccineId = batch.vaccineId,
@@ -251,15 +251,15 @@ class InventoryRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
             }
-            syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            syncRepository.enqueue("BATCH", batchId, SyncOperation.DELETE, SyncPriority.MEDIUM)
         }
     }
 
     override suspend fun deleteVaccine(vaccineId: String, user: String) {
         database.withTransaction {
-            val vaccine = vaccineDao.getVaccineByIdIncludingDeleted(vaccineId) ?: return@withTransaction
+            val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@withTransaction
             
-            // 1. Check for ANY batches (including soft-deleted)
+            // 1. Check for ANY batches
             val batchCount = vaccineDao.getBatchCountForVaccine(vaccineId)
             if (batchCount > 0) {
                 throw IllegalStateException("This vaccine cannot be deleted because batch records still exist.")
@@ -269,30 +269,14 @@ class InventoryRepositoryImpl @Inject constructor(
             val vaccinationCount = vaccineDao.getVaccinationCountForVaccine(vaccineId)
             val wasteCount = vaccineDao.getWasteCountForVaccine(vaccineId)
             val transactionCount = vaccineDao.getTransactionCountForVaccine(vaccineId)
-            val auditCount = vaccineDao.getAuditCountExcludingCreation(vaccine.brandName)
             
-            val hasHistory = vaccinationCount > 0 || wasteCount > 0 || transactionCount > 0 || auditCount > 0
+            val hasHistory = vaccinationCount > 0 || wasteCount > 0 || transactionCount > 0
             
             if (hasHistory) {
-                // Archive (Soft-delete) if not already
-                if (!vaccine.isDeleted) {
-                    vaccineDao.updateVaccine(vaccine.copy(isDeleted = true))
-                    syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                    try {
-                        auditLogger.recordLog(
-                            module = "VACCINE",
-                            entityType = "VACCINE",
-                            entityId = vaccineId,
-                            action = "ARCHIVED",
-                            remarks = "Vaccine: ${vaccine.brandName} (Historical records exist)"
-                        )
-                    } catch (e: Exception) {
-                        android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-                    }
-                }
+                throw IllegalStateException("This vaccine cannot be deleted because it has historical vaccination or waste records.")
             } else {
                 // Permanent Delete
-                vaccineDao.deleteVaccinePermanently(vaccine)
+                vaccineDao.deleteVaccine(vaccineId)
                 syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
                 try {
                     auditLogger.recordLog(

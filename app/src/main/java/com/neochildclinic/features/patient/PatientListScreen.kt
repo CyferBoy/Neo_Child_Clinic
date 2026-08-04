@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.AppBackground
@@ -44,8 +45,8 @@ fun PatientListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val staff by viewModel.currentStaff.collectAsState()
-    val isAdmin = staff?.role == "Admin"
-    val canEditOrDelete = isAdmin || staff?.role == "Doctor"
+    val isAdmin = staff?.role == UserRole.admin
+    val canEditOrDelete = isAdmin || staff?.role == UserRole.doctor
     val context = LocalContext.current
     
     var patientToDelete by remember { mutableStateOf<Patient?>(null) }

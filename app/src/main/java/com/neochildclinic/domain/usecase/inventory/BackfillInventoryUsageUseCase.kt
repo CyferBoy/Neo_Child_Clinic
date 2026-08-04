@@ -28,8 +28,8 @@ class BackfillInventoryUsageUseCase @Inject constructor(
             
             // 2. Count occurrences of each vaccine brand
             val usageCounts = allVaccinations
-                .flatMap { it.vaccineNames }
-                .map { it.trim().lowercase() }
+                .flatMap { it.items }
+                .map { it.vaccineName.trim().lowercase() }
                 .filter { it.isNotEmpty() }
                 .groupingBy { it }
                 .eachCount()

@@ -14,7 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.R
-import com.neochildclinic.domain.model.Staff
+import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.SyncState
 
 @OptIn(ExperimentalMaterial3Api::class)

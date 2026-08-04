@@ -25,6 +25,5 @@ data class PatientNotesEntity(
     val content: String,
     val author: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false,
-    val isDeleted: Boolean = false
+    val isSynced: Boolean = false
 )

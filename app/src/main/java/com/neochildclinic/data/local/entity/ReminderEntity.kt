@@ -53,8 +53,7 @@ data class ReminderEntity(
     val notificationSent: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false,
-    val isDeleted: Boolean = false
+    val isSynced: Boolean = false
 )
 
 // Legacy alias for type safety during transition

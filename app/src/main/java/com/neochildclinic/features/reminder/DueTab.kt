@@ -14,6 +14,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.VaccinationItem
+import com.neochildclinic.domain.model.FollowUpRequirement
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.repository.ReminderStats
 import com.neochildclinic.core.designsystem.NeoChildTheme
@@ -191,17 +193,15 @@ private fun DueTabPreview() {
                 Vaccination(
                     id = "1",
                     patientId = "1",
-                    vaccineNames = listOf("BCG"),
-                    nxtVaccineNames = listOf("HepB"),
+                    items = listOf(VaccinationItem(vaccineName = "BCG")),
+                    followUps = listOf(FollowUpRequirement(nextVaccineName = "HepB", dueDate = "1 Feb 2024")),
                     dateGiven = "1 Jan 2024",
-                    nextDueDate = "1 Feb 2024",
-                    cost = 500.0,
                     cashAmount = 500.0,
                     onlineAmount = 0.0,
                     totalPaid = 500.0,
                     withFees = false,
                     doctorsAcc = false,
-                    isDone = false
+                    status = ReminderStatus.ACTIVE
                 )
             ),
             overdueCount = 1,

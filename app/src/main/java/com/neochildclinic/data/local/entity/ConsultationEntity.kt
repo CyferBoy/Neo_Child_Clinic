@@ -28,8 +28,7 @@ data class ConsultationEntity(
     val notes: String = "",
     val nextFollowUpDate: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = true,
-    val isDeleted: Boolean = false
+    val isSynced: Boolean = true
 )
 
 fun ConsultationEntity.toDomain() = Consultation(

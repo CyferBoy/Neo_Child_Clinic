@@ -20,8 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.SyncState
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.features.dashboard.components.AppDrawer
+import com.neochildclinic.app.Routes
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,10 +52,8 @@ fun DashboardScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val role = uiState.staff?.role ?: "Staff"
-    val showManageStaff = role == "Admin" || role == "Doctor"
-    val showAuditLogs = role == "Admin"
-    val showStatistics = role == "Admin" || role == "Doctor"
+    val role = uiState.userRole
+    val showStatistics = role == UserRole.admin || role == UserRole.doctor
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -76,117 +77,41 @@ fun DashboardScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.width(300.dp),
-                drawerContainerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                // Drawer Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable {
-                            scope.launch { drawerState.close() }
-                            onProfile()
-                        }
-                        .padding(24.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = uiState.userName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = uiState.userRole,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
+            AppDrawer(
+                userName = uiState.userName,
+                userRole = uiState.userRole,
+                syncState = uiState.syncState,
+                appVersion = "1.0.0",
+                onProfileClick = {
+                    scope.launch { drawerState.close() }
+                    onProfile()
+                },
+                onNavigate = { route: String ->
+                    scope.launch { drawerState.close() }
+                    when (route) {
+                        "dashboard" -> {} // Already here
+                        "patient_list" -> onPatientList()
+                        "due" -> onDue()
+                        "vaccine_inventory" -> onAddVaccine()
+                        "statistics" -> onStatistics()
+                        "manage_staff" -> onManageStaff()
                     }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Drawer Menu
-                NavigationDrawerItem(
-                    label = { Text("Dashboard") },
-                    selected = true,
-                    onClick = { scope.launch { drawerState.close() } },
-                    icon = { Icon(Icons.Default.Dashboard, null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                if (showManageStaff) {
-                    NavigationDrawerItem(
-                        label = { Text("Manage Staff") },
-                        selected = false,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            onManageStaff()
-                        },
-                        icon = { Icon(Icons.Default.People, null) },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-                }
-                if (showAuditLogs) {
-                    NavigationDrawerItem(
-                        label = { Text("Audit Log") },
-                        selected = false,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            onAuditLogs()
-                        },
-                        icon = { Icon(Icons.Default.History, null) },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Drawer Footer
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {
-                        scope.launch { drawerState.close() }
-                        onSettings()
-                    }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                    
-                    IconButton(onClick = {
-                        scope.launch { drawerState.close() }
-                        onSync()
-                        dashboardViewModel.refresh()
-                    }) {
-                        val syncIcon = when (uiState.syncState) {
-                            SyncState.SYNCING -> Icons.Default.Sync
-                            SyncState.ERROR -> Icons.Default.CloudOff
-                            else -> Icons.Default.CloudDone
-                        }
-                        Icon(syncIcon, contentDescription = "Cloud Sync")
-                    }
-                    
-                    IconButton(onClick = {
-                        scope.launch { drawerState.close() }
-                        authViewModel.logout()
-                        onLogout()
-                    }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Logout, 
-                            contentDescription = "Logout", 
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+                },
+                onLogout = {
+                    scope.launch { drawerState.close() }
+                    authViewModel.logout()
+                    onLogout()
+                },
+                onSyncClick = {
+                    onSync()
+                    dashboardViewModel.refresh()
+                },
+                onSettingsClick = {
+                    scope.launch { drawerState.close() }
+                    onSettings()
+                },
+                currentRoute = "dashboard"
+            )
         }
     ) {
         AppBackground { 

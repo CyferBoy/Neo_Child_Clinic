@@ -2,10 +2,10 @@ package com.neochildclinic.features.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.domain.model.Staff
+import com.neochildclinic.domain.model.Profile
+import com.neochildclinic.domain.model.UserRole
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ProfileUiState(
-    val staff: Staff? = null,
+    val profile: Profile? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val success: String? = null
@@ -40,35 +40,34 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val staff = postgrest.from("staff").select {
+                val profile = postgrest.from("profiles").select {
                     filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Staff>()
+                }.decodeSingleOrNull<Profile>()
 
-                if (staff != null) {
-                    _uiState.value = _uiState.value.copy(staff = staff, isLoading = false)
+                if (profile != null) {
+                    _uiState.value = _uiState.value.copy(profile = profile, isLoading = false)
                 } else {
                     // Try to find by email
                     val email = currentUser.email
                     if (email != null) {
-                        val staffByEmail = postgrest.from("staff").select {
+                        val profileByEmail = postgrest.from("profiles").select {
                             filter { eq("email", email) }
-                        }.decodeSingleOrNull<Staff>()
+                        }.decodeSingleOrNull<Profile>()
                         
-                        if (staffByEmail != null) {
-                            _uiState.value = _uiState.value.copy(staff = staffByEmail, isLoading = false)
+                        if (profileByEmail != null) {
+                            _uiState.value = _uiState.value.copy(profile = profileByEmail, isLoading = false)
                             return@launch
                         }
                     }
 
                     // Fallback
-                    val staffFallback = Staff(
+                    val profileFallback = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        name = currentUser.userMetadata?.get("name")?.toString() ?: "User",
-                        role = "User",
-                        createdAt = 0L
+                        displayName = currentUser.userMetadata?.get("name")?.toString() ?: "User",
+                        role = UserRole.nurse
                     )
-                    _uiState.value = _uiState.value.copy(staff = staffFallback, isLoading = false)
+                    _uiState.value = _uiState.value.copy(profile = profileFallback, isLoading = false)
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
@@ -90,18 +89,58 @@ class ProfileViewModel @Inject constructor(
                     }
                 }
 
-                // 2. Update staff table
-                postgrest.from("staff").update(mapOf("name" to newName)) {
+                // 2. Update profiles table
+                postgrest.from("profiles").update(mapOf("display_name" to newName)) {
                     filter { eq("id", currentUser.id) }
                 }
                 
                 _uiState.value = _uiState.value.copy(
-                    staff = _uiState.value.staff?.copy(name = newName),
+                    profile = _uiState.value.profile?.copy(displayName = newName),
                     isLoading = false,
                     success = "Name updated successfully"
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "Update failed", isLoading = false)
+            }
+        }
+    }
+
+    fun updatePhoneNumber(newPhone: String) {
+        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+            try {
+                postgrest.from("profiles").update(mapOf("phone_number" to newPhone)) {
+                    filter { eq("id", currentUser.id) }
+                }
+                _uiState.value = _uiState.value.copy(
+                    profile = _uiState.value.profile?.copy(phoneNumber = newPhone),
+                    isLoading = false,
+                    success = "Phone number updated"
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+            }
+        }
+    }
+
+    fun changePassword(newPassword: String) {
+        if (newPassword.length < 6) {
+            _uiState.value = _uiState.value.copy(error = "Password must be at least 6 characters")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+            try {
+                auth.updateUser {
+                    password = newPassword
+                }
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    success = "Password changed successfully"
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
         }
     }

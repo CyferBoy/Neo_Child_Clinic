@@ -2,11 +2,11 @@ package com.neochildclinic.features.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.domain.model.Staff
+import com.neochildclinic.domain.model.Profile
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.DashboardRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
-import com.neochildclinic.domain.usecase.statistics.GetClinicStatsUseCase
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,8 +21,8 @@ data class DashboardUiState(
     val dueTodayCount: Int = 0,
     val wasteCount: Int = 0,
     val userName: String = "User",
-    val userRole: String = "Staff",
-    val staff: Staff? = null,
+    val userRole: UserRole = UserRole.nurse,
+    val profile: Profile? = null,
     val syncState: SyncState = SyncState.IDLE,
     val isLoading: Boolean = false,
     val errorMessage: String? = null
@@ -39,44 +39,43 @@ class DashboardViewModel @Inject constructor(
     private val postgrest: Postgrest
 ) : ViewModel() {
 
-    private val _staff = MutableStateFlow<Staff?>(null)
+    private val _profile = MutableStateFlow<Profile?>(null)
 
     init {
-        fetchStaffProfile()
+        fetchProfile()
     }
 
-    private fun fetchStaffProfile() {
+    private fun fetchProfile() {
         val currentUser = auth.currentSessionOrNull()?.user ?: return
         
         viewModelScope.launch {
             try {
-                val staff = postgrest.from("staff").select {
+                val profile = postgrest.from("profiles").select {
                     filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Staff>()
+                }.decodeSingleOrNull<Profile>()
 
-                if (staff != null) {
-                    _staff.value = staff
+                if (profile != null) {
+                    _profile.value = profile
                 } else {
                     // Try to find by email
                     val email = currentUser.email
                     if (email != null) {
-                        val staffByEmail = postgrest.from("staff").select {
+                        val profileByEmail = postgrest.from("profiles").select {
                             filter { eq("email", email) }
-                        }.decodeSingleOrNull<Staff>()
+                        }.decodeSingleOrNull<Profile>()
                         
-                        if (staffByEmail != null) {
-                            _staff.value = staffByEmail
+                        if (profileByEmail != null) {
+                            _profile.value = profileByEmail
                             return@launch
                         }
                     }
 
-                    // Fallback staff object
-                    _staff.value = Staff(
+                    // Fallback profile object
+                    _profile.value = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        name = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
-                        role = "User",
-                        createdAt = 0L
+                        displayName = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
+                        role = UserRole.nurse
                     )
                 }
             } catch (e: Exception) {
@@ -92,7 +91,7 @@ class DashboardViewModel @Inject constructor(
         dashboardRepository.getDueCount(),
         dashboardRepository.getWasteCount(),
         syncRepository.syncState,
-        _staff
+        _profile
     ) { args ->
         val pCount = args[0] as Int
         val lowStock = args[1] as Int
@@ -100,7 +99,7 @@ class DashboardViewModel @Inject constructor(
         val dCount = args[3] as Int
         val wCount = args[4] as Int
         val syncState = args[5] as SyncState
-        val staff = args[6] as? Staff
+        val profile = args[6] as? Profile
 
         DashboardUiState(
             patientCount = pCount,
@@ -108,9 +107,9 @@ class DashboardViewModel @Inject constructor(
             borrowedCount = bCount,
             dueTodayCount = dCount,
             wasteCount = wCount,
-            userName = staff?.name ?: "User",
-            userRole = staff?.role ?: "Staff",
-            staff = staff,
+            userName = profile?.displayName ?: "User",
+            userRole = profile?.role ?: UserRole.nurse,
+            profile = profile,
             syncState = syncState,
             isLoading = false
         )

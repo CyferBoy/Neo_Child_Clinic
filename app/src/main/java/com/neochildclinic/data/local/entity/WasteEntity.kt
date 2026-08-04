@@ -19,8 +19,7 @@ data class WasteEntity(
     val reason: String,
     val quantity: Int,
     val updatedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false,
-    val isDeleted: Boolean = false
+    val isSynced: Boolean = false
 )
 
 fun WasteEntity.toDomain() = WasteRecord(

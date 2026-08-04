@@ -123,7 +123,7 @@ class DueViewModel @Inject constructor(
     fun dismissReminder(vaccination: Vaccination, reason: String) {
         viewModelScope.launch {
             val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            vaccination.nxtVaccineNames.forEach { name ->
+            for (name in vaccination.nxtVaccineNames) {
                 val req = PendingRequirement(
                     patientId = vaccination.patientId,
                     vaccineName = name,
@@ -138,7 +138,7 @@ class DueViewModel @Inject constructor(
     fun rescheduleVaccination(vaccination: Vaccination, newDate: String, reminderDate: String, reason: String) {
         viewModelScope.launch {
             val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            vaccination.nxtVaccineNames.forEach { name ->
+            for (name in vaccination.nxtVaccineNames) {
                 val req = PendingRequirement(
                     patientId = vaccination.patientId,
                     vaccineName = name,
@@ -158,7 +158,7 @@ class DueViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            vaccination.nxtVaccineNames.forEach { name ->
+            for (name in vaccination.nxtVaccineNames) {
                 val req = PendingRequirement(
                     patientId = vaccination.patientId,
                     vaccineName = name,
@@ -173,7 +173,7 @@ class DueViewModel @Inject constructor(
     fun restoreReminder(vaccination: Vaccination) {
         viewModelScope.launch {
             val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            vaccination.nxtVaccineNames.forEach { name ->
+            for (name in vaccination.nxtVaccineNames) {
                 val req = PendingRequirement(
                     patientId = vaccination.patientId,
                     vaccineName = name,

@@ -30,25 +30,41 @@ object VaccinationValidator {
             receiptNumber
         }
 
+        val nxtNames = nextVaccine.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val followUps = nxtNames.map { name ->
+            com.neochildclinic.domain.model.FollowUpRequirement(
+                nextVaccineName = name,
+                dueDate = nextDue
+            )
+        }
+
+        val items = vaccines.mapIndexed { index, name ->
+            com.neochildclinic.domain.model.VaccinationItem(
+                vaccinationId = finalId,
+                vaccineId = vaccineIds.getOrNull(index) ?: "",
+                vaccineName = name,
+                batchId = batchIds.getOrNull(index) ?: "",
+                batchNumber = batches.getOrNull(index) ?: "",
+                expiryDate = expiries.getOrNull(index) ?: "",
+                quantity = 1,
+                mrp = 0.0, // Should be passed in or loaded
+                netRate = 0.0
+            )
+        }
+
         return Vaccination(
             id = finalId,
             receiptNumber = finalReceipt,
             patientId = patientId,
-            vaccineNames = vaccines,
-            vaccineIds = vaccineIds,
-            nxtVaccineNames = nextVaccine.split(",").map { it.trim() }.filter { it.isNotEmpty() },
             dateGiven = dateGiven,
-            nextDueDate = nextDue,
-            cost = cost.toDoubleOrNull() ?: 0.0,
             cashAmount = cash.toDoubleOrNull() ?: 0.0,
             onlineAmount = online.toDoubleOrNull() ?: 0.0,
             totalPaid = total,
             withFees = withFees,
             doctorsAcc = doctorsAcc,
-            isDone = true, // Ensure administered vaccinations are marked as done
-            batchNumbers = batches,
-            batchIds = batchIds,
-            expiryDates = expiries,
+            status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED,
+            items = items,
+            followUps = followUps,
             performedBy = performedBy,
             inventoryStatus = "PENDING"
         )

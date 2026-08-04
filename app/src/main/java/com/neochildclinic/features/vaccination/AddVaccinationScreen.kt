@@ -1,173 +1,439 @@
 package com.neochildclinic.features.vaccination
 
-import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.launch
-import com.neochildclinic.features.patient.PatientViewModel
-import com.neochildclinic.core.constants.Constants
-import com.neochildclinic.core.utils.ReceiptManager
-import java.text.SimpleDateFormat
+import com.neochildclinic.core.ui.*
+import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.UserRole
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddVaccinationScreen(
-    initialPatientId: String = "", 
-    initialVaccineName: String? = null,
+    patientId: String? = null,
     vaccinationId: String? = null,
-    onBack: () -> Unit = {},
-    patientViewModel: PatientViewModel = hiltViewModel(),
+    initialVaccineName: String? = null,
+    onBack: () -> Unit,
     viewModel: AddVaccinationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val allPatients by patientViewModel.allPatients.collectAsState()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Initialize initial data
-    LaunchedEffect(initialPatientId) {
-        if (initialPatientId.isNotEmpty()) {
-            viewModel.onPatientIdChange(initialPatientId)
-        }
+    LaunchedEffect(patientId) {
+        patientId?.let { viewModel.loadPatient(it) }
     }
 
     LaunchedEffect(vaccinationId) {
-        if (vaccinationId != null) {
-            viewModel.loadVaccination(vaccinationId)
-        }
+        viewModel.loadVaccination(vaccinationId)
     }
 
-    val currentVaccination by viewModel.vaccination.collectAsState()
-    LaunchedEffect(currentVaccination) {
-        currentVaccination?.let { viewModel.prefillForm(it) }
+    LaunchedEffect(initialVaccineName) {
+        viewModel.setInitialVaccine(initialVaccineName)
     }
 
-    LaunchedEffect(Unit) {
-        val today = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
-        viewModel.initializeDates(today)
-    }
-
-    // Auto-trigger selection if initial vaccine provided
-    LaunchedEffect(initialVaccineName, uiState.availableVaccines) {
-        if (vaccinationId == null && initialVaccineName != null && uiState.selectedVaccines.isEmpty() && uiState.availableVaccines.isNotEmpty()) {
-            val matching = uiState.availableVaccines.find { it.brandName.equals(initialVaccineName, ignoreCase = true) }
-            if (matching != null) {
-                viewModel.onVaccineSelected(matching)
-            }
-        }
-    }
-
-    LaunchedEffect(uiState.isSaved) {
-        if (uiState.isSaved) {
-            viewModel.resetSaveState()
+    LaunchedEffect(uiState.saveSuccess) {
+        if (uiState.saveSuccess) {
             onBack()
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearError()
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
         }
     }
 
-    uiState.vaccineRequiringBatchSelection?.let { vaccine ->
-        val batches = uiState.activeBatches[vaccine.id] ?: emptyList()
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissBatchSelection() },
-            title = { Text("Select Batch for ${vaccine.brandName}") },
-            text = {
-                Column {
-                    Text("Select an active batch. FEFO prioritized.", style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(8.dp))
+    AppBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("Add Vaccination") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            },
+            bottomBar = {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    PaddingValues(16.dp).let {
+                        StandardButton(
+                            onClick = { viewModel.saveVaccination() },
+                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            isLoading = uiState.isLoading
+                        ) {
+                            Text("Save Vaccination", style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+            }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
+            ) {
+                // 1. Patient Summary
+                uiState.patient?.let { patient ->
+                    item { PatientSummaryCard(patient) }
+                }
+
+                // 2. Given Date
+                item {
+                    DateDropdownPicker(
+                        label = "Given Date*",
+                        currentDate = uiState.givenDate,
+                        onDateSelected = { viewModel.updateGivenDate(it) }
+                    )
+                }
+
+                // 3. Vaccines Section
+                item { SectionHeader("Vaccines Administered") }
+                
+                items(uiState.vaccinesGiven, key = { it.id }) { row ->
+                    VaccineRow(
+                        state = row,
+                        inventory = uiState.inventory,
+                        onVaccineSelected = { viewModel.selectVaccine(row.id, it) },
+                        onBatchSelected = { viewModel.selectBatch(row.id, it) },
+                        onRemove = { viewModel.removeVaccineRow(row.id) },
+                        isOnlyRow = uiState.vaccinesGiven.size == 1
+                    )
+                }
+
+                item {
+                    TextButton(onClick = { viewModel.addVaccineRow() }) {
+                        Icon(Icons.Default.Add, null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add Vaccine")
+                    }
+                }
+
+                // 4. Payment Section
+                item { SectionHeader("Payment Details") }
+                item {
+                    PaymentSection(
+                        cash = uiState.cashAmount,
+                        online = uiState.onlineAmount,
+                        total = uiState.totalAmount,
+                        onCashChange = { viewModel.updateCash(it) },
+                        onOnlineChange = { viewModel.updateOnline(it) }
+                    )
+                }
+
+                // 5. Next Vaccinations (Due Section)
+                item { SectionHeader("Next Vaccination(s)") }
+                items(uiState.followUps, key = { it.id }) { row ->
+                    FollowUpRow(
+                        state = row,
+                        inventory = uiState.inventory,
+                        currentVisitVaccines = uiState.vaccinesGiven.mapNotNull { it.selectedVaccine },
+                        onUpdate = { vaccine, date, basedOnId -> 
+                            viewModel.updateFollowUp(row.id, vaccine, date, basedOnId) 
+                        },
+                        onRemove = { viewModel.removeFollowUpRow(row.id) }
+                    )
+                }
+                
+                item {
+                    TextButton(onClick = { viewModel.addFollowUpRow() }) {
+                        Icon(Icons.Default.Event, null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add Next Vaccination")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PatientSummaryCard(patient: Patient) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            val clinicId = if (patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
+            Text("ID: $clinicId", style = MaterialTheme.typography.bodyMedium)
+            Text("${patient.gender} | DOB: ${patient.dob}", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VaccineRow(
+    state: VaccineSelectionState,
+    inventory: List<InventoryItem>,
+    onVaccineSelected: (InventoryItem) -> Unit,
+    onBatchSelected: (com.neochildclinic.data.local.entity.VaccineBatchEntity) -> Unit,
+    onRemove: () -> Unit,
+    isOnlyRow: Boolean
+) {
+    var vaccineSearch by remember { mutableStateOf(state.selectedVaccine?.brandName ?: "") }
+    var vaccineExpanded by remember { mutableStateOf(false) }
+    var batchExpanded by remember { mutableStateOf(false) }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Vaccine Row", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                if (!isOnlyRow) {
+                    IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Close, null, tint = Color.Red)
+                    }
+                }
+            }
+
+            // Vaccine Selection
+            StandardAutoCompleteField(
+                value = vaccineSearch,
+                onValueChange = { 
+                    vaccineSearch = it
+                    vaccineExpanded = true
+                },
+                label = "Vaccine*",
+                expanded = vaccineExpanded,
+                onExpandedChange = { vaccineExpanded = it },
+                placeholder = "Search Vaccine"
+            ) {
+                val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
+                filtered.forEach { vaccine ->
+                    DropdownMenuItem(
+                        text = { Text("${vaccine.brandName} (${vaccine.stock} in stock)") },
+                        onClick = {
+                            onVaccineSelected(vaccine)
+                            vaccineSearch = vaccine.brandName
+                            vaccineExpanded = false
+                        }
+                    )
+                }
+            }
+
+            // Batch Selection
+            val batches = state.selectedVaccine?.batches?.filter { it.remainingQuantity > 0 } ?: emptyList()
+            
+            ExposedDropdownMenuBox(
+                expanded = batchExpanded,
+                onExpandedChange = { if (batches.isNotEmpty()) batchExpanded = it }
+            ) {
+                StandardTextField(
+                    value = state.selectedBatch?.let { "${it.batchNumber} (Qty: ${it.remainingQuantity})" } ?: "Select Batch",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = "Batch*",
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = batchExpanded) }
+                )
+                ExposedDropdownMenu(
+                    expanded = batchExpanded,
+                    onDismissRequest = { batchExpanded = false }
+                ) {
                     batches.forEach { batch ->
                         DropdownMenuItem(
                             text = { 
                                 Column {
-                                    Text("Batch: ${batch.batchNumber}", fontWeight = FontWeight.Bold)
-                                    Text("Expires: ${batch.expiryDate} | Stock: ${batch.remainingQuantity}", style = MaterialTheme.typography.labelSmall)
+                                    Text(batch.batchNumber, fontWeight = FontWeight.Bold)
+                                    Text("Qty: ${batch.remainingQuantity} | Exp: ${batch.expiryDate}", fontSize = 12.sp)
                                 }
                             },
-                            onClick = { viewModel.onBatchSelected(vaccine, batch) }
+                            onClick = {
+                                onBatchSelected(batch)
+                                batchExpanded = false
+                            }
                         )
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissBatchSelection() }) { Text("Cancel") }
             }
-        )
-    }
 
-    AddVaccinationContent(
-        isEdit = vaccinationId != null,
-        onBack = onBack,
-        patientId = uiState.patientId,
-        onPatientIdChange = viewModel::onPatientIdChange,
-        isPatientIdEnabled = initialPatientId.isEmpty(),
-        inventory = uiState.availableVaccines,
-        selectedVaccines = uiState.selectedVaccines,
-        onVaccineSelected = { v ->
-            if (!uiState.selectedVaccines.contains(v.brandName)) {
-                viewModel.onVaccineSelected(v)
-            }
-        },
-        onRemoveVaccine = viewModel::onRemoveVaccine,
-        nextBrandSearch = uiState.nextBrandSearch,
-        onNextBrandChange = viewModel::onNextBrandChange,
-        dateGiven = uiState.dateGiven,
-        onDateGivenChange = viewModel::onDateGivenChange,
-        nextDueDate = uiState.nextDueDate,
-        onNextDueDateChange = viewModel::onNextDueDateChange,
-        cashAmount = uiState.cashAmount,
-        onCashChange = viewModel::onCashChange,
-        onlineAmount = uiState.onlineAmount,
-        onOnlineChange = viewModel::onOnlineChange,
-        totalPaid = uiState.totalPaid,
-        cost = uiState.cost,
-        onCostChange = viewModel::onCostChange,
-        withFees = uiState.withFees,
-        onFeesToggle = viewModel::onFeesToggle,
-        doctorsAcc = uiState.doctorsAcc,
-        onAccToggle = viewModel::onAccToggle,
-        isLoading = uiState.isLoading,
-        onSave = {
-            if (VaccinationValidator.validateForm(context, uiState.patientId, uiState.selectedVaccines)) {
-                val v = VaccinationValidator.createVaccination(
-                    vaccinationId, uiState.patientId, uiState.selectedVaccines, uiState.selectedVaccineIds, 
-                    uiState.nextBrandSearch, uiState.dateGiven, uiState.nextDueDate, uiState.cost, 
-                    uiState.cashAmount, uiState.onlineAmount, uiState.totalPaid, uiState.withFees, 
-                    uiState.doctorsAcc, uiState.batchNumbers, uiState.selectedBatchIds, uiState.expiryDates, 
-                    viewModel.currentUserEmail, uiState.receiptNumber
+            if (state.selectedBatch != null) {
+                Text(
+                    "Expiry: ${state.selectedBatch.expiryDate}", 
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (com.neochildclinic.core.utils.InventoryUtils.isExpired(state.selectedBatch.expiryDate)) Color.Red else Color.Gray
                 )
-                viewModel.saveVaccination(v, vaccinationId == null, uiState.selectedVaccineIds, uiState.selectedBatchIds) {}
-            }
-        },
-        onSaveAndDownload = {
-            val patient = allPatients.find { it.id == uiState.patientId }
-            if (VaccinationValidator.validateForm(context, uiState.patientId, uiState.selectedVaccines) && patient != null) {
-                val v = VaccinationValidator.createVaccination(
-                    vaccinationId, uiState.patientId, uiState.selectedVaccines, uiState.selectedVaccineIds, 
-                    uiState.nextBrandSearch, uiState.dateGiven, uiState.nextDueDate, uiState.cost, 
-                    uiState.cashAmount, uiState.onlineAmount, uiState.totalPaid, uiState.withFees, 
-                    uiState.doctorsAcc, uiState.batchNumbers, uiState.selectedBatchIds, uiState.expiryDates, 
-                    viewModel.currentUserEmail, uiState.receiptNumber
-                )
-                viewModel.saveVaccination(v, vaccinationId == null, uiState.selectedVaccineIds, uiState.selectedBatchIds) {
-                    scope.launch {
-                        ReceiptManager.downloadReceipt(context, patient, v)
-                    }
-                }
-            } else if (patient == null) {
-                Toast.makeText(context, "Patient not found", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+}
+
+@Composable
+private fun PaymentSection(
+    cash: String,
+    online: String,
+    total: Double,
+    onCashChange: (String) -> Unit,
+    onOnlineChange: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StandardTextField(
+                    value = cash,
+                    onValueChange = onCashChange,
+                    label = "Cash Amount",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                StandardTextField(
+                    value = online,
+                    onValueChange = onOnlineChange,
+                    label = "Online Amount",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Total Amount", style = MaterialTheme.typography.titleMedium)
+                Text("₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FollowUpRow(
+    state: FollowUpSelectionState,
+    inventory: List<InventoryItem>,
+    currentVisitVaccines: List<InventoryItem>,
+    onUpdate: (InventoryItem?, String, String) -> Unit,
+    onRemove: () -> Unit
+) {
+    var vaccineSearch by remember { mutableStateOf(state.nextVaccine?.brandName ?: "") }
+    var vaccineExpanded by remember { mutableStateOf(false) }
+    var basedOnExpanded by remember { mutableStateOf(false) }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Follow-up", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.weight(1f))
+                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, null, tint = Color.Gray)
+                }
+            }
+
+            // Based On
+            ExposedDropdownMenuBox(
+                expanded = basedOnExpanded,
+                onExpandedChange = { basedOnExpanded = it }
+            ) {
+                val selectedBasedOnName = currentVisitVaccines.find { it.id == state.basedOnVaccineId }?.brandName ?: "Select Base Vaccine"
+                StandardTextField(
+                    value = selectedBasedOnName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = "Based On (Optional)",
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = basedOnExpanded) }
+                )
+                ExposedDropdownMenu(
+                    expanded = basedOnExpanded,
+                    onDismissRequest = { basedOnExpanded = false }
+                ) {
+                    currentVisitVaccines.forEach { v ->
+                        DropdownMenuItem(
+                            text = { Text(v.brandName) },
+                            onClick = {
+                                onUpdate(null, "", v.id)
+                                basedOnExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Next Vaccine
+            StandardAutoCompleteField(
+                value = vaccineSearch,
+                onValueChange = { 
+                    vaccineSearch = it
+                    vaccineExpanded = true
+                },
+                label = "Next Vaccine*",
+                expanded = vaccineExpanded,
+                onExpandedChange = { vaccineExpanded = it },
+                placeholder = "Search Next Vaccine"
+            ) {
+                val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
+                filtered.forEach { vaccine ->
+                    DropdownMenuItem(
+                        text = { Text(vaccine.brandName) },
+                        onClick = {
+                            onUpdate(vaccine, "", "")
+                            vaccineSearch = vaccine.brandName
+                            vaccineExpanded = false
+                        }
+                    )
+                }
+            }
+
+            // Due Date
+            DateDropdownPicker(
+                label = "Due Date*",
+                currentDate = state.dueDate,
+                onDateSelected = { onUpdate(null, it, "") }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 8.dp),
+        color = MaterialTheme.colorScheme.primary
     )
 }

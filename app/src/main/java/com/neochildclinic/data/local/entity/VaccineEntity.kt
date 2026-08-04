@@ -25,8 +25,7 @@ data class VaccineEntity(
     val mrp: Double = 0.0,
     val netRate: Double = 0.0,
     
-    val lastUpdated: Long = System.currentTimeMillis(),
-    val isDeleted: Boolean = false
+    val lastUpdated: Long = System.currentTimeMillis()
 )
 
 @Serializable
@@ -62,8 +61,7 @@ data class VaccineBatchEntity(
     val purchaseCost: Double,
     val sellingPrice: Double,
     val status: String = BatchStatus.ACTIVE.name,
-    val updatedAt: Long = System.currentTimeMillis(),
-    val isDeleted: Boolean = false
+    val updatedAt: Long = System.currentTimeMillis()
 )
 
 @Serializable

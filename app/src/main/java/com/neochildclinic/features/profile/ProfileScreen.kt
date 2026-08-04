@@ -1,5 +1,6 @@
 package com.neochildclinic.features.profile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,11 +18,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.StandardTextField
-import com.neochildclinic.core.utils.PatientUtils
-import java.util.*
+import com.neochildclinic.domain.model.Profile
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,27 +33,17 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showEditNameDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
-
-    if (showEditNameDialog && uiState.staff != null) {
-        EditNameDialog(
-            currentName = uiState.staff!!.name,
-            isLoading = uiState.isLoading,
-            onDismiss = { 
-                showEditNameDialog = false 
-                viewModel.clearMessages()
-            },
-            onConfirm = { newName ->
-                viewModel.updateName(newName)
-            }
-        )
-    }
+    
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.success, uiState.error) {
         uiState.success?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            showEditNameDialog = false
+            showEditDialog = false
+            showPasswordDialog = false
             viewModel.clearMessages()
         }
         uiState.error?.let {
@@ -60,109 +52,111 @@ fun ProfileScreen(
         }
     }
 
+    if (showEditDialog && uiState.profile != null) {
+        EditProfileDialog(
+            profile = uiState.profile!!,
+            isLoading = uiState.isLoading,
+            onDismiss = { showEditDialog = false },
+            onSave = { name, phone ->
+                if (name != uiState.profile!!.displayName) viewModel.updateName(name)
+                if (phone != uiState.profile!!.phoneNumber) viewModel.updatePhoneNumber(phone)
+            }
+        )
+    }
+
+    if (showPasswordDialog) {
+        ChangePasswordDialog(
+            isLoading = uiState.isLoading,
+            onDismiss = { showPasswordDialog = false },
+            onConfirm = { viewModel.changePassword(it) }
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Logout") },
+            text = { Text("Are you sure you want to logout from this device?") },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showLogoutDialog = false
+                        onLogout() 
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Logout") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("Profile") },
+                    title = { Text("My Profile") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onPrimary)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                    actions = {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Default.Edit, "Edit Profile", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary)
                 )
             }
-        ) { paddingValues ->
-            if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+        ) { padding ->
+            if (uiState.isLoading && uiState.profile == null) {
+                Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
             } else {
-                uiState.staff?.let { staff ->
+                uiState.profile?.let { profile ->
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(paddingValues)
+                            .padding(padding)
                             .verticalScroll(rememberScrollState())
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Surface(
-                            modifier = Modifier.size(120.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = staff.name.firstOrNull()?.uppercase() ?: "?",
-                                    style = MaterialTheme.typography.displayLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                        ProfileHeaderSection(profile)
+                        
+                        InfoSection(title = "Personal Information") {
+                            InfoRow(Icons.Default.Person, "Display Name", profile.displayName)
+                            InfoRow(Icons.Default.Email, "Email Address", profile.email)
+                            InfoRow(Icons.Default.Phone, "Phone Number", profile.phoneNumber.ifBlank { "Not set" })
+                            InfoRow(Icons.Default.Badge, "Role", profile.role.name.uppercase())
+                            if (!profile.employeeId.isNullOrBlank()) {
+                                InfoRow(Icons.Default.Work, "Employee ID", profile.employeeId)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = staff.name,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            IconButton(onClick = { showEditNameDialog = true }) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Edit Name",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                        InfoSection(title = "Account Information") {
+                            InfoRow(Icons.Default.Fingerprint, "User UUID", profile.id)
+                            InfoRow(Icons.Default.CalendarToday, "Created At", profile.createdAt)
+                            InfoRow(Icons.Default.Update, "Last Updated", profile.updatedAt)
+                            if (!profile.lastLogin.isNullOrBlank()) {
+                                InfoRow(Icons.Default.Login, "Last Login", profile.lastLogin)
                             }
+                        }
+
+                        InfoSection(title = "Security") {
+                            ActionRow(Icons.Default.Lock, "Change Password") { showPasswordDialog = true }
+                            ActionRow(Icons.Default.Logout, "Logout", MaterialTheme.colorScheme.error) { showLogoutDialog = true }
+                        }
+
+                        InfoSection(title = "About") {
+                            InfoRow(Icons.Default.Info, "App Version", "1.0.0")
+                            InfoRow(Icons.Default.Cloud, "Database Status", "Connected")
                         }
                         
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) {
-                            Text(
-                                text = staff.role,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        ProfileInfoCard(
-                            email = staff.email,
-                            createdAt = staff.createdAt
-                        )
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        Button(
-                            onClick = onLogout,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Icon(Icons.Default.Logout, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Logout")
-                        }
+                        Spacer(Modifier.height(24.dp))
                     }
-                } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Failed to load profile: ${uiState.error}")
                 }
             }
         }
@@ -170,26 +164,73 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileInfoCard(email: String, createdAt: Long) {
+private fun ProfileHeaderSection(profile: Profile) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            ProfileInfoRow(icon = Icons.Default.Email, label = "Email", value = email)
-            ProfileInfoRow(
-                icon = Icons.Default.CalendarToday, 
-                label = "Member Since", 
-                value = if (createdAt > 0) PatientUtils.formatDate(Date(createdAt)) else "N/A"
-            )
+        Column(
+            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                modifier = Modifier.size(100.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = profile.displayName.firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.displayMedium,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(profile.role.name.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            
+            Surface(
+                color = if (profile.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                shape = CircleShape,
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(
+                    text = if (profile.isActive) "Active" else "Inactive",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (profile.isActive) Color(0xFF2E7D32) else Color(0xFFC62828)
+                )
+            }
         }
     }
 }
 
 @Composable
-fun ProfileInfoRow(icon: ImageVector, label: String, value: String) {
+private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(16.dp))
         Column {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -199,43 +240,90 @@ fun ProfileInfoRow(icon: ImageVector, label: String, value: String) {
 }
 
 @Composable
-fun EditNameDialog(
-    currentName: String,
+private fun ActionRow(icon: ImageVector, label: String, color: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(16.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+    }
+}
+
+@Composable
+private fun EditProfileDialog(
+    profile: Profile,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf(profile.displayName) }
+    var phone by remember { mutableStateOf(profile.phoneNumber) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Profile") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                StandardTextField(value = name, onValueChange = { name = it }, label = "Display Name")
+                StandardTextField(value = phone, onValueChange = { phone = it }, label = "Phone Number")
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name, phone) }, enabled = !isLoading) {
+                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                else Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun ChangePasswordDialog(
     isLoading: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var name by remember { mutableStateOf(currentName) }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var visible by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Name") },
+        title = { Text("Change Password") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 StandardTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = "Full Name",
-                    placeholder = "Enter your full name"
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = "New Password",
+                    visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { visible = !visible }) {
+                            Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
+                        }
+                    }
+                )
+                StandardTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = "Confirm New Password",
+                    visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation()
                 )
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(name) },
-                enabled = !isLoading && name.isNotBlank() && name != currentName
+                onClick = { onConfirm(newPassword) },
+                enabled = !isLoading && newPassword.isNotBlank() && newPassword == confirmPassword
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Save")
-                }
+                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                else Text("Update")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isLoading) {
-                Text("Cancel")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

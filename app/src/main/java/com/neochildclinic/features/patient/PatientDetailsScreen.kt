@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.ui.*
 import kotlinx.coroutines.launch
@@ -33,9 +34,9 @@ fun PatientDetailsScreen(
 ) {
     val allPatients by viewModel.allPatients.collectAsState()
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
-    val staff by viewModel.currentStaff.collectAsState()
-    val isAdmin = staff?.role == "Admin"
-    val canEditOrDelete = isAdmin || staff?.role == "Doctor"
+    val profile by viewModel.currentProfile.collectAsState()
+    val isAdmin = profile?.role == UserRole.admin
+    val canEditOrDelete = isAdmin || profile?.role == UserRole.doctor
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 

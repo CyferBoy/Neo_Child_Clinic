@@ -2,256 +2,284 @@ package com.neochildclinic.features.vaccination
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.InventoryUtils
+import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
-import com.neochildclinic.domain.model.InventoryFilter
-import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.Vaccine
-import com.neochildclinic.domain.usecase.inventory.ReconcileInventoryUseCase
-import com.neochildclinic.domain.usecase.vaccination.CompleteVaccinationUseCase
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.model.*
 import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.features.settings.NotificationSettingsManager
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.service.ClinicalVaccinationService
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 
+data class VaccineSelectionState(
+    val id: String = UUID.randomUUID().toString(),
+    val selectedVaccine: InventoryItem? = null,
+    val selectedBatch: VaccineBatchEntity? = null,
+    val quantity: Int = 1
+)
+
+data class FollowUpSelectionState(
+    val id: String = UUID.randomUUID().toString(),
+    val nextVaccine: InventoryItem? = null,
+    val dueDate: String = "",
+    val basedOnVaccineId: String = ""
+)
+
 data class AddVaccinationUiState(
+    val patient: Patient? = null,
     val isLoading: Boolean = false,
-    val availableVaccines: List<Vaccine> = emptyList(),
-    val activeBatches: Map<String, List<VaccineBatchEntity>> = emptyMap(),
-    val error: String? = null,
-    val isSaved: Boolean = false,
-    val savedVaccination: Vaccination? = null,
-    
-    // Form State
-    val patientId: String = "",
-    val receiptNumber: String = "",
-    val selectedVaccines: List<String> = emptyList(),
-    val selectedVaccineIds: List<String> = emptyList(),
-    val selectedBatchIds: List<String> = emptyList(),
-    val batchNumbers: List<String> = emptyList(),
-    val expiryDates: List<String> = emptyList(),
-    val nextBrandSearch: String = "",
-    val dateGiven: String = "",
-    val nextDueDate: String = "",
-    val cost: String = "",
-    val cashAmount: String = "",
-    val onlineAmount: String = "",
-    val totalPaid: Double = 0.0,
-    val withFees: Boolean = false,
-    val doctorsAcc: Boolean = false,
-    val vaccineRequiringBatchSelection: Vaccine? = null
+    val inventory: List<InventoryItem> = emptyList(),
+    val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
+    val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
+    val followUps: List<FollowUpSelectionState> = emptyList(),
+    val cashAmount: String = "0",
+    val onlineAmount: String = "0",
+    val totalAmount: Double = 0.0,
+    val existingVaccinationId: String? = null,
+    val saveSuccess: Boolean = false,
+    val errorMessage: String? = null
 )
 
 @HiltViewModel
 class AddVaccinationViewModel @Inject constructor(
+    private val patientRepository: PatientRepository,
     private val inventoryRepository: InventoryRepository,
-    private val completeVaccinationUseCase: CompleteVaccinationUseCase,
-    private val getVaccinationsUseCase: GetVaccinationsUseCase,
-    private val reconcileInventoryUseCase: ReconcileInventoryUseCase,
-    private val settingsManager: NotificationSettingsManager,
+    private val vaccinationRepository: VaccinationRepository,
+    private val reminderRepository: ReminderRepository,
+    private val clinicalService: ClinicalVaccinationService,
     private val auth: Auth
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddVaccinationUiState())
     val uiState: StateFlow<AddVaccinationUiState> = _uiState.asStateFlow()
 
-    private val _vaccination = MutableStateFlow<Vaccination?>(null)
-    val vaccination: StateFlow<Vaccination?> = _vaccination.asStateFlow()
-
     init {
-        observeInventory()
+        fetchInventory()
     }
 
-    private fun observeInventory() {
+    fun loadPatient(patientId: String) {
+        if (patientId.isBlank()) return
         viewModelScope.launch {
-            combine(
-                inventoryRepository.getInventoryItems(filter = InventoryFilter.ALL),
-                settingsManager.settingsFlow
-            ) { items, _ ->
-                val vaccines = items.filter { it.stock > 0 }.map { item ->
-                    Vaccine(
-                        id = item.id,
-                        type = item.type,
-                        brandName = item.brandName,
-                        companyName = item.company,
-                        stock = item.stock,
-                        isLowStock = item.isLowStock
-                    )
-                }
-                
-                val batchesMap = items.associate { item ->
-                    item.id to item.batches.filter { 
-                        it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) 
-                    }.sortedBy { it.expiryDate }
-                }
-
-                _uiState.update { 
-                    it.copy(
-                        availableVaccines = vaccines,
-                        activeBatches = batchesMap
-                    )
-                }
-            }.collect()
+            val patient = patientRepository.getPatientById(patientId)
+            _uiState.update { it.copy(patient = patient) }
         }
     }
 
-    val currentUserEmail: String
-        get() = auth.currentSessionOrNull()?.user?.email ?: "Unknown Staff"
-
-    fun onVaccineSelected(vaccine: Vaccine) {
-        val batches = _uiState.value.activeBatches[vaccine.id] ?: emptyList()
-        if (batches.isEmpty()) {
-            // Out of stock case
-            addVaccineToForm(vaccine, null)
-        } else if (batches.size == 1) {
-            addVaccineToForm(vaccine, batches.first())
-        } else {
-            _uiState.update { it.copy(vaccineRequiringBatchSelection = vaccine) }
-        }
-    }
-
-    fun onBatchSelected(vaccine: Vaccine, batch: VaccineBatchEntity) {
-        addVaccineToForm(vaccine, batch)
-        _uiState.update { it.copy(vaccineRequiringBatchSelection = null) }
-    }
-
-    fun dismissBatchSelection() {
-        _uiState.update { it.copy(vaccineRequiringBatchSelection = null) }
-    }
-
-    private fun addVaccineToForm(vaccine: Vaccine, batch: VaccineBatchEntity?) {
-        _uiState.update { state ->
-            state.copy(
-                selectedVaccines = state.selectedVaccines + vaccine.brandName,
-                selectedVaccineIds = state.selectedVaccineIds + vaccine.id,
-                selectedBatchIds = state.selectedBatchIds + (batch?.batchId ?: ""),
-                batchNumbers = state.batchNumbers + (batch?.batchNumber ?: ""),
-                expiryDates = state.expiryDates + (batch?.expiryDate ?: "")
-            )
-        }
-    }
-
-    fun onRemoveVaccine(index: Int) {
-        _uiState.update { state ->
-            state.copy(
-                selectedVaccines = state.selectedVaccines.toMutableList().apply { removeAt(index) },
-                selectedVaccineIds = state.selectedVaccineIds.toMutableList().apply { removeAt(index) },
-                selectedBatchIds = state.selectedBatchIds.toMutableList().apply { removeAt(index) },
-                batchNumbers = state.batchNumbers.toMutableList().apply { removeAt(index) },
-                expiryDates = state.expiryDates.toMutableList().apply { removeAt(index) }
-            )
-        }
-    }
-
-    fun saveVaccination(
-        vaccination: Vaccination,
-        isNew: Boolean,
-        selectedVaccineIds: List<String>,
-        selectedBatchIds: List<String>,
-        onSuccess: () -> Unit
-    ) {
+    fun loadVaccination(vaccinationId: String?) {
+        if (vaccinationId.isNullOrBlank()) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            val vaccination = vaccinationRepository.getVaccinationById(vaccinationId) ?: return@launch
+            loadPatient(vaccination.patientId)
+
+            // Wait for inventory if not loaded
+            uiState.filter { it.inventory.isNotEmpty() }.first()
+
+            val inventory = _uiState.value.inventory
+            val items = vaccination.items.map { item ->
+                val vaccine = inventory.find { it.id == item.vaccineId }
+                val batch = vaccine?.batches?.find { it.batchId == item.batchId }
+                VaccineSelectionState(
+                    selectedVaccine = vaccine,
+                    selectedBatch = batch,
+                    quantity = item.quantity
+                )
+            }
+
+            _uiState.update { it.copy(
+                existingVaccinationId = vaccinationId,
+                givenDate = vaccination.dateGiven,
+                vaccinesGiven = if (items.isNotEmpty()) items else listOf(VaccineSelectionState()),
+                cashAmount = vaccination.cashAmount.toInt().toString(),
+                onlineAmount = vaccination.onlineAmount.toInt().toString(),
+                totalAmount = vaccination.totalPaid
+            ) }
+        }
+    }
+
+    fun setInitialVaccine(vaccineName: String?) {
+        if (vaccineName.isNullOrBlank()) return
+        viewModelScope.launch {
+            // Wait for inventory
+            uiState.filter { it.inventory.isNotEmpty() }.first()
+            
+            val inventory = _uiState.value.inventory
+            val vaccine = inventory.find { it.brandName.equals(vaccineName, ignoreCase = true) }
+            
+            if (vaccine != null) {
+                val rowId = _uiState.value.vaccinesGiven.firstOrNull()?.id ?: UUID.randomUUID().toString()
+                if (_uiState.value.vaccinesGiven.isEmpty()) {
+                    _uiState.update { it.copy(vaccinesGiven = listOf(VaccineSelectionState(id = rowId))) }
+                }
+                selectVaccine(rowId, vaccine)
+            }
+        }
+    }
+
+    private fun fetchInventory() {
+        inventoryRepository.getInventoryItems().onEach { items ->
+            _uiState.update { it.copy(inventory = items) }
+        }.launchIn(viewModelScope)
+    }
+
+    fun updateGivenDate(date: String) {
+        _uiState.update { it.copy(givenDate = date) }
+    }
+
+    fun addVaccineRow() {
+        _uiState.update { it.copy(vaccinesGiven = it.vaccinesGiven + VaccineSelectionState()) }
+    }
+
+    fun removeVaccineRow(id: String) {
+        if (_uiState.value.vaccinesGiven.size > 1) {
+            _uiState.update { it.copy(vaccinesGiven = it.vaccinesGiven.filter { row -> row.id != id }) }
+        }
+    }
+
+    fun selectVaccine(rowId: String, vaccine: InventoryItem) {
+        val bestBatch = vaccine.batches
+            .filter { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
+            .minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
+
+        _uiState.update { state ->
+            val updated = state.vaccinesGiven.map { row ->
+                if (row.id == rowId) row.copy(selectedVaccine = vaccine, selectedBatch = bestBatch)
+                else row
+            }
+            state.copy(vaccinesGiven = updated)
+        }
+    }
+
+    fun selectBatch(rowId: String, batch: VaccineBatchEntity) {
+        _uiState.update { state ->
+            val updated = state.vaccinesGiven.map { row ->
+                if (row.id == rowId) row.copy(selectedBatch = batch)
+                else row
+            }
+            state.copy(vaccinesGiven = updated)
+        }
+    }
+
+    fun updateCash(amount: String) {
+        val cash = amount.toDoubleOrNull() ?: 0.0
+        val online = _uiState.value.onlineAmount.toDoubleOrNull() ?: 0.0
+        _uiState.update { it.copy(cashAmount = amount, totalAmount = cash + online) }
+    }
+
+    fun updateOnline(amount: String) {
+        val online = amount.toDoubleOrNull() ?: 0.0
+        val cash = _uiState.value.cashAmount.toDoubleOrNull() ?: 0.0
+        _uiState.update { it.copy(onlineAmount = amount, totalAmount = cash + online) }
+    }
+
+    fun addFollowUpRow() {
+        _uiState.update { it.copy(followUps = it.followUps + FollowUpSelectionState()) }
+    }
+
+    fun removeFollowUpRow(id: String) {
+        _uiState.update { it.copy(followUps = it.followUps.filter { row -> row.id != id }) }
+    }
+
+    fun updateFollowUp(rowId: String, vaccine: InventoryItem? = null, date: String? = null, basedOnId: String? = null) {
+        _uiState.update { state ->
+            val updated = state.followUps.map { row ->
+                if (row.id == rowId) row.copy(
+                    nextVaccine = vaccine ?: row.nextVaccine,
+                    dueDate = date ?: row.dueDate,
+                    basedOnVaccineId = basedOnId ?: row.basedOnVaccineId
+                )
+                else row
+            }
+            state.copy(followUps = updated)
+        }
+    }
+
+    fun saveVaccination() {
+        val state = _uiState.value
+        val patient = state.patient ?: return
+        
+        if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
+            _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
+        viewModelScope.launch {
             try {
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
-                completeVaccinationUseCase(
-                    vaccination = vaccination,
-                    isNew = isNew,
-                    selectedVaccineIds = selectedVaccineIds,
-                    user = user,
-                    selectedBatchIds = selectedBatchIds
-                )
-                _uiState.update { it.copy(
-                    isSaved = true, 
-                    savedVaccination = vaccination, 
-                    isLoading = false
-                ) }
-                onSuccess()
-                
-                // STEP 5: Trigger reconciliation after save (fire-and-forget, non-blocking)
-                if (isNew) {
-                    viewModelScope.launch {
-                        try {
-                            reconcileInventoryUseCase.execute(user)
-                        } catch (e: Exception) {
-                            android.util.Log.e("AddVaccinationVM", "Reconciliation failed: ${e.message}")
-                        }
-                    }
+                val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
+
+                val items = state.vaccinesGiven.map { selection ->
+                    VaccinationItem(
+                        id = UUID.randomUUID().toString(),
+                        vaccinationId = vaccinationId,
+                        vaccineId = selection.selectedVaccine!!.id,
+                        vaccineName = selection.selectedVaccine.brandName,
+                        batchId = selection.selectedBatch!!.batchId,
+                        batchNumber = selection.selectedBatch.batchNumber,
+                        expiryDate = selection.selectedBatch.expiryDate,
+                        quantity = selection.quantity,
+                        mrp = selection.selectedBatch.sellingPrice,
+                        netRate = selection.selectedBatch.purchaseCost
+                    )
                 }
+
+                val vaccination = Vaccination(
+                    id = vaccinationId,
+                    patientId = patient.id,
+                    patientName = patient.name,
+                    patientClinicId = patient.patientClinicId,
+                    dateGiven = state.givenDate,
+                    cashAmount = state.cashAmount.toDoubleOrNull() ?: 0.0,
+                    onlineAmount = state.onlineAmount.toDoubleOrNull() ?: 0.0,
+                    totalPaid = state.totalAmount,
+                    performedBy = user,
+                    items = items
+                )
+
+                // 1. Record clinical visit and satisfy reminders
+                clinicalService.recordVaccination(vaccination, user)
+
+                // 2. Process Inventory deductions
+                state.vaccinesGiven.forEach { selection ->
+                    inventoryRepository.deductStockFromBatch(
+                        batchId = selection.selectedBatch!!.batchId,
+                        quantity = selection.quantity,
+                        user = user,
+                        transactionType = InventoryTransactionType.VACCINATION
+                    )
+                }
+
+                // 3. Schedule next vaccinations (grouped by date)
+                val followUpsByDate = state.followUps.filter { it.nextVaccine != null && it.dueDate.isNotBlank() }
+                    .groupBy { it.dueDate }
+
+                followUpsByDate.forEach { (date, requirements) ->
+                    reminderRepository.scheduleFollowUp(
+                        patientId = patient.id,
+                        originalVisitId = vaccinationId,
+                        vaccineNames = requirements.map { it.nextVaccine!!.brandName },
+                        dueDate = date,
+                        notes = "Scheduled during visit on ${state.givenDate}",
+                        priority = "NORMAL",
+                        reminderEnabled = true,
+                        performedBy = user
+                    )
+                }
+
+                _uiState.update { it.copy(isLoading = false, saveSuccess = true) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message, isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
             }
-        }
-    }
-
-    fun clearError() {
-        _uiState.update { it.copy(error = null) }
-    }
-
-    fun prefillForm(v: Vaccination) {
-        _uiState.update { it.copy(
-            patientId = v.patientId,
-            receiptNumber = v.receiptNumber,
-            selectedVaccines = v.vaccineNames,
-            selectedVaccineIds = v.vaccineIds,
-            batchNumbers = v.batchNumbers,
-            selectedBatchIds = v.batchIds,
-            expiryDates = v.expiryDates,
-            nextBrandSearch = v.nxtVaccineNames.joinToString(", "),
-            dateGiven = v.dateGiven,
-            nextDueDate = v.nextDueDate,
-            cost = if (v.cost % 1.0 == 0.0) v.cost.toInt().toString() else v.cost.toString(),
-            cashAmount = if (v.cashAmount % 1.0 == 0.0) v.cashAmount.toInt().toString() else v.cashAmount.toString(),
-            onlineAmount = if (v.onlineAmount % 1.0 == 0.0) v.onlineAmount.toInt().toString() else v.onlineAmount.toString(),
-            totalPaid = v.totalPaid,
-            withFees = v.withFees,
-            doctorsAcc = v.doctorsAcc
-        ) }
-    }
-
-    fun loadVaccination(id: String) {
-        viewModelScope.launch {
-            getVaccinationsUseCase().collect { all ->
-                _vaccination.value = all.find { it.id == id }
-            }
-        }
-    }
-
-    fun initializeDates(today: String) {
-        if (_uiState.value.dateGiven.isEmpty()) {
-            _uiState.update { it.copy(dateGiven = today) }
-        }
-    }
-
-    fun resetSaveState() {
-        _uiState.update { it.copy(isSaved = false, savedVaccination = null) }
-    }
-
-    fun onPatientIdChange(id: String) { _uiState.update { it.copy(patientId = id) } }
-    fun onNextBrandChange(brand: String) { _uiState.update { it.copy(nextBrandSearch = brand) } }
-    fun onDateGivenChange(date: String) { _uiState.update { it.copy(dateGiven = date) } }
-    fun onNextDueDateChange(date: String) { _uiState.update { it.copy(nextDueDate = date) } }
-    fun onCostChange(amount: String) { _uiState.update { it.copy(cost = amount) } }
-    fun onFeesToggle(enabled: Boolean) { _uiState.update { it.copy(withFees = enabled) } }
-    fun onAccToggle(enabled: Boolean) { _uiState.update { it.copy(doctorsAcc = enabled) } }
-    
-    fun onCashChange(amount: String) {
-        _uiState.update { state ->
-            val cash = amount.toDoubleOrNull() ?: 0.0
-            val online = state.onlineAmount.toDoubleOrNull() ?: 0.0
-            state.copy(cashAmount = amount, totalPaid = cash + online)
-        }
-    }
-
-    fun onOnlineChange(amount: String) {
-        _uiState.update { state ->
-            val online = amount.toDoubleOrNull() ?: 0.0
-            val cash = state.cashAmount.toDoubleOrNull() ?: 0.0
-            state.copy(onlineAmount = amount, totalPaid = cash + online)
         }
     }
 }

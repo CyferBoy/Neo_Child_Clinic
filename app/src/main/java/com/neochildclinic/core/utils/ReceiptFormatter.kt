@@ -260,8 +260,8 @@ object ReceiptFormatter {
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         
         val names = vaccination.vaccineNames
-        val batches = vaccination.batchNumbers.ifEmpty { emptyList() }
-        val expiries = vaccination.expiryDates.ifEmpty { emptyList() }
+        val batches = vaccination.batchNumbers
+        val expiries = vaccination.expiryDates
         
         val batchX = MARGIN + 300f
         val expX = MARGIN + 400f

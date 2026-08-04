@@ -27,8 +27,6 @@ fun AddPatientContent(
     onClinicIdChange: (String) -> Unit,
     name: String,
     onNameChange: (String) -> Unit,
-    parentName: String,
-    onParentNameChange: (String) -> Unit,
     phone: String,
     onPhoneChange: (String) -> Unit,
     alternatePhone: String,
@@ -41,8 +39,6 @@ fun AddPatientContent(
     onAgeUnitChange: (String) -> Unit,
     gender: String,
     onGenderChange: (String) -> Unit,
-    village: String,
-    onVillageChange: (String) -> Unit,
     address: String,
     onAddressChange: (String) -> Unit,
     isLoading: Boolean,
@@ -93,13 +89,6 @@ fun AddPatientContent(
                     )
                 }
 
-                StandardTextField(
-                    value = parentName,
-                    onValueChange = onParentNameChange,
-                    label = "Parent/Guardian Name",
-                    placeholder = "Enter parent's name"
-                )
-
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StandardTextField(
                         value = phone,
@@ -133,22 +122,13 @@ fun AddPatientContent(
                     onGenderChange = onGenderChange
                 )
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StandardTextField(
-                        value = village,
-                        onValueChange = onVillageChange,
-                        label = "Village/City",
-                        placeholder = "e.g. Sahibganj",
-                        modifier = Modifier.weight(1f)
-                    )
-                    StandardTextField(
-                        value = address,
-                        onValueChange = onAddressChange,
-                        label = "Address (Optional)",
-                        placeholder = "Full address",
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                StandardTextField(
+                    value = address,
+                    onValueChange = onAddressChange,
+                    label = "Address (Optional)",
+                    placeholder = "Full address",
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -175,8 +155,6 @@ private fun AddPatientPreview() {
             onClinicIdChange = {},
             name = "John Doe",
             onNameChange = {},
-            parentName = "Jane Doe",
-            onParentNameChange = {},
             phone = "1234567890",
             onPhoneChange = {},
             alternatePhone = "",
@@ -189,8 +167,6 @@ private fun AddPatientPreview() {
             onAgeUnitChange = {},
             gender = "Male",
             onGenderChange = {},
-            village = "Sahibganj",
-            onVillageChange = {},
             address = "Sahibganj",
             onAddressChange = {},
             isLoading = false,

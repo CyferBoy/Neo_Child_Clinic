@@ -25,7 +25,6 @@ import com.neochildclinic.notification.NotificationHelper
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.postgrest.Postgrest
-import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -44,9 +43,6 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var postgrest: Postgrest
     
-    @Inject
-    lateinit var messaging: FirebaseMessaging
-
     @Inject
     lateinit var notificationHelper: NotificationHelper
 
@@ -85,16 +81,12 @@ class MainActivity : FragmentActivity() {
                     val permissionLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.RequestPermission()
                     ) { isGranted ->
-                        if (isGranted) {
-                            fetchAndStoreFcmToken()
-                        }
+                        // Notifications permission granted/denied
                     }
 
                     LaunchedEffect(Unit) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            fetchAndStoreFcmToken()
                         }
                     }
 
@@ -160,22 +152,6 @@ class MainActivity : FragmentActivity() {
             .build()
 
         biometricPrompt.authenticate(promptInfo)
-    }
-
-    private fun fetchAndStoreFcmToken() {
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
-        messaging.token.addOnSuccessListener { token ->
-            lifecycleScope.launch {
-                try {
-                    // 1. Update staff table
-                    postgrest.from("staff").upsert(
-                        mapOf("id" to currentUser.id, "fcm_token" to token)
-                    )
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to store FCM token in Supabase", e)
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {

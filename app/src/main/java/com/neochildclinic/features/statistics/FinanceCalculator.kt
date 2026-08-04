@@ -20,7 +20,7 @@ object FinanceCalculator {
         val cash = vaccinations.sumOf { it.cashAmount }
         val online = vaccinations.sumOf { it.onlineAmount }
         val netRate = vaccinations.sumOf { v ->
-            v.vaccineNames.sumOf { name -> inventory.find { it.brandName == name }?.netRate ?: 0.0 }
+            v.items.sumOf { item -> inventory.find { it.brandName == item.vaccineName }?.netRate ?: 0.0 }
         }
         return FinanceStatsData(revenue, cash, online, revenue - netRate)
     }
@@ -34,7 +34,7 @@ object FinanceCalculator {
 
         return grouped.map { (key, list) ->
             val revenue = list.sumOf { it.totalPaid }
-            val netRate = list.sumOf { v -> v.vaccineNames.sumOf { name -> inventory.find { it.brandName == name }?.netRate ?: 0.0 } }
+            val netRate = list.sumOf { v -> v.items.sumOf { item -> inventory.find { it.brandName == item.vaccineName }?.netRate ?: 0.0 } }
             val monthIdx = key.substringAfter("-").toInt()
             val year = key.substringBefore("-")
             FinanceSummaryItem("${monthNames[monthIdx]} $year", revenue, revenue - netRate, key)

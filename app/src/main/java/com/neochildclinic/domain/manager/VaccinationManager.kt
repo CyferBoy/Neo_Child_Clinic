@@ -6,7 +6,10 @@ import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.domain.model.*
+import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.VaccinationItem
+import com.neochildclinic.domain.model.ReminderStatus
+import com.neochildclinic.domain.model.PendingRequirement
 import com.neochildclinic.domain.repository.*
 import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.InventoryProcessingService
@@ -100,10 +103,9 @@ class VaccinationManager @Inject constructor(
         val vaccination = Vaccination(
             id = UUID.randomUUID().toString(),
             patientId = requirement.patientId,
-            vaccineNames = listOf(requirement.vaccineName),
+            items = listOf(VaccinationItem(vaccineName = requirement.vaccineName)),
             dateGiven = PatientUtils.formatDate(Date()),
-            isDone = true,
-            source = VaccinationSource.CLINIC.name,
+            status = ReminderStatus.COMPLETED,
             performedBy = user,
             notes = notes
         )
@@ -126,8 +128,14 @@ class VaccinationManager @Inject constructor(
             val firstBatch = activeBatches.firstOrNull { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
             if (firstBatch != null) {
                 enrichedVaccination = vaccination.copy(
-                    batchNumbers = listOf(firstBatch.batchNumber),
-                    expiryDates = listOf(firstBatch.expiryDate)
+                    items = listOf(
+                        VaccinationItem(
+                            vaccineName = requirement.vaccineName,
+                            batchId = firstBatch.batchId,
+                            batchNumber = firstBatch.batchNumber,
+                            expiryDate = firstBatch.expiryDate
+                        )
+                    )
                 )
                 selectedBatchIds.add(firstBatch.batchId)
             }

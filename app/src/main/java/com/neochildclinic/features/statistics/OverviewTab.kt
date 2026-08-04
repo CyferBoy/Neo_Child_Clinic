@@ -39,7 +39,7 @@ fun OverviewTab(patients: List<Patient>, vaccinations: List<Vaccination>) {
         listOf(
             StatItem("New Patients", filteredPatients.size.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50)),
             StatItem("Active Patients", filteredVaccinations.map { it.patientId }.distinct().size.toString(), Icons.Default.PersonSearch, Color(0xFF673AB7)),
-            StatItem("Vaccinations", filteredVaccinations.sumOf { it.vaccineNames.size }.toString(), Icons.Default.Vaccines, Color(0xFFFF9800)),
+            StatItem("Vaccinations", filteredVaccinations.sumOf { it.items.size }.toString(), Icons.Default.Vaccines, Color(0xFFFF9800)),
             StatItem("Revenue", "₹${filteredVaccinations.sumOf { it.totalPaid }.toInt()}", Icons.Default.Payments, Color(0xFF3F51B5)),
             StatItem("Cash", "₹${filteredVaccinations.sumOf { it.cashAmount }.toInt()}", Icons.Default.Money, Color(0xFF4CAF50)),
             StatItem("Online", "₹${filteredVaccinations.sumOf { it.onlineAmount }.toInt()}", Icons.Default.AccountBalanceWallet, Color(0xFF03A9F4))

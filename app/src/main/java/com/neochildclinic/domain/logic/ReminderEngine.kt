@@ -36,7 +36,7 @@ object ReminderEngine {
 
         // Pre-calculate cleaned names of given vaccines to avoid repeated string operations
         val givenVaccinesByVisit = sortedVisits.map { visit ->
-            visit.vaccineNames.map { PatientUtils.cleanVaccineName(it).lowercase().trim() }
+            visit.items.map { PatientUtils.cleanVaccineName(it.vaccineName).lowercase().trim() }
                 .filter { it.isNotBlank() }
                 .toSet()
         }

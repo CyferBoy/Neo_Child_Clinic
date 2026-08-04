@@ -9,7 +9,7 @@ import com.neochildclinic.domain.usecase.patient.SearchPatientsUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
-import com.neochildclinic.domain.model.Staff
+import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.data.local.entity.AuditLogEntity
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
@@ -64,8 +64,8 @@ class PatientListViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     private val _isRefreshing = MutableStateFlow(false)
 
-    private val _staff = MutableStateFlow<Staff?>(null)
-    val currentStaff: StateFlow<Staff?> = _staff.asStateFlow()
+    private val _staff = MutableStateFlow<Profile?>(null)
+    val currentStaff: StateFlow<Profile?> = _staff.asStateFlow()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
     private val _debouncedSearchQuery = _searchQuery.debounce(300).distinctUntilChanged()
@@ -81,7 +81,7 @@ class PatientListViewModel @Inject constructor(
         flow { emit(patientRepository.getTotalPatientCount()) }
     ) { patients, sort, vaccinations, internalState, total ->
         
-        val missingPrice = vaccinations.filter { it.cost <= 0.0 }.map { it.patientId }.toSet()
+        val missingPrice = vaccinations.filter { it.totalPaid <= 0.0 }.map { it.patientId }.toSet()
 
         val sorted = when (sort) {
             PatientSortOption.NAME_AZ -> patients.sortedBy { it.name.lowercase() }
@@ -132,18 +132,18 @@ class PatientListViewModel @Inject constructor(
         val currentUser = auth.currentSessionOrNull()?.user ?: return
         viewModelScope.launch {
             try {
-                val staff = postgrest.from("staff").select {
+                val staff = postgrest.from("profiles").select {
                     filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Staff>()
+                }.decodeSingleOrNull<Profile>()
 
                 if (staff != null) {
                     _staff.value = staff
                 } else {
                     val email = currentUser.email
                     if (email != null) {
-                        val staffByEmail = postgrest.from("staff").select {
+                        val staffByEmail = postgrest.from("profiles").select {
                             filter { eq("email", email) }
-                        }.decodeSingleOrNull<Staff>()
+                        }.decodeSingleOrNull<Profile>()
                         
                         if (staffByEmail != null) {
                             _staff.value = staffByEmail

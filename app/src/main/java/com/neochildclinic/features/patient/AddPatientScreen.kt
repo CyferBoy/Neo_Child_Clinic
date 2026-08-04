@@ -22,12 +22,10 @@ fun AddPatientScreen(
     // Form State
     var clinicId by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
-    var parentName by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var alternatePhone by rememberSaveable { mutableStateOf("") }
     var dob by rememberSaveable { mutableStateOf("") }
     var gender by rememberSaveable { mutableStateOf("Male") }
-    var village by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
     
     // For age selection
@@ -49,12 +47,10 @@ fun AddPatientScreen(
             if (patient != null) {
                 clinicId = if (patient.patientClinicId.startsWith("TEMP-")) "" else patient.patientClinicId
                 name = patient.name
-                parentName = patient.parentName
                 phone = patient.phone
                 alternatePhone = patient.alternatePhone
                 dob = formatDateForDisplay(patient.dob)
                 gender = patient.gender
-                village = patient.village
                 address = patient.address
                 registrationDate = patient.registrationDate
                 
@@ -73,8 +69,6 @@ fun AddPatientScreen(
         onClinicIdChange = { clinicId = it },
         name = name,
         onNameChange = { name = it },
-        parentName = parentName,
-        onParentNameChange = { parentName = it },
         phone = phone,
         onPhoneChange = { phone = it },
         alternatePhone = alternatePhone,
@@ -112,8 +106,6 @@ fun AddPatientScreen(
         },
         gender = gender,
         onGenderChange = { gender = it },
-        village = village,
-        onVillageChange = { village = it },
         address = address,
         onAddressChange = { address = it },
         isLoading = isLoading,
@@ -126,12 +118,10 @@ fun AddPatientScreen(
                     id = patientId ?: UUID.randomUUID().toString(),
                     patientClinicId = clinicId,
                     name = name,
-                    parentName = parentName,
                     phone = phone,
                     alternatePhone = alternatePhone,
                     dob = dob,
                     gender = gender,
-                    village = village,
                     address = address,
                     registrationDate = if (isEditMode) registrationDate else SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
                 )

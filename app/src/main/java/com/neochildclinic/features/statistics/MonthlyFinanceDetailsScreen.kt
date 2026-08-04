@@ -171,7 +171,7 @@ private fun FinanceRecordCard(vaccination: Vaccination, patient: Patient?) {
                 Text(text = "₹${vaccination.totalPaid.toInt()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = vaccination.vaccineNames.joinToString(", ") { PatientUtils.cleanVaccineName(it) }, style = MaterialTheme.typography.bodyMedium)
+            Text(text = vaccination.items.joinToString(", ") { PatientUtils.cleanVaccineName(it.vaccineName) }, style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = "Date: ${PatientUtils.formatDateForDisplay(vaccination.dateGiven)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -4,6 +4,7 @@ import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.data.local.entity.toEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -13,9 +14,8 @@ import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,14 +31,41 @@ class VaccinationRepositoryImpl @Inject constructor(
 ) : VaccinationRepository {
 
     private val vaccinationDao = database.vaccinationDao()
+    private val vaccinationItemDao = database.vaccinationItemDao()
     private val inventoryDeductionDao = database.inventoryDeductionDao()
     private val patientDao = database.patientDao()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override val allVaccinations: Flow<List<Vaccination>> = 
-        vaccinationDao.getAllVaccinations().map { list -> list.map { it.toVaccination() } }
+        vaccinationDao.getAllVaccinations().flatMapLatest { list ->
+            if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
+            val flows = list.map { entity ->
+                vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
+                    entity.toVaccination().copy(items = items.map { it.toDomain() })
+                }
+            }
+            combine(flows) { it.toList() }
+        }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun getVaccinationsForPatient(patientId: String): Flow<List<Vaccination>> = 
-        vaccinationDao.getVaccinationsForPatient(patientId).map { list -> list.map { it.toVaccination() } }
+        vaccinationDao.getVaccinationsForPatient(patientId).flatMapLatest { list ->
+            if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
+            val flows = list.map { entity ->
+                vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
+                    entity.toVaccination().copy(items = items.map { it.toDomain() })
+                }
+            }
+            combine(flows) { it.toList() }
+        }
+
+    override suspend fun getVaccinationById(id: String): Vaccination? {
+        return withContext(Dispatchers.IO) {
+            val entity = vaccinationDao.getVaccinationById(id) ?: return@withContext null
+            val items = vaccinationItemDao.getItemsForVaccination(id).first()
+            entity.toVaccination().copy(items = items.map { it.toDomain() })
+        }
+    }
 
     override suspend fun refreshVaccinations() {
         withContext(Dispatchers.IO) {
@@ -93,10 +120,14 @@ class VaccinationRepositoryImpl @Inject constructor(
             // 1. Check if it's an update
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
             
-            // 2. Save locally
+            // 2. Save header
             vaccinationDao.insertVaccination(vaccination.toEntity(isSynced = false))
+
+            // 3. Save items
+            vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
+            vaccinationItemDao.insertItems(vaccination.items.map { it.toEntity().copy(vaccinationId = vaccination.id) })
             
-            // 3. Queue for background sync
+            // 4. Queue for background sync
             val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
             
             syncRepository.enqueue(
@@ -112,7 +143,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 entityId = vaccination.id,
                 action = "VACCINATION",
                 patientId = vaccination.patientId,
-                remarks = "Vaccines: ${vaccination.vaccineNames.joinToString(", ")}"
+                remarks = "Vaccines: ${vaccination.items.joinToString(", ") { it.vaccineName }}"
             )
         }
     }
@@ -166,7 +197,7 @@ class VaccinationRepositoryImpl @Inject constructor(
         database.withTransaction {
             val current = vaccinationDao.getActiveVaccinationById(id)
             if (current != null) {
-                val updated = current.copy(isDone = true, isSynced = false)
+                val updated = current.copy(status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED, isSynced = false)
                 vaccinationDao.insertVaccination(updated)
                 
                 syncRepository.enqueue(
