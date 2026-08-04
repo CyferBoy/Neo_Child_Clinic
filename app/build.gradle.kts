@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace = "com.clinic.neochild"
+    namespace = "com.neochildclinic"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.clinic.neochild"
+        applicationId = "com.neochildclinic"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -76,13 +76,21 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
     
-    // Firebase
+    // Supabase
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.realtime)
+    implementation(libs.supabase.storage)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.cio)
+    
+    // Firebase (Keeping Messaging for notifications)
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.firestore)
-    implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
-    implementation(libs.kotlinx.coroutines.play.services)
+    
+    // Utilities
     implementation(libs.play.services.base)
+    implementation(libs.kotlinx.serialization.json)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -115,9 +123,9 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     implementation(libs.kotlinx.serialization.json)
 
-    // Firebase App Check
-    implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    implementation("com.google.firebase:firebase-appcheck-debug")
+    // Firebase App Check (Removed as we move to Supabase)
+    // implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    // implementation("com.google.firebase:firebase-appcheck-debug")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

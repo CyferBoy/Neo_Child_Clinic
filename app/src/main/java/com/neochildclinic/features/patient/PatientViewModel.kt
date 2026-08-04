@@ -1,0 +1,231 @@
+package com.neochildclinic.features.patient
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.domain.model.Staff
+import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.Consultation
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.DocumentRepository
+import io.github.jan.supabase.storage.FileObject
+import com.neochildclinic.domain.usecase.patient.DeletePatientUseCase
+import com.neochildclinic.domain.usecase.patient.GetPatientByIdUseCase
+import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
+import com.neochildclinic.domain.usecase.patient.SavePatientUseCase
+import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
+import com.neochildclinic.domain.usecase.vaccination.DeleteVaccinationUseCase
+import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.usecase.vaccination.SaveVaccinationUseCase
+import com.neochildclinic.core.utils.PatientUtils
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.postgrest.Postgrest
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
+
+@HiltViewModel
+class PatientViewModel @Inject constructor(
+    private val getPatientsUseCase: GetPatientsUseCase,
+    private val getPatientByIdUseCase: GetPatientByIdUseCase,
+    private val getVaccinationsUseCase: GetVaccinationsUseCase,
+    private val savePatientUseCase: SavePatientUseCase,
+    private val deletePatientUseCase: DeletePatientUseCase,
+    private val saveVaccinationUseCase: SaveVaccinationUseCase,
+    private val deleteVaccinationUseCase: DeleteVaccinationUseCase,
+    private val refreshDataUseCase: RefreshDataUseCase,
+    private val patientRepository: PatientRepository,
+    private val reminderRepository: ReminderRepository,
+    private val consultationRepository: ConsultationRepository,
+    private val documentRepository: DocumentRepository,
+    private val database: AppDatabase,
+    private val auth: Auth,
+    private val postgrest: Postgrest
+) : ViewModel() {
+
+    private val _documents = MutableStateFlow<List<FileObject>>(emptyList())
+    val documents: StateFlow<List<FileObject>> = _documents.asStateFlow()
+
+    fun loadDocuments(patientId: String) {
+        viewModelScope.launch {
+            try {
+                _documents.value = documentRepository.listDocuments(patientId)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun uploadDocument(patientId: String, fileName: String, bytes: ByteArray) {
+        viewModelScope.launch {
+            try {
+                documentRepository.uploadDocument(patientId, fileName, bytes)
+                loadDocuments(patientId)
+            } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun getDocumentUrl(path: String): String {
+        return documentRepository.getDownloadUrl(path)
+    }
+
+    fun deleteDocument(path: String, patientId: String) {
+        viewModelScope.launch {
+            try {
+                documentRepository.deleteDocument(path)
+                loadDocuments(patientId)
+            } catch (_: Exception) {}
+        }
+    }
+    
+    val allPatients: StateFlow<List<Patient>>
+    val allVaccinations: StateFlow<List<Vaccination>>
+    val patientsWithMissingPrice: StateFlow<Set<String>>
+    
+    private val _staff = MutableStateFlow<Staff?>(null)
+    val currentStaff: StateFlow<Staff?> = _staff.asStateFlow()
+
+    init {
+        fetchStaffProfile()
+        // State Streams
+        allPatients = getPatientsUseCase().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+
+        allVaccinations = getVaccinationsUseCase().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+
+        patientsWithMissingPrice = allVaccinations.map { vaccinations ->
+            vaccinations.filter { it.cost <= 0.0 }.map { it.patientId }.toSet()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet()
+        )
+
+        refresh()
+    }
+
+    private fun fetchStaffProfile() {
+        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        
+        viewModelScope.launch {
+            try {
+                val staff = postgrest.from("staff").select {
+                    filter { eq("id", currentUser.id) }
+                }.decodeSingleOrNull<Staff>()
+
+                if (staff != null) {
+                    _staff.value = staff
+                } else {
+                    val email = currentUser.email
+                    if (email != null) {
+                        val staffByEmail = postgrest.from("staff").select {
+                            filter { eq("email", email) }
+                        }.decodeSingleOrNull<Staff>()
+                        
+                        if (staffByEmail != null) {
+                            _staff.value = staffByEmail
+                            return@launch
+                        }
+                    }
+
+                    _staff.value = Staff(
+                        id = currentUser.id,
+                        email = currentUser.email ?: "",
+                        name = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
+                        role = "User",
+                        createdAt = 0L
+                    )
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            refreshDataUseCase()
+        }
+    }
+
+    fun deletePatient(id: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                deletePatientUseCase(id)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    suspend fun getPatientById(id: String): Patient? {
+        return getPatientByIdUseCase(id)
+    }
+
+    fun savePatient(patient: Patient, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                savePatientUseCase(patient)
+                onComplete()
+            } catch (e: Exception) {
+                // Handle validation or save error
+            }
+        }
+    }
+
+    fun deleteVaccination(id: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                deleteVaccinationUseCase(id)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun saveVaccination(vaccination: Vaccination, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            saveVaccinationUseCase(vaccination)
+            onComplete()
+        }
+    }
+
+    fun getPatientHistory(patientId: String): Flow<List<Vaccination>> {
+        return getVaccinationsUseCase.forPatient(patientId).map { vaccinations ->
+            vaccinations.sortedByDescending { PatientUtils.parseDate(it.dateGiven)?.time ?: 0L }
+        }
+    }
+
+    fun getPatientConsultations(patientId: String): Flow<List<Consultation>> {
+        return consultationRepository.getConsultationsForPatient(patientId)
+    }
+
+    fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {
+        return patientRepository.getPatientTimeline(patientId)
+    }
+
+    fun getPatientFollowUps(patientId: String): Flow<List<ReminderEntity>> {
+        return reminderRepository.getPatientFollowUps(patientId)
+    }
+
+    fun getPatientNotes(patientId: String): Flow<List<PatientNotesEntity>> {
+        return patientRepository.getNotes(patientId)
+    }
+
+    suspend fun getInventoryDeductions(vaccinationId: String): List<com.neochildclinic.data.local.entity.InventoryDeductionEntity> {
+        return database.inventoryDeductionDao().getForVaccination(vaccinationId)
+    }
+}
