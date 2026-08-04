@@ -1,59 +1,56 @@
-# Neo Child Clinic - Vaccine Manager (v1.3)
+# Neo Child Clinic - Vaccine Manager (v1.6)
 
 Neo Child Clinic is a modern, production-grade Android application designed for pediatric clinics to manage patient records, vaccination schedules, inventory, and clinical workflows with high security and data integrity.
 
-## Recent Updates (v1.3)
-- **Unified Follow-up Management:** Complete system for scheduling and tracking follow-up visits. Includes support for "Terminal States" such as **Marked as Done**, **Vaccinated Elsewhere**, and **Dismissed Reminder**.
-- **Precise Due Logic:** Refined "Due Today" filtering to show only vaccinations due on the current date. Overdue items and grace-period reminders are automatically moved to the "Overdue" category for better focus.
-- **External Vaccination Tracking:** Dedicated workflow to record vaccinations administered at other hospitals or government clinics, ensuring complete patient history without impacting local inventory.
-- **Enhanced Audit Trail:** Improved tracking for reminder status changes, recording the staff member responsible, the reason for changes (e.g., dismissal reasons), and timestamps.
-- **UI Architecture Cleanup:** Refactored reminder screens into specialized tabs (Due, Overdue, Completed/Dismissed) for a more organized administrative workflow.
+## Recent Updates (v1.6)
+- **Supabase Backend Migration:** Fully transitioned from Firebase to **Supabase**. Integrated Supabase Auth for identity management and PostgREST for high-performance PostgreSQL data access.
+- **Realtime Collaboration:** Implemented Supabase Realtime to ensure data (patients, vaccinations, etc.) stays synchronized across all clinic devices instantly.
+- **Patient Attachments (Supabase Storage):** Added support for uploading and managing clinical documents, photos, and lab reports directly within the patient profile.
+- **Consultation Tracking:** New module to record and track patient consultations, fees, and clinical notes, separate from vaccination records.
+- **Enhanced Dashboard (Phase 2):** Redesigned the Dashboard with a Material 3 Navigation Drawer, providing quick access to Manage Staff, Audit Logs, and App Settings.
+- **Integrated Sync Status:** Added a visual Cloud Sync indicator in the top bar to provide real-time feedback on background data synchronization.
 
-## Previous Updates (v1.2)
-- **Biometric Security Lock:** Integrated Android Biometric API for secure app access with configurable inactivity timeouts.
-- **Full Clinic Audit Log:** App-wide historical tracking for every medical and administrative action.
-- **Redesigned Expandable Settings:** Consolidated notification, inventory, backup, and security settings.
-- **Sequential Clinic ID System:** Replaced random IDs with production-safe sequential system (`NEO-1000`).
-- **Improved Room Schema Integrity:** Critical repair of database migration paths for 100% schema alignment.
+## Previous Updates (v1.3)
+- **Unified Follow-up Management:** Complete system for scheduling and tracking follow-up visits.
+- **Precise Due Logic:** Refined "Due Today" filtering and automatic "Overdue" categorization.
+- **External Vaccination Tracking:** Dedicated workflow to record vaccinations administered at other facilities.
+- **Enhanced Audit Trail:** Improved tracking for status changes with staff attribution and timestamps.
 
 ## Features
 
 - **Patient Management:** Comprehensive records with automated age calculation and sequential ID generation.
-- **Smart Vaccination Engine:** Requirement-based tracking per vaccine. Automatically calculates next due dates based on clinic protocols.
-- **Follow-up & Reminder System:** Schedule future visits, manage active/overdue reminders, and track completions or dismissals.
-- **External Record Support:** Maintain a holistic view of patient health by recording vaccinations given elsewhere.
+- **Smart Vaccination Engine:** Requirement-based tracking per vaccine. Automatically calculates next due dates.
+- **Consultation & Clinical Notes:** Dedicated workspace for non-vaccination medical visits.
+- **Document Attachments:** Securely store and view patient-related files in the cloud.
 - **Inventory Management:** Track vaccine stock, batches, expiry dates, and low-stock alerts.
 - **Secure Offline-First Architecture:** 
     - **Encryption:** 256-bit SQLCipher encryption for the local Room database.
-    - **Offline Sync:** Robust background sync with Firebase Firestore via WorkManager.
-- **Security & Privacy:** Biometric authentication and granular staff audit logs.
-- **Clinical Tools:** Record consultations, generate digital receipts, and manage staff access.
-- **Notification Suite:** Automated alerts for due vaccinations, overdue patients, and inventory warnings.
+    - **Offline Sync:** Robust background sync with Supabase via WorkManager.
+- **Security & Privacy:** Biometric authentication and granular role-based access control (RLS).
 - **Home Screen Widgets:** Quick-access widgets for immediate visibility of today's tasks.
 
 ## Setup Instructions
-
-To protect privacy and security, specific configuration files are not included in this repository. Follow these steps to set up the project:
 
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/CyferBoy/Vaccine_Manager.git
 ```
 
-### 2. Firebase Configuration
-1. Create a new project in the [Firebase Console](https://console.firebase.google.com/).
-2. Add an Android app to your Firebase project.
-3. Download the `google-services.json` file.
-4. Place the `google-services.json` file in the `app/` directory of the project.
+### 2. Supabase Configuration
+1. Create a new project on [Supabase](https://supabase.com/).
+2. Run the provided SQL schema scripts (found in the artifacts directory) in the Supabase SQL Editor to create the necessary tables and RLS policies.
+3. Enable **Email Auth** in the Authentication settings and disable "Confirm Email" for testing if desired.
+4. Add `neochild://auth-callback` to your Redirect URLs.
+5. Create a storage bucket named `patient-docs`.
 
-### 3. Firebase Services Setup
-Enable the following services in your Firebase console:
-- **Authentication:** Email/Password provider.
-- **Firestore Database:** Create a database in production mode.
-- **Cloud Messaging:** To enable notifications.
-- **App Check:** Recommended for production security.
+### 3. App Configuration
+1. Open `SupabaseModule.kt` in the `di` package.
+2. Replace `YOUR_SUPABASE_URL` and `YOUR_SUPABASE_ANON_KEY` with your project credentials.
 
-### 4. Build and Run
+### 4. Firebase Messaging (Optional for Notifications)
+1. Add your `google-services.json` to the `app/` directory if you wish to use FCM for push notifications.
+
+### 5. Build and Run
 - Open the project in Android Studio.
 - Sync Gradle files.
 - Build and run the app on an emulator or a physical device.
@@ -62,9 +59,10 @@ Enable the following services in your Firebase console:
 
 - **UI:** Jetpack Compose (Material 3)
 - **Architecture:** MVVM + Clean Architecture principles
-- **Database:** Room + SQLCipher (Encryption)
-- **Backend:** Firebase (Firestore, Auth, FCM, App Check)
-- **Background Tasks:** WorkManager
+- **Database:** Room + SQLCipher (Local) / Supabase PostgreSQL (Remote)
+- **Authentication:** Supabase Auth
+- **Storage:** Supabase Storage
+- **Realtime:** Supabase Realtime
 - **Dependency Injection:** Hilt
 
 ## License
