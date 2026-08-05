@@ -30,7 +30,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationEntity::class,
         VaccinationItemEntity::class
     ], 
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -47,7 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
     
     // New DAOs
     abstract fun financeDao(): FinanceDao
-    abstract fun staffDao(): StaffDao
+    abstract fun profileDao(): ProfileDao
     abstract fun borrowDao(): BorrowDao
     abstract fun patientNotesDao(): PatientNotesDao
     abstract fun inventoryDeductionDao(): InventoryDeductionDao

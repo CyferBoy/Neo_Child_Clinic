@@ -14,7 +14,7 @@ import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.dao.WasteDao
 import com.neochildclinic.data.local.dao.WidgetDueDao
 import com.neochildclinic.data.local.dao.FinanceDao
-import com.neochildclinic.data.local.dao.StaffDao
+import com.neochildclinic.data.local.dao.ProfileDao
 import com.neochildclinic.data.local.dao.BorrowDao
 import com.neochildclinic.data.local.dao.InventoryDeductionDao
 import dagger.Module
@@ -95,8 +95,8 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideStaffDao(database: AppDatabase): StaffDao {
-        return database.staffDao()
+    fun provideProfileDao(database: AppDatabase): ProfileDao {
+        return database.profileDao()
     }
 
     @Provides

@@ -9,10 +9,12 @@ interface FinanceRepository {
     fun getDailyIncome(start: Long): Flow<Double?>
     
     suspend fun recordIncome(
-        amount: Double, 
-        category: String, 
-        patientId: String?, 
-        visitId: String?, 
+        amount: Double,
+        cashAmount: Double,
+        onlineAmount: Double,
+        category: String,
+        patientId: String?,
+        visitId: String?,
         remarks: String?,
         recordedBy: String
     )

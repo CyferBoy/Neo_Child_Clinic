@@ -126,16 +126,32 @@ class PatientViewModel @Inject constructor(
                     filter { eq("id", currentUser.id) }
                 }.decodeSingleOrNull<Profile>()
 
+                val authLastLogin = currentUser.lastSignInAt?.toString()
+
                 if (profile != null) {
-                    _profile.value = profile
+                    if (profile.lastLogin != authLastLogin) {
+                        val updatedProfile = profile.copy(lastLogin = authLastLogin)
+                        postgrest.from("profiles").update(updatedProfile) {
+                            filter { eq("id", profile.id) }
+                        }
+                        _profile.value = updatedProfile
+                    } else {
+                        _profile.value = profile
+                    }
                 } else {
                     val email = currentUser.email
                     if (email != null) {
-                        val profileByEmail = postgrest.from("profiles").select {
+                        var profileByEmail = postgrest.from("profiles").select {
                             filter { eq("email", email) }
                         }.decodeSingleOrNull<Profile>()
                         
                         if (profileByEmail != null) {
+                            if (profileByEmail.lastLogin != authLastLogin) {
+                                profileByEmail = profileByEmail.copy(lastLogin = authLastLogin)
+                                postgrest.from("profiles").update(profileByEmail) {
+                                    filter { eq("id", profileByEmail.id) }
+                                }
+                            }
                             _profile.value = profileByEmail
                             return@launch
                         }
@@ -145,7 +161,10 @@ class PatientViewModel @Inject constructor(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
                         displayName = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
-                        role = UserRole.nurse
+                        phoneNumber = currentUser.userMetadata?.get("phone_number")?.toString() ?: "",
+                        employeeId = currentUser.userMetadata?.get("employee_id")?.toString(),
+                        role = UserRole.nurse,
+                        lastLogin = authLastLogin
                     )
                 }
             } catch (_: Exception) { }

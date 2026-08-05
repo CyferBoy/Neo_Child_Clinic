@@ -127,22 +127,16 @@ fun ProfileScreen(
                         ProfileHeaderSection(profile)
                         
                         InfoSection(title = "Personal Information") {
-                            InfoRow(Icons.Default.Person, "Display Name", profile.displayName)
+                            InfoRow(Icons.Default.Person, "Full Name", profile.displayName)
                             InfoRow(Icons.Default.Email, "Email Address", profile.email)
                             InfoRow(Icons.Default.Phone, "Phone Number", profile.phoneNumber.ifBlank { "Not set" })
-                            InfoRow(Icons.Default.Badge, "Role", profile.role.name.uppercase())
-                            if (!profile.employeeId.isNullOrBlank()) {
-                                InfoRow(Icons.Default.Work, "Employee ID", profile.employeeId)
-                            }
                         }
 
                         InfoSection(title = "Account Information") {
-                            InfoRow(Icons.Default.Fingerprint, "User UUID", profile.id)
-                            InfoRow(Icons.Default.CalendarToday, "Created At", profile.createdAt)
-                            InfoRow(Icons.Default.Update, "Last Updated", profile.updatedAt)
-                            if (!profile.lastLogin.isNullOrBlank()) {
-                                InfoRow(Icons.Default.Login, "Last Login", profile.lastLogin)
-                            }
+                            InfoRow(Icons.Default.Work, "Employee ID", profile.employeeId ?: "Not assigned")
+                            InfoRow(Icons.Default.Badge, "Role", profile.role.name.uppercase())
+                            InfoRow(Icons.Default.CalendarToday, "Created At", com.neochildclinic.core.utils.PatientUtils.formatDateTimeForDisplay(profile.createdAt))
+                            InfoRow(Icons.Default.Login, "Last Login", profile.lastLogin?.let { com.neochildclinic.core.utils.PatientUtils.formatDateTimeForDisplay(it) } ?: "Never")
                         }
 
                         InfoSection(title = "Security") {

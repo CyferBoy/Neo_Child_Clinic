@@ -16,36 +16,63 @@ import kotlinx.serialization.Serializable
             parentColumns = ["id"],
             childColumns = ["patientId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = VisitEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["visitId"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("patientId"), Index("date")]
+    indices = [Index("patientId"), Index("visitId"), Index("date")]
 )
 data class ConsultationEntity(
     @PrimaryKey val id: String,
+    val visitId: String = "",
     val patientId: String,
+    val doctorId: String = "",
+    val doctorName: String = "",
     val date: String,
     val amount: Double,
-    val notes: String = "",
+    val cashAmount: Double = 0.0,
+    val onlineAmount: Double = 0.0,
+    val problem: String = "",
+    val notes: String = "", // Kept for notes if needed, spec uses problem
     val nextFollowUpDate: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = true
 )
 
 fun ConsultationEntity.toDomain() = Consultation(
     id = id,
+    visitId = visitId,
     patientId = patientId,
+    doctorId = doctorId,
+    doctorName = doctorName,
     date = date,
     amount = amount,
+    cashAmount = cashAmount,
+    onlineAmount = onlineAmount,
+    problem = problem,
     notes = notes,
-    nextFollowUpDate = nextFollowUpDate
+    nextFollowUpDate = nextFollowUpDate,
+    createdAt = createdAt
 )
 
 fun Consultation.toEntity(isSynced: Boolean = true) = ConsultationEntity(
     id = id,
+    visitId = visitId,
     patientId = patientId,
+    doctorId = doctorId,
+    doctorName = doctorName,
     date = date,
     amount = amount,
+    cashAmount = cashAmount,
+    onlineAmount = onlineAmount,
+    problem = problem,
     notes = notes,
     nextFollowUpDate = nextFollowUpDate,
+    createdAt = createdAt,
     isSynced = isSynced
 )

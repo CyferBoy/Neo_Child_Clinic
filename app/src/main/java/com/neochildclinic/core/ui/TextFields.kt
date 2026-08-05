@@ -32,7 +32,9 @@ fun StandardTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null,
-    shape: RoundedCornerShape = RoundedCornerShape(12.dp)
+    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    minLines: Int = 1,
+    singleLine: Boolean = minLines == 1
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         if (label.isNotEmpty()) {
@@ -55,6 +57,8 @@ fun StandardTextField(
             visualTransformation = visualTransformation,
             trailingIcon = trailingIcon,
             shape = shape,
+            minLines = minLines,
+            singleLine = singleLine,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,

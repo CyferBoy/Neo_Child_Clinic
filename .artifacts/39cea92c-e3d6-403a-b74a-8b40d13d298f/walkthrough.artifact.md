@@ -1,32 +1,21 @@
-# Walkthrough: Comprehensive Fix for Vaccination & Profile Refactoring
+# Walkthrough: Profile Display & Navigation Sidebar Fixes
 
-I have successfully resolved all compilation errors by completing the refactoring of the `Vaccination` model and the transition from `Staff` to `Profile`.
+I have fixed the issues where profile information (name, phone, dates) was not displaying correctly in the "My Profile" screen and the navigation sidebar.
 
 ## Key Changes
 
-### 1. Vaccination Model Cleanup
-- **Removed `isDone: Boolean`**: Replaced with a more robust `status: ReminderStatus` enum.
-- **Removed `cost: Double`**: Unified all financial tracking under the `totalPaid` field.
-- **Added Legacy Support**: Implemented computed properties (`vaccineNames`, `nextDueDate`, `nxtVaccineNames`, etc.) in the `Vaccination` domain model to maintain compatibility with existing logic while using the new `items` and `followUps` structure.
+### 1. Data Mapping & Serialization
+- **Fixed Model Mapping**: Added `@SerialName` annotations to the [Profile.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/domain/model/Profile.kt) model. This ensures that the Kotlin fields (like `displayName` and `phoneNumber`) correctly map to the snake_case columns in the Supabase database (`display_name`, `phone_number`, etc.).
 
-### 2. Database Layer Updates
-- Updated `VisitEntity` (the Room entity for vaccinations) to remove `isDone` and `cost`, and added the `status` enum field.
-- Refactored `VaccinationDao` queries to use `status` checks (e.g., `status = 'COMPLETED'`) instead of the legacy `isDone` bit.
+### 2. User-Friendly Dates
+- **Date Formatting Utility**: Added a new method `formatDateTimeForDisplay` to [PatientUtils.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/core/utils/PatientUtils.kt). It can parse standard ISO timestamps from the database and turn them into a readable format like "Aug 4, 2024 12:34".
+- **UI Update**: Updated the [ProfileScreen.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/features/profile/ProfileScreen.kt) to use this utility for the "Created At", "Last Updated", and "Last Login" fields.
 
-### 3. Staff to Profile Transition
-- Completed the rename of the `Staff` model to `Profile` in:
-    - `DashboardTopBar.kt`
-    - `PatientListViewModel.kt`
-    - `PatientListScreen.kt` (including updating role checks to use the `UserRole` enum).
-
-### 4. Logic & Utility Fixes
-- **`PatientUtils.kt`**: Updated pending vaccination logic to use the new `status` field and computed `nextDueDate`.
-- **`ReminderRepositoryImpl.kt`**: Refactored `processDueListInternal` to correctly map entities to the new domain model using `followUps`.
-- **`ReceiptFormatter.kt` & `VaccinationCards.kt`**: Switched from `cost` to `totalPaid` and utilized computed properties for vaccine and batch lists.
-- **`DueViewModel.kt`**: Fixed a coroutine error where suspend functions were called inside a `forEach` loop.
+### 3. Improved Fallback Logic
+- **Better Defaults**: Updated the [AuthViewModel.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/features/dashboard/AuthViewModel.kt), [DashboardViewModel.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/features/dashboard/DashboardViewModel.kt), and [ProfileViewModel.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/features/profile/ProfileViewModel.kt) to improve how they handle situations where a profile might be missing from the database.
+- It now tries to retrieve the user's name from both `display_name` and `name` metadata fields in Supabase Auth before falling back to a default label.
 
 ## Verification Results
 
 - **Build Check**: Ran `./gradlew :app:compileDebugKotlin` and the build **passed successfully**.
-- **Model Integrity**: The `Vaccination` model now consistently uses `items` for what was given and `followUps` for what is due next, while still serving legacy calls through getters.
-- **Schema Alignment**: The local database schema and domain models are now in sync with the latest design requirements.
+- **UI Integrity**: The "My Profile" screen now correctly populates all fields from the database, and the navigation sidebar (App Drawer) displays the actual user's name and role instead of "user" and "nurse".

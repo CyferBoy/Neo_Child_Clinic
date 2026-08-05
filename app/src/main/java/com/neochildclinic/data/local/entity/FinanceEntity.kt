@@ -16,6 +16,8 @@ data class FinanceEntity(
     val type: String, // INCOME, EXPENSE, REFUND
     val category: String, // VACCINATION, CONSULTATION, PURCHASE, etc.
     val amount: Double,
+    val cashAmount: Double = 0.0,
+    val onlineAmount: Double = 0.0,
     val currency: String = "INR",
     val paymentMethod: String, // CASH, ONLINE, MIXED
     val patientId: String? = null,

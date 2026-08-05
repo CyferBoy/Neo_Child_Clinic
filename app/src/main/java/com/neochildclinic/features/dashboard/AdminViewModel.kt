@@ -3,7 +3,7 @@ package com.neochildclinic.features.dashboard
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import io.github.jan.supabase.postgrest.Postgrest
+import com.neochildclinic.domain.repository.ProfileRepository
 import io.github.jan.supabase.auth.Auth
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +22,7 @@ data class AdminUiState(
 
 @HiltViewModel
 class AdminViewModel @Inject constructor(
-    private val postgrest: Postgrest,
+    private val profileRepository: ProfileRepository,
     private val auth: Auth
 ) : ViewModel() {
 
@@ -31,24 +31,22 @@ class AdminViewModel @Inject constructor(
 
     init {
         fetchStaff()
+        observeStaff()
+    }
+
+    private fun observeStaff() {
+        viewModelScope.launch {
+            profileRepository.allProfiles.collect { list ->
+                _uiState.value = _uiState.value.copy(staffList = list)
+            }
+        }
     }
 
     fun fetchStaff() {
         _uiState.value = _uiState.value.copy(isLoading = true)
-        
         viewModelScope.launch {
-            try {
-                val staffList = postgrest.from("profiles").select().decodeList<Profile>()
-                _uiState.value = _uiState.value.copy(
-                    staffList = staffList.sortedBy { it.displayName },
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message,
-                    isLoading = false
-                )
-            }
+            profileRepository.refreshProfiles()
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
@@ -62,8 +60,7 @@ class AdminViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Call RPC to create new staff (Admin only)
-                // We pass the role to the backend logic (Edge Function recommended)
+                // Creation still requires Edge Function for security
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Staff creation ($role) must be done via Supabase Edge Functions to securely manage auth.admin API."
@@ -76,18 +73,14 @@ class AdminViewModel @Inject constructor(
 
     fun deleteStaff(staffId: String) {
         _uiState.value = _uiState.value.copy(isLoading = true)
-        
         viewModelScope.launch {
             try {
-                postgrest.from("profiles").delete {
-                    filter { eq("id", staffId) }
-                }
+                profileRepository.deleteProfile(staffId)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     success = "Staff data deleted successfully",
                     error = "Note: Auth account must be deleted via Supabase Dashboard."
                 )
-                fetchStaff()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -113,14 +106,11 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                postgrest.from("profiles").update(mapOf("role" to newRole.name)) {
-                    filter { eq("id", staffId) }
-                }
+                profileRepository.updateProfileRole(staffId, newRole)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     success = "Role updated to ${newRole.name}"
                 )
-                fetchStaff()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -131,14 +121,11 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                postgrest.from("profiles").update(mapOf("is_active" to isActive)) {
-                    filter { eq("id", staffId) }
-                }
+                profileRepository.toggleProfileStatus(staffId, isActive)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     success = if (isActive) "Staff activated" else "Staff deactivated"
                 )
-                fetchStaff()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -149,20 +136,17 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                postgrest.from("profiles").update(
-                    mapOf(
-                        "display_name" to name,
-                        "phone_number" to phone,
-                        "role" to role.name
-                    )
-                ) {
-                    filter { eq("id", staffId) }
-                }
+                val profile = profileRepository.getProfileById(staffId) ?: return@launch
+                val updated = profile.copy(
+                    displayName = name,
+                    phoneNumber = phone,
+                    role = role
+                )
+                profileRepository.updateProfile(updated)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     success = "Staff updated successfully"
                 )
-                fetchStaff()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }

@@ -1,0 +1,4 @@
+- `[x]` Update `ProfileEntity.kt` with missing fields and mapping updates
+- `[x]` Increment database version in `AppDatabase.kt` to 3
+- `[x]` Verify build with `./gradlew :app:compileDebugKotlin`
+- `[x]` Create walkthrough

@@ -92,7 +92,15 @@ object PatientUtils {
      */
     fun parseDate(dateStr: String): Date? {
         if (dateStr.isBlank()) return null
-        val formats = listOf(Constants.DATE_FORMAT, "d/M/yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss")
+        val formats = listOf(
+            Constants.DATE_FORMAT, 
+            "d/M/yyyy", 
+            "dd/MM/yyyy", 
+            "yyyy-MM-dd", 
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+        )
         for (format in formats) {
             try {
                 val sdf = SimpleDateFormat(format, Locale.ENGLISH)
@@ -100,8 +108,16 @@ object PatientUtils {
                 return sdf.parse(dateStr)
             } catch (_: Exception) {}
         }
-        android.util.Log.e("PatientUtils", "Failed to parse date: $dateStr")
         return null
+    }
+
+    /**
+     * Formats a date or ISO string for user-friendly display.
+     */
+    fun formatDateTimeForDisplay(isoString: String): String {
+        if (isoString.isBlank()) return "N/A"
+        val date = parseDate(isoString) ?: return isoString
+        return SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(date)
     }
 
     /**

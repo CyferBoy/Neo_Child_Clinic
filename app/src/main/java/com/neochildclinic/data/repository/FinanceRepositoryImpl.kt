@@ -39,6 +39,8 @@ class FinanceRepositoryImpl @Inject constructor(
 
     override suspend fun recordIncome(
         amount: Double,
+        cashAmount: Double,
+        onlineAmount: Double,
         category: String,
         patientId: String?,
         visitId: String?,
@@ -50,7 +52,9 @@ class FinanceRepositoryImpl @Inject constructor(
                 type = "INCOME",
                 category = category,
                 amount = amount,
-                paymentMethod = "MIXED", // Simplified for now
+                cashAmount = cashAmount,
+                onlineAmount = onlineAmount,
+                paymentMethod = if (cashAmount > 0 && onlineAmount > 0) "MIXED" else if (cashAmount > 0) "CASH" else "ONLINE",
                 patientId = patientId,
                 visitId = visitId,
                 remarks = remarks,

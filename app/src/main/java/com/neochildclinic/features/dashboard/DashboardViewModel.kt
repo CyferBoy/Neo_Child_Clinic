@@ -54,17 +54,33 @@ class DashboardViewModel @Inject constructor(
                     filter { eq("id", currentUser.id) }
                 }.decodeSingleOrNull<Profile>()
 
+                val authLastLogin = currentUser.lastSignInAt?.toString()
+
                 if (profile != null) {
-                    _profile.value = profile
+                    if (profile.lastLogin != authLastLogin) {
+                        val updatedProfile = profile.copy(lastLogin = authLastLogin)
+                        postgrest.from("profiles").update(updatedProfile) {
+                            filter { eq("id", profile.id) }
+                        }
+                        _profile.value = updatedProfile
+                    } else {
+                        _profile.value = profile
+                    }
                 } else {
                     // Try to find by email
                     val email = currentUser.email
                     if (email != null) {
-                        val profileByEmail = postgrest.from("profiles").select {
+                        var profileByEmail = postgrest.from("profiles").select {
                             filter { eq("email", email) }
                         }.decodeSingleOrNull<Profile>()
                         
                         if (profileByEmail != null) {
+                            if (profileByEmail.lastLogin != authLastLogin) {
+                                profileByEmail = profileByEmail.copy(lastLogin = authLastLogin)
+                                postgrest.from("profiles").update(profileByEmail) {
+                                    filter { eq("id", profileByEmail.id) }
+                                }
+                            }
                             _profile.value = profileByEmail
                             return@launch
                         }
@@ -74,8 +90,15 @@ class DashboardViewModel @Inject constructor(
                     _profile.value = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
-                        role = UserRole.nurse
+                        displayName = currentUser.userMetadata?.get("display_name")?.toString() 
+                            ?: currentUser.userMetadata?.get("name")?.toString() 
+                            ?: currentUser.email?.substringBefore("@") ?: "User",
+                        phoneNumber = currentUser.userMetadata?.get("phone_number")?.toString() ?: "",
+                        employeeId = currentUser.userMetadata?.get("employee_id")?.toString(),
+                        role = try { 
+                            UserRole.valueOf(currentUser.userMetadata?.get("role")?.toString() ?: "nurse") 
+                        } catch (_: Exception) { UserRole.nurse },
+                        lastLogin = authLastLogin
                     )
                 }
             } catch (e: Exception) {

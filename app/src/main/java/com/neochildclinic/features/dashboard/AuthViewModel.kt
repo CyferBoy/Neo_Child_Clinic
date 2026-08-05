@@ -4,7 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.model.Profile
-import io.github.jan.supabase.postgrest.Postgrest
+import com.neochildclinic.domain.repository.ProfileRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.user.UserInfo
@@ -20,7 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val auth: Auth,
-    private val postgrest: Postgrest,
+    private val profileRepository: ProfileRepository,
     private val syncManager: SyncManager
 ) : ViewModel() {
 
@@ -46,10 +46,39 @@ class AuthViewModel @Inject constructor(
 
     private suspend fun fetchProfile(userId: String) {
         try {
-            val p = postgrest.from("profiles").select {
-                filter { eq("id", userId) }
-            }.decodeSingleOrNull<Profile>()
+            // Get from repository (handles local fallback and remote sync)
+            var p = profileRepository.getProfileById(userId)
+            val authLastLogin = auth.currentSessionOrNull()?.user?.lastSignInAt?.toString()
+            
+            if (p == null) {
+                val currentUser = auth.currentSessionOrNull()?.user
+                if (currentUser != null) {
+                    p = Profile(
+                        id = currentUser.id,
+                        email = currentUser.email ?: "",
+                        displayName = currentUser.userMetadata?.get("display_name")?.toString() 
+                            ?: currentUser.userMetadata?.get("name")?.toString() 
+                            ?: currentUser.email?.substringBefore("@") ?: "User",
+                        phoneNumber = currentUser.userMetadata?.get("phone_number")?.toString() ?: "",
+                        employeeId = currentUser.userMetadata?.get("employee_id")?.toString(),
+                        role = try { 
+                            com.neochildclinic.domain.model.UserRole.valueOf(currentUser.userMetadata?.get("role")?.toString() ?: "nurse") 
+                        } catch (_: Exception) { com.neochildclinic.domain.model.UserRole.nurse },
+                        lastLogin = authLastLogin
+                    )
+                    profileRepository.saveLocalProfile(p)
+                }
+            } else if (p.lastLogin != authLastLogin) {
+                p = p.copy(lastLogin = authLastLogin)
+                profileRepository.updateProfile(p)
+            }
             _profile.value = p
+            
+            // Background refresh
+            profileRepository.refreshProfiles()
+            profileRepository.getProfileById(userId)?.let {
+                _profile.value = it
+            }
         } catch (e: Exception) {
             _error.value = "Failed to load profile: ${e.message}"
         }
@@ -65,7 +94,7 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                val session = auth.signInWith(Email) {
+                auth.signInWith(Email) {
                     this.email = email
                     this.password = pass
                 }

@@ -54,8 +54,10 @@ data class VisitEntity(
     val doctorsAcc: Boolean = false,
     val status: ReminderStatus = ReminderStatus.ACTIVE,
     val source: String = "CLINIC",
+    val visitType: String = "VACCINATION",
     val inventoryStatus: String = "PENDING",
     
+    val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = true
 )
@@ -97,6 +99,7 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = VisitEntity(
     withFees = withFees,
     doctorsAcc = doctorsAcc,
     status = status,
+    visitType = "VACCINATION",
     inventoryStatus = inventoryStatus,
     updatedAt = updatedAt,
     isSynced = isSynced,

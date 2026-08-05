@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
@@ -52,7 +53,6 @@ fun PatientDetailsScreen(
         }
     }
     
-    // Correct way to observe patient-specific history
     val patientVaccinations by viewModel.getPatientHistory(patientId).collectAsState(initial = emptyList())
     val patientConsultations by viewModel.getPatientConsultations(patientId).collectAsState(initial = emptyList())
     val documents by viewModel.documents.collectAsState()
@@ -77,7 +77,7 @@ fun PatientDetailsScreen(
             val vId = vaccinationToDelete?.id
             if (vId != null) {
                 viewModel.deleteVaccination(vId) { success ->
-                    val msg = if (success) "Vaccination record deleted" else "Failed to delete — please try again"
+                    val msg = if (success) "Vaccination record deleted" else "Failed to delete"
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -98,7 +98,7 @@ fun PatientDetailsScreen(
                         Toast.makeText(context, "Patient record deleted", Toast.LENGTH_SHORT).show()
                         onBack()
                     } else {
-                        Toast.makeText(context, "Failed to delete — please try again", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Failed to delete", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -125,13 +125,13 @@ fun PatientDetailsScreen(
                     title = { Text("Patient Details") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onPrimary)
                         }
                     },
                     actions = {
                         Box {
                             IconButton(onClick = { menuExpanded = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = MaterialTheme.colorScheme.onPrimary)
+                                Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onPrimary)
                             }
                             DropdownMenu(
                                 expanded = menuExpanded,
@@ -140,7 +140,7 @@ fun PatientDetailsScreen(
                                 if (canEditOrDelete) {
                                     DropdownMenuItem(
                                         text = { Text("Edit Patient") },
-                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                        leadingIcon = { Icon(Icons.Default.Edit, null) },
                                         onClick = {
                                             menuExpanded = false
                                             onEditPatient(patientId)
@@ -149,8 +149,8 @@ fun PatientDetailsScreen(
                                 }
                                 if (isAdmin) {
                                     DropdownMenuItem(
-                                        text = { Text("Audit Log") },
-                                        leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
+                                        text = { Text("View Audit History") },
+                                        leadingIcon = { Icon(Icons.Default.History, null) },
                                         onClick = {
                                             menuExpanded = false
                                             showAuditLog = true
@@ -158,7 +158,7 @@ fun PatientDetailsScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Delete Patient", color = MaterialTheme.colorScheme.error) },
-                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                         onClick = {
                                             menuExpanded = false
                                             patientToDelete = patient
@@ -170,8 +170,7 @@ fun PatientDetailsScreen(
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
             },
@@ -182,7 +181,7 @@ fun PatientDetailsScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add")
+                        Icon(Icons.Default.Add, "Add")
                     }
 
                     DropdownMenu(
@@ -191,7 +190,7 @@ fun PatientDetailsScreen(
                     ) {
                         DropdownMenuItem(
                             text = { Text("Add Vaccination") },
-                            leadingIcon = { Icon(Icons.Default.Vaccines, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Default.Vaccines, null) },
                             onClick = {
                                 fabExpanded = false
                                 onAddVaccine(patientId)
@@ -199,7 +198,7 @@ fun PatientDetailsScreen(
                         )
                         DropdownMenuItem(
                             text = { Text("Add Consultation") },
-                            leadingIcon = { Icon(Icons.Default.MedicalServices, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Default.MedicalServices, null) },
                             onClick = {
                                 fabExpanded = false
                                 onAddConsultation(patientId)
@@ -227,17 +226,12 @@ fun PatientDetailsScreen(
                     onSegmentSelected = { selectedSegment = it },
                     onEdit_vaccination = onEditVaccination,
                     onDeleteVaccination = { vaccinationToDelete = it },
-                    onUploadDocument = {
-                        launcher.launch("*/*")
-                    },
-                    onDeleteDocument = { path ->
-                        viewModel.deleteDocument(path, patientId)
-                    },
+                    onUploadDocument = { launcher.launch("*/*") },
+                    onDeleteDocument = { viewModel.deleteDocument(it, patientId) },
                     onViewDocument = { path ->
                         scope.launch {
                             val url = viewModel.getDocumentUrl(path)
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            context.startActivity(intent)
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         }
                     },
                     viewModel = viewModel

@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
+import com.neochildclinic.domain.repository.ProfileRepository
 import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.serialization.json.put
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +24,7 @@ data class ProfileUiState(
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val auth: Auth,
-    private val postgrest: Postgrest
+    private val profileRepository: ProfileRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -40,35 +40,35 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val profile = postgrest.from("profiles").select {
-                    filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Profile>()
+                // Try to get from local repository first
+                var profile = profileRepository.getProfileById(currentUser.id)
 
-                if (profile != null) {
-                    _uiState.value = _uiState.value.copy(profile = profile, isLoading = false)
-                } else {
-                    // Try to find by email
-                    val email = currentUser.email
-                    if (email != null) {
-                        val profileByEmail = postgrest.from("profiles").select {
-                            filter { eq("email", email) }
-                        }.decodeSingleOrNull<Profile>()
-                        
-                        if (profileByEmail != null) {
-                            _uiState.value = _uiState.value.copy(profile = profileByEmail, isLoading = false)
-                            return@launch
-                        }
-                    }
-
-                    // Fallback
-                    val profileFallback = Profile(
+                if (profile == null) {
+                    // Fallback to initial profile from auth metadata
+                    profile = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("name")?.toString() ?: "User",
-                        role = UserRole.nurse
+                        displayName = currentUser.userMetadata?.get("display_name")?.toString() 
+                            ?: currentUser.userMetadata?.get("name")?.toString() 
+                            ?: currentUser.email?.substringBefore("@") ?: "User",
+                        phoneNumber = currentUser.userMetadata?.get("phone_number")?.toString() ?: "",
+                        employeeId = currentUser.userMetadata?.get("employee_id")?.toString(),
+                        role = try { 
+                            UserRole.valueOf(currentUser.userMetadata?.get("role")?.toString() ?: "nurse") 
+                        } catch (_: Exception) { UserRole.nurse }
                     )
-                    _uiState.value = _uiState.value.copy(profile = profileFallback, isLoading = false)
+                    profileRepository.saveLocalProfile(profile)
                 }
+                
+                _uiState.value = _uiState.value.copy(profile = profile, isLoading = false)
+                
+                // Refresh from remote
+                profileRepository.refreshProfiles()
+                val refreshed = profileRepository.getProfileById(currentUser.id)
+                if (refreshed != null) {
+                    _uiState.value = _uiState.value.copy(profile = refreshed)
+                }
+
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
@@ -82,20 +82,21 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
             try {
-                // 1. Update Supabase Auth User Metadata
+                // 1. Update Supabase Auth User Metadata (Internal to Auth)
                 auth.updateUser {
                     data {
                         put("name", newName)
                     }
                 }
 
-                // 2. Update profiles table
-                postgrest.from("profiles").update(mapOf("display_name" to newName)) {
-                    filter { eq("id", currentUser.id) }
-                }
+                // 2. Update via Repository (Handles local DB + Sync)
+                val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUser.id)
+                val updated = currentProfile?.copy(displayName = newName) ?: return@launch
+                
+                profileRepository.updateProfile(updated)
                 
                 _uiState.value = _uiState.value.copy(
-                    profile = _uiState.value.profile?.copy(displayName = newName),
+                    profile = updated,
                     isLoading = false,
                     success = "Name updated successfully"
                 )
@@ -110,11 +111,13 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
             try {
-                postgrest.from("profiles").update(mapOf("phone_number" to newPhone)) {
-                    filter { eq("id", currentUser.id) }
-                }
+                val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUser.id)
+                val updated = currentProfile?.copy(phoneNumber = newPhone) ?: return@launch
+                
+                profileRepository.updateProfile(updated)
+                
                 _uiState.value = _uiState.value.copy(
-                    profile = _uiState.value.profile?.copy(phoneNumber = newPhone),
+                    profile = updated,
                     isLoading = false,
                     success = "Phone number updated"
                 )
