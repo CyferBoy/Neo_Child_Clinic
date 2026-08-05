@@ -52,9 +52,18 @@ fun AppNavigation(
     val authViewModel: AuthViewModel = hiltViewModel()
     val dashboardViewModel: DashboardViewModel = hiltViewModel()
     val dashboardUiState by dashboardViewModel.uiState.collectAsState()
-    val userRole = dashboardUiState.userRole
+    val authProfile by authViewModel.profile.collectAsState()
+    val userRole = authProfile?.role ?: UserRole.nurse
     
     val startDest = if (authViewModel.currentUser != null) Routes.DASHBOARD else Routes.LOGIN
+
+    androidx.compose.runtime.LaunchedEffect(authProfile) {
+        if (authProfile == null && authViewModel.currentUser == null) {
+            navController.navigate(Routes.LOGIN) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,

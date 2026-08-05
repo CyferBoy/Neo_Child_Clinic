@@ -5,6 +5,8 @@ import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.ProfileRepository
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.functions.Functions
+import kotlinx.serialization.Serializable
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +25,8 @@ data class AdminUiState(
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
-    private val auth: Auth
+    private val auth: Auth,
+    private val functions: Functions
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminUiState())
@@ -50,7 +53,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
-    fun createStaffAccount(name: String, email: String, pass: String, role: UserRole) {
+    fun createStaffAccount(name: String, email: String, pass: String, role: UserRole, employeeId: String?, phoneNumber: String?) {
         if (name.isBlank() || email.isBlank() || pass.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "Please fill all fields")
             return
@@ -60,11 +63,20 @@ class AdminViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Creation still requires Edge Function for security
+                functions.invoke("manage-staff", CreateStaffRequest(
+                    name = name, 
+                    email = email, 
+                    password = pass, 
+                    role = role.name, 
+                    employeeId = employeeId,
+                    phoneNumber = phoneNumber,
+                    action = "CREATE" // Explicitly pass the action
+                ))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Staff creation ($role) must be done via Supabase Edge Functions to securely manage auth.admin API."
+                    success = "Staff account created for $name ($role). They can now log in."
                 )
+                fetchStaff()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -157,3 +169,14 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null, success = null)
     }
 }
+
+@Serializable
+data class CreateStaffRequest(
+    val name: String,
+    val email: String,
+    val password: String,
+    val role: String,
+    val employeeId: String? = null,
+    val phoneNumber: String? = null,
+    val action: String = "CREATE"
+)

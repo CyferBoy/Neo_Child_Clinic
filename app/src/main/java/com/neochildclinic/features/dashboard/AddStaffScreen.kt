@@ -36,6 +36,7 @@ fun AddStaffScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
+    var employeeId by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf(UserRole.nurse) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -78,6 +79,7 @@ fun AddStaffScreen(
                 StandardTextField(value = name, onValueChange = { name = it }, label = "Full Name", placeholder = "Rahul Kumar")
                 StandardTextField(value = email, onValueChange = { email = it }, label = "Email Address", placeholder = "rahul@gmail.com")
                 StandardTextField(value = phone, onValueChange = { phone = it }, label = "Phone Number", placeholder = "+91 9876543210")
+                StandardTextField(value = employeeId, onValueChange = { employeeId = it }, label = "Employee ID", placeholder = "EMP-001")
                 
                 StandardTextField(
                     value = password,
@@ -119,7 +121,7 @@ fun AddStaffScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Button(
-                    onClick = { viewModel.createStaffAccount(name, email, password, selectedRole) },
+                    onClick = { viewModel.createStaffAccount(name, email, password, selectedRole, employeeId.ifBlank { null }, phone.ifBlank { null }) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     enabled = !uiState.isLoading && name.isNotBlank() && email.isNotBlank() && password.isNotBlank()
                 ) {

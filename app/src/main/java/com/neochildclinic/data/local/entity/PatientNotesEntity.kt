@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -20,10 +21,10 @@ import kotlinx.serialization.Serializable
     indices = [Index("patientId"), Index("timestamp")]
 )
 data class PatientNotesEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val patientId: String,
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
+    @SerialName("patient_id") val patientId: String,
     val content: String,
     val author: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false
+    @SerialName("is_synced") val isSynced: Boolean = false
 )

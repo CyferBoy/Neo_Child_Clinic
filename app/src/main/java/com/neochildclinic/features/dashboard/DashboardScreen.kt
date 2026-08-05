@@ -48,11 +48,12 @@ fun DashboardScreen(
     dashboardViewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by dashboardViewModel.uiState.collectAsState()
+    val authProfile by authViewModel.profile.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val role = uiState.userRole
+    val role = authProfile?.role ?: UserRole.nurse
     val showStatistics = role == UserRole.admin || role == UserRole.doctor
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -78,8 +79,8 @@ fun DashboardScreen(
         drawerState = drawerState,
         drawerContent = {
             AppDrawer(
-                userName = uiState.userName,
-                userRole = uiState.userRole,
+                userName = authProfile?.displayName ?: "User",
+                userRole = role,
                 syncState = uiState.syncState,
                 appVersion = "1.0.0",
                 onProfileClick = {
@@ -95,6 +96,7 @@ fun DashboardScreen(
                         "vaccine_inventory" -> onAddVaccine()
                         "statistics" -> onStatistics()
                         "manage_staff" -> onManageStaff()
+                        "audit_logs" -> onAuditLogs()
                     }
                 },
                 onLogout = {

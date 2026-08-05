@@ -6,6 +6,8 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.storage.Storage
@@ -31,7 +33,11 @@ object SupabaseModule {
             supabaseKey = SUPABASE_ANON_KEY
         ) {
             install(Postgrest)
-            install(Auth)
+            install(Auth) {
+                autoSaveToStorage = true
+                autoLoadFromStorage = true
+            }
+            install(Functions)
             install(Realtime)
             install(Storage)
         }
@@ -40,6 +46,10 @@ object SupabaseModule {
     @Provides
     @Singleton
     fun provideSupabaseAuth(client: SupabaseClient): Auth = client.auth
+
+    @Provides
+    @Singleton
+    fun provideSupabaseFunctions(client: SupabaseClient): Functions = client.functions
 
     @Provides
     @Singleton

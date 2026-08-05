@@ -576,7 +576,7 @@ class ReminderRepositoryImpl @Inject constructor(
         return dueReminderDao.getDueRemindersForPatient(patientId)
     }
 
-    override suspend fun undoAction(auditId: Long, performedBy: String) {
+    override suspend fun undoAction(auditId: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             val log = auditLogDao.getLogById(auditId) ?: return@withContext
             if (log.entityType != "REMINDER") return@withContext

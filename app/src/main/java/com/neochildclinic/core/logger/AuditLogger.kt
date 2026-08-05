@@ -3,6 +3,9 @@ package com.neochildclinic.core.logger
 import android.os.Build
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.core.model.SyncOperation
+import com.neochildclinic.core.model.SyncPriority
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class AuditLogger @Inject constructor(
     private val auth: Auth,
-    private val auditLogDao: AuditLogDao
+    private val auditLogDao: AuditLogDao,
+    private val syncRepository: SyncRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -70,8 +74,15 @@ class AuditLogger @Inject constructor(
         )
 
         // 1. Local Log (Blocking in suspend context)
-        // SyncRepository will handle uploading this to Supabase automatically
         auditLogDao.insertLog(logEntity)
+
+        // 2. Queue for Sync
+        syncRepository.enqueue(
+            entityName = "AUDIT_LOG",
+            entityId = logEntity.id,
+            operation = SyncOperation.CREATE,
+            priority = SyncPriority.LOW
+        )
     }
 
     /**

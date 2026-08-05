@@ -125,7 +125,8 @@ class VaccinationRepositoryImpl @Inject constructor(
 
             // 3. Save items
             vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
-            vaccinationItemDao.insertItems(vaccination.items.map { it.toEntity().copy(vaccinationId = vaccination.id) })
+            val itemEntities = vaccination.items.map { it.toEntity().copy(vaccinationId = vaccination.id) }
+            vaccinationItemDao.insertItems(itemEntities)
             
             // 4. Queue for background sync
             val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
@@ -136,6 +137,16 @@ class VaccinationRepositoryImpl @Inject constructor(
                 operation = operation,
                 priority = SyncPriority.HIGH
             )
+
+            // Sync individual items
+            itemEntities.forEach { item ->
+                syncRepository.enqueue(
+                    entityName = "VACCINATION_ITEM",
+                    entityId = item.id,
+                    operation = SyncOperation.CREATE,
+                    priority = SyncPriority.MEDIUM
+                )
+            }
             
             auditLogger.recordLog(
                 module = "PATIENT",

@@ -1,4 +1,7 @@
-- `[x]` Update `ProfileEntity.kt` with missing fields and mapping updates
-- `[x]` Increment database version in `AppDatabase.kt` to 3
-- `[x]` Verify build with `./gradlew :app:compileDebugKotlin`
-- `[x]` Create walkthrough
+- `[x]` Update `VaccineEntity.kt` (Batch and Transaction entities)
+- `[x]` Update `PatientNotesEntity.kt` and `AuditLogEntity.kt`
+- `[x]` Update `AppDatabase.kt` (version 4)
+- `[x]` Correct table mappings in `SyncRepositoryImpl.kt`
+- `[x]` Update `VaccinationRepositoryImpl.kt` for item sync
+- `[x]` Provide updated SQL for Supabase
+- `[x]` Verify build and create walkthrough

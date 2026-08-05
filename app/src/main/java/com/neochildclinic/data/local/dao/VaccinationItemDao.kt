@@ -15,6 +15,9 @@ interface VaccinationItemDao {
     @Query("SELECT * FROM vaccination_items WHERE vaccinationId = :vaccinationId")
     fun getItemsForVaccination(vaccinationId: String): Flow<List<VaccinationItemEntity>>
 
+    @Query("SELECT * FROM vaccination_items WHERE id = :id LIMIT 1")
+    suspend fun getItemById(id: String): VaccinationItemEntity?
+
     @Query("DELETE FROM vaccination_items WHERE vaccinationId = :vaccinationId")
     suspend fun deleteItemsForVaccination(vaccinationId: String)
 }

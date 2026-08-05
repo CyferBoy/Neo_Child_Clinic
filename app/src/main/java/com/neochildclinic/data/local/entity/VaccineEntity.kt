@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.domain.model.Vaccine
-
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -20,12 +20,12 @@ data class VaccineEntity(
     // Structure Updates
     val manufacturer: String? = null,
     val category: String? = null, // e.g. Mandatory, Optional, Adult
-    val doseSchedule: String? = null, // JSON
-    val storageDetails: String? = null,
+    @SerialName("dose_schedule") val doseSchedule: String? = null,
+    @SerialName("storage_details") val storageDetails: String? = null,
     val mrp: Double = 0.0,
-    val netRate: Double = 0.0,
+    @SerialName("net_rate") val netRate: Double = 0.0,
     
-    val lastUpdated: Long = System.currentTimeMillis()
+    @SerialName("last_updated") val lastUpdated: Long = System.currentTimeMillis()
 )
 
 @Serializable
@@ -42,26 +42,26 @@ data class VaccineEntity(
     indices = [Index("vaccineId"), Index("batchNumber")]
 )
 data class VaccineBatchEntity(
-    @PrimaryKey val batchId: String,
-    val vaccineId: String,
-    val batchNumber: String,
+    @PrimaryKey @SerialName("id") val batchId: String,
+    @SerialName("vaccine_id") val vaccineId: String,
+    @SerialName("batch_number") val batchNumber: String,
     val manufacturer: String,
-    val purchaseDate: String,
-    val expiryDate: String,
-    val purchaseQuantity: Int,
-    val remainingQuantity: Int, // Cached for performance, but module calculates from source
+    @SerialName("purchase_date") val purchaseDate: String,
+    @SerialName("expiry_date") val expiryDate: String,
+    @SerialName("purchase_quantity") val purchaseQuantity: Int,
+    @SerialName("remaining_quantity") val remainingQuantity: Int,
     
     // Detailed tracking
-    val reservedQuantity: Int = 0,
-    val usedQuantity: Int = 0,
-    val wastedQuantity: Int = 0,
-    val borrowedQuantity: Int = 0,
+    @SerialName("reserved_quantity") val reservedQuantity: Int = 0,
+    @SerialName("used_quantity") val usedQuantity: Int = 0,
+    @SerialName("wasted_quantity") val wastedQuantity: Int = 0,
+    @SerialName("borrowed_quantity") val borrowedQuantity: Int = 0,
 
     val supplier: String,
-    val purchaseCost: Double,
-    val sellingPrice: Double,
+    @SerialName("purchase_cost") val purchaseCost: Double,
+    @SerialName("selling_price") val sellingPrice: Double,
     val status: String = BatchStatus.ACTIVE.name,
-    val updatedAt: Long = System.currentTimeMillis()
+    @SerialName("updated_at") val updatedAt: Long = System.currentTimeMillis()
 )
 
 @Serializable
@@ -70,25 +70,25 @@ data class VaccineBatchEntity(
     indices = [Index("vaccineId"), Index("batchId"), Index("vaccinationId")]
 )
 data class InventoryTransactionEntity(
-    @PrimaryKey(autoGenerate = true) val transactionId: Long = 0,
-    val vaccineId: String,
-    val batchId: String,
-    val patientId: String? = null,
-    val vaccinationId: String? = null,
-    val transactionType: String, // InventoryTransactionType
+    @PrimaryKey @SerialName("id") val transactionId: String = java.util.UUID.randomUUID().toString(),
+    @SerialName("vaccine_id") val vaccineId: String,
+    @SerialName("batch_id") val batchId: String,
+    @SerialName("patient_id") val patientId: String? = null,
+    @SerialName("vaccination_id") val vaccinationId: String? = null,
+    @SerialName("transaction_type") val transactionType: String, // InventoryTransactionType
     val quantity: Int, 
-    val previousQuantity: Int,
-    val currentQuantity: Int,
+    @SerialName("previous_quantity") val previousQuantity: Int,
+    @SerialName("current_quantity") val currentQuantity: Int,
     val timestamp: Long = System.currentTimeMillis(),
     val user: String,
     val notes: String? = null,
     
     // Detailed tracking
     val status: String = "COMPLETED", // InventoryStatus
-    val failureReason: String? = null,
-    val processedAt: Long? = null,
-    val processedBy: String? = null,
-    val isSynced: Boolean = false
+    @SerialName("failure_reason") val failureReason: String? = null,
+    @SerialName("processed_at") val processedAt: Long? = null,
+    @SerialName("processed_by") val processedBy: String? = null,
+    @SerialName("is_synced") val isSynced: Boolean = false
 )
 
 // Mappers for compatibility

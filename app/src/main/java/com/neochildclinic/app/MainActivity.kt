@@ -6,10 +6,12 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.*
@@ -20,6 +22,8 @@ import androidx.navigation.compose.rememberNavController
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.LockScreen
 import com.neochildclinic.domain.manager.SyncManager
+import com.neochildclinic.domain.repository.DeviceRepository
+import com.neochildclinic.features.dashboard.AuthViewModel
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
 import io.github.jan.supabase.auth.Auth
@@ -52,6 +56,11 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var syncManager: SyncManager
 
+    @Inject
+    lateinit var deviceRepository: DeviceRepository
+
+    private val authViewModel: AuthViewModel by viewModels()
+
     private var openDueTab by mutableStateOf(false)
     private var isAppLocked by mutableStateOf(false)
 
@@ -66,7 +75,6 @@ class MainActivity : FragmentActivity() {
         // SECURITY: Prevent screenshots and recording of patient data
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         
-        checkAppLock()
         syncManager.scheduleSync()
 
         enableEdgeToEdge()
@@ -107,6 +115,9 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         // No auto-logout anymore. Session remains indefinitely.
         lifecycleScope.launch {
+            authViewModel.refreshSessionStatus()
+            checkAppLock()
+            deviceRepository.updateActivity()
             settingsManager.updateLastOpenTimestamp()
             syncManager.scheduleSync()
         }
@@ -135,23 +146,51 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun authenticateWithBiometrics() {
-        val executor = ContextCompat.getMainExecutor(this)
-        val biometricPrompt = BiometricPrompt(this, executor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    super.onAuthenticationSucceeded(result)
-                    isAppLocked = false
-                }
+        val biometricManager = BiometricManager.from(this)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        
+        when (biometricManager.canAuthenticate(authenticators)) {
+            BiometricManager.BIOMETRIC_SUCCESS -> {
+                val executor = ContextCompat.getMainExecutor(this)
+                val biometricPrompt = BiometricPrompt(this, executor,
+                    object : BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            super.onAuthenticationSucceeded(result)
+                            isAppLocked = false
+                        }
 
-            })
+                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            super.onAuthenticationError(errorCode, errString)
+                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                                Toast.makeText(this@MainActivity, "Authentication error: $errString", Toast.LENGTH_SHORT).show()
+                            }
+                        }
 
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Clinic Access")
-            .setSubtitle("Authenticate to access patient data")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-            .build()
+                        override fun onAuthenticationFailed() {
+                            super.onAuthenticationFailed()
+                            // Handled by system UI mostly, but we could add custom feedback
+                        }
+                    })
 
-        biometricPrompt.authenticate(promptInfo)
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Clinic Access")
+                    .setSubtitle("Authenticate to access patient data")
+                    .setAllowedAuthenticators(authenticators)
+                    .build()
+
+                biometricPrompt.authenticate(promptInfo)
+            }
+            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                // If not enrolled but lock is enabled, we might want to fallback to pin or allow entry with warning
+                // For now, allow entry to prevent lock-out if they enabled it then deleted fingerprints
+                isAppLocked = false
+                Toast.makeText(this, "No biometrics enrolled. Please set up fingerprint in device settings.", Toast.LENGTH_LONG).show()
+            }
+            else -> {
+                // Feature not available or hardware error
+                isAppLocked = false
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -7,14 +7,14 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface PatientNotesDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertNote(note: PatientNotesEntity): Long
+    suspend fun insertNote(note: PatientNotesEntity)
 
     @Query("SELECT * FROM patient_notes WHERE id = :id LIMIT 1")
-    suspend fun getNoteById(id: Long): PatientNotesEntity?
+    suspend fun getNoteById(id: String): PatientNotesEntity?
 
     @Query("SELECT * FROM patient_notes WHERE patientId = :patientId ORDER BY timestamp DESC")
     fun getNotesForPatient(patientId: String): Flow<List<PatientNotesEntity>>
 
     @Query("DELETE FROM patient_notes WHERE id = :id")
-    suspend fun deleteNote(id: Long)
+    suspend fun deleteNote(id: String)
 }

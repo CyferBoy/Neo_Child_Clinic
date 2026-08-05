@@ -230,13 +230,13 @@ class PatientRepositoryImpl @Inject constructor(
             content = content,
             author = author
         )
-        val id = notesDao.insertNote(note)
-        syncRepository.enqueue("PATIENT_NOTE", id.toString(), SyncOperation.CREATE, SyncPriority.LOW)
+        notesDao.insertNote(note)
+        syncRepository.enqueue("PATIENT_NOTE", note.id, SyncOperation.CREATE, SyncPriority.LOW)
     }
 
-    override suspend fun deleteNote(noteId: Long) {
+    override suspend fun deleteNote(noteId: String) {
         notesDao.deleteNote(noteId)
-        syncRepository.enqueue("PATIENT_NOTE", noteId.toString(), SyncOperation.DELETE, SyncPriority.LOW)
+        syncRepository.enqueue("PATIENT_NOTE", noteId, SyncOperation.DELETE, SyncPriority.LOW)
     }
 
     override suspend fun refreshNotes() {

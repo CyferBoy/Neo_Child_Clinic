@@ -51,7 +51,7 @@ interface ReminderRepository {
     suspend fun restoreReminder(requirement: PendingRequirement, performedBy: String)
     suspend fun deleteReminder(requirement: PendingRequirement, performedBy: String) // Admin only check usually in VM
     
-    suspend fun undoAction(auditId: Long, performedBy: String)
+    suspend fun undoAction(auditId: String, performedBy: String)
 
     // Audit Trail & Management
     fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>>

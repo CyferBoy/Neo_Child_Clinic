@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AuditLogDao {
     @Insert
-    suspend fun insertLog(log: AuditLogEntity): Long
+    suspend fun insertLog(log: AuditLogEntity)
 
     @Query("SELECT * FROM audit_logs WHERE id = :id")
-    suspend fun getLogById(id: Long): AuditLogEntity?
+    suspend fun getLogById(id: String): AuditLogEntity?
 
     @Query("SELECT * FROM audit_logs WHERE patientId = :patientId ORDER BY timestamp DESC")
     fun getLogsForPatient(patientId: String): Flow<List<AuditLogEntity>>
@@ -30,5 +30,5 @@ interface AuditLogDao {
     suspend fun getUnsyncedLogs(): List<AuditLogEntity>
 
     @Query("UPDATE audit_logs SET isSynced = 1 WHERE id = :id")
-    suspend fun markSynced(id: Long)
+    suspend fun markSynced(id: String)
 }

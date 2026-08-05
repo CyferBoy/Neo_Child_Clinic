@@ -263,6 +263,34 @@ fun SettingsScreen(
                             }
                         }
                     }
+
+                    // Support Section
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Support",
+                            icon = Icons.Default.Info,
+                            isExpanded = expandedSection == "Support",
+                            onExpandToggle = { expandedSection = if (expandedSection == "Support") null else "Support" }
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                SettingItem(label = "Help & Support", value = "Get Help") {
+                                    // Support Logic
+                                }
+                                SettingItem(label = "Privacy Policy", value = "Read") {
+                                    // Privacy Logic
+                                }
+                                SettingItem(label = "Terms of Service", value = "Read") {
+                                    // Terms Logic
+                                }
+                                Text(
+                                    text = "Version: 1.0.0",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()

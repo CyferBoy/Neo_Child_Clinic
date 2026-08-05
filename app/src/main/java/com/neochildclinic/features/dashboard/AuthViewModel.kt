@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.DeviceRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.user.UserInfo
@@ -21,6 +22,7 @@ import javax.inject.Inject
 class AuthViewModel @Inject constructor(
     private val auth: Auth,
     private val profileRepository: ProfileRepository,
+    private val deviceRepository: DeviceRepository,
     private val syncManager: SyncManager
 ) : ViewModel() {
 
@@ -72,12 +74,24 @@ class AuthViewModel @Inject constructor(
                 p = p.copy(lastLogin = authLastLogin)
                 profileRepository.updateProfile(p)
             }
+
+            if (p != null && !p.isActive) {
+                logout()
+                _error.value = "Account Disabled: Please contact administrator."
+                return
+            }
+
             _profile.value = p
             
             // Background refresh
             profileRepository.refreshProfiles()
-            profileRepository.getProfileById(userId)?.let {
-                _profile.value = it
+            profileRepository.getProfileById(userId)?.let { refreshed ->
+                if (!refreshed.isActive) {
+                    logout()
+                    _error.value = "Account Disabled: Please contact administrator."
+                } else {
+                    _profile.value = refreshed
+                }
             }
         } catch (e: Exception) {
             _error.value = "Failed to load profile: ${e.message}"
@@ -99,7 +113,10 @@ class AuthViewModel @Inject constructor(
                     this.password = pass
                 }
                 
-                auth.currentSessionOrNull()?.user?.id?.let { fetchProfile(it) }
+                auth.currentSessionOrNull()?.user?.id?.let {
+                    fetchProfile(it)
+                    deviceRepository.registerCurrentDevice()
+                }
 
                 _isLoading.value = false
                 syncManager.scheduleImmediateSync()
@@ -113,8 +130,16 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            deviceRepository.deactivateCurrentDevice()
             auth.signOut()
             _profile.value = null
+        }
+    }
+
+    fun refreshSessionStatus() {
+        val userId = auth.currentSessionOrNull()?.user?.id ?: return
+        viewModelScope.launch {
+            fetchProfile(userId)
         }
     }
 }

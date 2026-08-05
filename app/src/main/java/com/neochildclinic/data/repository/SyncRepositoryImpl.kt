@@ -96,19 +96,19 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun uploadEntity(item: SyncQueueEntity) {
         val table = when (item.entityName) {
             "PATIENT" -> "patients"
-            "VACCINATION", "VISIT" -> "vaccinations"
+            "VACCINATION", "VISIT" -> "patient_visits"
+            "VACCINATION_ITEM" -> "vaccination_items"
             "WASTE" -> "waste_records"
             "REMINDER_STATE", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> "reminders"
             "VACCINE" -> "vaccines"
             "BATCH" -> "vaccine_batches"
-            "TRANSACTION" -> "transactions"
+            "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
             "PATIENT_NOTE" -> "patient_notes"
             "FINANCE" -> "finance_transactions"
             "PROFILE", "STAFF" -> "profiles"
             "BORROW" -> "borrow_records"
             "AUDIT_LOG" -> "audit_logs"
             "CONSULTATION" -> "consultations"
-            "INVENTORY_TRANSACTION" -> "inventory_transactions"
             else -> throw IllegalArgumentException("Unknown entity: ${item.entityName}")
         }
 
@@ -157,6 +157,9 @@ class SyncRepositoryImpl @Inject constructor(
             is ReminderEntity -> data.updatedAt
             is VaccineEntity -> data.lastUpdated
             is VaccineBatchEntity -> data.updatedAt
+            is AuditLogEntity -> data.timestamp
+            is PatientNotesEntity -> data.timestamp
+            is InventoryTransactionEntity -> data.timestamp
             else -> 0L
         }
     }
@@ -184,18 +187,18 @@ class SyncRepositoryImpl @Inject constructor(
                     }
                 }
                 "VACCINATION", "VISIT" -> database.vaccinationDao().getVaccinationById(entityId)?.toVaccination()
+                "VACCINATION_ITEM" -> database.vaccinationItemDao().getItemById(entityId)
                 "WASTE" -> database.wasteDao().getWasteById(entityId)?.toDomain()
                 "REMINDER_STATE" -> database.dueReminderDao().getReminderById(entityId.toLongOrNull() ?: -1L)
                 "VACCINE" -> database.vaccineDao().getVaccineById(entityId)
                 "BATCH" -> database.vaccineDao().getBatchById(entityId)
-                "TRANSACTION" -> database.vaccineDao().getTransactionById(entityId.toLongOrNull() ?: -1L)
+                "TRANSACTION", "INVENTORY_TRANSACTION" -> database.vaccineDao().getTransactionById(entityId)
                 "FINANCE" -> database.financeDao().getTransactionById(entityId.toLongOrNull() ?: -1L)
-                "AUDIT_LOG" -> database.auditLogDao().getLogById(entityId.toLongOrNull() ?: -1L)
+                "AUDIT_LOG" -> database.auditLogDao().getLogById(entityId)
                 "PROFILE", "STAFF" -> database.profileDao().getProfileById(entityId)
                 "CONSULTATION" -> database.consultationDao().getConsultationById(entityId)
                 "BORROW" -> database.borrowDao().getRecordById(entityId)
-                "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId.toLongOrNull() ?: -1L)
-                "INVENTORY_TRANSACTION" -> database.vaccineDao().getTransactionById(entityId.toLongOrNull() ?: -1L)
+                "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId)
                 else -> null
             }
         } catch (e: Exception) {

@@ -1,23 +1,37 @@
-# Walkthrough - Fixed Profile Entity Missing Fields
+# Walkthrough - Fixed Inventory and Data Synchronization
 
-I have updated the local database entity for profiles to include missing fields, ensuring that the phone number, employee ID, and last login time are persisted correctly.
+I have resolved the synchronization issues by aligning the Android application's data layer with the Supabase schema and improving the sync logic for complex entities.
 
 ## Changes Made
 
-### Data Layer
-- **[ProfileEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/ProfileEntity.kt)**:
-    - Added `phoneNumber`, `employeeId`, and `lastLogin` fields to the `ProfileEntity` class.
-    - Updated `toDomain()` and `toEntity()` mapping functions to include these fields, ensuring consistency between the domain model and the database.
-- **[AppDatabase.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt)**:
-    - Incremented the database version to `3`.
-    - This triggers a destructive migration (due to the existing configuration), which recreates the database with the updated `profiles` table schema.
+### Data Layer (Core Updates)
+- **ID Transition (UUIDs)**:
+    - Converted `InventoryTransactionEntity`, `PatientNotesEntity`, and `AuditLogEntity` from local auto-incrementing `Long` IDs to global unique `String` (UUID) IDs. This ensures that records created on different devices do not conflict in the cloud.
+- **Supabase Alignment**:
+    - Updated `VaccineBatchEntity`, `VaccineEntity`, and `InventoryTransactionEntity` with `@SerialName` annotations to precisely match Supabase column names (e.g., `batchId` mapped to `id`).
+    - Added missing tracking columns (reserved, used, wasted, borrowed quantities) to the batch model.
+- **Database Versioning**:
+    - Incremented the database version to `4` in `AppDatabase.kt`. This will trigger a local database migration to apply the structural changes.
+
+### Repository & Sync Logic
+- **Table Mappings**:
+    - Fixed critical mapping errors in `SyncRepositoryImpl.kt` where the app was targeting non-existent or misnamed tables (e.g., changed `vaccinations` to `patient_visits`).
+- **Enhanced Vaccination Sync**:
+    - Updated `VaccinationRepositoryImpl.kt` to ensure that when a vaccination visit is recorded, every individual vaccine item is also enqueued for synchronization.
+- **Audit Sync**:
+    - Updated `AuditLogger` to automatically enqueue system logs for synchronization, ensuring the timeline is available on all devices.
+
+### SQL Setup
+- **[missing_tables.sql](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/.artifacts/712413f3-ddb1-48f7-8e1b-47a0109fd12e/scratch/missing_tables.sql)**:
+    - Provided a script to create all missing tables (`inventory_transactions`, `patient_notes`, `audit_logs`, `waste_records`) and fix the primary key structure of existing tables.
 
 ## Verification Results
 
 ### Automated Tests
-- Ran `./gradlew :app:compileDebugKotlin` and the build passed successfully.
+- Ran `./gradlew :app:compileDebugKotlin` and the build passed successfully. All repository and DAO references were updated to handle the new `String` based IDs.
 
-```text
-BUILD SUCCESSFUL in 14s
-27 actionable tasks: 27 up-to-date
-```
+### Critical Action Required
+> [!CAUTION]
+> To finish the fix, you **MUST** run the SQL script provided in the link below in your **Supabase SQL Editor**. Without this, the app will continue to encounter "Table not found" or "Column mismatch" errors during sync.
+
+[View the SQL Script to run in Supabase](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/.artifacts/712413f3-ddb1-48f7-8e1b-47a0109fd12e/scratch/missing_tables.sql)

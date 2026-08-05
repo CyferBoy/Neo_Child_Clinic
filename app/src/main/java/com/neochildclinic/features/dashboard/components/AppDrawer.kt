@@ -102,64 +102,6 @@ fun AppDrawer(
                 onClick = { onNavigate("dashboard") }
             )
 
-            // Patients
-            if (userRole in listOf(UserRole.admin, UserRole.doctor, UserRole.receptionist, UserRole.nurse)) {
-                DrawerMenuItem(
-                    label = "Patients",
-                    icon = Icons.Default.People,
-                    isSelected = currentRoute == "patient_list",
-                    onClick = { onNavigate("patient_list") }
-                )
-            }
-
-            // Due Vaccinations
-            if (userRole in listOf(UserRole.admin, UserRole.doctor, UserRole.receptionist, UserRole.nurse)) {
-                DrawerMenuItem(
-                    label = "Due Vaccinations",
-                    icon = Icons.Default.EventNote,
-                    isSelected = currentRoute == "due",
-                    onClick = { onNavigate("due") }
-                )
-            }
-
-            // Consultations
-            if (userRole in listOf(UserRole.admin, UserRole.doctor)) {
-                DrawerMenuItem(
-                    label = "Consultations",
-                    icon = Icons.Default.MedicalServices,
-                    onClick = { /* Navigate to Consultations when implemented */ }
-                )
-            }
-
-            // Inventory
-            if (userRole in listOf(UserRole.admin, UserRole.inventory_manager, UserRole.doctor)) {
-                DrawerMenuItem(
-                    label = "Inventory",
-                    icon = Icons.Default.Inventory,
-                    isSelected = currentRoute == "vaccine_inventory",
-                    onClick = { onNavigate("vaccine_inventory") }
-                )
-            }
-
-            // Billing
-            if (userRole in listOf(UserRole.admin, UserRole.doctor, UserRole.receptionist)) {
-                DrawerMenuItem(
-                    label = "Billing",
-                    icon = Icons.Default.Payments,
-                    onClick = { /* Navigate to Billing when implemented */ }
-                )
-            }
-
-            // Reports
-            if (userRole in listOf(UserRole.admin, UserRole.doctor, UserRole.inventory_manager)) {
-                DrawerMenuItem(
-                    label = "Reports",
-                    icon = Icons.Default.Assessment,
-                    isSelected = currentRoute == "statistics",
-                    onClick = { onNavigate("statistics") }
-                )
-            }
-
             // Manage Staff
             if (userRole == UserRole.admin) {
                 DrawerMenuItem(
@@ -168,16 +110,17 @@ fun AppDrawer(
                     isSelected = currentRoute == "manage_staff",
                     onClick = { onNavigate("manage_staff") }
                 )
+                
+                // Audit Log
+                DrawerMenuItem(
+                    label = "Audit Log",
+                    icon = Icons.Default.History,
+                    isSelected = currentRoute == "audit_logs",
+                    onClick = { onNavigate("audit_logs") }
+                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Help & Support
-            DrawerMenuItem(
-                label = "Help & Support",
-                icon = Icons.Default.Help,
-                onClick = { /* Support Logic */ }
-            )
         }
 
         // Drawer Footer

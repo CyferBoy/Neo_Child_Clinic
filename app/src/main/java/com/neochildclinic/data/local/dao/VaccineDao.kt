@@ -75,7 +75,7 @@ interface VaccineDao {
     suspend fun updatePatientIdInTransactions(duplicateId: String, masterId: String)
 
     @Query("SELECT * FROM inventory_transactions WHERE transactionId = :id LIMIT 1")
-    suspend fun getTransactionById(id: Long): InventoryTransactionEntity?
+    suspend fun getTransactionById(id: String): InventoryTransactionEntity?
 
     // Stock Summary
     @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId")
