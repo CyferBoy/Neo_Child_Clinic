@@ -25,7 +25,7 @@ data class VaccineEntity(
     val mrp: Double = 0.0,
     @SerialName("net_rate") val netRate: Double = 0.0,
     
-    @SerialName("last_updated") val lastUpdated: Long = System.currentTimeMillis()
+    @SerialName("last_updated") val lastUpdated: String = ""
 )
 
 @Serializable
@@ -61,7 +61,7 @@ data class VaccineBatchEntity(
     @SerialName("purchase_cost") val purchaseCost: Double,
     @SerialName("selling_price") val sellingPrice: Double,
     val status: String = BatchStatus.ACTIVE.name,
-    @SerialName("updated_at") val updatedAt: Long = System.currentTimeMillis()
+    @SerialName("updated_at") val updatedAt: String = ""
 )
 
 @Serializable
@@ -79,14 +79,14 @@ data class InventoryTransactionEntity(
     val quantity: Int, 
     @SerialName("previous_quantity") val previousQuantity: Int,
     @SerialName("current_quantity") val currentQuantity: Int,
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: String = "",
     val user: String,
     val notes: String? = null,
     
     // Detailed tracking
     val status: String = "COMPLETED", // InventoryStatus
     @SerialName("failure_reason") val failureReason: String? = null,
-    @SerialName("processed_at") val processedAt: Long? = null,
+    @SerialName("processed_at") val processedAt: String? = null,
     @SerialName("processed_by") val processedBy: String? = null,
     @SerialName("is_synced") val isSynced: Boolean = false
 )

@@ -8,7 +8,7 @@ interface VaccinationRepository {
     fun getVaccinationsForPatient(patientId: String): Flow<List<Vaccination>>
     suspend fun refreshVaccinations()
     suspend fun getVaccinationById(id: String): Vaccination?
-    suspend fun addVaccination(vaccination: Vaccination)
+    suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String? = null)
     suspend fun deleteVaccination(id: String)
     suspend fun markAsDone(id: String)
 

@@ -1,6 +1,4 @@
 -- 1. Fix vaccine_batches (rename batch_id column or align primary key)
--- The app uses @SerialName("id") for batchId, so the primary key in SQL should be 'id'
-ALTER TABLE public.vaccine_batches RENAME COLUMN id TO old_id; -- backup if exists
 ALTER TABLE public.vaccine_batches RENAME COLUMN batch_id TO id;
 
 -- Ensure all required columns exist in vaccine_batches
@@ -31,12 +29,12 @@ CREATE TABLE IF NOT EXISTS public.inventory_transactions (
     quantity INTEGER NOT NULL,
     previous_quantity INTEGER NOT NULL,
     current_quantity INTEGER NOT NULL,
-    timestamp BIGINT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT now(),
     "user" TEXT NOT NULL,
     notes TEXT,
     status TEXT DEFAULT 'COMPLETED',
     failure_reason TEXT,
-    processed_at BIGINT,
+    processed_at TIMESTAMP WITH TIME ZONE,
     processed_by TEXT,
     is_synced BOOLEAN DEFAULT true
 );
@@ -47,16 +45,15 @@ CREATE TABLE IF NOT EXISTS public.patient_notes (
     patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     author TEXT NOT NULL,
-    timestamp BIGINT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT now(),
     is_synced BOOLEAN DEFAULT true
 );
 
--- 4. Audit Logs Table (Updated with UUID id)
--- If audit_logs exists with BIGINT id, we might need to recreate it
-DROP TABLE IF EXISTS public.audit_logs;
+-- 4. Audit Logs Table (UUID ID)
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
 CREATE TABLE public.audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    timestamp BIGINT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT now(),
     "user" TEXT NOT NULL,
     module TEXT NOT NULL,
     entity_type TEXT NOT NULL,
@@ -81,9 +78,13 @@ CREATE TABLE IF NOT EXISTS public.waste_records (
     date_wasted DATE,
     reason TEXT,
     quantity INTEGER,
-    updated_at BIGINT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     is_synced BOOLEAN DEFAULT true
 );
+
+-- 6. Add transaction_group_id to sync_queue (if you use cloud sync queue)
+-- Note: Usually sync_queue is local only, but if you sync it, add this:
+-- ALTER TABLE public.sync_queue ADD COLUMN IF NOT EXISTS transaction_group_id TEXT;
 
 -- RLS Policies for new tables
 ALTER TABLE public.inventory_transactions ENABLE ROW LEVEL SECURITY;

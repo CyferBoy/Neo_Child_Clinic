@@ -1,7 +1,9 @@
-- `[x]` Update `VaccineEntity.kt` (Batch and Transaction entities)
-- `[x]` Update `PatientNotesEntity.kt` and `AuditLogEntity.kt`
-- `[x]` Update `AppDatabase.kt` (version 4)
-- `[x]` Correct table mappings in `SyncRepositoryImpl.kt`
-- `[x]` Update `VaccinationRepositoryImpl.kt` for item sync
-- `[x]` Provide updated SQL for Supabase
-- `[x]` Verify build and create walkthrough
+- `[x]` Standardize `updated_at` and `timestamp` fields to ISO 8601 Strings
+- `[x]` Implement `transactionGroupId` for atomic grouping of related records
+- `[x]` Update `SyncRepositoryImpl` with transactional processing and sorting logic
+- `[x]` Transition to Transaction-based Inventory Sync (Stock Movements)
+- `[x]` Implement "Download on Conflict" (Self-healing) logic
+- `[x]` Optimize `SyncWorker` with run-loop and idempotency
+- `[x]` Provide Supabase SQL for server-side stock calculation
+- `[x]` Increment database version to 5 to resolve schema integrity mismatch
+- `[x]` Verified build and dependency integrity

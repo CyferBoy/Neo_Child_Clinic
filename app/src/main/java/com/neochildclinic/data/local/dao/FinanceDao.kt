@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FinanceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTransaction(transaction: FinanceEntity): Long
+    suspend fun insertTransaction(transaction: FinanceEntity)
 
     @Query("SELECT * FROM finance_transactions WHERE id = :id")
-    suspend fun getTransactionById(id: Long): FinanceEntity?
+    suspend fun getTransactionById(id: String): FinanceEntity?
 
     @Query("SELECT * FROM finance_transactions ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<FinanceEntity>>
@@ -19,11 +19,11 @@ interface FinanceDao {
     fun getTransactionsForPatient(patientId: String): Flow<List<FinanceEntity>>
 
     @Query("SELECT SUM(amount) FROM finance_transactions WHERE type = 'INCOME' AND timestamp >= :start")
-    fun getDailyIncome(start: Long): Flow<Double?>
+    fun getDailyIncome(start: String): Flow<Double?>
 
     @Query("SELECT * FROM finance_transactions WHERE isSynced = 0")
     suspend fun getUnsyncedTransactions(): List<FinanceEntity>
 
     @Query("UPDATE finance_transactions SET isSynced = 1 WHERE id = :id")
-    suspend fun markSynced(id: Long)
+    suspend fun markSynced(id: String)
 }

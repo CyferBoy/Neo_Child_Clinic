@@ -98,6 +98,7 @@ object PatientUtils {
             "dd/MM/yyyy", 
             "yyyy-MM-dd", 
             "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
             "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
         )
@@ -140,6 +141,37 @@ object PatientUtils {
     fun formatDateForDisplay(dateStr: String): String {
         val date = parseDate(dateStr) ?: return dateStr
         return SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(date)
+    }
+
+    /**
+     * Returns current time in ISO 8601 format.
+     */
+    fun getCurrentIsoTimestamp(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
+        return sdf.format(Date())
+    }
+
+    /**
+     * Returns ISO 8601 timestamp for some minutes ago.
+     */
+    fun getIsoTimestampMinutesAgo(minutes: Int): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.MINUTE, -minutes)
+        return sdf.format(cal.time)
+    }
+
+    /**
+     * Safely converts an ISO string or legacy millis string to Long.
+     */
+    fun isoToLong(dateStr: String?): Long {
+        if (dateStr.isNullOrBlank()) return 0L
+        return try {
+            // Try ISO first
+            parseDate(dateStr)?.time ?: dateStr.toLongOrNull() ?: 0L
+        } catch (_: Exception) {
+            dateStr.toLongOrNull() ?: 0L
+        }
     }
 
     /**

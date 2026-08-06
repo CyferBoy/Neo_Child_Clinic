@@ -3,6 +3,7 @@ package com.neochildclinic.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -11,19 +12,19 @@ import kotlinx.serialization.Serializable
     indices = [Index("patientId"), Index("visitId"), Index("timestamp")]
 )
 data class FinanceEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val timestamp: Long = System.currentTimeMillis(),
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
+    val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     val type: String, // INCOME, EXPENSE, REFUND
     val category: String, // VACCINATION, CONSULTATION, PURCHASE, etc.
     val amount: Double,
-    val cashAmount: Double = 0.0,
-    val onlineAmount: Double = 0.0,
+    @SerialName("cash_amount") val cashAmount: Double = 0.0,
+    @SerialName("online_amount") val onlineAmount: Double = 0.0,
     val currency: String = "INR",
-    val paymentMethod: String, // CASH, ONLINE, MIXED
-    val patientId: String? = null,
-    val visitId: String? = null,
-    val referenceNumber: String? = null, // Receipt number
+    @SerialName("payment_method") val paymentMethod: String, // CASH, ONLINE, MIXED
+    @SerialName("patient_id") val patientId: String? = null,
+    @SerialName("visit_id") val visitId: String? = null,
+    @SerialName("reference_number") val referenceNumber: String? = null, // Receipt number
     val remarks: String? = null,
-    val recordedBy: String,
-    val isSynced: Boolean = false
+    @SerialName("recorded_by") val recordedBy: String,
+    @SerialName("is_synced") val isSynced: Boolean = false
 )

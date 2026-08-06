@@ -203,7 +203,7 @@ fun PatientInfoSection(patient: Patient) {
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(text = patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    val clinicId = if (patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
+                    val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
                     Text(text = "ID: $clinicId", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -218,11 +218,11 @@ fun PatientInfoSection(patient: Patient) {
 
             InfoGridRow(
                 Pair(Icons.Default.Phone, patient.phone),
-                Pair(Icons.Default.CalendarToday, "Reg: ${formatDateForDisplay(patient.registrationDate)}")
+                Pair(Icons.Default.CalendarToday, "Reg: ${formatDateForDisplay(patient.registrationDate ?: "")}")
             )
 
-            if (patient.address.isNotBlank()) {
-                InfoRow(Icons.Default.Home, patient.address)
+            if (patient.address?.isNotBlank() == true) {
+                InfoRow(Icons.Default.Home, patient.address ?: "")
             }
         }
     }
@@ -312,7 +312,10 @@ fun DocumentCard(doc: FileObject, onView: () -> Unit, onDelete: () -> Unit) {
 
 @Composable
 fun ClinicalNoteCard(note: PatientNotesEntity) {
-    val dateDisplay = remember(note.timestamp) { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(Date(note.timestamp)) }
+    val dateDisplay = remember(note.timestamp) { 
+        val date = com.neochildclinic.core.utils.PatientUtils.parseDate(note.timestamp) ?: Date(0)
+        SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(date)
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),

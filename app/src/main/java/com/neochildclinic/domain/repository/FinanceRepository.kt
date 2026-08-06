@@ -16,7 +16,8 @@ interface FinanceRepository {
         patientId: String?,
         visitId: String?,
         remarks: String?,
-        recordedBy: String
+        recordedBy: String,
+        transactionGroupId: String? = null
     )
     
     suspend fun recordExpense(

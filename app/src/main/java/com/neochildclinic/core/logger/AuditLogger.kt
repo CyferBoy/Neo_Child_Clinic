@@ -33,10 +33,11 @@ class AuditLogger @Inject constructor(
         patientId: String? = null,
         oldValue: String? = null,
         newValue: String? = null,
-        remarks: String? = null
+        remarks: String? = null,
+        transactionGroupId: String? = null
     ) {
         scope.launch {
-            recordLog(module, entityType, entityId, action, patientId, oldValue, newValue, remarks)
+            recordLog(module, entityType, entityId, action, patientId, oldValue, newValue, remarks, transactionGroupId)
         }
     }
 
@@ -51,11 +52,12 @@ class AuditLogger @Inject constructor(
         patientId: String? = null,
         oldValue: String? = null,
         newValue: String? = null,
-        remarks: String? = null
+        remarks: String? = null,
+        transactionGroupId: String? = null
     ) {
         val user = auth.currentSessionOrNull()?.user
         val userEmail = user?.email ?: "Unknown"
-        val timestamp = System.currentTimeMillis()
+        val timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         val device = "${Build.MANUFACTURER} ${Build.MODEL}"
 
         val logEntity = AuditLogEntity(
@@ -81,7 +83,8 @@ class AuditLogger @Inject constructor(
             entityName = "AUDIT_LOG",
             entityId = logEntity.id,
             operation = SyncOperation.CREATE,
-            priority = SyncPriority.LOW
+            priority = SyncPriority.LOW,
+            transactionGroupId = transactionGroupId
         )
     }
 

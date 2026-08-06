@@ -16,25 +16,28 @@ interface SyncQueueDao {
     suspend fun getItemById(id: Long): SyncQueueEntity?
 
     @Query("UPDATE sync_queue SET status = :status, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun updateStatus(id: Long, status: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun updateStatus(id: Long, status: String, timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
 
     @Query("UPDATE sync_queue SET status = :status, retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun markFailed(id: Long, status: String, error: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun markFailed(id: Long, status: String, error: String, timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
 
     @Query("DELETE FROM sync_queue WHERE entityId = 'kotlin.Unit' OR entityId = 'Unit' OR entityId = 'null'")
     suspend fun cleanCorruptedItems()
 
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun incrementRetryCount(id: Long, error: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
 
-    @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND updatedAt < :staleBeforeMillis")
-    suspend fun requeueStaleSyncingItems(staleBeforeMillis: Long)
+    @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND updatedAt < :staleBefore")
+    suspend fun requeueStaleSyncingItems(staleBefore: String)
 
     @Delete
     suspend fun deleteItem(item: SyncQueueEntity)
 
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     fun getPendingCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
+    suspend fun getPendingCountSync(): Int
 
     @Query("SELECT * FROM sync_queue ORDER BY updatedAt DESC")
     fun getAllItems(): Flow<List<SyncQueueEntity>>

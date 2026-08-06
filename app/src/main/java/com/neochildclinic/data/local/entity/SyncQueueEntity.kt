@@ -19,10 +19,11 @@ data class SyncQueueEntity(
     val operation: String, // SyncOperation
     val priority: String = SyncPriority.MEDIUM.name,
     val status: String = SyncStatus.PENDING.name,
+    val transactionGroupId: String? = null,
     val retryCount: Int = 0,
     val lastError: String? = null,
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val createdAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    val updatedAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
 )
 
 fun SyncQueueEntity.toDomain() = SyncItem(
@@ -32,10 +33,11 @@ fun SyncQueueEntity.toDomain() = SyncItem(
     operation = SyncOperation.valueOf(operation),
     priority = SyncPriority.valueOf(priority),
     status = SyncStatus.valueOf(status),
+    transactionGroupId = transactionGroupId,
     retryCount = retryCount,
     lastError = lastError,
-    createdAt = createdAt,
-    updatedAt = updatedAt
+    createdAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(createdAt),
+    updatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(updatedAt)
 )
 
 fun SyncItem.toEntity() = SyncQueueEntity(
@@ -45,8 +47,9 @@ fun SyncItem.toEntity() = SyncQueueEntity(
     operation = operation.name,
     priority = priority.name,
     status = status.name,
+    transactionGroupId = transactionGroupId,
     retryCount = retryCount,
     lastError = lastError,
-    createdAt = createdAt,
-    updatedAt = updatedAt
+    createdAt = com.neochildclinic.core.utils.PatientUtils.formatDate(java.util.Date(createdAt)), 
+    updatedAt = com.neochildclinic.core.utils.PatientUtils.formatDate(java.util.Date(updatedAt))
 )

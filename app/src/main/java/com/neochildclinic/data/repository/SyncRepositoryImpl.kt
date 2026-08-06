@@ -1,10 +1,8 @@
 package com.neochildclinic.data.repository
 
 import com.neochildclinic.data.local.database.AppDatabase
+import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
-import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.WasteRecord
 import com.neochildclinic.core.model.SyncItem
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -14,6 +12,7 @@ import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.json.decodeFromJsonElement
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,7 +32,8 @@ class SyncRepositoryImpl @Inject constructor(
         entityName: String,
         entityId: String,
         operation: SyncOperation,
-        priority: SyncPriority
+        priority: SyncPriority,
+        transactionGroupId: String?
     ) {
         if (entityId.isBlank() || entityId == "kotlin.Unit" || entityId == "Unit" || entityId == "null") {
             return
@@ -44,7 +44,8 @@ class SyncRepositoryImpl @Inject constructor(
                 entityName = entityName,
                 entityId = entityId,
                 operation = operation.name,
-                priority = priority.name
+                priority = priority.name,
+                transactionGroupId = transactionGroupId
             )
         )
         syncManager.scheduleSync()
@@ -61,7 +62,9 @@ class SyncRepositoryImpl @Inject constructor(
 
     override suspend fun processNextItems() {
         syncDao.cleanCorruptedItems()
-        syncDao.requeueStaleSyncingItems(staleBeforeMillis = System.currentTimeMillis() - 5 * 60 * 1000)
+        syncDao.requeueStaleSyncingItems(
+            staleBefore = com.neochildclinic.core.utils.PatientUtils.getIsoTimestampMinutesAgo(5)
+        )
 
         val pending = syncDao.getItemsByStatus(SyncStatus.PENDING.name)
         if (pending.isEmpty()) {
@@ -70,27 +73,68 @@ class SyncRepositoryImpl @Inject constructor(
         }
 
         _syncState.value = SyncState.SYNCING
+        
+        // 1. Sort the queue to respect FK dependencies
+        val sortedQueue = pending.sortedWith(compareBy({ getEntityPriority(it.entityName) }, { it.createdAt }))
+
+        // 2. Group by transactionGroupId
+        val groups = sortedQueue.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }
+
         var hasError = false
 
-        for (item in pending) {
+        for ((groupId, groupItems) in groups) {
             try {
-                syncDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
-                uploadEntity(item)
-                syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
-                syncDao.deleteItem(item) 
+                database.withTransaction {
+                    for (item in groupItems) {
+                        syncDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
+                    }
+                }
+                
+                // Process items in group sequentially
+                for (item in groupItems) {
+                    uploadEntity(item)
+                    syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
+                    syncDao.deleteItem(item)
+                }
             } catch (e: Exception) {
                 hasError = true
+                android.util.Log.e("SyncRepository", "Group sync failed: $groupId", e)
+                
                 val isNetworkError = e is java.io.IOException || e.message?.contains("network", ignoreCase = true) == true
-                if (isNetworkError && item.retryCount < 5) {
-                    syncDao.incrementRetryCount(item.queueId, e.message ?: "Network error")
-                    syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
-                } else {
-                    syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, e.message ?: "Sync failed")
+                
+                for (item in groupItems) {
+                    if (isNetworkError && item.retryCount < 5) {
+                        syncDao.incrementRetryCount(item.queueId, e.message ?: "Network error")
+                        syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                    } else {
+                        syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, e.message ?: "Sync failed")
+                    }
                 }
             }
         }
         
         _syncState.value = if (hasError) SyncState.ERROR else SyncState.IDLE
+        
+        // 3. Loop if more items arrived during processing
+        if (syncDao.getPendingCountSync() > 0 && !hasError) {
+            processNextItems()
+        }
+    }
+
+    private fun getEntityPriority(entityName: String): Int {
+        return when (entityName) {
+            "PATIENT" -> 1
+            "VACCINE" -> 2
+            "BATCH" -> 3
+            "VACCINATION", "VISIT" -> 4
+            "VACCINATION_ITEM" -> 5
+            "INVENTORY_TRANSACTION" -> 6
+            "FINANCE" -> 7
+            "AUDIT_LOG" -> 8
+            "PATIENT_NOTE" -> 9
+            "REMINDER_STATE" -> 10
+            else -> 100
+        }
     }
 
     private suspend fun uploadEntity(item: SyncQueueEntity) {
@@ -101,7 +145,12 @@ class SyncRepositoryImpl @Inject constructor(
             "WASTE" -> "waste_records"
             "REMINDER_STATE", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> "reminders"
             "VACCINE" -> "vaccines"
-            "BATCH" -> "vaccine_batches"
+            "BATCH" -> {
+                if (item.operation == SyncOperation.UPDATE.name) {
+                    return 
+                }
+                "vaccine_batches"
+            }
             "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
             "PATIENT_NOTE" -> "patient_notes"
             "FINANCE" -> "finance_transactions"
@@ -121,46 +170,111 @@ class SyncRepositoryImpl @Inject constructor(
             return
         }
 
-        val finalData = fetchEntityData(item)
-        if (finalData != null) {
-            // Last-write-wins check
-            val localUpdatedAt = getEntityUpdatedAt(finalData)
+        val localData = fetchEntityData(item)
+        if (localData != null) {
+            val localUpdatedAt = getEntityUpdatedAt(localData)
             
             try {
+                // Fetch remote metadata for conflict detection
                 val remoteData = postgrest.from(table).select {
-                    filter {
-                        eq("id", item.entityId)
-                    }
+                    filter { eq("id", item.entityId) }
                 }.decodeSingleOrNull<Map<String, kotlinx.serialization.json.JsonElement>>()
                 
                 if (remoteData != null) {
-                    val remoteUpdatedAt = remoteData["updated_at"]?.toString()?.toLongOrNull() ?: 0L
-                    if (remoteUpdatedAt > localUpdatedAt) {
-                        // Remote is newer, skip upload
+                    val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
+                        ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
+                    
+                    val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
+                    val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
+
+                    if (remoteUpdatedAt > localUpdatedAtLong) {
+                        // REMOTE IS NEWER: Sync back to local (Self-healing)
+                        downloadAndReplaceLocal(item.entityName, remoteData)
                         return
                     }
                 }
             } catch (e: Exception) {
-                // If select fails (e.g. 404/no record), proceed with upsert
+                // Proceed with upsert if check fails
             }
 
-            postgrest.from(table).upsert(finalData)
+            // EXPLICIT CASTING: Supabase upsert<T> requires the concrete type at compile time
+            // to find the correct serializer. Passing 'Any' will fail.
+            when (localData) {
+                is PatientEntity -> postgrest.from(table).upsert(localData)
+                is VisitEntity -> postgrest.from(table).upsert(localData)
+                is VaccinationItemEntity -> postgrest.from(table).upsert(localData)
+                is WasteEntity -> postgrest.from(table).upsert(localData)
+                is ReminderEntity -> postgrest.from(table).upsert(localData)
+                is VaccineEntity -> postgrest.from(table).upsert(localData)
+                is VaccineBatchEntity -> postgrest.from(table).upsert(localData)
+                is InventoryTransactionEntity -> postgrest.from(table).upsert(localData)
+                is FinanceEntity -> postgrest.from(table).upsert(localData)
+                is AuditLogEntity -> postgrest.from(table).upsert(localData)
+                is ProfileEntity -> postgrest.from(table).upsert(localData)
+                is ConsultationEntity -> postgrest.from(table).upsert(localData)
+                is BorrowEntity -> postgrest.from(table).upsert(localData)
+                is PatientNotesEntity -> postgrest.from(table).upsert(localData)
+            }
         }
     }
 
-    private fun getEntityUpdatedAt(data: Any?): Long {
+    private suspend fun downloadAndReplaceLocal(entityName: String, remoteMap: Map<String, kotlinx.serialization.json.JsonElement>) {
+        val json = kotlinx.serialization.json.Json { 
+            ignoreUnknownKeys = true 
+            coerceInputValues = true
+        }
+        val element = kotlinx.serialization.json.JsonObject(remoteMap)
+        
+        when (entityName) {
+            "PATIENT" -> {
+                val entity = json.decodeFromJsonElement<PatientEntity>(element)
+                database.patientDao().insertPatient(entity.copy(isSynced = true))
+            }
+            "VACCINATION", "VISIT" -> {
+                val entity = json.decodeFromJsonElement<VisitEntity>(element)
+                database.vaccinationDao().insertVaccination(entity.copy(isSynced = true))
+            }
+            "VACCINATION_ITEM" -> {
+                val entity = json.decodeFromJsonElement<VaccinationItemEntity>(element)
+                database.vaccinationItemDao().insertItems(listOf(entity))
+            }
+            "VACCINE" -> {
+                val entity = json.decodeFromJsonElement<VaccineEntity>(element)
+                database.vaccineDao().insertVaccine(entity)
+            }
+            "BATCH" -> {
+                val entity = json.decodeFromJsonElement<VaccineBatchEntity>(element)
+                database.vaccineDao().insertBatch(entity)
+            }
+            "FINANCE" -> {
+                val entity = json.decodeFromJsonElement<FinanceEntity>(element)
+                database.financeDao().insertTransaction(entity.copy(isSynced = true))
+            }
+            "PATIENT_NOTE" -> {
+                val entity = json.decodeFromJsonElement<PatientNotesEntity>(element)
+                database.patientNotesDao().insertNote(entity.copy(isSynced = true))
+            }
+            "AUDIT_LOG" -> {
+                val entity = json.decodeFromJsonElement<AuditLogEntity>(element)
+                database.auditLogDao().insertLog(entity.copy(isSynced = true))
+            }
+        }
+    }
+
+    private fun getEntityUpdatedAt(data: Any?): String {
         return when (data) {
-            is Patient -> data.updatedAt
-            is Vaccination -> data.updatedAt
-            is WasteRecord -> data.updatedAt
-            is ConsultationEntity -> data.updatedAt
+            is PatientEntity -> data.updatedAt ?: ""
+            is VisitEntity -> data.updatedAt ?: ""
+            is WasteEntity -> data.updatedAt
+            is ConsultationEntity -> data.updatedAt ?: ""
             is ReminderEntity -> data.updatedAt
             is VaccineEntity -> data.lastUpdated
             is VaccineBatchEntity -> data.updatedAt
             is AuditLogEntity -> data.timestamp
             is PatientNotesEntity -> data.timestamp
             is InventoryTransactionEntity -> data.timestamp
-            else -> 0L
+            is BorrowEntity -> data.borrowedDate
+            else -> ""
         }
     }
     
@@ -178,22 +292,22 @@ class SyncRepositoryImpl @Inject constructor(
         return try {
             when (item.entityName) {
                 "PATIENT" -> {
-                    val patient = database.patientDao().getPatientById(entityId)?.toPatient()
-                    // Strip 'TEMP-' prefix before uploading to Firestore
-                    if (patient?.patientClinicId?.startsWith("TEMP-") == true) {
-                        patient.copy(patientClinicId = "")
+                    val entity = database.patientDao().getPatientById(entityId)
+                    // Strip 'TEMP-' prefix before uploading
+                    if (entity?.patientClinicId?.startsWith("TEMP-") == true) {
+                        entity.copy(patientClinicId = null)
                     } else {
-                        patient
+                        entity
                     }
                 }
-                "VACCINATION", "VISIT" -> database.vaccinationDao().getVaccinationById(entityId)?.toVaccination()
+                "VACCINATION", "VISIT" -> database.vaccinationDao().getVaccinationById(entityId)
                 "VACCINATION_ITEM" -> database.vaccinationItemDao().getItemById(entityId)
-                "WASTE" -> database.wasteDao().getWasteById(entityId)?.toDomain()
+                "WASTE" -> database.wasteDao().getWasteById(entityId)
                 "REMINDER_STATE" -> database.dueReminderDao().getReminderById(entityId.toLongOrNull() ?: -1L)
                 "VACCINE" -> database.vaccineDao().getVaccineById(entityId)
                 "BATCH" -> database.vaccineDao().getBatchById(entityId)
                 "TRANSACTION", "INVENTORY_TRANSACTION" -> database.vaccineDao().getTransactionById(entityId)
-                "FINANCE" -> database.financeDao().getTransactionById(entityId.toLongOrNull() ?: -1L)
+                "FINANCE" -> database.financeDao().getTransactionById(entityId)
                 "AUDIT_LOG" -> database.auditLogDao().getLogById(entityId)
                 "PROFILE", "STAFF" -> database.profileDao().getProfileById(entityId)
                 "CONSULTATION" -> database.consultationDao().getConsultationById(entityId)

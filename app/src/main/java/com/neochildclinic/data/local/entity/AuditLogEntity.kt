@@ -25,7 +25,7 @@ import kotlinx.serialization.Serializable
 )
 data class AuditLogEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     val user: String,
     val module: String, // PATIENT, VACCINE, FINANCE, INVENTORY, STAFF, USERS, SYNC
     @SerialName("entity_type") val entityType: String, // PATIENT, VISIT, REMINDER, BATCH, PAYMENT, etc.

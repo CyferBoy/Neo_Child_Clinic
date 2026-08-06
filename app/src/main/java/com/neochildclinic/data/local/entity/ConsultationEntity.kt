@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.Consultation
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -39,9 +40,9 @@ data class ConsultationEntity(
     val problem: String = "",
     val notes: String = "", // Kept for notes if needed, spec uses problem
     val nextFollowUpDate: String = "",
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = true
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("is_synced") val isSynced: Boolean = true
 )
 
 fun ConsultationEntity.toDomain() = Consultation(
@@ -57,7 +58,7 @@ fun ConsultationEntity.toDomain() = Consultation(
     problem = problem,
     notes = notes,
     nextFollowUpDate = nextFollowUpDate,
-    createdAt = createdAt
+    updatedAt = updatedAt ?: ""
 )
 
 fun Consultation.toEntity(isSynced: Boolean = true) = ConsultationEntity(
@@ -73,6 +74,7 @@ fun Consultation.toEntity(isSynced: Boolean = true) = ConsultationEntity(
     problem = problem,
     notes = notes,
     nextFollowUpDate = nextFollowUpDate,
-    createdAt = createdAt,
+    createdAt = if (updatedAt.isEmpty()) null else updatedAt,
+    updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
     isSynced = isSynced
 )

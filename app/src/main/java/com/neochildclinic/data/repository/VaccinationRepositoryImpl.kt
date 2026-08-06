@@ -2,9 +2,7 @@ package com.neochildclinic.data.repository
 
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
-import com.neochildclinic.data.local.entity.toVaccination
-import com.neochildclinic.data.local.entity.toEntity
-import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -70,14 +68,14 @@ class VaccinationRepositoryImpl @Inject constructor(
     override suspend fun refreshVaccinations() {
         withContext(Dispatchers.IO) {
             try {
-                val vaccinations = postgrest.from("vaccinations").select().decodeList<Vaccination>()
-                val totalDownloaded = vaccinations.size
+                val entities = postgrest.from("patient_visits").select().decodeList<VisitEntity>()
+                val totalDownloaded = entities.size
                 var imported = 0
                 var failedValidation = 0
                 var skippedMissingPatient = 0
 
                 database.withTransaction {
-                    for (remote in vaccinations) {
+                    for (remote in entities) {
                         // Basic Validation before Room insert
                         if (remote.id.isBlank() || remote.patientId.isBlank()) {
                             android.util.Log.e("VaccinationRepo", "Validation failed for ${remote.id}: patientId=${remote.patientId}")
@@ -95,7 +93,7 @@ class VaccinationRepositoryImpl @Inject constructor(
 
                         val local = vaccinationDao.getVaccinationById(remote.id)
                         if (local == null || local.isSynced) {
-                            vaccinationDao.insertVaccination(remote.toEntity(isSynced = true))
+                            vaccinationDao.insertVaccination(remote.copy(isSynced = true))
                             imported++
                         }
                     }
@@ -115,7 +113,7 @@ class VaccinationRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addVaccination(vaccination: Vaccination) {
+    override suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String?) {
         database.withTransaction {
             // 1. Check if it's an update
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
@@ -135,7 +133,8 @@ class VaccinationRepositoryImpl @Inject constructor(
                 entityName = "VACCINATION",
                 entityId = vaccination.id,
                 operation = operation,
-                priority = SyncPriority.HIGH
+                priority = SyncPriority.HIGH,
+                transactionGroupId = transactionGroupId
             )
 
             // Sync individual items
@@ -144,7 +143,8 @@ class VaccinationRepositoryImpl @Inject constructor(
                     entityName = "VACCINATION_ITEM",
                     entityId = item.id,
                     operation = SyncOperation.CREATE,
-                    priority = SyncPriority.MEDIUM
+                    priority = SyncPriority.MEDIUM,
+                    transactionGroupId = transactionGroupId
                 )
             }
             
@@ -154,7 +154,8 @@ class VaccinationRepositoryImpl @Inject constructor(
                 entityId = vaccination.id,
                 action = "VACCINATION",
                 patientId = vaccination.patientId,
-                remarks = "Vaccines: ${vaccination.items.joinToString(", ") { it.vaccineName }}"
+                remarks = "Vaccines: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
+                transactionGroupId = transactionGroupId
             )
         }
     }

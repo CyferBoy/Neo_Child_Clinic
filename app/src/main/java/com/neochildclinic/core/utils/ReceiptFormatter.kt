@@ -96,7 +96,7 @@ object ReceiptFormatter {
         canvas.drawText("Ph: ${patient.phone}", phoneX, currentY + 17f, paint)
         paint.textAlign = Paint.Align.LEFT
         
-        if (patient.address.isNotBlank()) {
+        if (patient.address?.isNotBlank() == true) {
             paint.typeface = Typeface.create("serif", Typeface.NORMAL)
             paint.textSize = 8f
             val addressLines = wrapText("Address: ${patient.address}", PAGE_WIDTH.toFloat() - (2 * MARGIN) - 20f, paint)

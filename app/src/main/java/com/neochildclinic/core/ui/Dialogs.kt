@@ -102,7 +102,10 @@ fun AuditLogDialog(
 @Composable
 private fun AuditLogItem(log: AuditLogEntity) {
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
-    val timeString = remember(log.timestamp) { dateFormat.format(Date(log.timestamp)) }
+    val timeString = remember(log.timestamp) { 
+        val date = com.neochildclinic.core.utils.PatientUtils.parseDate(log.timestamp) ?: Date(0)
+        dateFormat.format(date)
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(

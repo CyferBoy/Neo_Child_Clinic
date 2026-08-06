@@ -25,6 +25,6 @@ data class PatientNotesEntity(
     @SerialName("patient_id") val patientId: String,
     val content: String,
     val author: String,
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("is_synced") val isSynced: Boolean = false
 )

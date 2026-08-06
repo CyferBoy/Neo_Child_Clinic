@@ -24,7 +24,10 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
+            // Check for network before starting? WorkManager usually handles this via constraints
+            // Process entire queue in a loop
             syncRepository.processNextItems()
+            
             sharedPrefs.edit().putInt("failure_count", 0).apply()
             Result.success()
         } catch (e: Exception) {

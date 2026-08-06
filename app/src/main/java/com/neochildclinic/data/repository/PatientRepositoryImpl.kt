@@ -6,8 +6,7 @@ import com.neochildclinic.data.local.dao.DueReminderDao
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.dao.PatientNotesDao
 import com.neochildclinic.data.local.dao.VaccinationDao
-import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.data.local.entity.toPatient
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.data.local.entity.toVaccination
@@ -88,23 +87,24 @@ class PatientRepositoryImpl @Inject constructor(
     override suspend fun refreshPatients() {
         withContext(Dispatchers.IO) {
             try {
-                val patients = postgrest.from("patients").select().decodeList<Patient>()
+                val entities = postgrest.from("patients").select().decodeList<PatientEntity>()
                 
-                android.util.Log.d("PatientRepo", "Pulled ${patients.size} patients from Supabase")
+                android.util.Log.d("PatientRepo", "Pulled ${entities.size} patients from Supabase")
                 
                 database.withTransaction {
-                    for (patient in patients) {
+                    for (entity in entities) {
                         try {
+                            val patient = entity.toPatient()
                             val existingLocal = patientDao.getPatientById(patient.id)
                             
                             // Determine the best clinic ID to keep
                             val localClinicId = when {
                                 // 1. Incoming from Supabase has a real ID
-                                patient.patientClinicId.isNotBlank() && !patient.patientClinicId.startsWith("TEMP-") -> 
+                                patient.patientClinicId?.isNotBlank() == true && !patient.patientClinicId.startsWith("TEMP-") -> 
                                     patient.patientClinicId
                                 
                                 // 2. Local already has a real ID (assigned by Worker but not yet synced)
-                                existingLocal != null && existingLocal.patientClinicId.isNotBlank() && !existingLocal.patientClinicId.startsWith("TEMP-") -> 
+                                existingLocal != null && existingLocal.patientClinicId?.isNotBlank() == true && !existingLocal.patientClinicId.startsWith("TEMP-") -> 
                                     existingLocal.patientClinicId
                                 
                                 // 3. Fallback to TEMP ID for legacy patients
@@ -112,7 +112,7 @@ class PatientRepositoryImpl @Inject constructor(
                             }
 
                             // Uniqueness conflict check (only for real IDs)
-                            if (!localClinicId.startsWith("TEMP-")) {
+                            if (localClinicId != null && !localClinicId.startsWith("TEMP-")) {
                                 val existingByClinicId = patientDao.getPatientByClinicId(localClinicId)
                                 if (existingByClinicId != null && existingByClinicId.id != patient.id) {
                                     val resolvedId = localClinicId + "-CONFLICT-" + patient.id.take(4)
@@ -126,7 +126,7 @@ class PatientRepositoryImpl @Inject constructor(
                                 patientDao.insertPatient(patient.copy(patientClinicId = localClinicId).toEntity(isSynced = true))
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("PatientRepo", "Insert failed for patient ${patient.id}", e)
+                            android.util.Log.e("PatientRepo", "Insert failed for patient ${entity.id}", e)
                         }
                     }
                 }
@@ -143,7 +143,7 @@ class PatientRepositoryImpl @Inject constructor(
             val isUpdate = patientDao.getPatientById(patient.id) != null
             // Business Rule: patientClinicId must be unique. 
             // If empty, generate one.
-            val finalClinicId = if (patient.patientClinicId.isBlank()) {
+            val finalClinicId = if (patient.patientClinicId.isNullOrBlank()) {
                 idGenerator.generateUniqueClinicId()
             } else {
                 if (patient.patientClinicId.startsWith("TEMP-")) {

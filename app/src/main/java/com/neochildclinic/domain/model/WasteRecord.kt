@@ -13,5 +13,5 @@ data class WasteRecord(
     val dateWasted: String = "",
     val reason: String = "",
     val quantity: Int = 1,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: String = ""
 )

@@ -7,6 +7,7 @@ data class SyncItem(
     val operation: SyncOperation,
     val priority: SyncPriority,
     val status: SyncStatus,
+    val transactionGroupId: String? = null,
     val retryCount: Int,
     val lastError: String?,
     val createdAt: Long,

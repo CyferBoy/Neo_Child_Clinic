@@ -2,6 +2,7 @@ package com.neochildclinic.app
 
 import android.app.Application
 import android.util.Log
+import android.webkit.WebView
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.neochildclinic.notification.ReminderScheduler
@@ -36,6 +37,11 @@ class NeoChildApp : Application(), Configuration.Provider {
         }
 
         super.onCreate()
+
+        // Enable WebView debugging for debug builds
+        if (com.neochildclinic.BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
 
         // Initialize GMS Security Provider
         installSecurityProvider()

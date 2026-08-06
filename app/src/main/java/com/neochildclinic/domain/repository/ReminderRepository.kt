@@ -38,7 +38,7 @@ interface ReminderRepository {
     )
 
     // Core Business Actions (Atomic)
-    suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String? = null)
+    suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String? = null, transactionGroupId: String? = null)
     suspend fun reschedule(requirement: PendingRequirement, newDate: String, reminderDate: String, reason: String, performedBy: String)
     suspend fun markVaccinatedElsewhere(
         requirement: PendingRequirement,

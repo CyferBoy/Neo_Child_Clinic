@@ -1,8 +1,7 @@
 package com.neochildclinic.data.repository
 
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.data.local.entity.toEntity
+import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.SyncRepository
@@ -34,7 +33,7 @@ class ConsultationRepositoryImpl @Inject constructor(
     override suspend fun getConsultationById(id: String): Consultation? =
         consultationDao.getConsultationById(id)?.toDomain()
 
-    override suspend fun addConsultation(consultation: Consultation) {
+    override suspend fun addConsultation(consultation: Consultation, transactionGroupId: String?) {
         val entity = consultation.toEntity(isSynced = false)
         consultationDao.insertConsultation(entity)
         
@@ -42,7 +41,8 @@ class ConsultationRepositoryImpl @Inject constructor(
             entityName = "CONSULTATION",
             entityId = consultation.id,
             operation = SyncOperation.CREATE,
-            priority = SyncPriority.MEDIUM
+            priority = SyncPriority.MEDIUM,
+            transactionGroupId = transactionGroupId
         )
 
         auditLogger.recordLog(
@@ -51,7 +51,8 @@ class ConsultationRepositoryImpl @Inject constructor(
             entityId = consultation.id,
             action = "CONSULTATION",
             patientId = consultation.patientId,
-            remarks = "Consultation recorded: ₹${consultation.amount}"
+            remarks = "Consultation recorded: ₹${consultation.amount}",
+            transactionGroupId = transactionGroupId
         )
     }
 
@@ -79,10 +80,10 @@ class ConsultationRepositoryImpl @Inject constructor(
     override suspend fun refreshConsultations() {
         withContext(Dispatchers.IO) {
             try {
-                val remoteConsultations = postgrest.from("consultations").select().decodeList<Consultation>()
-                for (remote in remoteConsultations) {
+                val entities = postgrest.from("consultations").select().decodeList<ConsultationEntity>()
+                for (remote in entities) {
                     if (!syncQueueDao.isUnsynced("CONSULTATION", remote.id)) {
-                        consultationDao.insertConsultation(remote.toEntity(isSynced = true))
+                        consultationDao.insertConsultation(remote.copy(isSynced = true))
                     }
                 }
             } catch (e: Exception) {

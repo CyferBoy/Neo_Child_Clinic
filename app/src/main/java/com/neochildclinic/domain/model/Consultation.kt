@@ -16,5 +16,5 @@ data class Consultation(
     val problem: String = "",
     val notes: String = "",
     val nextFollowUpDate: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val updatedAt: String = ""
 )

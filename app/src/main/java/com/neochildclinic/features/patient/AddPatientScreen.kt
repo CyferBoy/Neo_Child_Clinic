@@ -45,14 +45,14 @@ fun AddPatientScreen(
             isLoading = true
             val patient = viewModel.getPatientById(patientId)
             if (patient != null) {
-                clinicId = if (patient.patientClinicId.startsWith("TEMP-")) "" else patient.patientClinicId
+                clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "" else patient.patientClinicId ?: ""
                 name = patient.name
                 phone = patient.phone
-                alternatePhone = patient.alternatePhone
+                alternatePhone = patient.alternatePhone ?: ""
                 dob = formatDateForDisplay(patient.dob)
                 gender = patient.gender
-                address = patient.address
-                registrationDate = patient.registrationDate
+                address = patient.address ?: ""
+                registrationDate = patient.registrationDate ?: ""
                 
                 val detailedAge = calculateDetailedAge(patient.dob)
                 ageValue = detailedAge.first.toString()

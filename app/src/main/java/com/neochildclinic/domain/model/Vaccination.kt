@@ -1,28 +1,29 @@
 package com.neochildclinic.domain.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Vaccination(
     val id: String = "",
-    val patientId: String = "",
-    val patientName: String = "",
-    val patientClinicId: String = "",
-    val dateGiven: String = "",
-    val cashAmount: Double = 0.0,
-    val onlineAmount: Double = 0.0,
-    val totalPaid: Double = 0.0,
+    @SerialName("patient_id") val patientId: String = "",
+    @SerialName("patient_name") val patientName: String = "",
+    @SerialName("patient_clinic_id") val patientClinicId: String? = null,
+    @SerialName("date_given") val dateGiven: String = "",
+    @SerialName("cash_amount") val cashAmount: Double = 0.0,
+    @SerialName("online_amount") val onlineAmount: Double = 0.0,
+    @SerialName("total_paid") val totalPaid: Double = 0.0,
     val notes: String = "",
-    val performedBy: String = "",
+    @SerialName("performed_by") val performedBy: String = "",
     val items: List<VaccinationItem> = emptyList(),
     val followUps: List<FollowUpRequirement> = emptyList(),
-    val updatedAt: Long = System.currentTimeMillis(),
-    val inventoryStatus: String = "PENDING",
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
     val status: ReminderStatus = ReminderStatus.ACTIVE,
-    val receiptNumber: String = "",
-    val withFees: Boolean = false,
-    val doctorsAcc: Boolean = false,
-    val vaccineIds: List<String> = emptyList() // Legacy support for validator
+    @SerialName("receipt_number") val receiptNumber: String = "",
+    @SerialName("with_fees") val withFees: Boolean = false,
+    @SerialName("doctors_acc") val doctorsAcc: Boolean = false,
+    @SerialName("vaccine_ids") val vaccineIds: List<String> = emptyList() // Legacy support for validator
 ) {
     // Computed properties for legacy support
     val vaccineNames: List<String> get() = items.map { it.vaccineName }
@@ -36,21 +37,21 @@ data class Vaccination(
 @Serializable
 data class VaccinationItem(
     val id: String = "",
-    val vaccinationId: String = "",
-    val vaccineId: String = "",
-    val vaccineName: String = "",
-    val batchId: String = "",
-    val batchNumber: String = "",
-    val expiryDate: String = "",
+    @SerialName("vaccination_id") val vaccinationId: String = "",
+    @SerialName("vaccine_id") val vaccineId: String = "",
+    @SerialName("vaccine_name") val vaccineName: String = "",
+    @SerialName("batch_id") val batchId: String = "",
+    @SerialName("batch_number") val batchNumber: String = "",
+    @SerialName("expiry_date") val expiryDate: String = "",
     val quantity: Int = 1,
     val mrp: Double = 0.0,
-    val netRate: Double = 0.0
+    @SerialName("net_rate") val netRate: Double = 0.0
 )
 
 @Serializable
 data class FollowUpRequirement(
-    val nextVaccineId: String = "",
-    val nextVaccineName: String = "",
-    val dueDate: String = "",
-    val basedOnVaccineId: String = ""
+    @SerialName("next_vaccine_id") val nextVaccineId: String = "",
+    @SerialName("next_vaccine_name") val nextVaccineName: String = "",
+    @SerialName("due_date") val dueDate: String = "",
+    @SerialName("based_on_vaccine_id") val basedOnVaccineId: String = ""
 )

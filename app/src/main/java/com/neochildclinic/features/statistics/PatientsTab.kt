@@ -127,7 +127,7 @@ private fun calculatePatientStats(patients: List<Patient>): PatientAnalyticsData
     patients.forEach { p ->
         if (p.registrationDate == todayStr) newToday++
         
-        PatientUtils.parseDate(p.registrationDate)?.let { date ->
+        PatientUtils.parseDate(p.registrationDate ?: "")?.let { date ->
             val c = Calendar.getInstance().apply { time = date }
             if (c.get(Calendar.MONTH) == currentMonth && c.get(Calendar.YEAR) == currentYear) newMonth++
         }

@@ -34,7 +34,8 @@ class FinanceRepositoryImpl @Inject constructor(
     }
 
     override fun getDailyIncome(start: Long): Flow<Double?> {
-        return financeDao.getDailyIncome(start)
+        val isoStart = com.neochildclinic.core.utils.PatientUtils.formatDate(java.util.Date(start))
+        return financeDao.getDailyIncome(isoStart)
     }
 
     override suspend fun recordIncome(
@@ -45,7 +46,8 @@ class FinanceRepositoryImpl @Inject constructor(
         patientId: String?,
         visitId: String?,
         remarks: String?,
-        recordedBy: String
+        recordedBy: String,
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val transaction = FinanceEntity(
@@ -61,17 +63,24 @@ class FinanceRepositoryImpl @Inject constructor(
                 recordedBy = recordedBy,
                 isSynced = false
             )
-            val id = financeDao.insertTransaction(transaction)
-            syncRepository.enqueue("FINANCE", id.toString(), SyncOperation.CREATE, SyncPriority.MEDIUM)
+            financeDao.insertTransaction(transaction)
+            syncRepository.enqueue(
+                entityName = "FINANCE",
+                entityId = transaction.id,
+                operation = SyncOperation.CREATE,
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = transactionGroupId
+            )
             
             auditLogger.recordLog(
                 module = "FINANCE",
                 entityType = "TRANSACTION",
-                entityId = id.toString(),
+                entityId = transaction.id,
                 action = "INCOME_RECORDED",
                 patientId = patientId,
                 newValue = amount.toString(),
-                remarks = "Income of $amount recorded in $category"
+                remarks = "Income of $amount recorded in $category",
+                transactionGroupId = transactionGroupId
             )
         }
     }
@@ -92,13 +101,18 @@ class FinanceRepositoryImpl @Inject constructor(
                 recordedBy = recordedBy,
                 isSynced = false
             )
-            val id = financeDao.insertTransaction(transaction)
-            syncRepository.enqueue("FINANCE", id.toString(), SyncOperation.CREATE, SyncPriority.MEDIUM)
+            financeDao.insertTransaction(transaction)
+            syncRepository.enqueue(
+                entityName = "FINANCE",
+                entityId = transaction.id,
+                operation = SyncOperation.CREATE,
+                priority = SyncPriority.MEDIUM
+            )
 
             auditLogger.recordLog(
                 module = "FINANCE",
                 entityType = "TRANSACTION",
-                entityId = id.toString(),
+                entityId = transaction.id,
                 action = "EXPENSE_RECORDED",
                 newValue = amount.toString(),
                 remarks = "Expense of $amount recorded in $category"

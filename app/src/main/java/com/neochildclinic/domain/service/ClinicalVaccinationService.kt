@@ -9,7 +9,10 @@ import com.neochildclinic.data.local.entity.VisitEntity
 import com.neochildclinic.domain.model.PendingRequirement
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.core.model.SyncOperation
+import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.PatientUtils
 import kotlinx.coroutines.flow.first
 import java.util.UUID
@@ -22,7 +25,8 @@ class ClinicalVaccinationService @Inject constructor(
     private val vaccinationRepository: VaccinationRepository,
     private val consultationRepository: ConsultationRepository,
     private val financeRepository: FinanceRepository,
-    private val reminderRepository: ReminderRepository
+    private val reminderRepository: ReminderRepository,
+    private val syncRepository: SyncRepository
 ) {
     suspend fun recordVaccination(
         vaccination: Vaccination,
@@ -30,9 +34,10 @@ class ClinicalVaccinationService @Inject constructor(
         isNew: Boolean = true,
         requirement: PendingRequirement? = null
     ) {
+        val transactionGroupId = UUID.randomUUID().toString()
         database.withTransaction {
             // 1. Add/Update Vaccination Record
-            vaccinationRepository.addVaccination(vaccination)
+            vaccinationRepository.addVaccination(vaccination, transactionGroupId)
 
             // 2. Record Financial Transaction (if amount > 0)
             if (vaccination.totalPaid > 0) {
@@ -44,7 +49,8 @@ class ClinicalVaccinationService @Inject constructor(
                     patientId = vaccination.patientId,
                     visitId = vaccination.id,
                     remarks = "Vaccination: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
-                    recordedBy = user
+                    recordedBy = user,
+                    transactionGroupId = transactionGroupId
                 )
             }
 
@@ -61,6 +67,7 @@ class ClinicalVaccinationService @Inject constructor(
         consultation: Consultation,
         user: String
     ) {
+        val transactionGroupId = UUID.randomUUID().toString()
         database.withTransaction {
             val visitId = if (consultation.visitId.isBlank()) UUID.randomUUID().toString() else consultation.visitId
             
@@ -75,13 +82,23 @@ class ClinicalVaccinationService @Inject constructor(
                 cashAmount = consultation.cashAmount,
                 onlineAmount = consultation.onlineAmount,
                 totalPaid = consultation.amount,
+                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
                 isSynced = false
             )
             database.vaccinationDao().insertVaccination(visit)
             
+            // Sync visit header
+            syncRepository.enqueue(
+                entityName = "VISIT",
+                entityId = visitId,
+                operation = SyncOperation.CREATE,
+                priority = SyncPriority.HIGH,
+                transactionGroupId = transactionGroupId
+            )
+            
             // 2. Create Consultation Record
             val finalConsultation = consultation.copy(visitId = visitId)
-            consultationRepository.addConsultation(finalConsultation)
+            consultationRepository.addConsultation(finalConsultation, transactionGroupId)
             
             // 3. Record Financial Transaction
             financeRepository.recordIncome(
@@ -92,7 +109,8 @@ class ClinicalVaccinationService @Inject constructor(
                 patientId = consultation.patientId,
                 visitId = visitId,
                 remarks = "Consultation: ${consultation.problem}",
-                recordedBy = user
+                recordedBy = user,
+                transactionGroupId = transactionGroupId
             )
         }
     }

@@ -18,7 +18,7 @@ data class WasteEntity(
     val dateWasted: String,
     val reason: String,
     val quantity: Int,
-    val updatedAt: Long = System.currentTimeMillis(),
+    val updatedAt: String = "",
     val isSynced: Boolean = false
 )
 
@@ -45,6 +45,6 @@ fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
     dateWasted = dateWasted,
     reason = reason,
     quantity = quantity,
-    updatedAt = updatedAt,
+    updatedAt = if (updatedAt.isEmpty()) com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() else updatedAt,
     isSynced = isSynced
 )

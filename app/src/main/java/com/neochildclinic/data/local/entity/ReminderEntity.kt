@@ -51,8 +51,8 @@ data class ReminderEntity(
     
     val lastReminderTime: Long = 0,
     val notificationSent: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis(),
+    val createdAt: String = "",
+    val updatedAt: String = "",
     val isSynced: Boolean = false
 )
 

@@ -291,7 +291,7 @@ private fun PatientCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = patient.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                val clinicIdDisplay = if (patient.patientClinicId.isBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
+                val clinicIdDisplay = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
                 Text(text = "ID: $clinicIdDisplay", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 PatientInfoSubtitle(dob = patient.dob, gender = patient.gender)
             }

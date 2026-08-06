@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -32,34 +33,34 @@ import kotlinx.serialization.Serializable
 )
 data class VisitEntity(
     @PrimaryKey val id: String,
-    val patientId: String,
-    val dateGiven: String,
+    @SerialName("patient_id") val patientId: String,
+    @SerialName("date_given") val dateGiven: String,
     val doctor: String = "",
-    val vaccineNames: String = "",
-    val vaccineIds: String = "",
-    val batchIds: String = "", // Comma separated list of batch UUIDs
-    val batchNumbers: String = "", // Comma separated list of human-readable lot numbers
-    val materialsUsed: String? = null,
+    @SerialName("vaccine_names") val vaccineNames: String = "",
+    @SerialName("vaccine_ids") val vaccineIds: String = "",
+    @SerialName("batch_ids") val batchIds: String = "", // Comma separated list of batch UUIDs
+    @SerialName("batch_numbers") val batchNumbers: String = "", // Comma separated list of human-readable lot numbers
+    @SerialName("materials_used") val materialsUsed: String? = null,
     val notes: String = "",
-    val receiptNumber: String = "",
-    val totalPaid: Double = 0.0,
-    val paymentId: String? = null, // Linked to finance_transactions
+    @SerialName("receipt_number") val receiptNumber: String = "",
+    @SerialName("total_paid") val totalPaid: Double = 0.0,
+    @SerialName("payment_id") val paymentId: String? = null, // Linked to finance_transactions
     
     // Reminders logic preserved
-    val nxtVaccineNames: String = "",
-    val nextDueDate: String = "",
-    val cashAmount: Double = 0.0,
-    val onlineAmount: Double = 0.0,
-    val withFees: Boolean = false,
-    val doctorsAcc: Boolean = false,
+    @SerialName("nxt_vaccine_names") val nxtVaccineNames: String = "",
+    @SerialName("next_due_date") val nextDueDate: String = "",
+    @SerialName("cash_amount") val cashAmount: Double = 0.0,
+    @SerialName("online_amount") val onlineAmount: Double = 0.0,
+    @SerialName("with_fees") val withFees: Boolean = false,
+    @SerialName("doctors_acc") val doctorsAcc: Boolean = false,
     val status: ReminderStatus = ReminderStatus.ACTIVE,
     val source: String = "CLINIC",
-    val visitType: String = "VACCINATION",
-    val inventoryStatus: String = "PENDING",
+    @SerialName("visit_type") val visitType: String = "VACCINATION",
+    @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
     
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = true
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("is_synced") val isSynced: Boolean = true
 )
 
 // Map legacy VaccinationEntity name to VisitEntity for easier refactoring
@@ -74,7 +75,7 @@ fun VisitEntity.toVaccination() = Vaccination(
     totalPaid = totalPaid,
     notes = notes,
     performedBy = doctor,
-    updatedAt = updatedAt,
+    updatedAt = updatedAt ?: "",
     inventoryStatus = inventoryStatus,
     status = status,
     receiptNumber = receiptNumber,
@@ -101,7 +102,8 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = VisitEntity(
     status = status,
     visitType = "VACCINATION",
     inventoryStatus = inventoryStatus,
-    updatedAt = updatedAt,
+    createdAt = if (updatedAt.isEmpty()) null else updatedAt,
+    updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
     isSynced = isSynced,
     nxtVaccineNames = followUps.joinToString(",") { it.nextVaccineName },
     nextDueDate = followUps.firstOrNull()?.dueDate ?: ""

@@ -24,11 +24,11 @@ fun OverviewTab(patients: List<Patient>, vaccinations: List<Vaccination>) {
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
     val availableYears = remember(patients, vaccinations) {
-        StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate } + vaccinations.map { it.dateGiven })
+        StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" } + vaccinations.map { it.dateGiven })
     }
 
     val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
-        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate, filterMode, fyQuarter, selectedMonth) }
+        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", filterMode, fyQuarter, selectedMonth) }
     }
     
     val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {

@@ -15,7 +15,8 @@ interface SyncRepository {
         entityName: String,
         entityId: String,
         operation: SyncOperation,
-        priority: SyncPriority = SyncPriority.MEDIUM
+        priority: SyncPriority = SyncPriority.MEDIUM,
+        transactionGroupId: String? = null
     )
 
     fun getPendingCount(): Flow<Int>

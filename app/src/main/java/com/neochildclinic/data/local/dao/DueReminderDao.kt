@@ -96,7 +96,7 @@ interface DueReminderDao {
             completionDate = System.currentTimeMillis(),
             performedBy = completedBy,
             notes = notes ?: reminder.notes,
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         return insertReminder(updated)
@@ -109,7 +109,7 @@ interface DueReminderDao {
             dismissalDate = System.currentTimeMillis(),
             performedBy = dismissedBy,
             dismissalReason = reason,
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         return insertReminder(updated)
@@ -123,7 +123,7 @@ interface DueReminderDao {
             source = source,
             performedBy = recordedBy,
             notes = notes ?: reminder.notes,
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         return insertReminder(updated)

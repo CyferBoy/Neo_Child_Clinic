@@ -188,7 +188,7 @@ private fun PatientSummaryCard(patient: Patient) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            val clinicId = if (patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
+            val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true || patient.patientClinicId.isNullOrBlank()) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
             Text("ID: $clinicId", style = MaterialTheme.typography.bodyMedium)
             Text("${patient.gender} | DOB: ${patient.dob}", style = MaterialTheme.typography.bodySmall)
         }

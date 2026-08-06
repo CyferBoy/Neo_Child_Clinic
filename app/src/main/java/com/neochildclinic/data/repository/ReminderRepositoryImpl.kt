@@ -48,14 +48,18 @@ class ReminderRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ReminderRepository {
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true 
+        coerceInputValues = true
+    }
 
     private suspend fun logReminderUndoableChange(
         reminder: ReminderEntity?,
         action: String,
         remarks: String? = null,
         newValue: String? = null,
-        explicitEntityId: String? = null
+        explicitEntityId: String? = null,
+        transactionGroupId: String? = null
     ) {
         val oldValueJson = reminder?.let { json.encodeToString(it) }
         val entityId = explicitEntityId ?: if (reminder != null) {
@@ -70,7 +74,8 @@ class ReminderRepositoryImpl @Inject constructor(
             action = action,
             oldValue = oldValueJson,
             newValue = newValue,
-            remarks = remarks
+            remarks = remarks,
+            transactionGroupId = transactionGroupId
         )
     }
 
@@ -149,8 +154,8 @@ class ReminderRepositoryImpl @Inject constructor(
                 cat is DateCategory.Overdue || cat is DateCategory.Yesterday || cat is DateCategory.GracePeriod
             },
             completedToday = reminders.count { it.status == "COMPLETED" && (it.completionDate ?: 0) >= todayStart },
-            rescheduledToday = reminders.count { it.status == "RESCHEDULED" && it.updatedAt >= todayStart },
-            externalToday = reminders.count { it.status == "EXTERNAL" && it.updatedAt >= todayStart },
+            rescheduledToday = reminders.count { it.status == "RESCHEDULED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.updatedAt) >= todayStart },
+            externalToday = reminders.count { it.status == "EXTERNAL" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.updatedAt) >= todayStart },
             dismissedToday = reminders.count { it.status == "DISMISSED" && (it.dismissalDate ?: 0) >= todayStart },
             notificationsSentToday = reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }
         )
@@ -263,10 +268,11 @@ class ReminderRepositoryImpl @Inject constructor(
         visitId: String,
         vaccineName: String,
         operation: SyncOperation,
-        priority: SyncPriority
+        priority: SyncPriority,
+        transactionGroupId: String? = null
     ) {
         val syncId = "${patientId}||${visitId}||${vaccineName}"
-        syncRepository.enqueue(entityName, syncId, operation, priority)
+        syncRepository.enqueue(entityName, syncId, operation, priority, transactionGroupId)
     }
 
     override suspend fun scheduleFollowUp(
@@ -324,7 +330,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String?) {
+    override suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String?, transactionGroupId: String?) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 // Smart Lookup: Find any reminder whose vaccineName contains the administered vaccine
@@ -340,20 +346,20 @@ class ReminderRepositoryImpl @Inject constructor(
                     
                     if (remainingVaccines.isEmpty()) {
                         // All vaccines in this reminder are done
-                        logReminderUndoableChange(targetReminder, "COMPLETED", "${requirement.vaccineName} marked done by $performedBy")
+                        logReminderUndoableChange(targetReminder, "COMPLETED", "${requirement.vaccineName} marked done by $performedBy", transactionGroupId = transactionGroupId)
                         dueReminderDao.moveDueToCompleted(targetReminder, performedBy, "Requirement satisfied")
-                        enqueueReminderSync("REMINDER_STATE", targetReminder.patientId, targetReminder.originalVisitId, targetReminder.vaccineName, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                        enqueueReminderSync("REMINDER_STATE", targetReminder.patientId, targetReminder.originalVisitId, targetReminder.vaccineName, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
                     } else {
                         // Partially satisfied: Update the row with remaining vaccines
                         val updatedName = remainingVaccines.joinToString(", ")
                         val updated = targetReminder.copy(
                             vaccineName = updatedName,
-                            updatedAt = System.currentTimeMillis(),
+                            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
                             isSynced = false
                         )
                         dueReminderDao.insertReminder(updated)
-                        logReminderUndoableChange(targetReminder, "PARTIAL", "Administered ${requirement.vaccineName}, remaining: $updatedName")
-                        enqueueReminderSync("REMINDER_STATE", targetReminder.patientId, targetReminder.originalVisitId, updatedName, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                        logReminderUndoableChange(targetReminder, "PARTIAL", "Administered ${requirement.vaccineName}, remaining: $updatedName", transactionGroupId = transactionGroupId)
+                        enqueueReminderSync("REMINDER_STATE", targetReminder.patientId, targetReminder.originalVisitId, updatedName, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
                     }
                 } else {
                     // Fallback for direct matches or legacy data
@@ -390,7 +396,7 @@ class ReminderRepositoryImpl @Inject constructor(
                     dueDate = newDate,
                     reminderDate = reminderDate,
                     status = "RESCHEDULED",
-                    updatedAt = System.currentTimeMillis(),
+                    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
                     notes = if (reason.isNotBlank()) "${existing.notes ?: ""}\nRescheduled: $reason" else existing.notes,
                     isSynced = false
                 ) ?: ReminderEntity(
@@ -545,7 +551,7 @@ class ReminderRepositoryImpl @Inject constructor(
                     logReminderUndoableChange(existing, "RESTORED", explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}")
                     val restored = existing.copy(
                         status = "ACTIVE",
-                        updatedAt = System.currentTimeMillis(),
+                        updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
                         isSynced = false
                     )
                     dueReminderDao.insertReminder(restored)
@@ -633,7 +639,7 @@ class ReminderRepositoryImpl @Inject constructor(
                     priority = null,
                     reminderEnabled = null,
                     performedBy = log.user,
-                    timestamp = log.timestamp,
+                    timestamp = com.neochildclinic.core.utils.PatientUtils.isoToLong(log.timestamp),
                     notes = log.remarks,
                     isSynced = log.isSynced
                 )
