@@ -153,10 +153,10 @@ class ReminderRepositoryImpl @Inject constructor(
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
                 cat is DateCategory.Overdue || cat is DateCategory.Yesterday || cat is DateCategory.GracePeriod
             },
-            completedToday = reminders.count { it.status == "COMPLETED" && (it.completionDate ?: 0) >= todayStart },
+            completedToday = reminders.count { it.status == "COMPLETED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.completionDate) >= todayStart },
             rescheduledToday = reminders.count { it.status == "RESCHEDULED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.updatedAt) >= todayStart },
             externalToday = reminders.count { it.status == "EXTERNAL" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.updatedAt) >= todayStart },
-            dismissedToday = reminders.count { it.status == "DISMISSED" && (it.dismissalDate ?: 0) >= todayStart },
+            dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.dismissalDate) >= todayStart },
             notificationsSentToday = reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }
         )
     }
@@ -221,9 +221,9 @@ class ReminderRepositoryImpl @Inject constructor(
                     },
                     status = status,
                     dateGiven = when (status) {
-                        ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(firstState.completionDate ?: 0))
-                        ReminderStatus.EXTERNAL -> firstState.externalDate ?: ""
-                        ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(firstState.dismissalDate ?: 0))
+                        ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.utils.PatientUtils.isoToLong(firstState.completionDate)))
+                        ReminderStatus.EXTERNAL -> firstState.notes?.substringAfter("Date: ")?.substringBefore("\n") ?: ""
+                        ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.utils.PatientUtils.isoToLong(firstState.dismissalDate)))
                         else -> ""
                     },
                     performedBy = firstState.performedBy ?: "",
@@ -517,7 +517,7 @@ class ReminderRepositoryImpl @Inject constructor(
                         vaccineName = requirement.vaccineName,
                         dueDate = PatientUtils.formatDate(requirement.dueDate),
                         status = "DISMISSED",
-                        dismissalDate = System.currentTimeMillis(),
+                        dismissalDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
                         performedBy = performedBy,
                         dismissalReason = reason
                     )
@@ -650,7 +650,7 @@ class ReminderRepositoryImpl @Inject constructor(
     override suspend fun refreshReminders() {
         withContext(Dispatchers.IO) {
             try {
-                val entities = postgrest.from("reminders").select().decodeList<ReminderEntity>()
+                val entities = postgrest.from("reminders").select().decodeList<RemoteReminder>()
                 database.withTransaction {
                     for (remote in entities) {
                         // Check if we have a local version and if it's unsynced
@@ -663,10 +663,7 @@ class ReminderRepositoryImpl @Inject constructor(
                         if (local == null || local.isSynced) {
                             // Safe to overwrite or insert
                             // We preserve the local autoincrement id if it exists to avoid row replacement
-                            val toSave = remote.copy(
-                                id = local?.id ?: 0L,
-                                isSynced = true
-                            )
+                            val toSave = remote.toLocal(localId = local?.id ?: 0L)
                             dueReminderDao.insertReminder(toSave)
                         } else {
                             // Local has unsynced changes, keep it for now

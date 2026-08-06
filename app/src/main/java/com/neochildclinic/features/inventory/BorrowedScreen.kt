@@ -17,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.model.BorrowedVaccine
@@ -25,7 +24,6 @@ import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
-import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -37,7 +35,7 @@ fun BorrowedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
-    var editingItem by remember { mutableStateOf<BorrowedVaccine?>(null) }
+    var editingItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
 
     val filteredList = remember(uiState.borrowedList, uiState.selectedTab) {
         val type = if (uiState.selectedTab == 0) "BY" else "FROM"
@@ -57,7 +55,7 @@ fun BorrowedScreen(
             editingItem = item
             showAddDialog = true
         },
-        onReturnRequest = viewModel::markAsReturned,
+        onReturnRequest = { viewModel.markAsReturned(it.record) },
         onDeleteRequest = { viewModel.deleteBorrowedItem(it.id) }
     )
 
@@ -79,13 +77,13 @@ fun BorrowedScreen(
 @Composable
 private fun BorrowedContent(
     uiState: BorrowedUiState,
-    filteredList: List<BorrowedVaccine>,
+    filteredList: List<BorrowedDisplayItem>,
     onBack: () -> Unit,
     onTabSelected: (Int) -> Unit,
     onAddClick: () -> Unit,
-    onEditRequest: (BorrowedVaccine) -> Unit,
-    onReturnRequest: (BorrowedVaccine) -> Unit,
-    onDeleteRequest: (BorrowedVaccine) -> Unit
+    onEditRequest: (BorrowedDisplayItem) -> Unit,
+    onReturnRequest: (BorrowedDisplayItem) -> Unit,
+    onDeleteRequest: (BorrowedDisplayItem) -> Unit
 ) {
     val tabs = remember { listOf("By", "From") }
 
@@ -169,7 +167,7 @@ private fun BorrowedContent(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BorrowedItemCard(
-    item: BorrowedVaccine,
+    item: BorrowedDisplayItem,
     onEdit: () -> Unit,
     onReturn: () -> Unit,
     onDelete: () -> Unit,
@@ -220,17 +218,19 @@ private fun BorrowedItemCard(
 
 @Composable
 fun BorrowedEditDialog(
-    item: BorrowedVaccine?,
+    item: BorrowedDisplayItem?,
     defaultType: String,
     inventory: List<InventoryItem>,
     onDismiss: () -> Unit,
     onSave: (BorrowedVaccine) -> Unit
 ) {
     var doctorName by rememberSaveable { mutableStateOf(item?.doctorName ?: "") }
-    var vaccineName by rememberSaveable { mutableStateOf(item?.vaccineName ?: "") }
-    var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
+    var vaccineId by rememberSaveable { mutableStateOf(item?.record?.vaccineId ?: "") }
+    var vaccineSearch by rememberSaveable { mutableStateOf(item?.vaccineName ?: "") }
+    var batchId by rememberSaveable { mutableStateOf(item?.record?.batchId ?: "") }
     var batchNumber by rememberSaveable { mutableStateOf(item?.batchNumber ?: "") }
-    var expiryDate by rememberSaveable { mutableStateOf(item?.expiryDate ?: "") }
+    var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
+    var quantity by rememberSaveable { mutableStateOf(item?.quantity ?: 1) }
     var type by rememberSaveable { mutableStateOf(item?.type ?: defaultType) }
     
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -265,14 +265,14 @@ fun BorrowedEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 
-                val suggestions = remember(vaccineName, inventory) {
-                    inventory.filter { it.brandName.contains(vaccineName, ignoreCase = true) || it.type.contains(vaccineName, ignoreCase = true) }
+                val suggestions = remember(vaccineSearch, inventory) {
+                    inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) || it.type.contains(vaccineSearch, ignoreCase = true) }
                 }
                 
                 StandardAutoCompleteField(
-                    value = vaccineName,
+                    value = vaccineSearch,
                     onValueChange = { newValue -> 
-                        vaccineName = newValue
+                        vaccineSearch = newValue
                         expanded = true
                     },
                     label = "Vaccine Name",
@@ -284,10 +284,11 @@ fun BorrowedEditDialog(
                             DropdownMenuItem(
                                 text = { Text("${v.brandName} (${v.type})") },
                                 onClick = {
-                                    vaccineName = v.brandName
+                                    vaccineSearch = v.brandName
+                                    vaccineId = v.id
                                     val firstBatch = v.batches.firstOrNull()
+                                    batchId = firstBatch?.batchId ?: ""
                                     batchNumber = firstBatch?.batchNumber ?: ""
-                                    expiryDate = firstBatch?.expiryDate ?: ""
                                     expanded = false
                                 }
                             )
@@ -296,21 +297,26 @@ fun BorrowedEditDialog(
                 )
 
                 StandardTextField(value = borrowedDate, onValueChange = { borrowedDate = it }, label = "Date (yyyy-MM-dd)", modifier = Modifier.fillMaxWidth())
-                StandardTextField(value = batchNumber, onValueChange = { batchNumber = it }, label = "Batch Number", modifier = Modifier.fillMaxWidth())
-                StandardTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = "Expiry Date (yyyy-MM-dd)", modifier = Modifier.fillMaxWidth())
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StandardTextField(value = batchNumber, onValueChange = { batchNumber = it }, label = "Batch Number", modifier = Modifier.weight(1f), enabled = false)
+                    StandardTextField(value = quantity.toString(), onValueChange = { quantity = it.toIntOrNull() ?: 1 }, label = "Qty", modifier = Modifier.weight(0.5f))
+                }
             }
         },
         confirmButton = {
             StandardButton(onClick = {
+                if (vaccineId.isEmpty() || batchId.isEmpty()) return@StandardButton
+                
                 onSave(BorrowedVaccine(
                     id = item?.id ?: "",
                     doctorName = doctorName,
-                    vaccineName = vaccineName,
+                    vaccineId = vaccineId,
+                    batchId = batchId,
                     borrowedDate = borrowedDate,
-                    batchNumber = batchNumber,
-                    expiryDate = expiryDate,
-                    isReturned = item?.isReturned ?: false,
-                    returnedDate = item?.returnedDate,
+                    quantity = quantity,
+                    isReturned = item?.record?.isReturned ?: false,
+                    returnedDate = item?.record?.returnedDate,
                     type = type
                 ))
             }) {
@@ -321,21 +327,4 @@ fun BorrowedEditDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun BorrowedPreview() {
-    NeoChildTheme {
-        BorrowedContent(
-            uiState = BorrowedUiState(isLoading = false, selectedTab = 0),
-            filteredList = listOf(BorrowedVaccine("1", "Dr. Hassan", "2024-01-01", "BCG", "2025-01-01", "B123", false, null, "BY")),
-            onBack = {},
-            onTabSelected = {},
-            onAddClick = {},
-            onEditRequest = {},
-            onReturnRequest = {},
-            onDeleteRequest = {}
-        )
-    }
 }

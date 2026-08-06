@@ -204,7 +204,7 @@ class SyncRepositoryImpl @Inject constructor(
                 is VisitEntity -> postgrest.from(table).upsert(localData)
                 is VaccinationItemEntity -> postgrest.from(table).upsert(localData)
                 is WasteEntity -> postgrest.from(table).upsert(localData)
-                is ReminderEntity -> postgrest.from(table).upsert(localData)
+                is ReminderEntity -> postgrest.from(table).upsert(localData.toRemote())
                 is VaccineEntity -> postgrest.from(table).upsert(localData)
                 is VaccineBatchEntity -> postgrest.from(table).upsert(localData)
                 is InventoryTransactionEntity -> postgrest.from(table).upsert(localData)
@@ -257,6 +257,27 @@ class SyncRepositoryImpl @Inject constructor(
             "AUDIT_LOG" -> {
                 val entity = json.decodeFromJsonElement<AuditLogEntity>(element)
                 database.auditLogDao().insertLog(entity.copy(isSynced = true))
+            }
+            "REMINDER_STATE", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> {
+                val remote = json.decodeFromJsonElement<RemoteReminder>(element)
+                val local = database.dueReminderDao().getReminderByStableId(
+                    remote.patientId, 
+                    remote.originalVisitId, 
+                    remote.vaccineName
+                )
+                database.dueReminderDao().insertReminder(remote.toLocal(localId = local?.id ?: 0L))
+            }
+            "CONSULTATION" -> {
+                val entity = json.decodeFromJsonElement<ConsultationEntity>(element)
+                database.consultationDao().insertConsultation(entity.copy(isSynced = true))
+            }
+            "BORROW" -> {
+                val entity = json.decodeFromJsonElement<BorrowEntity>(element)
+                database.borrowDao().insertRecord(entity.copy(isSynced = true))
+            }
+            "WASTE" -> {
+                val entity = json.decodeFromJsonElement<WasteEntity>(element)
+                database.wasteDao().insertWaste(entity.copy(isSynced = true))
             }
         }
     }

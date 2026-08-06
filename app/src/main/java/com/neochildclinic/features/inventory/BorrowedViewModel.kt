@@ -15,8 +15,23 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 
+data class BorrowedDisplayItem(
+    val id: String,
+    val doctorName: String,
+    val vaccineName: String,
+    val batchNumber: String,
+    val expiryDate: String,
+    val borrowedDate: String,
+    val quantity: Int,
+    val isReturned: Boolean,
+    val returnedDate: String?,
+    val type: String,
+    val notes: String?,
+    val record: BorrowedVaccine
+)
+
 data class BorrowedUiState(
-    val borrowedList: List<BorrowedVaccine> = emptyList(),
+    val borrowedList: List<BorrowedDisplayItem> = emptyList(),
     val inventory: List<InventoryItem> = emptyList(),
     val isLoading: Boolean = false,
     val selectedTab: Int = 0
@@ -29,17 +44,36 @@ class BorrowedViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository
 ) : ViewModel() {
 
-    private val _borrowedList = MutableStateFlow<List<BorrowedVaccine>>(emptyList())
+    private val _borrowedRecords = MutableStateFlow<List<BorrowedVaccine>>(emptyList())
     private val _isLoading = MutableStateFlow(true)
     private val _selectedTab = MutableStateFlow(0)
 
     val uiState: StateFlow<BorrowedUiState> = combine(
-        _borrowedList, 
+        _borrowedRecords, 
         inventoryRepository.getInventoryItems(),
         _isLoading, 
         _selectedTab
-    ) { borrowed, inv, loading, tab ->
-        BorrowedUiState(borrowed, inv, loading, tab)
+    ) { records, inv, loading, tab ->
+        val displayItems = records.map { record ->
+            val vaccine = inv.find { it.id == record.vaccineId }
+            val batch = vaccine?.batches?.find { it.batchId == record.batchId }
+            
+            BorrowedDisplayItem(
+                id = record.id,
+                doctorName = record.doctorName,
+                vaccineName = vaccine?.brandName ?: "Unknown Vaccine",
+                batchNumber = batch?.batchNumber ?: "Unknown Batch",
+                expiryDate = batch?.expiryDate ?: "Unknown Expiry",
+                borrowedDate = record.borrowedDate,
+                quantity = record.quantity,
+                isReturned = record.isReturned,
+                returnedDate = record.returnedDate,
+                type = record.type,
+                notes = record.notes,
+                record = record
+            )
+        }
+        BorrowedUiState(displayItems, inv, loading, tab)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BorrowedUiState(isLoading = true))
 
     init {
@@ -50,27 +84,12 @@ class BorrowedViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val list = postgrest.from("borrow_records").select().decodeList<BorrowedVaccine>()
-                processAndSetBorrowed(list)
+                _borrowedRecords.value = list.sortedByDescending { it.borrowedDate }
+                _isLoading.value = false
             } catch (e: Exception) {
                 _isLoading.value = false
             }
         }
-    }
-
-    private fun processAndSetBorrowed(list: List<BorrowedVaccine>) {
-        val fifteenDaysAgo = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -15) }.time
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
-        
-        val filtered = list.filter { item ->
-            if (!item.isReturned || item.returnedDate == null) true
-            else {
-                val returnedDate = try { sdf.parse(item.returnedDate) } catch (ex: Exception) { null }
-                returnedDate == null || returnedDate.after(fifteenDaysAgo)
-            }
-        }.sortedByDescending { it.borrowedDate }
-        
-        _borrowedList.value = filtered
-        _isLoading.value = false
     }
 
     fun updateTab(tab: Int) {
@@ -83,14 +102,12 @@ class BorrowedViewModel @Inject constructor(
             
             if (item.id.isEmpty()) {
                 // New Borrow - Deduct from inventory
-                inventoryRepository.getInventoryItems().first().find { it.brandName.equals(item.vaccineName, true) }?.let { invItem ->
-                    inventoryRepository.deductStock(
-                        vaccineId = invItem.id,
-                        quantity = 1,
-                        user = user,
-                        transactionType = InventoryTransactionType.OTHER
-                    )
-                }
+                inventoryRepository.deductStock(
+                    vaccineId = item.vaccineId,
+                    quantity = item.quantity,
+                    user = user,
+                    transactionType = InventoryTransactionType.OTHER
+                )
                 postgrest.from("borrow_records").insert(item.copy(id = UUID.randomUUID().toString()))
             } else {
                 postgrest.from("borrow_records").update(item) {
@@ -101,22 +118,17 @@ class BorrowedViewModel @Inject constructor(
         }
     }
 
-    fun markAsReturned(item: BorrowedVaccine) {
+    fun markAsReturned(record: BorrowedVaccine) {
         viewModelScope.launch {
             val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
-            val updated = item.copy(isReturned = true, returnedDate = sdf.format(Date()))
+            val updated = record.copy(isReturned = true, returnedDate = sdf.format(Date()))
             
             // Returned - Restore stock
-            inventoryRepository.getInventoryItems().first().find { it.brandName.equals(item.vaccineName, true) }?.let { invItem ->
-                val batchId = invItem.batches.find { it.batchNumber == item.batchNumber }?.batchId
-                if (batchId != null) {
-                    inventoryRepository.addStockToBatch(batchId, 1, user, InventoryTransactionType.RETURN)
-                }
-            }
+            inventoryRepository.addStockToBatch(record.batchId, record.quantity, user, InventoryTransactionType.RETURN)
             
             postgrest.from("borrow_records").update(updated) {
-                filter { eq("id", item.id) }
+                filter { eq("id", record.id) }
             }
             fetchBorrowed()
         }

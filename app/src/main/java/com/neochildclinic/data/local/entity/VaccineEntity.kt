@@ -14,8 +14,8 @@ import kotlinx.serialization.Serializable
 data class VaccineEntity(
     @PrimaryKey val id: String,
     val type: String,
-    val brandName: String,
-    val companyName: String,
+    @SerialName("brand_name") val brandName: String,
+    @SerialName("company_name") val companyName: String,
     
     // Structure Updates
     val manufacturer: String? = null,
@@ -83,11 +83,11 @@ data class InventoryTransactionEntity(
     val user: String,
     val notes: String? = null,
     
-    // Detailed tracking
-    val status: String = "COMPLETED", // InventoryStatus
-    @SerialName("failure_reason") val failureReason: String? = null,
-    @SerialName("processed_at") val processedAt: String? = null,
-    @SerialName("processed_by") val processedBy: String? = null,
+    // Detailed tracking - Local Only
+    @kotlinx.serialization.Transient val status: String = "COMPLETED", // InventoryStatus
+    @kotlinx.serialization.Transient @SerialName("failure_reason") val failureReason: String? = null,
+    @kotlinx.serialization.Transient @SerialName("processed_at") val processedAt: String? = null,
+    @kotlinx.serialization.Transient @SerialName("processed_by") val processedBy: String? = null,
     @SerialName("is_synced") val isSynced: Boolean = false
 )
 

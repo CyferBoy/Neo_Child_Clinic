@@ -32,7 +32,8 @@ fun WasteEntity.toDomain() = WasteRecord(
     dateWasted = dateWasted,
     reason = reason,
     quantity = quantity,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    isSynced = isSynced
 )
 
 fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
@@ -46,5 +47,5 @@ fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
     reason = reason,
     quantity = quantity,
     updatedAt = if (updatedAt.isEmpty()) com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() else updatedAt,
-    isSynced = isSynced
+    isSynced = this.isSynced || isSynced
 )

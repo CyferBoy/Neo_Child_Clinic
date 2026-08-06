@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.VaccinationItem
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -38,13 +39,13 @@ import kotlinx.serialization.Serializable
 )
 data class VaccinationItemEntity(
     @PrimaryKey val id: String,
-    val vaccinationId: String,
-    val vaccineId: String,
-    val batchId: String,
+    @SerialName("vaccination_id") val vaccinationId: String,
+    @SerialName("vaccine_id") val vaccineId: String,
+    @SerialName("batch_id") val batchId: String,
     val quantity: Int = 1,
     val mrp: Double = 0.0,
-    val netRate: Double = 0.0,
-    val expiryDate: String = ""
+    @SerialName("net_rate") val netRate: Double = 0.0,
+    @SerialName("expiry_date") val expiryDate: String = ""
 )
 
 fun VaccinationItemEntity.toDomain() = VaccinationItem(

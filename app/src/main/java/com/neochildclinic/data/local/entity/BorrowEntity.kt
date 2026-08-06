@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -27,14 +28,14 @@ import kotlinx.serialization.Serializable
 )
 data class BorrowEntity(
     @PrimaryKey val id: String,
-    val doctorName: String,
-    val vaccineId: String,
-    val batchId: String,
-    val borrowedDate: String,
+    @SerialName("doctor_name") val doctorName: String,
+    @SerialName("vaccine_id") val vaccineId: String,
+    @SerialName("batch_id") val batchId: String,
+    @SerialName("borrowed_date") val borrowedDate: String,
     val quantity: Int = 1,
-    val isReturned: Boolean = false,
-    val returnedDate: String? = null,
+    @SerialName("is_returned") val isReturned: Boolean = false,
+    @SerialName("returned_date") val returnedDate: String? = null,
     val type: String = "BY", // BY (Borrowed By us from someone), TO (Borrowed from us By someone)
     val notes: String? = null,
-    val isSynced: Boolean = false
+    @SerialName("is_synced") val isSynced: Boolean = false
 )

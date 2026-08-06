@@ -29,17 +29,17 @@ import kotlinx.serialization.Serializable
 )
 data class ConsultationEntity(
     @PrimaryKey val id: String,
-    val visitId: String = "",
-    val patientId: String,
-    val doctorId: String = "",
-    val doctorName: String = "",
+    @SerialName("visit_id") val visitId: String = "",
+    @SerialName("patient_id") val patientId: String,
+    @SerialName("doctor_id") val doctorId: String = "",
+    @SerialName("doctor_name") val doctorName: String = "",
     val date: String,
     val amount: Double,
-    val cashAmount: Double = 0.0,
-    val onlineAmount: Double = 0.0,
+    @SerialName("cash_amount") val cashAmount: Double = 0.0,
+    @SerialName("online_amount") val onlineAmount: Double = 0.0,
     val problem: String = "",
     val notes: String = "", // Kept for notes if needed, spec uses problem
-    val nextFollowUpDate: String = "",
+    @SerialName("next_follow_up_date") val nextFollowUpDate: String = "",
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("is_synced") val isSynced: Boolean = true

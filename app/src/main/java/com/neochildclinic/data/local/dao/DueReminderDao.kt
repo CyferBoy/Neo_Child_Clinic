@@ -93,7 +93,7 @@ interface DueReminderDao {
     suspend fun moveDueToCompleted(reminder: ReminderEntity, completedBy: String, notes: String? = null): Long {
         val updated = reminder.copy(
             status = "COMPLETED",
-            completionDate = System.currentTimeMillis(),
+            completionDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             performedBy = completedBy,
             notes = notes ?: reminder.notes,
             updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
@@ -106,7 +106,7 @@ interface DueReminderDao {
     suspend fun moveDueToDismissed(reminder: ReminderEntity, dismissedBy: String, reason: String? = null): Long {
         val updated = reminder.copy(
             status = "DISMISSED",
-            dismissalDate = System.currentTimeMillis(),
+            dismissalDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             performedBy = dismissedBy,
             dismissalReason = reason,
             updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
@@ -119,10 +119,8 @@ interface DueReminderDao {
     suspend fun moveDueToExternal(reminder: ReminderEntity, source: String, externalDate: String, recordedBy: String, notes: String? = null): Long {
         val updated = reminder.copy(
             status = "EXTERNAL",
-            externalDate = externalDate,
-            source = source,
             performedBy = recordedBy,
-            notes = notes ?: reminder.notes,
+            notes = (notes ?: reminder.notes) + "\nSource: $source\nDate: $externalDate",
             updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )

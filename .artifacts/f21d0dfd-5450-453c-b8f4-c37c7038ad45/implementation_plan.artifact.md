@@ -1,47 +1,65 @@
-# Implementation Plan - Fix SQL Timestamp Syntax & Schema Alignment
+# Implementation Plan - Fix Supabase Schema Mismatches & Model Refactoring
 
-The project is encountering two related issues during Supabase synchronization:
-1. **Timestamp Syntax Error**: Supabase rejects `""` (empty strings) for `TIMESTAMPTZ` columns. Additionally, the app stores clinical dates (like `dob` or `date_given`) in a user-friendly format (e.g., "6 Aug 2026") which PostgreSQL's `DATE` type cannot parse.
-2. **Schema Mismatch**: Some parts of the app are still using domain models for cloud fetching, leading to errors like "Could not find column 'followUps'".
+The goal is to align Kotlin data classes with the Supabase PostgreSQL schema (`snake_case` columns) using `@SerialName` and refactor models that have structural mismatches with the remote database.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> This plan involves changing several column types in the Supabase schema from `DATE` or `TIMESTAMPTZ` to `TEXT`. This is necessary to support the app's current date-handling logic without a massive refactor of the local database.
->
-> I will also update the Room entities to use `null` for empty timestamps, allowing Supabase to use its `now()` defaults.
+> - **`ReminderEntity` Split**: I am splitting `ReminderEntity` into a local Room entity (`ReminderEntity`) and a remote DTO (`RemoteReminder`). This resolves the issue where the local table has more fields than the remote table.
+> - **`BorrowedVaccine` structural change**: The `BorrowedVaccine` model is being changed to use `vaccine_id` and `batch_id` instead of denormalized names. The `BorrowedViewModel` will be updated to resolve names locally.
+> - **Date Type Change**: `completionDate` and `dismissalDate` in reminders are changing from `Long?` (millis) to `String?` (ISO) to match the database `TEXT` type.
 
 ## Proposed Changes
 
-### 1. SQL Schema Refactoring
-Update `full_project_schema.sql.artifact.md` to use `TEXT` for app-formatted dates. This makes the database "flexible" to the app's string-based date storage.
-
-- **Tables affected**: `patients`, `patient_visits`, `consultations`, `vaccine_batches`, `reminders`, `borrow_records`.
-- **Columns changed to TEXT**: `dob`, `date_given`, `next_due_date`, `purchase_date`, `expiry_date`, `due_date`, `borrowed_date`, `returned_date`.
-
-### 2. Room Entity Refactoring
-Update data classes to handle timestamps more safely for Supabase.
-
-#### [MODIFY] [VaccinationEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/VaccinationEntity.kt)
-- Change `createdAt` and `updatedAt` defaults from `""` to `null`.
-- Update `toEntity` mappers.
+### 1. Entity & Model Alignment (`@SerialName`)
 
 #### [MODIFY] [ConsultationEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/ConsultationEntity.kt)
-- Change `createdAt` and `updatedAt` to nullable strings.
+- Add `@SerialName` to all multi-word fields matching Supabase snake_case.
 
-### 3. Repository Refactoring
-Ensure all cloud-to-local data flow uses Room entities.
+#### [MODIFY] [WasteRecord.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/domain/model/WasteRecord.kt)
+- Add `@SerialName` annotations and include `is_synced` field.
 
-#### [MODIFY] [PatientRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/PatientRepositoryImpl.kt)
-- Change `postgrest.from("patients").select().decodeList<Patient>()` to `decodeList<PatientEntity>()`.
+#### [MODIFY] [WasteEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/WasteEntity.kt)
+- Update `toDomain()` and `toEntity()` to preserve the `isSynced` flag.
 
-#### [MODIFY] [ConsultationRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/ConsultationRepositoryImpl.kt)
-- Change `decodeList<Consultation>()` to `decodeList<ConsultationEntity>()`.
+#### [MODIFY] [VaccineEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/VaccineEntity.kt)
+- **`VaccineEntity`**: Add missing `@SerialName` for `brand_name` and `company_name`.
+- **`InventoryTransactionEntity`**: Mark `failureReason`, `processedAt`, and `processedBy` as `@Transient` to exclude them from Supabase sync.
+
+#### [MODIFY] [BorrowEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/BorrowEntity.kt)
+- Add `@SerialName` annotations to all fields.
+
+#### [MODIFY] [VaccinationItemEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/VaccinationItemEntity.kt)
+- Add `@SerialName` annotations to all fields.
+
+### 2. Reminder Refactoring (Split & Date Types)
+
+#### [MODIFY] [ReminderEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt)
+- Update `ReminderEntity` fields `completionDate` and `dismissalDate` to `String?`.
+- **[NEW] `RemoteReminder`**: Create a DTO that only contains the columns present in the Supabase `reminders` table.
+- Add mapping functions between `ReminderEntity` and `RemoteReminder`.
+
+#### [MODIFY] [ReminderRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/ReminderRepositoryImpl.kt)
+- Update code that sets `completionDate` and `dismissalDate` to use formatted date strings.
+- Update `refreshReminders` to decode `RemoteReminder` and map to `ReminderEntity`.
+
+#### [MODIFY] [SyncRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt)
+- Update `uploadEntity` to map `ReminderEntity` to `RemoteReminder` before sending to Supabase.
+
+### 3. Borrowing Refactoring
+
+#### [MODIFY] [BorrowedVaccine.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/core/model/BorrowedVaccine.kt)
+- Rebuild to match `borrow_records` table schema (using IDs instead of names).
+
+#### [MODIFY] [BorrowedViewModel.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/features/inventory/BorrowedViewModel.kt)
+- Update logic to work with the ID-based `BorrowedVaccine` structure.
 
 ## Verification Plan
 
+### Automated Tests
+- Run `./gradlew assembleDebug` to ensure all call sites are correctly updated.
+
 ### Manual Verification
-- Re-run the SQL script in Supabase.
-- Trigger a sync in the app.
-- Check Logcat for "invalid input syntax" errors.
-- Verify that `patient_visits` and `patients` sync without schema/column errors.
+- Verify Sync functionality for all modified entities.
+- Check "Borrow" screen to ensure vaccine and batch names still display correctly (now resolved via IDs).
+- Verify that reminders correctly show completion/dismissal dates.
