@@ -1,6 +1,7 @@
 package com.neochildclinic.data.repository
 
 import com.neochildclinic.data.local.database.AppDatabase
+import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.ConsultationRepository
@@ -21,10 +22,12 @@ class ConsultationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
+    private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val auditLogger: AuditLogger
 ) : ConsultationRepository {
 
     private val consultationDao = database.consultationDao()
+    private val vaccinationDao = database.vaccinationDao()
     private val syncQueueDao = database.syncQueueDao()
 
     override fun getConsultationsForPatient(patientId: String): Flow<List<Consultation>> =
@@ -57,24 +60,42 @@ class ConsultationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteConsultation(id: String) {
-        val existing = consultationDao.getConsultationById(id) ?: return
-        consultationDao.deleteConsultation(id)
-        
-        syncRepository.enqueue(
-            entityName = "CONSULTATION",
-            entityId = id,
-            operation = SyncOperation.DELETE,
-            priority = SyncPriority.MEDIUM
-        )
+        database.withTransaction {
+            val existing = consultationDao.getConsultationById(id) ?: return@withTransaction
+            
+            // 1. Delete linked finance records (using visitId)
+            if (existing.visitId.isNotBlank()) {
+                financeRepository.deleteTransactionsByVisitId(existing.visitId)
+                
+                // 2. Delete Visit Header
+                vaccinationDao.deleteVaccination(existing.visitId)
+                syncRepository.enqueue(
+                    entityName = "VISIT",
+                    entityId = existing.visitId,
+                    operation = SyncOperation.DELETE,
+                    priority = SyncPriority.MEDIUM
+                )
+            }
 
-        auditLogger.recordLog(
-            module = "PATIENT",
-            entityType = "CONSULTATION",
-            entityId = id,
-            action = "DELETED",
-            patientId = existing.patientId,
-            remarks = "Consultation deleted"
-        )
+            // 3. Delete Consultation
+            consultationDao.deleteConsultation(id)
+            
+            syncRepository.enqueue(
+                entityName = "CONSULTATION",
+                entityId = id,
+                operation = SyncOperation.DELETE,
+                priority = SyncPriority.MEDIUM
+            )
+
+            auditLogger.recordLog(
+                module = "PATIENT",
+                entityType = "CONSULTATION",
+                entityId = id,
+                action = "DELETED",
+                patientId = existing.patientId,
+                remarks = "Consultation and associated visit header deleted"
+            )
+        }
     }
 
     override suspend fun refreshConsultations() {

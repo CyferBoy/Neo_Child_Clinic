@@ -21,6 +21,12 @@ interface FinanceDao {
     @Query("SELECT SUM(amount) FROM finance_transactions WHERE type = 'INCOME' AND timestamp >= :start")
     fun getDailyIncome(start: String): Flow<Double?>
 
+    @Query("SELECT * FROM finance_transactions WHERE visitId = :visitId")
+    suspend fun getTransactionsByVisitId(visitId: String): List<FinanceEntity>
+
+    @Query("DELETE FROM finance_transactions WHERE id = :id")
+    suspend fun deleteTransactionById(id: String)
+
     @Query("SELECT * FROM finance_transactions WHERE isSynced = 0")
     suspend fun getUnsyncedTransactions(): List<FinanceEntity>
 

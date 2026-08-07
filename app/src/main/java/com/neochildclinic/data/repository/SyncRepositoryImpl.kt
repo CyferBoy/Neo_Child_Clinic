@@ -75,7 +75,17 @@ class SyncRepositoryImpl @Inject constructor(
         _syncState.value = SyncState.SYNCING
         
         // 1. Sort the queue to respect FK dependencies
-        val sortedQueue = pending.sortedWith(compareBy({ getEntityPriority(it.entityName) }, { it.createdAt }))
+        // For CREATE/UPDATE: Parent (Priority 1) before Child (Priority 10)
+        // For DELETE: Child (Priority 10 -> -10) before Parent (Priority 1 -> -1)
+        val sortedQueue = pending.sortedWith(
+            compareBy(
+                { 
+                    val basePriority = getEntityPriority(it.entityName)
+                    if (it.operation == SyncOperation.DELETE.name) -basePriority else basePriority 
+                }, 
+                { it.createdAt }
+            )
+        )
 
         // 2. Group by transactionGroupId
         val groups = sortedQueue.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }

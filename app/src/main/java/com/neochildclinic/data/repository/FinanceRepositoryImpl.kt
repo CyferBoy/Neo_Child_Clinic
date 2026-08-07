@@ -120,6 +120,30 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteTransactionsByVisitId(visitId: String) {
+        database.withTransaction {
+            val transactions = financeDao.getTransactionsByVisitId(visitId)
+            for (t in transactions) {
+                financeDao.deleteTransactionById(t.id)
+                syncRepository.enqueue(
+                    entityName = "FINANCE",
+                    entityId = t.id,
+                    operation = SyncOperation.DELETE,
+                    priority = SyncPriority.MEDIUM
+                )
+                
+                auditLogger.recordLog(
+                    module = "FINANCE",
+                    entityType = "TRANSACTION",
+                    entityId = t.id,
+                    action = "DELETED",
+                    patientId = t.patientId,
+                    remarks = "Transaction for visit $visitId deleted"
+                )
+            }
+        }
+    }
+
     override suspend fun refreshTransactions() {
         withContext(Dispatchers.IO) {
             try {

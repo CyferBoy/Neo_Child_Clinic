@@ -1,30 +1,19 @@
-# Tasks: Unified Doctor Selection
+# Tasks: Fix Foreign Key Violations on Deletion
 
-## 1. Database & Domain Layer Updates
-- [x] Add `doctorId` to `VisitEntity.kt` and update mappings
-- [x] Add `doctorId` to `Vaccination.kt` domain model
-- [x] Update `toEntity` and `toVaccination` conversion logic
+## 1. Finance Module Updates
+- [x] Add Visit ID lookup and deletion to `FinanceDao.kt`
+- [x] Implement `deleteTransactionsByVisitId` in `FinanceRepository.kt` & `FinanceRepositoryImpl.kt`
 
-## 2. UI Components
-- [x] Implement `DoctorDropdown` in `Dropdowns.kt`
+## 2. Vaccination Deletion Fix
+- [x] Update `VaccinationRepositoryImpl.kt` to delete linked finance records first
 
-## 3. Add Vaccination Refactoring
-- [x] Update `AddVaccinationUiState` and `AddVaccinationViewModel.kt` to handle doctor selection
-- [x] Integrate `DoctorDropdown` into `AddVaccinationScreen.kt`
-- [x] Add mandatory validation for doctor selection
+## 3. Consultation Deletion Fix
+- [x] Update `ConsultationRepositoryImpl.kt` to delete linked finance records and visit header
 
-## 4. Add Consultation Refactoring
-- [x] Update `AddConsultationUiState` and `AddConsultationViewModel.kt` to handle doctor selection
-- [x] Integrate `DoctorDropdown` into `AddConsultationScreen.kt`
-- [x] Add mandatory validation for doctor selection
+## 4. Sync Engine Integrity
+- [x] Update `SyncRepositoryImpl.kt` to sort `DELETE` operations in reverse priority
 
-## 5. Display & Lookup Logic
-- [x] Expose `doctorMap` in `PatientViewModel.kt` for UI lookups
-- [x] Update `VaccinationRecordCard` to use `doctorId` for display name lookup
-- [x] Update `ConsultationRecordCard` to use `doctorId` for display name lookup
-- [x] Update `ReceiptFormatter.kt` to resolve doctor name from `doctorId`
-
-## 6. Verification
-- [x] Verify doctor list loads and defaults correctly for Doctor role
-- [x] Verify `employee_id` is stored in the database
-- [x] Verify history cards display the correct doctor name dynamically
+## 5. Verification
+- [x] Verify linked deletion of vaccination and finance records
+- [x] Verify linked deletion of consultation, visit header, and finance records
+- [x] Verify sync ordering handles server-side foreign keys correctly

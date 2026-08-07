@@ -27,5 +27,7 @@ interface FinanceRepository {
         recordedBy: String
     )
 
+    suspend fun deleteTransactionsByVisitId(visitId: String)
+
     suspend fun refreshTransactions()
 }

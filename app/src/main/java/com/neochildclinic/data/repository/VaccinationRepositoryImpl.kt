@@ -24,6 +24,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val auth: Auth,
     private val syncRepository: SyncRepository,
+    private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val inventoryRepository: InventoryRepository,
     private val auditLogger: AuditLogger
 ) : VaccinationRepository {
@@ -164,6 +165,9 @@ class VaccinationRepositoryImpl @Inject constructor(
         database.withTransaction {
             val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction
             
+            // 0. Delete linked finance records
+            financeRepository.deleteTransactionsByVisitId(id)
+
             // 1. Identify batches used in this vaccination
             val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
             val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
