@@ -38,6 +38,9 @@ data class AddVaccinationUiState(
     val patient: Patient? = null,
     val isLoading: Boolean = false,
     val inventory: List<InventoryItem> = emptyList(),
+    val allDoctors: List<Profile> = emptyList(),
+    val selectedDoctor: Profile? = null,
+    val doctorError: Boolean = false,
     val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
     val followUps: List<FollowUpSelectionState> = emptyList(),
@@ -55,6 +58,7 @@ class AddVaccinationViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     private val vaccinationRepository: VaccinationRepository,
     private val reminderRepository: ReminderRepository,
+    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val clinicalService: ClinicalVaccinationService,
     private val auth: Auth
 ) : ViewModel() {
@@ -64,6 +68,7 @@ class AddVaccinationViewModel @Inject constructor(
 
     init {
         fetchInventory()
+        fetchDoctors()
     }
 
     fun loadPatient(patientId: String) {
@@ -128,6 +133,26 @@ class AddVaccinationViewModel @Inject constructor(
         inventoryRepository.getInventoryItems().onEach { items ->
             _uiState.update { it.copy(inventory = items) }
         }.launchIn(viewModelScope)
+    }
+
+    private fun fetchDoctors() {
+        profileRepository.allProfiles.onEach { profiles ->
+            val doctors = profiles.filter { it.role == UserRole.doctor && it.isActive }
+                .sortedBy { it.displayName }
+            
+            val currentUserId = auth.currentSessionOrNull()?.user?.id
+            val currentUserProfile = profiles.find { it.id == currentUserId }
+            val defaultDoctor = if (currentUserProfile?.role == UserRole.doctor) currentUserProfile else null
+
+            _uiState.update { it.copy(
+                allDoctors = doctors,
+                selectedDoctor = if (it.selectedDoctor == null) defaultDoctor else it.selectedDoctor
+            ) }
+        }.launchIn(viewModelScope)
+    }
+
+    fun selectDoctor(doctor: Profile) {
+        _uiState.update { it.copy(selectedDoctor = doctor, doctorError = false) }
     }
 
     fun updateGivenDate(date: String) {
@@ -206,6 +231,11 @@ class AddVaccinationViewModel @Inject constructor(
         val state = _uiState.value
         val patient = state.patient ?: return
         
+        if (state.selectedDoctor == null) {
+            _uiState.update { it.copy(doctorError = true, errorMessage = "Please select a doctor.") }
+            return
+        }
+
         if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
             _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
             return
@@ -242,7 +272,8 @@ class AddVaccinationViewModel @Inject constructor(
                     cashAmount = state.cashAmount.toDoubleOrNull() ?: 0.0,
                     onlineAmount = state.onlineAmount.toDoubleOrNull() ?: 0.0,
                     totalPaid = state.totalAmount,
-                    performedBy = user,
+                    doctorId = state.selectedDoctor.employeeId ?: "",
+                    performedBy = state.selectedDoctor.displayName,
                     items = items
                 )
 

@@ -45,6 +45,7 @@ class PatientViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
     private val reminderRepository: ReminderRepository,
     private val consultationRepository: ConsultationRepository,
+    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val documentRepository: DocumentRepository,
     private val database: AppDatabase,
     private val auth: Auth,
@@ -87,6 +88,7 @@ class PatientViewModel @Inject constructor(
     val allPatients: StateFlow<List<Patient>>
     val allVaccinations: StateFlow<List<Vaccination>>
     val patientsWithMissingPrice: StateFlow<Set<String>>
+    val doctorMap: StateFlow<Map<String, String>>
     
     private val _profile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?> = _profile.asStateFlow()
@@ -113,6 +115,14 @@ class PatientViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptySet()
         )
+
+        doctorMap = profileRepository.allProfiles
+            .map { profiles -> profiles.associate { it.employeeId.orEmpty() to it.displayName } }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = emptyMap()
+            )
 
         refresh()
     }
@@ -207,6 +217,17 @@ class PatientViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 deleteVaccinationUseCase(id)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun deleteConsultation(id: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                consultationRepository.deleteConsultation(id)
                 onResult(true)
             } catch (e: Exception) {
                 onResult(false)

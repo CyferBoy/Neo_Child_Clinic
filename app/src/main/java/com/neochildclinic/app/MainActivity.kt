@@ -19,6 +19,12 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import com.neochildclinic.core.utils.BiometricLockManager
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.LockScreen
 import com.neochildclinic.domain.manager.SyncManager
@@ -62,7 +68,6 @@ class MainActivity : FragmentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
 
     private var openDueTab by mutableStateOf(false)
-    private var isAppLocked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,32 +85,35 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         setContent {
             NeoChildTheme {
-                if (isAppLocked) {
-                    LockScreen(onAuthenticate = { authenticateWithBiometrics() })
-                } else {
-                    val navController = rememberNavController()
-                    
-                    // Permission request for Android 13+
-                    val permissionLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.RequestPermission()
-                    ) { isGranted ->
-                        // Notifications permission granted/denied
-                    }
-
-                    LaunchedEffect(Unit) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                    }
-
-                    LaunchedEffect(openDueTab) {
-                        if (openDueTab) {
-                            navController.navigate(Routes.DUE)
-                            openDueTab = false
-                        }
-                    }
-
+                val isLocked by BiometricLockManager.isAppLocked.collectAsState()
+                val navController = rememberNavController()
+                
+                Box(modifier = Modifier.fillMaxSize()) {
                     AppNavigation(navController = navController)
+                    
+                    if (isLocked) {
+                        LockScreen(onAuthenticate = { authenticateWithBiometrics() })
+                    }
+                }
+
+                // Permission request for Android 13+
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    // Notifications permission granted/denied
+                }
+
+                LaunchedEffect(Unit) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+
+                LaunchedEffect(openDueTab) {
+                    if (openDueTab) {
+                        navController.navigate(Routes.DUE)
+                        openDueTab = false
+                    }
                 }
             }
         }
@@ -113,7 +121,9 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // No auto-logout anymore. Session remains indefinitely.
+        // Notify Lock Manager that app is resumed
+        BiometricLockManager.onAppResume()
+        
         lifecycleScope.launch {
             authViewModel.refreshSessionStatus()
             checkAppLock()
@@ -130,7 +140,7 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()
             if (!settings.biometricLockEnabled) {
-                isAppLocked = false
+                BiometricLockManager.unlock()
                 return@launch
             }
 
@@ -138,8 +148,9 @@ class MainActivity : FragmentActivity() {
             val lastOpen = settings.lastAppOpenTimestamp
             val thresholdMillis = settings.inactivityDaysThreshold * 24L * 60L * 60L * 1000L
             
-            if (settings.authOnEveryOpen || (currentTime - lastOpen > thresholdMillis)) {
-                isAppLocked = true
+            val isLocked = BiometricLockManager.isAppLocked.value
+            if (isLocked || settings.authOnEveryOpen || (currentTime - lastOpen > thresholdMillis)) {
+                BiometricLockManager.lock()
                 authenticateWithBiometrics()
             }
         }
@@ -156,7 +167,7 @@ class MainActivity : FragmentActivity() {
                     object : BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                             super.onAuthenticationSucceeded(result)
-                            isAppLocked = false
+                            BiometricLockManager.unlock()
                         }
 
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -168,7 +179,6 @@ class MainActivity : FragmentActivity() {
 
                         override fun onAuthenticationFailed() {
                             super.onAuthenticationFailed()
-                            // Handled by system UI mostly, but we could add custom feedback
                         }
                     })
 
@@ -181,14 +191,11 @@ class MainActivity : FragmentActivity() {
                 biometricPrompt.authenticate(promptInfo)
             }
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                // If not enrolled but lock is enabled, we might want to fallback to pin or allow entry with warning
-                // For now, allow entry to prevent lock-out if they enabled it then deleted fingerprints
-                isAppLocked = false
+                BiometricLockManager.unlock()
                 Toast.makeText(this, "No biometrics enrolled. Please set up fingerprint in device settings.", Toast.LENGTH_LONG).show()
             }
             else -> {
-                // Feature not available or hardware error
-                isAppLocked = false
+                BiometricLockManager.unlock()
             }
         }
     }

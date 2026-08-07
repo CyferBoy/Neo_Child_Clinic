@@ -7,15 +7,15 @@ import com.neochildclinic.domain.model.Vaccination
 
 object ReceiptManager {
 
-    suspend fun downloadReceipt(context: Context, patient: Patient, vaccination: Vaccination) {
-        ReceiptGenerator.downloadReceipt(context, patient, vaccination)
+    suspend fun downloadReceipt(context: Context, patient: Patient, vaccination: Vaccination, doctorName: String? = null) {
+        ReceiptGenerator.downloadReceipt(context, patient, vaccination, doctorName)
     }
 
-    fun printReceipt(context: Context, patient: Patient, vaccination: Vaccination) {
-        ReceiptPrinter.printReceipt(context, patient, vaccination)
+    fun printReceipt(context: Context, patient: Patient, vaccination: Vaccination, doctorName: String? = null) {
+        ReceiptPrinter.printReceipt(context, patient, vaccination, doctorName)
     }
 
-    fun printConsultationReceipt(context: Context, patient: Patient, consultation: Consultation) {
-        ReceiptPrinter.printConsultationReceipt(context, patient, consultation)
+    fun printConsultationReceipt(context: Context, patient: Patient, consultation: Consultation, doctorName: String? = null) {
+        ReceiptPrinter.printConsultationReceipt(context, patient, consultation, doctorName)
     }
 }

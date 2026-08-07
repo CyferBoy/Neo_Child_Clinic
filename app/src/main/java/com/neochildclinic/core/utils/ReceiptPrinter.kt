@@ -18,17 +18,17 @@ import java.io.FileOutputStream
 
 object ReceiptPrinter {
 
-    fun printReceipt(context: Context, patient: Patient, vaccination: Vaccination) {
+    fun printReceipt(context: Context, patient: Patient, vaccination: Vaccination, doctorName: String? = null) {
         val jobName = "Receipt_${patient.name}_${vaccination.dateGiven}"
         startPrintJob(context, jobName) { canvas ->
-            ReceiptFormatter.drawReceiptContent(context, canvas, patient, vaccination)
+            ReceiptFormatter.drawReceiptContent(context, canvas, patient, vaccination, doctorName)
         }
     }
 
-    fun printConsultationReceipt(context: Context, patient: Patient, consultation: Consultation) {
+    fun printConsultationReceipt(context: Context, patient: Patient, consultation: Consultation, doctorName: String? = null) {
         val jobName = "Consultation_${patient.name}_${consultation.date}"
         startPrintJob(context, jobName) { canvas ->
-            ReceiptFormatter.drawConsultationContent(context, canvas, patient, consultation)
+            ReceiptFormatter.drawConsultationContent(context, canvas, patient, consultation, doctorName)
         }
     }
 

@@ -18,7 +18,9 @@ import javax.inject.Inject
 
 data class AddConsultationUiState(
     val patient: Patient? = null,
-    val doctorProfile: Profile? = null,
+    val allDoctors: List<Profile> = emptyList(),
+    val selectedDoctor: Profile? = null,
+    val doctorError: Boolean = false,
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val error: String? = null
@@ -36,7 +38,7 @@ class AddConsultationViewModel @Inject constructor(
     val uiState: StateFlow<AddConsultationUiState> = _uiState.asStateFlow()
 
     init {
-        loadDoctorProfile()
+        loadDoctors()
     }
 
     fun loadPatient(patientId: String) {
@@ -46,35 +48,51 @@ class AddConsultationViewModel @Inject constructor(
         }
     }
 
-    private fun loadDoctorProfile() {
-        val userId = auth.currentSessionOrNull()?.user?.id ?: return
-        viewModelScope.launch {
-            val profile = profileRepository.getProfileById(userId)
-            _uiState.update { it.copy(doctorProfile = profile) }
-        }
+    private fun loadDoctors() {
+        profileRepository.allProfiles.onEach { profiles ->
+            val doctors = profiles.filter { it.role == com.neochildclinic.domain.model.UserRole.doctor && it.isActive }
+                .sortedBy { it.displayName }
+            
+            val currentUserId = auth.currentSessionOrNull()?.user?.id
+            val currentUserProfile = profiles.find { it.id == currentUserId }
+            val defaultDoctor = if (currentUserProfile?.role == com.neochildclinic.domain.model.UserRole.doctor) currentUserProfile else null
+
+            _uiState.update { it.copy(
+                allDoctors = doctors,
+                selectedDoctor = if (it.selectedDoctor == null) defaultDoctor else it.selectedDoctor
+            ) }
+        }.launchIn(viewModelScope)
+    }
+
+    fun selectDoctor(doctor: Profile) {
+        _uiState.update { it.copy(selectedDoctor = doctor, doctorError = false) }
     }
 
     fun saveConsultation(
         patientId: String,
-        doctorName: String,
         date: String,
         cash: Double,
         online: Double,
         problem: String,
         nextFollowUpDate: String
     ) {
+        val state = _uiState.value
+        if (state.selectedDoctor == null) {
+            _uiState.update { it.copy(doctorError = true, error = "Please select a doctor.") }
+            return
+        }
+
         val totalAmount = cash + online
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
-                val doctorId = auth.currentSessionOrNull()?.user?.id ?: ""
                 
                 val consultation = Consultation(
                     id = UUID.randomUUID().toString(),
                     patientId = patientId,
-                    doctorId = doctorId,
-                    doctorName = doctorName,
+                    doctorId = state.selectedDoctor.employeeId ?: "",
+                    doctorName = state.selectedDoctor.displayName,
                     date = date,
                     amount = totalAmount,
                     cashAmount = cash,

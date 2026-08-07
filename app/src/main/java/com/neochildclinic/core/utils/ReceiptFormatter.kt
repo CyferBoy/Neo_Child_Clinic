@@ -109,7 +109,7 @@ object ReceiptFormatter {
         return currentY + infoBoxHeight + 12f
     }
 
-    fun drawConsultationContent(context: Context, canvas: Canvas, patient: Patient, consultation: Consultation) {
+    fun drawConsultationContent(context: Context, canvas: Canvas, patient: Patient, consultation: Consultation, doctorDisplayName: String? = null) {
         val paint = Paint()
         var yPos = 40f
         val pageWidth = PAGE_WIDTH.toFloat()
@@ -142,7 +142,8 @@ object ReceiptFormatter {
 
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         paint.textSize = 9f
-        canvas.drawText("Consultation by: Dr. Farogh Hassan (MBBS, DCH, DNB(Paediatrics), PGDDN)", MARGIN, yPos, paint)
+        val displayDoctor = doctorDisplayName ?: consultation.doctorName.ifBlank { "Dr. Farogh Hassan" }
+        canvas.drawText("Consultation by: $displayDoctor", MARGIN, yPos, paint)
         yPos += 18f
 
         paint.typeface = Typeface.create("serif", Typeface.BOLD)
@@ -208,7 +209,7 @@ object ReceiptFormatter {
         canvas.drawText("* Please call before visiting for consultation.", MARGIN, yPos, paint)
     }
 
-    fun drawReceiptContent(context: Context, canvas: Canvas, patient: Patient, vaccination: Vaccination) {
+    fun drawReceiptContent(context: Context, canvas: Canvas, patient: Patient, vaccination: Vaccination, doctorDisplayName: String? = null) {
         val paint = Paint()
         var yPos = 40f
         val pageWidth = PAGE_WIDTH.toFloat()
@@ -240,7 +241,8 @@ object ReceiptFormatter {
         
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         paint.textSize = 9f
-        canvas.drawText("Administered by: Dr. Farogh Hassan (MBBS, DCH, DNB(Paediatrics), PGDDN)", MARGIN, yPos, paint)
+        val displayDoctor = doctorDisplayName ?: vaccination.performedBy.ifBlank { "Dr. Farogh Hassan" }
+        canvas.drawText("Administered by: $displayDoctor", MARGIN, yPos, paint)
         yPos += 18f
 
         paint.typeface = Typeface.create("serif", Typeface.BOLD)

@@ -5,6 +5,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -58,6 +59,7 @@ fun PatientDetailsScreen(
     val documents by viewModel.documents.collectAsState()
     val followUps by viewModel.getPatientFollowUps(patientId).collectAsState(initial = emptyList())
     val patientNotes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
+    val doctorMap by viewModel.doctorMap.collectAsState()
 
     LaunchedEffect(patientId) {
         viewModel.loadDocuments(patientId)
@@ -65,10 +67,16 @@ fun PatientDetailsScreen(
 
     var selectedSegment by remember { mutableIntStateOf(0) }
     var vaccinationToDelete by remember { mutableStateOf<Vaccination?>(null) }
+    var consultationToDelete by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
     var patientToDelete by remember { mutableStateOf<com.neochildclinic.domain.model.Patient?>(null) }
     var showAuditLog by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var fabExpanded by remember { mutableStateOf(false) }
+
+    var selectedVaccinationForAction by remember { mutableStateOf<Vaccination?>(null) }
+    var selectedConsultationForAction by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
+    val sheetState = rememberModalBottomSheetState()
+    var showSheet by remember { mutableStateOf(false) }
 
     DeleteConfirmationDialog(
         show = vaccinationToDelete != null,
@@ -85,6 +93,23 @@ fun PatientDetailsScreen(
         },
         title = "Delete Vaccination",
         message = "Are you sure you want to delete this vaccination record?"
+    )
+
+    DeleteConfirmationDialog(
+        show = consultationToDelete != null,
+        onDismiss = { consultationToDelete = null },
+        onConfirm = {
+            val cId = consultationToDelete?.id
+            if (cId != null) {
+                viewModel.deleteConsultation(cId) { success ->
+                    val msg = if (success) "Consultation record deleted" else "Failed to delete"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+            }
+            consultationToDelete = null
+        },
+        title = "Delete Consultation",
+        message = "Are you sure you want to delete this consultation record?"
     )
 
     DeleteConfirmationDialog(
@@ -115,6 +140,78 @@ fun PatientDetailsScreen(
             onDismiss = { showAuditLog = false },
             logs = auditLogs
         )
+    }
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = if (selectedVaccinationForAction != null) "Vaccination Actions" else "Consultation Actions",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                if (selectedVaccinationForAction != null) {
+                    ListItem(
+                        headlineContent = { Text("Print Receipt") },
+                        leadingContent = { Icon(Icons.Default.Print, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            val doctorName = doctorMap[selectedVaccinationForAction!!.doctorId] ?: selectedVaccinationForAction!!.performedBy
+                            com.neochildclinic.core.utils.ReceiptManager.printReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text("Download Receipt") },
+                        leadingContent = { Icon(Icons.Default.Download, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            scope.launch {
+                                val doctorName = doctorMap[selectedVaccinationForAction!!.doctorId] ?: selectedVaccinationForAction!!.performedBy
+                                com.neochildclinic.core.utils.ReceiptManager.downloadReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
+                            }
+                        }
+                    )
+                    if (canEditOrDelete) {
+                        ListItem(
+                            headlineContent = { Text("Edit Record") },
+                            leadingContent = { Icon(Icons.Default.Edit, null) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                onEditVaccination(selectedVaccinationForAction!!.id)
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("Delete Record", color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                vaccinationToDelete = selectedVaccinationForAction
+                            }
+                        )
+                    }
+                } else if (selectedConsultationForAction != null) {
+                    if (canEditOrDelete) {
+                        ListItem(
+                            headlineContent = { Text("Delete Record", color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                consultationToDelete = selectedConsultationForAction
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     AppBackground {
@@ -221,11 +318,20 @@ fun PatientDetailsScreen(
                     documents = documents,
                     followUps = followUps,
                     notes = patientNotes,
+                    doctorMap = doctorMap,
                     canEditOrDelete = canEditOrDelete,
                     selectedSegment = selectedSegment,
                     onSegmentSelected = { selectedSegment = it },
-                    onEdit_vaccination = onEditVaccination,
-                    onDeleteVaccination = { vaccinationToDelete = it },
+                    onLongClickVaccination = { 
+                        selectedVaccinationForAction = it
+                        selectedConsultationForAction = null
+                        showSheet = true
+                    },
+                    onLongClickConsultation = { 
+                        selectedConsultationForAction = it
+                        selectedVaccinationForAction = null
+                        showSheet = true
+                    },
                     onUploadDocument = { launcher.launch("*/*") },
                     onDeleteDocument = { viewModel.deleteDocument(it, patientId) },
                     onViewDocument = { path ->

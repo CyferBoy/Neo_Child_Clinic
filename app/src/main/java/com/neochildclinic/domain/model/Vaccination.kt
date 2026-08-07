@@ -14,6 +14,7 @@ data class Vaccination(
     @SerialName("online_amount") val onlineAmount: Double = 0.0,
     @SerialName("total_paid") val totalPaid: Double = 0.0,
     val notes: String = "",
+    @SerialName("doctor_id") val doctorId: String = "",
     @SerialName("performed_by") val performedBy: String = "",
     val items: List<VaccinationItem> = emptyList(),
     val followUps: List<FollowUpRequirement> = emptyList(),

@@ -9,6 +9,9 @@ import com.neochildclinic.notification.ReminderScheduler
 import com.neochildclinic.worker.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
+import android.content.Intent
+import android.content.IntentFilter
+import com.neochildclinic.core.utils.BiometricLockManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -48,6 +51,16 @@ class NeoChildApp : Application(), Configuration.Provider {
 
         setupSync()
         
+        // Register Screen Off Receiver
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        registerReceiver(object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    BiometricLockManager.onScreenOff()
+                }
+            }
+        }, filter)
+
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
         scope.launch {
             reminderScheduler.scheduleDailySummary()

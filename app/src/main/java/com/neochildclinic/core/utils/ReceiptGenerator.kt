@@ -18,14 +18,14 @@ import java.io.OutputStream
 
 object ReceiptGenerator {
 
-    suspend fun downloadReceipt(context: Context, patient: Patient, vaccination: Vaccination) {
+    suspend fun downloadReceipt(context: Context, patient: Patient, vaccination: Vaccination, doctorName: String? = null) {
         withContext(Dispatchers.Default) {
             val pdfDocument = PdfDocument()
             try {
                 val pageInfo = PdfDocument.PageInfo.Builder(ReceiptFormatter.PAGE_WIDTH, ReceiptFormatter.PAGE_HEIGHT, 1).create()
                 val page = pdfDocument.startPage(pageInfo)
                 
-                ReceiptFormatter.drawReceiptContent(context, page.canvas, patient, vaccination)
+                ReceiptFormatter.drawReceiptContent(context, page.canvas, patient, vaccination, doctorName)
                 
                 pdfDocument.finishPage(page)
 

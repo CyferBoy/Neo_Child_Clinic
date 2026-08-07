@@ -314,3 +314,55 @@ fun DateDropdownPicker(
         }
     }
 }
+
+/**
+ * Material 3 Outlined Exposed Dropdown Menu for Doctor selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DoctorDropdown(
+    doctors: List<com.neochildclinic.domain.model.Profile>,
+    selectedDoctor: com.neochildclinic.domain.model.Profile?,
+    onDoctorSelected: (com.neochildclinic.domain.model.Profile) -> Unit,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = selectedDoctor?.displayName ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Select Doctor") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                .fillMaxWidth(),
+            isError = isError,
+            supportingText = if (isError) {
+                { Text("Doctor selection is mandatory") }
+            } else null
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            doctors.forEach { doctor ->
+                DropdownMenuItem(
+                    text = { Text(doctor.displayName) },
+                    onClick = {
+                        onDoctorSelected(doctor)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}

@@ -120,6 +120,16 @@ fun AddVaccinationScreen(
                     )
                 }
 
+                // 2.5 Doctor Selection
+                item {
+                    DoctorDropdown(
+                        doctors = uiState.allDoctors,
+                        selectedDoctor = uiState.selectedDoctor,
+                        onDoctorSelected = { viewModel.selectDoctor(it) },
+                        isError = uiState.doctorError
+                    )
+                }
+
                 // 3. Vaccines Section
                 item { SectionHeader("Vaccines Administered") }
                 

@@ -37,7 +37,6 @@ fun AddConsultationScreen(
     
     val today = remember { SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()) }
     var date by rememberSaveable { mutableStateOf(today) }
-    var doctorName by remember { mutableStateOf("") }
     var cashAmount by rememberSaveable { mutableStateOf("") }
     var onlineAmount by rememberSaveable { mutableStateOf("") }
     var problem by rememberSaveable { mutableStateOf("") }
@@ -45,12 +44,6 @@ fun AddConsultationScreen(
 
     LaunchedEffect(patientId) {
         viewModel.loadPatient(patientId)
-    }
-
-    LaunchedEffect(uiState.doctorProfile) {
-        uiState.doctorProfile?.let {
-            doctorName = it.displayName
-        }
     }
 
     val totalAmount = (cashAmount.toDoubleOrNull() ?: 0.0) + (onlineAmount.toDoubleOrNull() ?: 0.0)
@@ -105,7 +98,6 @@ fun AddConsultationScreen(
                             }
                             viewModel.saveConsultation(
                                 patientId = patientId,
-                                doctorName = doctorName,
                                 date = date,
                                 cash = cashAmount.toDoubleOrNull() ?: 0.0,
                                 online = onlineAmount.toDoubleOrNull() ?: 0.0,
@@ -142,11 +134,11 @@ fun AddConsultationScreen(
                     onDateSelected = { date = it }
                 )
 
-                StandardTextField(
-                    value = doctorName,
-                    onValueChange = { doctorName = it },
-                    label = "Doctor*",
-                    placeholder = "Doctor Name"
+                DoctorDropdown(
+                    doctors = uiState.allDoctors,
+                    selectedDoctor = uiState.selectedDoctor,
+                    onDoctorSelected = { viewModel.selectDoctor(it) },
+                    isError = uiState.doctorError
                 )
 
                 StandardTextField(

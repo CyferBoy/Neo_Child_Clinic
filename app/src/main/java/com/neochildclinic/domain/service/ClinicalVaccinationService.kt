@@ -76,6 +76,7 @@ class ClinicalVaccinationService @Inject constructor(
                 id = visitId,
                 patientId = consultation.patientId,
                 dateGiven = consultation.date,
+                doctorId = consultation.doctorId,
                 doctor = consultation.doctorName,
                 notes = consultation.problem,
                 visitType = "CONSULTATION",

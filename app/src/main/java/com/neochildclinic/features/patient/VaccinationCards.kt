@@ -29,20 +29,19 @@ import kotlinx.coroutines.launch
 fun VaccinationRecordCard(
     vaccination: Vaccination,
     patient: Patient,
-    canEditOrDelete: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    doctorName: String = "",
+    onLongClick: () -> Unit = {},
     onShowInventoryIssues: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    var menuExpanded by remember { mutableStateOf(false) }
+    val displayDoctor = doctorName.ifBlank { vaccination.performedBy }.ifBlank { "Unknown Doctor" }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = { ReceiptManager.printReceipt(context, patient, vaccination) },
-                onLongClick = { menuExpanded = true }
+                onClick = { ReceiptManager.printReceipt(context, patient, vaccination, displayDoctor) },
+                onLongClick = onLongClick
             ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
@@ -86,12 +85,20 @@ fun VaccinationRecordCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                val paymentInfo = buildString {
-                    if (vaccination.cashAmount > 0) append("Cash: ₹${vaccination.cashAmount.toInt()}")
-                    if (vaccination.cashAmount > 0 && vaccination.onlineAmount > 0) append(" | ")
-                    if (vaccination.onlineAmount > 0) append("Online: ₹${vaccination.onlineAmount.toInt()}")
+                Column {
+                    val paymentInfo = buildString {
+                        if (vaccination.cashAmount > 0) append("Cash: ₹${vaccination.cashAmount.toInt()}")
+                        if (vaccination.cashAmount > 0 && vaccination.onlineAmount > 0) append(" | ")
+                        if (vaccination.onlineAmount > 0) append("Online: ₹${vaccination.onlineAmount.toInt()}")
+                    }
+                    Text(text = paymentInfo, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Person, null, modifier = Modifier.size(12.dp), tint = Color.Gray)
+                        Spacer(Modifier.width(4.dp))
+                        Text(text = displayDoctor, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
                 }
-                Text(text = paymentInfo, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                 
                 if (vaccination.inventoryStatus == "FAILED" || vaccination.inventoryStatus == "PARTIAL" || vaccination.inventoryStatus == "PENDING") {
                     IconButton(onClick = { onShowInventoryIssues(vaccination.id) }, modifier = Modifier.size(24.dp)) {
@@ -99,22 +106,6 @@ fun VaccinationRecordCard(
                     }
                 }
             }
-        }
-
-        Box(modifier = Modifier.align(Alignment.End)) {
-            ActionDropdownMenu(
-                expanded = menuExpanded,
-                onDismiss = { menuExpanded = false },
-                onEdit = onEdit,
-                onDelete = onDelete,
-                onMarkAsDone = null,
-                isAdmin = canEditOrDelete,
-                onDownload = { 
-                    (context as? androidx.activity.ComponentActivity)?.lifecycleScope?.launch {
-                        ReceiptManager.downloadReceipt(context, patient, vaccination)
-                    }
-                }
-            )
         }
     }
 }

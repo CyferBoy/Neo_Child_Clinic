@@ -2,6 +2,8 @@ package com.neochildclinic.features.patient
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,11 +46,12 @@ fun PatientDetailsContent(
     documents: List<FileObject>,
     followUps: List<ReminderEntity>,
     notes: List<PatientNotesEntity>,
+    doctorMap: Map<String, String>,
     canEditOrDelete: Boolean,
     selectedSegment: Int,
     onSegmentSelected: (Int) -> Unit,
-    onEdit_vaccination: (String) -> Unit,
-    onDeleteVaccination: (Vaccination) -> Unit,
+    onLongClickVaccination: (Vaccination) -> Unit,
+    onLongClickConsultation: (Consultation) -> Unit,
     onUploadDocument: () -> Unit,
     onDeleteDocument: (String) -> Unit,
     onViewDocument: (String) -> Unit,
@@ -91,9 +94,8 @@ fun PatientDetailsContent(
                         VaccinationRecordCard(
                             vaccination = vaccination,
                             patient = patient,
-                            canEditOrDelete = canEditOrDelete,
-                            onEdit = { onEdit_vaccination(vaccination.id) },
-                            onDelete = { onDeleteVaccination(vaccination) },
+                            doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
+                            onLongClick = { onLongClickVaccination(vaccination) },
                             onShowInventoryIssues = { id ->
                                 selectedVisitForDeductions = id
                                 scope.launch {
@@ -109,7 +111,11 @@ fun PatientDetailsContent(
                     item { EmptySectionText("No consultation records found.") }
                 } else {
                     items(consultations, key = { it.id }) { consultation ->
-                        ConsultationRecordCard(consultation)
+                        ConsultationRecordCard(
+                            consultation = consultation,
+                            doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
+                            onLongClick = { onLongClickConsultation(consultation) }
+                        )
                     }
                 }
             }
@@ -240,42 +246,109 @@ private fun InfoGridRow(left: Pair<androidx.compose.ui.graphics.vector.ImageVect
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ConsultationRecordCard(consultation: Consultation) {
+fun ConsultationRecordCard(
+    consultation: Consultation,
+    doctorName: String = "",
+    onLongClick: () -> Unit = {}
+) {
+    val displayDoctor = doctorName.ifBlank { consultation.doctorName }.ifBlank { "Unknown Doctor" }
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = { },
+                onLongClick = onLongClick
+            ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text(text = formatDateForDisplay(consultation.date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    Text(text = consultation.doctorName.ifBlank { "Unknown Doctor" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Consultation",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                if (consultation.notes.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = consultation.notes,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
                 }
-                Text(text = "₹${consultation.amount}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-            
-            if (consultation.notes.isNotBlank()) {
+
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Problem / Chief Complaint:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = consultation.notes, style = MaterialTheme.typography.bodyMedium)
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = displayDoctor,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.AccessTime,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = formatDateForDisplay(consultation.date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(modifier = Modifier.alpha(0.2f))
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                val paymentInfo = buildString {
-                    if (consultation.cashAmount > 0) append("Cash: ₹${consultation.cashAmount.toInt()}")
-                    if (consultation.cashAmount > 0 && consultation.onlineAmount > 0) append(" | ")
-                    if (consultation.onlineAmount > 0) append("Online: ₹${consultation.onlineAmount.toInt()}")
-                }
-                Text(text = paymentInfo, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "₹${consultation.amount}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 
-                if (consultation.nextFollowUpDate.isNotBlank()) {
-                    Text(text = "Next: ${formatDateForDisplay(consultation.nextFollowUpDate)}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                val paymentBreakdown = buildString {
+                    if (consultation.cashAmount > 0) append("Cash: ₹${consultation.cashAmount.toInt()}")
+                    if (consultation.cashAmount > 0 && consultation.onlineAmount > 0) append("\n")
+                    if (consultation.onlineAmount > 0) append("Online: ₹${consultation.onlineAmount.toInt()}")
+                    val pending = consultation.amount - (consultation.cashAmount + consultation.onlineAmount)
+                    if (pending > 0) {
+                        if (isNotEmpty()) append("\n")
+                        append("Pending: ₹${pending.toInt()}")
+                    }
+                }
+                
+                if (paymentBreakdown.isNotEmpty()) {
+                    Text(
+                        text = paymentBreakdown,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                    )
                 }
             }
         }

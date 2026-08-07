@@ -1,31 +1,30 @@
-# Walkthrough - Supabase Schema Alignment & Model Refactoring
+# Walkthrough: Unified Doctor Selection
 
-I have completed a comprehensive refactor of the application's data layer to ensure perfect compatibility with the Supabase/PostgreSQL schema. This resolves field-name mismatches and structural discrepancies that were causing synchronization failures.
+I have successfully implemented a unified Doctor Selection system across the Vaccination and Consultation modules. This change ensures that clinical records are linked to doctors using their unique `employee_id` while displaying their current `display_name` dynamically.
 
-## Key Improvements
+## Key Changes
 
-### 1. Field Mapping (`snake_case` Alignment)
-Added `@SerialName` annotations to all Kotlin data classes that sync with Supabase. This ensures that the app sends and receives data using the `snake_case` format expected by PostgreSQL, while maintaining `camelCase` in Kotlin.
-- **Affected Entities**: `ConsultationEntity`, `WasteRecord`, `BorrowEntity`, `VaccinationItemEntity`, and `VaccineEntity`.
+### 1. Centralized UI Component
+- **`DoctorDropdown`**: Created a reusable Material 3 `ExposedDropdownMenuBox` component in `Dropdowns.kt`. It loads doctors dynamically from the `Profile` table (filtered by role and activity status) and provides built-in validation feedback.
 
-### 2. Reminder System Architecture
-Refactored the `ReminderEntity` to resolve structural conflicts between the local Room table and the remote Supabase table.
-- **Model Split**: Created a new `RemoteReminder` DTO strictly aligned with the Supabase schema. The `ReminderEntity` remains for local Room operations.
-- **Date Type Migration**: Switched `completionDate` and `dismissalDate` from `Long?` (millis) to `String?` (ISO). This aligns with the database's `TEXT` type and improves readability during debugging.
-- **Clean Sync**: Local-only fields (like `notificationSent`) are now explicitly excluded from the remote payload.
+### 2. Standardized Data Storage
+- **`VisitEntity` & `Vaccination`**: Added `doctorId` to the database entity and domain model to store the doctor's **employee_id**.
+- **`Consultation`**: Updated the save logic to ensure `doctorId` strictly stores the `employee_id`.
+- **`ClinicalVaccinationService`**: Updated to correctly propagate the `doctorId` to the underlying `VisitEntity` during consultations.
 
-### 3. ID-Based Borrowing System
-Modernized the borrowing tracking system to use relational integrity instead of denormalized strings.
-- **Normalized Storage**: `BorrowedVaccine` now stores `vaccine_id` and `batch_id` instead of just names.
-- **Dynamic Resolution**: The `BorrowedViewModel` now resolves vaccine brand names and batch numbers on-the-fly by joining the records against the current inventory list in the UI.
+### 3. Smart Defaulting & Validation
+- **Auto-Selection**: If the logged-in user is a Doctor, their profile is automatically selected in the dropdown.
+- **Mandatory Selection**: Records cannot be saved without a doctor. A clear validation error message appears if no selection is made.
 
-### 4. Database Stability
-- **Room Migration**: Incrementally bumped the database version to **7** to handle the schema updates safely.
-- **Idempotent SQL**: Updated the master SQL initialization script to use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, making it safe to run against existing production databases.
+### 4. Dynamic Display & Receipts
+- **History Cards**: Both `VaccinationRecordCard` and `ConsultationRecordCard` now perform a real-time lookup in a `doctorMap` (provided by `PatientViewModel`) to display the doctor's *current* name.
+- **Receipts**: Updated `ReceiptFormatter`, `ReceiptManager`, and the PDF generator to use the dynamically resolved doctor name, ensuring professional and accurate printouts.
 
 ## Verification Results
-- **Build Success**: Verified that all call sites across the repositories and ViewModels are updated and the project builds successfully.
-- **Data Integrity**: Confirmed that date formatting and ID mapping are consistent across the app.
+
+- **Dynamic Loading**: Verified that only users with the `doctor` role appear in the dropdown, sorted alphabetically.
+- **Persistence**: Confirmed that `employee_id` (e.g., "EMP001") is stored in the database instead of Auth UUIDs or static strings.
+- **UI Consistency**: Both Add Vaccination and Add Consultation screens now share the exact same selection logic and styling.
 
 > [!TIP]
-> If you have existing data in your Supabase `reminders` table using epoch milliseconds, please run the provided SQL script to refresh the table schema to `TEXT` before triggering a full sync.
+> Since the doctor's name is now looked up dynamically by `employee_id`, updating a doctor's name in their Profile will automatically update all their previous history records and future receipts.
