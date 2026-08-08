@@ -325,6 +325,7 @@ fun DueVaccinationTypeDropdown(
     selectedType: String,
     onTypeSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
+    label: String = "Type *",
     isError: Boolean = false
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -338,7 +339,7 @@ fun DueVaccinationTypeDropdown(
             value = selectedType,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Type *") },
+            label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
             modifier = Modifier
@@ -366,6 +367,13 @@ fun DueVaccinationTypeDropdown(
         }
     }
 }
+
+/**
+ * Material 3 Outlined Exposed Dropdown Menu for Doctor selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DoctorDropdown(
     doctors: List<com.neochildclinic.domain.model.Profile>,
     selectedDoctor: com.neochildclinic.domain.model.Profile?,
     onDoctorSelected: (com.neochildclinic.domain.model.Profile) -> Unit,

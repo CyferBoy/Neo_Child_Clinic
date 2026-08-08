@@ -2,6 +2,7 @@ package com.neochildclinic.features.patient
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +33,7 @@ import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
  * Row 4: doctor name (secondary style)
  *
  * Next/Due information is sourced from the linked Due Vaccination record
- * (dueVaccination, the reminder_states row for this visit) rather than the
+ * (dueVaccination, the reminders row for this visit) rather than the
  * visit's own nxtVaccineNames/nextDueDate fields.
  *
  * Tap -> onClick (open Vaccination Details). Long press -> onLongClick (bottom sheet).
@@ -45,18 +46,29 @@ fun VaccinationRecordCard(
     patient: Patient,
     doctorName: String = "",
     dueVaccination: ReminderEntity? = null,
+    vaccineMap: Map<String, String> = emptyMap(),
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
     onShowInventoryIssues: (String) -> Unit = {}
 ) {
     val displayDoctor = doctorName.ifBlank { vaccination.performedBy }.ifBlank { "Unknown Doctor" }
     val vaccineNamesText = vaccination.vaccineNames.joinToString(" • ") { cleanVaccineName(it) }
+    val displayTitle = if (vaccination.visitType == "CONSULTATION") {
+        vaccination.notes.ifBlank { "Consultation" }
+    } else {
+        vaccineNamesText.ifBlank { vaccination.notes }.ifBlank { "Vaccination Visit" }
+    }
 
     // "Next:" text is built from the Due Vaccination record's Type (mandatory) and,
-    // if present, its vaccine name(s) (optional) -- never shows an empty/"null" vaccine value.
-    val nextVaccineNames = dueVaccination?.vaccineName?.trim().orEmpty()
-    val nextLine = dueVaccination?.type?.trim()?.takeIf { it.isNotEmpty() }?.let { type ->
-        if (nextVaccineNames.isNotEmpty()) "$type • $nextVaccineNames" else type
+    // if present, its vaccine name(s) (optional) or IDs -- never shows an empty/"null" vaccine value.
+    val nextLine = remember(dueVaccination, vaccineMap) {
+        dueVaccination?.type?.trim()?.takeIf { it.isNotEmpty() }?.let { type ->
+            val namesFromIds = dueVaccination.nxtVaccineId?.mapNotNull { vaccineMap[it] }?.joinToString(", ") ?: ""
+            val namesFromField = dueVaccination.vaccineName.trim()
+            val finalNames = namesFromIds.ifBlank { namesFromField }
+            
+            if (finalNames.isNotEmpty()) "$type • $finalNames" else type
+        }
     }
 
     Card(
@@ -68,100 +80,114 @@ fun VaccinationRecordCard(
             ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Row 1: vaccine name(s)  |  total fee
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Row 1: Title (Vaccine name or Consultation problem) | total fee
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = vaccineNamesText,
+                    text = displayTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "₹${vaccination.totalPaid.toInt()}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "₹${vaccination.totalPaid.toInt()}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-                if (vaccination.inventoryStatus == "FAILED" || vaccination.inventoryStatus == "PARTIAL" || vaccination.inventoryStatus == "PENDING") {
-                    Spacer(Modifier.width(4.dp))
-                    IconButton(onClick = { onShowInventoryIssues(vaccination.id) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Inventory, contentDescription = "Inventory Error", tint = Color.Red, modifier = Modifier.size(16.dp))
+                    if (vaccination.inventoryStatus == "FAILED" || vaccination.inventoryStatus == "PARTIAL" || vaccination.inventoryStatus == "PENDING") {
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Inventory,
+                            contentDescription = "Inventory Issue",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp).clickable { onShowInventoryIssues(vaccination.id) }
+                        )
                     }
                 }
             }
 
-            // Row 2: Next vaccination (from Due Vaccination record)  |  payment breakdown
-            if (nextLine != null || vaccination.cashAmount > 0 || vaccination.onlineAmount > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    if (nextLine != null) {
-                        Text(
-                            text = "Next: $nextLine",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
+            // Row 2: Next vaccination  |  payment breakdown
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                if (nextLine != null) {
+                    Text(
+                        text = "Next: $nextLine",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
-                    // Cash/Online breakdown -- never displays "Mixed"; shows only the
-                    // method(s) that actually have an amount.
-                    val paymentInfo = buildString {
-                        if (vaccination.cashAmount > 0) append("Cash: ₹${vaccination.cashAmount.toInt()}")
-                        if (vaccination.cashAmount > 0 && vaccination.onlineAmount > 0) append(" | ")
-                        if (vaccination.onlineAmount > 0) append("Online: ₹${vaccination.onlineAmount.toInt()}")
-                    }
-                    if (paymentInfo.isNotEmpty()) {
-                        Text(
-                            text = paymentInfo,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                            textAlign = TextAlign.End
-                        )
-                    }
+                // Payment breakdown
+                val paymentInfo = buildString {
+                    if (vaccination.cashAmount > 0) append("Cash: ₹${vaccination.cashAmount.toInt()}")
+                    if (vaccination.cashAmount > 0 && vaccination.onlineAmount > 0) append(" | ")
+                    if (vaccination.onlineAmount > 0) append("Online: ₹${vaccination.onlineAmount.toInt()}")
+                }
+                if (paymentInfo.isNotEmpty()) {
+                    Text(
+                        text = paymentInfo,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
+                    )
                 }
             }
 
             // Row 3: Given date  |  Due date
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     text = "Given: ${formatDateForDisplay(vaccination.dateGiven)}",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (!dueVaccination?.dueDate.isNullOrBlank()) {
                     Text(
                         text = "Due: ${formatDateForDisplay(dueVaccination!!.dueDate)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
             // Row 4: doctor name
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Person,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
                     text = displayDoctor,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }

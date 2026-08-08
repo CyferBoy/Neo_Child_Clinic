@@ -63,7 +63,7 @@ class MergePatientsUseCase @Inject constructor(
                     syncRepository.enqueue("VACCINATION", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
                 }
                 reminderIds.forEach { id ->
-                    syncRepository.enqueue("REMINDER_OVERRIDE", id.toString(), SyncOperation.UPDATE, SyncPriority.LOW)
+                    syncRepository.enqueue("REMINDERS", id, SyncOperation.UPDATE, SyncPriority.LOW)
                 }
                 auditIds.forEach { id ->
                     syncRepository.enqueue("REMINDER_AUDIT", id.toString(), SyncOperation.UPDATE, SyncPriority.LOW)

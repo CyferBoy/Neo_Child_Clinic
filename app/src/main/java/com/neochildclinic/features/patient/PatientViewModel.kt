@@ -46,6 +46,7 @@ class PatientViewModel @Inject constructor(
     private val reminderRepository: ReminderRepository,
     private val consultationRepository: ConsultationRepository,
     private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
+    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
     private val documentRepository: DocumentRepository,
     private val database: AppDatabase,
     private val auth: Auth,
@@ -89,6 +90,7 @@ class PatientViewModel @Inject constructor(
     val allVaccinations: StateFlow<List<Vaccination>>
     val patientsWithMissingPrice: StateFlow<Set<String>>
     val doctorMap: StateFlow<Map<String, String>>
+    val vaccineMap: StateFlow<Map<String, String>>
     
     private val _profile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?> = _profile.asStateFlow()
@@ -118,6 +120,14 @@ class PatientViewModel @Inject constructor(
 
         doctorMap = profileRepository.allProfiles
             .map { profiles -> profiles.associate { it.employeeId.orEmpty() to it.displayName } }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = emptyMap()
+            )
+
+        vaccineMap = inventoryRepository.getInventoryItems()
+            .map { items -> items.associate { it.id to it.brandName } }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.Eagerly,

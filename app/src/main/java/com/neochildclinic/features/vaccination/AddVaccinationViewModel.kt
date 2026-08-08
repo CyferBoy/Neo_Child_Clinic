@@ -32,7 +32,6 @@ data class FollowUpSelectionState(
     val type: String = "",
     val nextVaccines: List<InventoryItem> = emptyList(),
     val dueDate: String = "",
-    val basedOnVaccineId: String = "",
     val typeError: Boolean = false
 )
 
@@ -40,6 +39,7 @@ data class AddVaccinationUiState(
     val patient: Patient? = null,
     val isLoading: Boolean = false,
     val inventory: List<InventoryItem> = emptyList(),
+    val availableDueTypes: List<String> = emptyList(),
     val allDoctors: List<Profile> = emptyList(),
     val selectedDoctor: Profile? = null,
     val doctorError: Boolean = false,
@@ -133,7 +133,11 @@ class AddVaccinationViewModel @Inject constructor(
 
     private fun fetchInventory() {
         inventoryRepository.getInventoryItems().onEach { items ->
-            _uiState.update { it.copy(inventory = items) }
+            val types = items.map { it.type }.filter { it.isNotBlank() }.distinct().sorted()
+            _uiState.update { it.copy(
+                inventory = items,
+                availableDueTypes = if (types.isEmpty()) Constants.DUE_VACCINATION_TYPES else types
+            ) }
         }.launchIn(viewModelScope)
     }
 
@@ -246,14 +250,6 @@ class AddVaccinationViewModel @Inject constructor(
         }
     }
 
-    fun updateFollowUpBasedOn(rowId: String, basedOnVaccineId: String) {
-        _uiState.update { state ->
-            state.copy(followUps = state.followUps.map { row ->
-                if (row.id == rowId) row.copy(basedOnVaccineId = basedOnVaccineId) else row
-            })
-        }
-    }
-
     fun saveVaccination() {
         val state = _uiState.value
         val patient = state.patient ?: return
@@ -328,7 +324,9 @@ class AddVaccinationViewModel @Inject constructor(
                         batchId = selection.selectedBatch!!.batchId,
                         quantity = selection.quantity,
                         user = user,
-                        transactionType = InventoryTransactionType.VACCINATION
+                        transactionType = InventoryTransactionType.VACCINATION,
+                        visitId = vaccinationId,
+                        patientId = patient.id
                     )
                 }
 
@@ -345,7 +343,7 @@ class AddVaccinationViewModel @Inject constructor(
                         originalVisitId = vaccinationId,
                         type = type,
                         vaccineNames = vaccines.map { it.brandName },
-                        vaccineIds = vaccines.map { it.id },
+                        nxtVaccineId = vaccines.map { it.id },
                         dueDate = date,
                         notes = "Scheduled during visit on ${state.givenDate}",
                         priority = "NORMAL",

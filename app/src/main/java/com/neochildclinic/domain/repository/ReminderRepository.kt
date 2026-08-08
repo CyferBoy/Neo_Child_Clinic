@@ -31,7 +31,7 @@ interface ReminderRepository {
         originalVisitId: String,
         type: String,
         vaccineNames: List<String>,
-        vaccineIds: List<String> = emptyList(),
+        nxtVaccineId: List<String> = emptyList(),
         dueDate: String,
         notes: String,
         priority: String,
@@ -67,8 +67,8 @@ interface ReminderRepository {
     suspend fun refreshReminders()
     
     // Legacy support
-    suspend fun markCompleted(id: Long, timestamp: Long = System.currentTimeMillis())
-    suspend fun insertReminder(reminder: ReminderEntity): Long
+    suspend fun markCompleted(id: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun insertReminder(reminder: ReminderEntity): String
     suspend fun transferReminders(duplicateId: String, masterId: String)
 }
 

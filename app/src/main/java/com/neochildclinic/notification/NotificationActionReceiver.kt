@@ -18,11 +18,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        val reminderId = intent.getLongExtra("reminderId", -1L)
+        val reminderId = intent.getStringExtra("reminderId")
 
         when (action) {
             "ACTION_DISMISS" -> {
-                if (reminderId != -1L) {
+                if (reminderId != null) {
                     CoroutineScope(Dispatchers.IO).launch {
                         reminderRepository.markCompleted(reminderId)
                         reminderRepository.triggerImmediateCheck()

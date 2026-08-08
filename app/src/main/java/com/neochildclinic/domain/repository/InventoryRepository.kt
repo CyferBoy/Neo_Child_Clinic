@@ -38,7 +38,7 @@ interface InventoryRepository {
         quantity: Int, 
         user: String, 
         transactionType: InventoryTransactionType,
-        vaccinationId: String? = null,
+        visitId: String? = null,
         patientId: String? = null
     )
 
@@ -47,6 +47,8 @@ interface InventoryRepository {
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
+        visitId: String? = null,
+        patientId: String? = null,
         notes: String? = null
     )
 

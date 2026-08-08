@@ -1,26 +1,21 @@
-# Walkthrough: Fix Foreign Key Violations on Deletion
+# Walkthrough: Fix Room Table Name Mismatch
 
-I have addressed the `finance_transactions_visit_id_fkey` error that occurred when deleting records. The fix ensures that associated data is removed in the correct order, both locally and in the cloud.
+Fixed the Room compilation error where `ReminderDao` was referencing the legacy `reminder_states` table name instead of the updated `reminders` table.
 
-## Key Changes
+## Changes Made
 
-### 1. Cascade Deletions in Repositories
-- **Finance Module**: Added functionality to find and delete financial transactions linked to a specific visit ID.
-- **Vaccination Repository**: Updated the deletion logic to remove any linked income records from the `finance_transactions` table before deleting the vaccination itself.
-- **Consultation Repository**: Enhanced the deletion process to remove:
-    1. Linked financial records.
-    2. The "Visit Header" from the `patient_visits` table.
-    3. The consultation record itself.
+### DAO Fix
+- **[ReminderDao.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/dao/ReminderDao.kt)**: Updated all 11 `@Query` annotations to use the `reminders` table.
 
-### 2. Smart Sync Ordering
-- **Sync Engine**: Refactored the synchronization logic to handle `DELETE` operations with high intelligence.
-- **Reverse Priority**: The system now automatically negates entity priority during deletion. This ensures that "Child" entities (like Finance records) are always deleted from Supabase before their "Parent" entities (like Visits), preventing foreign key constraint violations on the server.
+### Documentation Consistency
+- **[ReminderRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/ReminderRepositoryImpl.kt)**: Updated internal comments to reflect the schema change.
+- **[VaccinationCards.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/features/patient/VaccinationCards.kt)**: Updated KDoc to use the correct table name for clarity.
 
 ## Verification Results
 
-- **Local Cleanup**: Verified that deleting a vaccination or consultation now removes all associated financial data from the local database.
-- **Visit Header Integrity**: Confirmed that consultation deletions now correctly clean up the shared `patient_visits` table.
-- **Server Sync**: The new sorting logic ensures that the cloud database remains in a consistent state during background synchronization.
+### Automated Tests
+- Successfully executed `./gradlew clean :app:kspDebugKotlin`.
+- The build finished successfully, confirming that Room can now correctly map the DAO queries to the entity table.
 
 > [!TIP]
-> This fix not only prevents crashes but also ensures that your financial reports remain accurate by removing income associated with cancelled or deleted clinic visits.
+> If you encounter similar KSP errors in the future, running a `clean` build often resolves issues related to incremental cache corruption after schema changes.

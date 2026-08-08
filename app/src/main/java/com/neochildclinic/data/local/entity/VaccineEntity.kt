@@ -67,14 +67,14 @@ data class VaccineBatchEntity(
 @Serializable
 @Entity(
     tableName = "inventory_transactions",
-    indices = [Index("vaccineId"), Index("batchId"), Index("vaccinationId")]
+    indices = [Index("vaccineId"), Index("batchId"), Index("visitId")]
 )
 data class InventoryTransactionEntity(
     @PrimaryKey @SerialName("id") val transactionId: String = java.util.UUID.randomUUID().toString(),
     @SerialName("vaccine_id") val vaccineId: String,
     @SerialName("batch_id") val batchId: String,
     @SerialName("patient_id") val patientId: String? = null,
-    @SerialName("vaccination_id") val vaccinationId: String? = null,
+    @SerialName("visit_id") val visitId: String? = null,
     @SerialName("transaction_type") val transactionType: String, // InventoryTransactionType
     val quantity: Int, 
     @SerialName("previous_quantity") val previousQuantity: Int,

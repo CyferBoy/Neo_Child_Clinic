@@ -66,8 +66,19 @@ class ConsultationRepositoryImpl @Inject constructor(
             // 1. Delete linked finance records (using visitId)
             if (existing.visitId.isNotBlank()) {
                 financeRepository.deleteTransactionsByVisitId(existing.visitId)
-                
-                // 2. Delete Visit Header
+            }
+
+            // 2. Delete Consultation (Child)
+            consultationDao.deleteConsultation(id)
+            syncRepository.enqueue(
+                entityName = "CONSULTATION",
+                entityId = id,
+                operation = SyncOperation.DELETE,
+                priority = SyncPriority.MEDIUM
+            )
+
+            // 3. Delete Visit Header (Mother)
+            if (existing.visitId.isNotBlank()) {
                 vaccinationDao.deleteVaccination(existing.visitId)
                 syncRepository.enqueue(
                     entityName = "VISIT",
@@ -76,16 +87,6 @@ class ConsultationRepositoryImpl @Inject constructor(
                     priority = SyncPriority.MEDIUM
                 )
             }
-
-            // 3. Delete Consultation
-            consultationDao.deleteConsultation(id)
-            
-            syncRepository.enqueue(
-                entityName = "CONSULTATION",
-                entityId = id,
-                operation = SyncOperation.DELETE,
-                priority = SyncPriority.MEDIUM
-            )
 
             auditLogger.recordLog(
                 module = "PATIENT",

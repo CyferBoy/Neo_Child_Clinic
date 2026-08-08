@@ -59,7 +59,7 @@ class VaccinationManager @Inject constructor(
             if (isNew) {
                 // For new records, simply deduct stock
                 inventoryService.processVaccinationInventory(
-                    vaccinationId = vaccination.id,
+                    visitId = vaccination.id,
                     patientId = vaccination.patientId,
                     vaccineIds = selectedVaccineIds,
                     batchIds = selectedBatchIds,
@@ -79,7 +79,7 @@ class VaccinationManager @Inject constructor(
                     
                     // Deduct new stock
                     inventoryService.processVaccinationInventory(
-                        vaccinationId = vaccination.id,
+                        visitId = vaccination.id,
                         patientId = vaccination.patientId,
                         vaccineIds = selectedVaccineIds,
                         batchIds = selectedBatchIds,

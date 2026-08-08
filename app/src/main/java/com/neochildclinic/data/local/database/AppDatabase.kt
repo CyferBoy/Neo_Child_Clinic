@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.utils.SecurityUtils
@@ -30,9 +31,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationEntity::class,
         VaccinationItemEntity::class
     ], 
-    version = 10,
+    version = 12,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun patientDao(): PatientDao
     abstract fun vaccinationDao(): VaccinationDao

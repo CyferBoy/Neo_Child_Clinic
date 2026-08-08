@@ -31,6 +31,7 @@ fun PatientDetailsScreen(
     onAddVaccine: (String) -> Unit = {},
     onAddConsultation: (String) -> Unit = {},
     onEditVaccination: (String) -> Unit = {},
+    onViewVaccination: (String) -> Unit = {},
     onEditPatient: (String) -> Unit = {},
     viewModel: PatientViewModel = hiltViewModel()
 ) {
@@ -60,6 +61,7 @@ fun PatientDetailsScreen(
     val followUps by viewModel.getPatientFollowUps(patientId).collectAsState(initial = emptyList())
     val patientNotes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
     val doctorMap by viewModel.doctorMap.collectAsState()
+    val vaccineMap by viewModel.vaccineMap.collectAsState()
 
     LaunchedEffect(patientId) {
         viewModel.loadDocuments(patientId)
@@ -198,6 +200,16 @@ fun PatientDetailsScreen(
                             }
                         )
                     }
+                    ListItem(
+                        headlineContent = { Text("View Audit History") },
+                        leadingContent = { Icon(Icons.Default.History, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            // Assuming we can use showAuditLog for individual records or patient
+                            // For now, mirroring the existing behavior
+                            showAuditLog = true
+                        }
+                    )
                 } else if (selectedConsultationForAction != null) {
                     if (canEditOrDelete) {
                         ListItem(
@@ -319,6 +331,7 @@ fun PatientDetailsScreen(
                     followUps = followUps,
                     notes = patientNotes,
                     doctorMap = doctorMap,
+                    vaccineMap = vaccineMap,
                     canEditOrDelete = canEditOrDelete,
                     selectedSegment = selectedSegment,
                     onSegmentSelected = { selectedSegment = it },
@@ -332,6 +345,7 @@ fun PatientDetailsScreen(
                         selectedVaccinationForAction = null
                         showSheet = true
                     },
+                    onOpenVaccinationDetails = { onViewVaccination(it.id) },
                     onUploadDocument = { launcher.launch("*/*") },
                     onDeleteDocument = { viewModel.deleteDocument(it, patientId) },
                     onViewDocument = { path ->

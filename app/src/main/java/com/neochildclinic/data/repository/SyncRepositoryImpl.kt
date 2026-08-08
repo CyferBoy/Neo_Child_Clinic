@@ -133,16 +133,11 @@ class SyncRepositoryImpl @Inject constructor(
 
     private fun getEntityPriority(entityName: String): Int {
         return when (entityName) {
-            "PATIENT" -> 1
-            "VACCINE" -> 2
-            "BATCH" -> 3
-            "VACCINATION", "VISIT" -> 4
-            "VACCINATION_ITEM" -> 5
-            "INVENTORY_TRANSACTION" -> 6
-            "FINANCE" -> 7
-            "AUDIT_LOG" -> 8
-            "PATIENT_NOTE" -> 9
-            "REMINDER_STATE" -> 10
+            "PATIENT", "VACCINE" -> 1
+            "VACCINATION", "VISIT", "BATCH" -> 2
+            "VACCINATION_ITEM", "CONSULTATION", "WASTE", "BORROW" -> 3
+            "INVENTORY_TRANSACTION", "FINANCE" -> 4
+            "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG" -> 5
             else -> 100
         }
     }
@@ -153,7 +148,7 @@ class SyncRepositoryImpl @Inject constructor(
             "VACCINATION", "VISIT" -> "patient_visits"
             "VACCINATION_ITEM" -> "vaccination_items"
             "WASTE" -> "waste_records"
-            "REMINDER_STATE", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> "reminders"
+            "REMINDERS", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> "reminders"
             "VACCINE" -> "vaccines"
             "BATCH" -> {
                 if (item.operation == SyncOperation.UPDATE.name) {
@@ -268,14 +263,15 @@ class SyncRepositoryImpl @Inject constructor(
                 val entity = json.decodeFromJsonElement<AuditLogEntity>(element)
                 database.auditLogDao().insertLog(entity.copy(isSynced = true))
             }
-            "REMINDER_STATE", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> {
+            "REMINDERS", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> {
                 val remote = json.decodeFromJsonElement<RemoteReminder>(element)
                 val local = database.dueReminderDao().getReminderByStableId(
                     remote.patientId, 
                     remote.originalVisitId, 
-                    remote.vaccineName
+                    remote.vaccineName,
+                    remote.type
                 )
-                database.dueReminderDao().insertReminder(remote.toLocal(localId = local?.id ?: 0L))
+                database.dueReminderDao().insertReminder(remote.toLocal(localId = local?.id))
             }
             "CONSULTATION" -> {
                 val entity = json.decodeFromJsonElement<ConsultationEntity>(element)
@@ -313,10 +309,10 @@ class SyncRepositoryImpl @Inject constructor(
         val entityId = item.entityId
         
         // Reminder State stable ID handling
-        if (item.entityName == "REMINDER_STATE" && entityId.contains("||")) {
+        if (item.entityName == "REMINDERS" && entityId.contains("||")) {
             val parts = entityId.split("||")
-            if (parts.size == 3) {
-                return database.dueReminderDao().getReminderByStableId(parts[0], parts[1], parts[2])
+            if (parts.size == 4) {
+                return database.dueReminderDao().getReminderByStableId(parts[0], parts[1], parts[2], parts[3])
             }
         }
 
@@ -334,7 +330,7 @@ class SyncRepositoryImpl @Inject constructor(
                 "VACCINATION", "VISIT" -> database.vaccinationDao().getVaccinationById(entityId)
                 "VACCINATION_ITEM" -> database.vaccinationItemDao().getItemById(entityId)
                 "WASTE" -> database.wasteDao().getWasteById(entityId)
-                "REMINDER_STATE" -> database.dueReminderDao().getReminderById(entityId.toLongOrNull() ?: -1L)
+                "REMINDERS" -> database.dueReminderDao().getReminderById(entityId)
                 "VACCINE" -> database.vaccineDao().getVaccineById(entityId)
                 "BATCH" -> database.vaccineDao().getBatchById(entityId)
                 "TRANSACTION", "INVENTORY_TRANSACTION" -> database.vaccineDao().getTransactionById(entityId)

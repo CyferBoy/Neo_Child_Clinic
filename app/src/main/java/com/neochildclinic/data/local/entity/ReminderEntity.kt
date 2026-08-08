@@ -1,18 +1,16 @@
 package com.neochildclinic.data.local.entity
 
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.Index
-import androidx.room.PrimaryKey
+import androidx.room.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
 /**
- * Local Room Entity for reminder_states table.
+ * Local Room Entity for reminders table.
  */
+@TypeConverters(com.neochildclinic.data.local.database.Converters::class)
 @Entity(
-    tableName = "reminder_states",
+    tableName = "reminders",
     foreignKeys = [
         ForeignKey(
             entity = PatientEntity::class,
@@ -29,7 +27,7 @@ import kotlinx.serialization.Transient
 )
 @Serializable
 data class ReminderEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
     val patientId: String,
     val originalVisitId: String,
     val vaccineName: String,
@@ -48,7 +46,8 @@ data class ReminderEntity(
     // (optional -- may be blank/null if no vaccine was selected). Kept individually so
     // they remain available for future editing and sync, matching the comma-separated
     // convention already used for list-like columns elsewhere (e.g. patient_visits.vaccine_ids).
-    val vaccinationIds: String? = null,
+    @ColumnInfo(name = "nxt_vaccine_id")
+    val nxtVaccineId: List<String>? = null,
     
     // Local-only or derived fields
     @Transient val vaccinationSource: String? = null,
@@ -74,7 +73,7 @@ data class ReminderEntity(
  */
 @Serializable
 data class RemoteReminder(
-    val id: Long? = null,
+    val id: String? = null,
     @SerialName("patient_id") val patientId: String,
     @SerialName("original_visit_id") val originalVisitId: String,
     @SerialName("vaccine_name") val vaccineName: String,
@@ -84,7 +83,7 @@ data class RemoteReminder(
     @SerialName("reminder_enabled") val reminderEnabled: Boolean = true,
     val category: String = "VACCINATION",
     val type: String = "",
-    @SerialName("vaccination_ids") val vaccinationIds: String? = null,
+    @SerialName("nxt_vaccine_id") val nxtVaccineId: List<String>? = null,
     val notes: String? = null,
     @SerialName("completion_date") val completionDate: String? = null,
     @SerialName("performed_by") val performedBy: String? = null,
@@ -105,7 +104,7 @@ fun ReminderEntity.toRemote() = RemoteReminder(
     reminderEnabled = reminderEnabled,
     category = category,
     type = type,
-    vaccinationIds = vaccinationIds,
+    nxtVaccineId = nxtVaccineId,
     notes = notes,
     completionDate = completionDate,
     performedBy = performedBy,
@@ -116,8 +115,8 @@ fun ReminderEntity.toRemote() = RemoteReminder(
     isSynced = true
 )
 
-fun RemoteReminder.toLocal(localId: Long = 0) = ReminderEntity(
-    id = localId,
+fun RemoteReminder.toLocal(localId: String? = null) = ReminderEntity(
+    id = localId ?: id ?: java.util.UUID.randomUUID().toString(),
     patientId = patientId,
     originalVisitId = originalVisitId,
     vaccineName = vaccineName,
@@ -127,7 +126,7 @@ fun RemoteReminder.toLocal(localId: Long = 0) = ReminderEntity(
     reminderEnabled = reminderEnabled,
     category = category,
     type = type,
-    vaccinationIds = vaccinationIds,
+    nxtVaccineId = nxtVaccineId,
     notes = notes,
     completionDate = completionDate,
     performedBy = performedBy,

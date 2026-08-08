@@ -21,13 +21,19 @@ data class Vaccination(
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
     val status: ReminderStatus = ReminderStatus.ACTIVE,
+    @SerialName("visit_type") val visitType: String = "VACCINATION",
     @SerialName("receipt_number") val receiptNumber: String = "",
     @SerialName("with_fees") val withFees: Boolean = false,
     @SerialName("doctors_acc") val doctorsAcc: Boolean = false,
+    @SerialName("raw_vaccine_names") val rawVaccineNames: String = "", // Fallback for legacy records
     @SerialName("vaccine_ids") val vaccineIds: List<String> = emptyList() // Legacy support for validator
 ) {
     // Computed properties for legacy support
-    val vaccineNames: List<String> get() = items.map { it.vaccineName }
+    val vaccineNames: List<String> get() = items.map { it.vaccineName }.ifEmpty { 
+        if (rawVaccineNames.isNotBlank()) {
+            rawVaccineNames.split(",").map { it.trim() }.filter { it.isNotEmpty() } 
+        } else emptyList()
+    }
     val batchNumbers: List<String> get() = items.map { it.batchNumber }
     val batchIds: List<String> get() = items.map { it.batchId }
     val expiryDates: List<String> get() = items.map { it.expiryDate }
@@ -53,6 +59,5 @@ data class VaccinationItem(
 data class FollowUpRequirement(
     @SerialName("next_vaccine_id") val nextVaccineId: String = "",
     @SerialName("next_vaccine_name") val nextVaccineName: String = "",
-    @SerialName("due_date") val dueDate: String = "",
-    @SerialName("based_on_vaccine_id") val basedOnVaccineId: String = ""
+    @SerialName("due_date") val dueDate: String = ""
 )

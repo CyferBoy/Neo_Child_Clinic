@@ -18,7 +18,7 @@ class InventoryProcessingService @Inject constructor(
     private val syncRepository: SyncRepository
 ) {
     suspend fun processVaccinationInventory(
-        vaccinationId: String,
+        visitId: String,
         patientId: String,
         vaccineIds: List<String>,
         batchIds: List<String>,
@@ -41,7 +41,7 @@ class InventoryProcessingService @Inject constructor(
                         quantity = 1,
                         user = user,
                         transactionType = InventoryTransactionType.VACCINATION,
-                        vaccinationId = vaccinationId,
+                        visitId = visitId,
                         patientId = patientId
                     )
                 }
@@ -49,12 +49,12 @@ class InventoryProcessingService @Inject constructor(
             
             // If we reach here, deduction succeeded
             database.withTransaction {
-                vaccinationDao.updateInventoryStatus(vaccinationId, InventoryStatus.COMPLETED.name)
+                vaccinationDao.updateInventoryStatus(visitId, InventoryStatus.COMPLETED.name)
             }
             return null
         } catch (e: Exception) {
             database.withTransaction {
-                vaccinationDao.updateInventoryStatus(vaccinationId, InventoryStatus.FAILED.name)
+                vaccinationDao.updateInventoryStatus(visitId, InventoryStatus.FAILED.name)
                 // Record the failure in a transaction (already handled by deductStock if it got partially through, 
                 // but since we want clinical data to be safe, we mark it here)
             }
@@ -63,19 +63,19 @@ class InventoryProcessingService @Inject constructor(
     }
 
     suspend fun retryDeduction(
-        vaccinationId: String,
+        visitId: String,
         patientId: String,
         vaccineIds: List<String>,
         user: String
     ): String? {
-        return processVaccinationInventory(vaccinationId, patientId, vaccineIds, emptyList(), user)
+        return processVaccinationInventory(visitId, patientId, vaccineIds, emptyList(), user)
     }
 
     suspend fun resolveManual(
-        vaccinationId: String,
+        visitId: String,
         batchIds: List<String>,
         user: String
     ): String? {
-        return processVaccinationInventory(vaccinationId, "", emptyList(), batchIds, user)
+        return processVaccinationInventory(visitId, "", emptyList(), batchIds, user)
     }
 }

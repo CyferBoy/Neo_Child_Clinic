@@ -58,7 +58,7 @@ class InventoryIssuesViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
             val error = inventoryService.retryDeduction(
-                vaccinationId = visit.id,
+                visitId = visit.id,
                 patientId = visit.patientId,
                 vaccineIds = if (visit.vaccineIds.isBlank()) emptyList() else visit.vaccineIds.split(","),
                 user = user
@@ -72,7 +72,7 @@ class InventoryIssuesViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
             val error = inventoryService.resolveManual(
-                vaccinationId = visit.id,
+                visitId = visit.id,
                 batchIds = listOf(batchId),
                 user = user
             )

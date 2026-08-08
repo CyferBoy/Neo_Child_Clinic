@@ -58,7 +58,7 @@ class BackfillInventoryUsageUseCase @Inject constructor(
                         quantity = count,
                         user = user,
                         transactionType = InventoryTransactionType.ADJUSTMENT,
-                        vaccinationId = null,
+                        visitId = null,
                         patientId = null
                     )
                     results.add(BackfillResult(matchedVaccine.brandName, count, true, "Deducted $count from stock"))

@@ -170,11 +170,10 @@ fun AddVaccinationScreen(
                     FollowUpRow(
                         state = row,
                         inventory = uiState.inventory,
-                        currentVisitVaccines = uiState.vaccinesGiven.mapNotNull { it.selectedVaccine },
+                        availableTypes = uiState.availableDueTypes,
                         onTypeSelected = { type -> viewModel.updateFollowUpType(row.id, type) },
                         onVaccineToggled = { vaccine -> viewModel.toggleFollowUpVaccine(row.id, vaccine) },
                         onDueDateSelected = { date -> viewModel.updateFollowUpDueDate(row.id, date) },
-                        onBasedOnSelected = { basedOnId -> viewModel.updateFollowUpBasedOn(row.id, basedOnId) },
                         onRemove = { viewModel.removeFollowUpRow(row.id) }
                     )
                 }
@@ -353,16 +352,14 @@ private fun PaymentSection(
 private fun FollowUpRow(
     state: FollowUpSelectionState,
     inventory: List<InventoryItem>,
-    currentVisitVaccines: List<InventoryItem>,
+    availableTypes: List<String>,
     onTypeSelected: (String) -> Unit,
     onVaccineToggled: (InventoryItem) -> Unit,
     onDueDateSelected: (String) -> Unit,
-    onBasedOnSelected: (String) -> Unit,
     onRemove: () -> Unit
 ) {
     var vaccineSearch by remember { mutableStateOf("") }
     var vaccineExpanded by remember { mutableStateOf(false) }
-    var basedOnExpanded by remember { mutableStateOf(false) }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -378,41 +375,12 @@ private fun FollowUpRow(
 
             // Type -- mandatory
             DueVaccinationTypeDropdown(
-                types = com.neochildclinic.core.constants.Constants.DUE_VACCINATION_TYPES,
+                types = availableTypes,
                 selectedType = state.type,
                 onTypeSelected = onTypeSelected,
+                label = "Type*",
                 isError = state.typeError
             )
-
-            // Based On
-            ExposedDropdownMenuBox(
-                expanded = basedOnExpanded,
-                onExpandedChange = { basedOnExpanded = it }
-            ) {
-                val selectedBasedOnName = currentVisitVaccines.find { it.id == state.basedOnVaccineId }?.brandName ?: "Select Base Vaccine"
-                StandardTextField(
-                    value = selectedBasedOnName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = "Based On (Optional)",
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = basedOnExpanded) }
-                )
-                ExposedDropdownMenu(
-                    expanded = basedOnExpanded,
-                    onDismissRequest = { basedOnExpanded = false }
-                ) {
-                    currentVisitVaccines.forEach { v ->
-                        DropdownMenuItem(
-                            text = { Text(v.brandName) },
-                            onClick = {
-                                onBasedOnSelected(v.id)
-                                basedOnExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
 
             // Vaccine -- optional, multi-select
             StandardAutoCompleteField(

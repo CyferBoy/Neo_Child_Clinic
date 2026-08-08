@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.neochildclinic.data.local.entity.ReminderEntity
@@ -47,6 +48,7 @@ fun PatientDetailsContent(
     followUps: List<ReminderEntity>,
     notes: List<PatientNotesEntity>,
     doctorMap: Map<String, String>,
+    vaccineMap: Map<String, String>,
     canEditOrDelete: Boolean,
     selectedSegment: Int,
     onSegmentSelected: (Int) -> Unit,
@@ -69,6 +71,15 @@ fun PatientDetailsContent(
         )
     }
 
+    // Due Vaccination lookup: most recent ACTIVE/RESCHEDULED reminder per visit,
+    // used to source the card's "Next:"/"Due:" info instead of the visit's own
+    // nxtVaccineNames/nextDueDate fields.
+    val dueVaccinationByVisit = remember(followUps) {
+        followUps
+            .filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
+            .associateBy { it.originalVisitId }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -88,23 +99,18 @@ fun PatientDetailsContent(
 
         when (selectedSegment) {
             0 -> {
-                if (vaccinations.isEmpty()) {
+                // Vaccination Segment: strictly show records where visitType is VACCINATION
+                val segmentVaccinations = vaccinations.filter { it.visitType == "VACCINATION" }
+                if (segmentVaccinations.isEmpty()) {
                     item { EmptySectionText("No vaccination records found.") }
                 } else {
-                    // Due Vaccination lookup: most recent ACTIVE/RESCHEDULED reminder per visit,
-                    // used to source the card's "Next:"/"Due:" info instead of the visit's own
-                    // nxtVaccineNames/nextDueDate fields.
-                    val dueVaccinationByVisit = remember(followUps) {
-                        followUps
-                            .filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
-                            .associateBy { it.originalVisitId }
-                    }
-                    itemsIndexed(vaccinations, key = { _, v -> v.id }) { _, vaccination ->
+                    itemsIndexed(segmentVaccinations, key = { _, v -> v.id }) { _, vaccination ->
                         VaccinationRecordCard(
                             vaccination = vaccination,
                             patient = patient,
                             doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
                             dueVaccination = dueVaccinationByVisit[vaccination.id],
+                            vaccineMap = vaccineMap,
                             onClick = { onOpenVaccinationDetails(vaccination) },
                             onLongClick = { onLongClickVaccination(vaccination) },
                             onShowInventoryIssues = { id ->
@@ -118,28 +124,25 @@ fun PatientDetailsContent(
                 }
             }
             1 -> {
-                if (consultations.isEmpty()) {
+                // Consultation Segment: strictly show records where visitType is CONSULTATION from patient_visits table
+                val segmentConsultations = vaccinations.filter { it.visitType == "CONSULTATION" }
+                if (segmentConsultations.isEmpty()) {
                     item { EmptySectionText("No consultation records found.") }
                 } else {
-                    items(consultations, key = { it.id }) { consultation ->
-                        ConsultationRecordCard(
-                            consultation = consultation,
-                            doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
-                            onLongClick = { onLongClickConsultation(consultation) }
+                    itemsIndexed(segmentConsultations, key = { _, v -> v.id }) { _, consultation ->
+                        // Re-use the VaccinationRecordCard for consistent UI, as patient_visits contains all needed info
+                        VaccinationRecordCard(
+                            vaccination = consultation,
+                            patient = patient,
+                            doctorName = doctorMap[consultation.doctorId] ?: consultation.performedBy,
+                            dueVaccination = dueVaccinationByVisit[consultation.id],
+                            vaccineMap = vaccineMap,
+                            onClick = { /* View details if any */ },
+                            onLongClick = { onLongClickVaccination(consultation) },
+                            onShowInventoryIssues = { }
                         )
                     }
                 }
-            }
-        }
-
-        // Keep Attachments and Notes visible at the bottom or as separate sections?
-        // Spec implies scrollable screen. I'll keep them as sections if they exist.
-        
-        val activeFollowUps = followUps.filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
-        if (activeFollowUps.isNotEmpty()) {
-            item { SectionHeader("Active Follow-ups") }
-            items(activeFollowUps, key = { it.id }) { followUp ->
-                FollowUpCard(reminder = followUp, onActionClick = { })
             }
         }
 
@@ -265,6 +268,7 @@ fun ConsultationRecordCard(
     onLongClick: () -> Unit = {}
 ) {
     val displayDoctor = doctorName.ifBlank { consultation.doctorName }.ifBlank { "Unknown Doctor" }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -274,93 +278,96 @@ fun ConsultationRecordCard(
             ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Row 1: Problem / Complaint | total fee
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "Consultation",
+                    text = consultation.problem.ifBlank { "Consultation" },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "₹${consultation.amount.toInt()}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
-                if (consultation.notes.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Row 2: Next Follow-up | payment breakdown
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                if (consultation.nextFollowUpDate.isNotBlank()) {
                     Text(
-                        text = consultation.notes,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        text = "Next: ${formatDateForDisplay(consultation.nextFollowUpDate)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(8.dp))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = displayDoctor,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                val paymentInfo = buildString {
+                    if (consultation.cashAmount > 0) append("Cash: ₹${consultation.cashAmount.toInt()}")
+                    if (consultation.cashAmount > 0 && consultation.onlineAmount > 0) append(" | ")
+                    if (consultation.onlineAmount > 0) append("Online: ₹${consultation.onlineAmount.toInt()}")
+                    val pending = consultation.amount - (consultation.cashAmount + consultation.onlineAmount)
+                    if (pending > 0) {
+                        if (isNotEmpty()) append(" | ")
+                        append("Pending: ₹${pending.toInt()}")
+                    }
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.AccessTime,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(4.dp))
+                if (paymentInfo.isNotEmpty()) {
                     Text(
-                        text = formatDateForDisplay(consultation.date),
+                        text = paymentInfo,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
                     )
                 }
             }
 
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "₹${consultation.amount}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
+            // Row 3: Given date
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Given: ${formatDateForDisplay(consultation.date)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Row 4: Doctor name
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
-                
-                val paymentBreakdown = buildString {
-                    if (consultation.cashAmount > 0) append("Cash: ₹${consultation.cashAmount.toInt()}")
-                    if (consultation.cashAmount > 0 && consultation.onlineAmount > 0) append("\n")
-                    if (consultation.onlineAmount > 0) append("Online: ₹${consultation.onlineAmount.toInt()}")
-                    val pending = consultation.amount - (consultation.cashAmount + consultation.onlineAmount)
-                    if (pending > 0) {
-                        if (isNotEmpty()) append("\n")
-                        append("Pending: ₹${pending.toInt()}")
-                    }
-                }
-                
-                if (paymentBreakdown.isNotEmpty()) {
-                    Text(
-                        text = paymentBreakdown,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End
-                    )
-                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = displayDoctor,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }

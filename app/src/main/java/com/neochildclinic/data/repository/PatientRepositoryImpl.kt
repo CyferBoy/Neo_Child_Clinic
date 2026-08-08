@@ -181,17 +181,21 @@ class PatientRepositoryImpl @Inject constructor(
             val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
             val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
 
-            patientDao.deletePatient(id)
-            vaccinationDao.deleteVaccinationsForPatient(id)
+            // 1. Delete Reminders (Children)
             dueReminderDao.softDeleteRemindersForPatient(id)
-            
-            syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+            reminderIds.forEach {
+                syncRepository.enqueue("REMINDERS", it.toString(), SyncOperation.DELETE, SyncPriority.LOW)
+            }
+
+            // 2. Delete Vaccinations/Visits (Children)
+            vaccinationDao.deleteVaccinationsForPatient(id)
             vaccinationIds.forEach {
                 syncRepository.enqueue("VACCINATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
             }
-            reminderIds.forEach {
-                syncRepository.enqueue("REMINDER_STATE", it.toString(), SyncOperation.DELETE, SyncPriority.LOW)
-            }
+
+            // 3. Delete Patient (Mother)
+            patientDao.deletePatient(id)
+            syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
         }
 
         auditLogger.recordLog(

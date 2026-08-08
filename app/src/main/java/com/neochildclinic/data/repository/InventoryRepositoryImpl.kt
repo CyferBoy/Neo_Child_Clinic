@@ -312,7 +312,7 @@ class InventoryRepositoryImpl @Inject constructor(
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        vaccinationId: String?,
+        visitId: String?,
         patientId: String?
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
@@ -337,7 +337,7 @@ class InventoryRepositoryImpl @Inject constructor(
                     vaccineId = vaccineId,
                     batchId = batch.batchId,
                     patientId = patientId,
-                    vaccinationId = vaccinationId,
+                    visitId = visitId,
                     transactionType = transactionType.name,
                     quantity = -deduct,
                     previousQuantity = prev,
@@ -375,6 +375,8 @@ class InventoryRepositoryImpl @Inject constructor(
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
+        visitId: String?,
+        patientId: String?,
         notes: String?
     ) {
         database.withTransaction {
@@ -392,6 +394,8 @@ class InventoryRepositoryImpl @Inject constructor(
             val transaction = InventoryTransactionEntity(
                 vaccineId = batch.vaccineId,
                 batchId = batchId,
+                patientId = patientId,
+                visitId = visitId,
                 transactionType = transactionType.name,
                 quantity = -quantity,
                 previousQuantity = current,

@@ -31,12 +31,12 @@ class ReconcileInventoryUseCase @Inject constructor(
         val pendingVisits = vaccinationDao.getVaccinationsPendingReconciliation()
         
         for (visit in pendingVisits) {
-            val vaccinationId = visit.id
+            val visitId = visit.id
             val vaccineIds = if (visit.vaccineIds.isBlank()) emptyList() else visit.vaccineIds.split(",")
             val vaccineNames = if (visit.vaccineNames.isBlank()) emptyList() else visit.vaccineNames.split(",")
             val batchNumbers = if (visit.batchIds.isBlank()) emptyList() else visit.batchIds.split(",")
             
-            val existingDeductions = inventoryDeductionDao.getForVaccination(vaccinationId)
+            val existingDeductions = inventoryDeductionDao.getForVaccination(visitId)
             var completedCount = 0
             
             for (i in vaccineIds.indices) {
@@ -70,14 +70,14 @@ class ReconcileInventoryUseCase @Inject constructor(
                             quantity = 1,
                             user = user,
                             transactionType = InventoryTransactionType.VACCINATION,
-                            vaccinationId = vaccinationId,
+                            visitId = visitId,
                             patientId = visit.patientId
                         )
                     }
                     
                     // On success: insert COMPLETED deduction record
                     inventoryDeductionDao.insert(InventoryDeductionEntity(
-                        vaccinationId = vaccinationId,
+                        vaccinationId = visitId,
                         vaccineId = vaccineId,
                         vaccineName = vaccineName,
                         batchId = resolvedBatch?.batchId, // if FEFO was used, we don't necessarily know which batch was picked here without more refactor, but it's okay for audit
@@ -87,12 +87,12 @@ class ReconcileInventoryUseCase @Inject constructor(
                         resolvedAt = System.currentTimeMillis()
                     ))
                     completedCount++
-                    totalResults.add(ReconcileResult(vaccinationId, vaccineName, true, "Deducted successfully"))
+                    totalResults.add(ReconcileResult(visitId, vaccineName, true, "Deducted successfully"))
                     
                 } catch (e: Exception) {
                     // On failure: insert FAILED deduction record
                     inventoryDeductionDao.insert(InventoryDeductionEntity(
-                        vaccinationId = vaccinationId,
+                        vaccinationId = visitId,
                         vaccineId = vaccineId,
                         vaccineName = vaccineName,
                         batchId = null,
@@ -101,7 +101,7 @@ class ReconcileInventoryUseCase @Inject constructor(
                         errorMessage = e.message,
                         resolvedAt = System.currentTimeMillis()
                     ))
-                    totalResults.add(ReconcileResult(vaccinationId, vaccineName, false, e.message ?: "Deduction failed"))
+                    totalResults.add(ReconcileResult(visitId, vaccineName, false, e.message ?: "Deduction failed"))
                 }
             }
             
@@ -112,7 +112,7 @@ class ReconcileInventoryUseCase @Inject constructor(
                 else -> InventoryStatus.FAILED
             }
             
-            vaccinationDao.updateInventoryStatus(vaccinationId, finalStatus.name)
+            vaccinationDao.updateInventoryStatus(visitId, finalStatus.name)
         }
         
         return totalResults
