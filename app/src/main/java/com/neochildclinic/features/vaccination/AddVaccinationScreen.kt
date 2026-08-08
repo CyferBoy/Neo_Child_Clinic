@@ -171,9 +171,10 @@ fun AddVaccinationScreen(
                         state = row,
                         inventory = uiState.inventory,
                         currentVisitVaccines = uiState.vaccinesGiven.mapNotNull { it.selectedVaccine },
-                        onUpdate = { vaccine, date, basedOnId -> 
-                            viewModel.updateFollowUp(row.id, vaccine, date, basedOnId) 
-                        },
+                        onTypeSelected = { type -> viewModel.updateFollowUpType(row.id, type) },
+                        onVaccineToggled = { vaccine -> viewModel.toggleFollowUpVaccine(row.id, vaccine) },
+                        onDueDateSelected = { date -> viewModel.updateFollowUpDueDate(row.id, date) },
+                        onBasedOnSelected = { basedOnId -> viewModel.updateFollowUpBasedOn(row.id, basedOnId) },
                         onRemove = { viewModel.removeFollowUpRow(row.id) }
                     )
                 }
@@ -347,16 +348,19 @@ private fun PaymentSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun FollowUpRow(
     state: FollowUpSelectionState,
     inventory: List<InventoryItem>,
     currentVisitVaccines: List<InventoryItem>,
-    onUpdate: (InventoryItem?, String, String) -> Unit,
+    onTypeSelected: (String) -> Unit,
+    onVaccineToggled: (InventoryItem) -> Unit,
+    onDueDateSelected: (String) -> Unit,
+    onBasedOnSelected: (String) -> Unit,
     onRemove: () -> Unit
 ) {
-    var vaccineSearch by remember { mutableStateOf(state.nextVaccine?.brandName ?: "") }
+    var vaccineSearch by remember { mutableStateOf("") }
     var vaccineExpanded by remember { mutableStateOf(false) }
     var basedOnExpanded by remember { mutableStateOf(false) }
 
@@ -366,11 +370,19 @@ private fun FollowUpRow(
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Follow-up", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.weight(1f))
+                Text("Next Vaccination", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.weight(1f))
                 IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.Delete, null, tint = Color.Gray)
                 }
             }
+
+            // Type -- mandatory
+            DueVaccinationTypeDropdown(
+                types = com.neochildclinic.core.constants.Constants.DUE_VACCINATION_TYPES,
+                selectedType = state.type,
+                onTypeSelected = onTypeSelected,
+                isError = state.typeError
+            )
 
             // Based On
             ExposedDropdownMenuBox(
@@ -394,7 +406,7 @@ private fun FollowUpRow(
                         DropdownMenuItem(
                             text = { Text(v.brandName) },
                             onClick = {
-                                onUpdate(null, "", v.id)
+                                onBasedOnSelected(v.id)
                                 basedOnExpanded = false
                             }
                         )
@@ -402,28 +414,49 @@ private fun FollowUpRow(
                 }
             }
 
-            // Next Vaccine
+            // Vaccine -- optional, multi-select
             StandardAutoCompleteField(
                 value = vaccineSearch,
                 onValueChange = { 
                     vaccineSearch = it
                     vaccineExpanded = true
                 },
-                label = "Next Vaccine*",
+                label = "Vaccine (Optional)",
                 expanded = vaccineExpanded,
                 onExpandedChange = { vaccineExpanded = it },
-                placeholder = "Search Next Vaccine"
+                placeholder = "Search vaccine"
             ) {
                 val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
                 filtered.forEach { vaccine ->
+                    val isSelected = state.nextVaccines.any { it.id == vaccine.id }
                     DropdownMenuItem(
                         text = { Text(vaccine.brandName) },
+                        leadingIcon = if (isSelected) {
+                            { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
+                        } else null,
                         onClick = {
-                            onUpdate(vaccine, "", "")
-                            vaccineSearch = vaccine.brandName
-                            vaccineExpanded = false
+                            onVaccineToggled(vaccine)
+                            vaccineSearch = ""
                         }
                     )
+                }
+            }
+
+            if (state.nextVaccines.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    state.nextVaccines.forEach { vaccine ->
+                        InputChip(
+                            selected = true,
+                            onClick = { onVaccineToggled(vaccine) },
+                            label = { Text(vaccine.brandName) },
+                            trailingIcon = {
+                                Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp))
+                            }
+                        )
+                    }
                 }
             }
 
@@ -431,7 +464,7 @@ private fun FollowUpRow(
             DateDropdownPicker(
                 label = "Due Date*",
                 currentDate = state.dueDate,
-                onDateSelected = { onUpdate(null, it, "") }
+                onDateSelected = onDueDateSelected
             )
         }
     }

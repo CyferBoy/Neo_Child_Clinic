@@ -22,7 +22,7 @@ import kotlinx.serialization.Transient
         )
     ],
     indices = [
-        Index(value = ["patientId", "originalVisitId", "vaccineName"], unique = true),
+        Index(value = ["patientId", "originalVisitId", "vaccineName", "type"], unique = true),
         Index("status"),
         Index("dueDate")
     ]
@@ -38,6 +38,17 @@ data class ReminderEntity(
     val priority: String = "NORMAL",
     val reminderEnabled: Boolean = true,
     val category: String = "VACCINATION",
+
+    // Due Vaccination "Type" (mandatory on the Add Vaccination screen, e.g. "Booster").
+    // Kept separate from `category` (which distinguishes VACCINATION vs other reminder
+    // sources) and separate from `vaccineName` -- Type is never inferred from the vaccine.
+    val type: String = "",
+
+    // Comma-separated vaccine catalog IDs for the vaccine(s) selected alongside Type
+    // (optional -- may be blank/null if no vaccine was selected). Kept individually so
+    // they remain available for future editing and sync, matching the comma-separated
+    // convention already used for list-like columns elsewhere (e.g. patient_visits.vaccine_ids).
+    val vaccinationIds: String? = null,
     
     // Local-only or derived fields
     @Transient val vaccinationSource: String? = null,
@@ -72,6 +83,8 @@ data class RemoteReminder(
     val priority: String = "NORMAL",
     @SerialName("reminder_enabled") val reminderEnabled: Boolean = true,
     val category: String = "VACCINATION",
+    val type: String = "",
+    @SerialName("vaccination_ids") val vaccinationIds: String? = null,
     val notes: String? = null,
     @SerialName("completion_date") val completionDate: String? = null,
     @SerialName("performed_by") val performedBy: String? = null,
@@ -91,6 +104,8 @@ fun ReminderEntity.toRemote() = RemoteReminder(
     priority = priority,
     reminderEnabled = reminderEnabled,
     category = category,
+    type = type,
+    vaccinationIds = vaccinationIds,
     notes = notes,
     completionDate = completionDate,
     performedBy = performedBy,
@@ -111,6 +126,8 @@ fun RemoteReminder.toLocal(localId: Long = 0) = ReminderEntity(
     priority = priority,
     reminderEnabled = reminderEnabled,
     category = category,
+    type = type,
+    vaccinationIds = vaccinationIds,
     notes = notes,
     completionDate = completionDate,
     performedBy = performedBy,

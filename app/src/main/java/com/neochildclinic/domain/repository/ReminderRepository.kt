@@ -29,7 +29,9 @@ interface ReminderRepository {
     suspend fun scheduleFollowUp(
         patientId: String,
         originalVisitId: String,
+        type: String,
         vaccineNames: List<String>,
+        vaccineIds: List<String> = emptyList(),
         dueDate: String,
         notes: String,
         priority: String,

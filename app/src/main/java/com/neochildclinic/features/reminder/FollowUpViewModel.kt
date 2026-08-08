@@ -55,6 +55,7 @@ class FollowUpViewModel @Inject constructor(
                 reminderRepository.scheduleFollowUp(
                     patientId = patientId,
                     originalVisitId = originalVisitId,
+                    type = "Routine",
                     vaccineNames = vaccineNames,
                     dueDate = dueDate,
                     notes = notes,

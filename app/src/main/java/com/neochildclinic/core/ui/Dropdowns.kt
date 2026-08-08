@@ -320,7 +320,52 @@ fun DateDropdownPicker(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoctorDropdown(
+fun DueVaccinationTypeDropdown(
+    types: List<String>,
+    selectedType: String,
+    onTypeSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = selectedType,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Type *") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                .fillMaxWidth(),
+            isError = isError,
+            supportingText = if (isError) {
+                { Text("Type selection is mandatory") }
+            } else null
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            types.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(type) },
+                    onClick = {
+                        onTypeSelected(type)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
     doctors: List<com.neochildclinic.domain.model.Profile>,
     selectedDoctor: com.neochildclinic.domain.model.Profile?,
     onDoctorSelected: (com.neochildclinic.domain.model.Profile) -> Unit,

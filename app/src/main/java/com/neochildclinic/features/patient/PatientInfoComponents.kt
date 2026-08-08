@@ -52,6 +52,7 @@ fun PatientDetailsContent(
     onSegmentSelected: (Int) -> Unit,
     onLongClickVaccination: (Vaccination) -> Unit,
     onLongClickConsultation: (Consultation) -> Unit,
+    onOpenVaccinationDetails: (Vaccination) -> Unit = {},
     onUploadDocument: () -> Unit,
     onDeleteDocument: (String) -> Unit,
     onViewDocument: (String) -> Unit,
@@ -90,11 +91,21 @@ fun PatientDetailsContent(
                 if (vaccinations.isEmpty()) {
                     item { EmptySectionText("No vaccination records found.") }
                 } else {
+                    // Due Vaccination lookup: most recent ACTIVE/RESCHEDULED reminder per visit,
+                    // used to source the card's "Next:"/"Due:" info instead of the visit's own
+                    // nxtVaccineNames/nextDueDate fields.
+                    val dueVaccinationByVisit = remember(followUps) {
+                        followUps
+                            .filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
+                            .associateBy { it.originalVisitId }
+                    }
                     itemsIndexed(vaccinations, key = { _, v -> v.id }) { _, vaccination ->
                         VaccinationRecordCard(
                             vaccination = vaccination,
                             patient = patient,
                             doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
+                            dueVaccination = dueVaccinationByVisit[vaccination.id],
+                            onClick = { onOpenVaccinationDetails(vaccination) },
                             onLongClick = { onLongClickVaccination(vaccination) },
                             onShowInventoryIssues = { id ->
                                 selectedVisitForDeductions = id

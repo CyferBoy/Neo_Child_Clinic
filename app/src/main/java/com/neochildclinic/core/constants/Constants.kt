@@ -19,4 +19,10 @@ object Constants {
         "DPT Booster", "Measles-Rubella (MR)", "JE", "TD", "Flu (Influenza)", "Typhoid", 
         "Chickenpox", "Hepatitis A", "HPV", "Meningococcal", "Cholera", "Rabies"
     )
+
+    // Predefined "Type" options for a Next Vaccination / Due Vaccination entry
+    // (mandatory field on the Add Vaccination screen's Next Vaccination section).
+    val DUE_VACCINATION_TYPES = listOf(
+        "Routine", "Booster", "Catch-up", "Travel", "Other"
+    )
 }

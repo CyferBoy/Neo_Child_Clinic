@@ -29,9 +29,11 @@ data class VaccineSelectionState(
 
 data class FollowUpSelectionState(
     val id: String = UUID.randomUUID().toString(),
-    val nextVaccine: InventoryItem? = null,
+    val type: String = "",
+    val nextVaccines: List<InventoryItem> = emptyList(),
     val dueDate: String = "",
-    val basedOnVaccineId: String = ""
+    val basedOnVaccineId: String = "",
+    val typeError: Boolean = false
 )
 
 data class AddVaccinationUiState(
@@ -213,17 +215,42 @@ class AddVaccinationViewModel @Inject constructor(
         _uiState.update { it.copy(followUps = it.followUps.filter { row -> row.id != id }) }
     }
 
-    fun updateFollowUp(rowId: String, vaccine: InventoryItem? = null, date: String? = null, basedOnId: String? = null) {
+    fun updateFollowUpType(rowId: String, type: String) {
         _uiState.update { state ->
-            val updated = state.followUps.map { row ->
-                if (row.id == rowId) row.copy(
-                    nextVaccine = vaccine ?: row.nextVaccine,
-                    dueDate = date ?: row.dueDate,
-                    basedOnVaccineId = basedOnId ?: row.basedOnVaccineId
-                )
-                else row
-            }
-            state.copy(followUps = updated)
+            state.copy(followUps = state.followUps.map { row ->
+                if (row.id == rowId) row.copy(type = type, typeError = false) else row
+            })
+        }
+    }
+
+    fun toggleFollowUpVaccine(rowId: String, vaccine: InventoryItem) {
+        _uiState.update { state ->
+            state.copy(followUps = state.followUps.map { row ->
+                if (row.id != rowId) return@map row
+                val alreadySelected = row.nextVaccines.any { it.id == vaccine.id }
+                val updatedVaccines = if (alreadySelected) {
+                    row.nextVaccines.filter { it.id != vaccine.id }
+                } else {
+                    row.nextVaccines + vaccine
+                }
+                row.copy(nextVaccines = updatedVaccines)
+            })
+        }
+    }
+
+    fun updateFollowUpDueDate(rowId: String, dueDate: String) {
+        _uiState.update { state ->
+            state.copy(followUps = state.followUps.map { row ->
+                if (row.id == rowId) row.copy(dueDate = dueDate) else row
+            })
+        }
+    }
+
+    fun updateFollowUpBasedOn(rowId: String, basedOnVaccineId: String) {
+        _uiState.update { state ->
+            state.copy(followUps = state.followUps.map { row ->
+                if (row.id == rowId) row.copy(basedOnVaccineId = basedOnVaccineId) else row
+            })
         }
     }
 
@@ -238,6 +265,21 @@ class AddVaccinationViewModel @Inject constructor(
 
         if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
             _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
+            return
+        }
+
+        // Next Vaccination validation: Type is mandatory for any row the user has
+        // started filling in (i.e. has a due date). Vaccine selection stays optional.
+        val invalidFollowUps = state.followUps.filter { it.dueDate.isNotBlank() && it.type.isBlank() }
+        if (invalidFollowUps.isNotEmpty()) {
+            _uiState.update { s ->
+                s.copy(
+                    errorMessage = "Please select a Type for all Next Vaccination entries.",
+                    followUps = s.followUps.map { row ->
+                        if (row.dueDate.isNotBlank() && row.type.isBlank()) row.copy(typeError = true) else row
+                    }
+                )
+            }
             return
         }
 
@@ -290,15 +332,20 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
-                // 3. Schedule next vaccinations (grouped by date)
-                val followUpsByDate = state.followUps.filter { it.nextVaccine != null && it.dueDate.isNotBlank() }
-                    .groupBy { it.dueDate }
+                // 3. Schedule next vaccinations (grouped by due date + Type; Type is
+                // mandatory per Due Vaccination record, vaccine selection is optional)
+                val followUpsToSchedule = state.followUps.filter { it.dueDate.isNotBlank() && it.type.isNotBlank() }
+                val followUpsGrouped = followUpsToSchedule.groupBy { it.dueDate to it.type }
 
-                followUpsByDate.forEach { (date, requirements) ->
+                followUpsGrouped.forEach { (key, rows) ->
+                    val (date, type) = key
+                    val vaccines = rows.flatMap { it.nextVaccines }.distinctBy { it.id }
                     reminderRepository.scheduleFollowUp(
                         patientId = patient.id,
                         originalVisitId = vaccinationId,
-                        vaccineNames = requirements.map { it.nextVaccine!!.brandName },
+                        type = type,
+                        vaccineNames = vaccines.map { it.brandName },
+                        vaccineIds = vaccines.map { it.id },
                         dueDate = date,
                         notes = "Scheduled during visit on ${state.givenDate}",
                         priority = "NORMAL",

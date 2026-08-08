@@ -278,29 +278,33 @@ class ReminderRepositoryImpl @Inject constructor(
     override suspend fun scheduleFollowUp(
         patientId: String,
         originalVisitId: String,
+        type: String,
         vaccineNames: List<String>,
+        vaccineIds: List<String>,
         dueDate: String,
         notes: String,
         priority: String,
         reminderEnabled: Boolean,
         performedBy: String
     ) {
-        if (vaccineNames.isEmpty()) return
+        // Type is mandatory for a Due Vaccination entry; vaccine selection is optional.
+        if (type.isBlank() || dueDate.isBlank()) return
         
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                // Grouping logic: All vaccines for this visit on this date go into ONE row
+                // Grouping logic: all vaccines for this visit/date/type go into ONE row.
+                // Vaccine selection is optional -- groupedNames may be blank.
                 val groupedNames = vaccineNames.distinct().joinToString(", ")
+                val groupedIds = vaccineIds.distinct().joinToString(",").ifBlank { null }
                 
                 // Clear any existing state for these specific vaccines individually if they exist (cleanup)
                 vaccineNames.forEach { name ->
                     dueReminderDao.clearAllStates(patientId, originalVisitId, name)
                 }
                 
-                // Check if a grouped record for this visit/date already exists
-                // Note: The stable ID for grouping is usually patient + visit + date, 
-                // but the current schema uses patient + visit + vaccineName as unique.
-                // We'll use the joined string as the "vaccineName" for the single row.
+                // Check if a grouped record for this visit/date/type already exists
+                // Note: the unique key is patient + visit + vaccineName + type, so a
+                // Type-only entry (no vaccine selected) still groups distinctly per Type.
                 
                 val reminder = ReminderEntity(
                     patientId = patientId,
@@ -311,17 +315,20 @@ class ReminderRepositoryImpl @Inject constructor(
                     status = "ACTIVE",
                     priority = priority,
                     reminderEnabled = reminderEnabled,
+                    type = type,
+                    vaccinationIds = groupedIds,
                     notes = notes,
                     isSynced = false
                 )
                 dueReminderDao.insertReminder(reminder)
                 
+                val displayLabel = if (groupedNames.isBlank()) type else "$type ($groupedNames)"
                 logReminderUndoableChange(
                     reminder = null, 
                     action = "SCHEDULED",
-                    remarks = "Follow-up ($groupedNames) scheduled by $performedBy",
+                    remarks = "Follow-up ($displayLabel) scheduled by $performedBy",
                     newValue = dueDate,
-                    explicitEntityId = "${patientId}||${originalVisitId}||$groupedNames"
+                    explicitEntityId = "${patientId}||${originalVisitId}||$groupedNames||$type"
                 )
 
                 enqueueReminderSync("REMINDER_STATE", patientId, originalVisitId, groupedNames, SyncOperation.CREATE, SyncPriority.MEDIUM)
