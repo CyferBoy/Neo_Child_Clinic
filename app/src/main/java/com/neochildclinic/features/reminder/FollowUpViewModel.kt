@@ -39,9 +39,10 @@ class FollowUpViewModel @Inject constructor(
         return reminderRepository.getPatientFollowUps(patientId)
     }
 
-    fun scheduleFollowUp(
+    fun scheduleNextVaccination(
         patientId: String,
         originalVisitId: String,
+        type: String,
         vaccineNames: List<String>,
         dueDate: String,
         notes: String,
@@ -52,10 +53,10 @@ class FollowUpViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             try {
-                reminderRepository.scheduleFollowUp(
+                reminderRepository.saveNextVaccination(
                     patientId = patientId,
                     originalVisitId = originalVisitId,
-                    type = "Routine",
+                    type = type,
                     vaccineNames = vaccineNames,
                     dueDate = dueDate,
                     notes = notes,

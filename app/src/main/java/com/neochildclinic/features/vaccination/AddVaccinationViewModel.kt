@@ -27,8 +27,7 @@ data class VaccineSelectionState(
     val quantity: Int = 1
 )
 
-data class FollowUpSelectionState(
-    val id: String = UUID.randomUUID().toString(),
+data class NextVaccinationState(
     val type: String = "",
     val nextVaccines: List<InventoryItem> = emptyList(),
     val dueDate: String = "",
@@ -45,7 +44,7 @@ data class AddVaccinationUiState(
     val doctorError: Boolean = false,
     val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
-    val followUps: List<FollowUpSelectionState> = emptyList(),
+    val nextVaccination: NextVaccinationState = NextVaccinationState(),
     val cashAmount: String = "0",
     val onlineAmount: String = "0",
     val totalAmount: Double = 0.0,
@@ -101,24 +100,24 @@ class AddVaccinationViewModel @Inject constructor(
                 )
             }
 
-            // Load existing follow-ups
+            // Load existing Next Vaccination
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
-            val followUpStates = reminders.map { reminder ->
+            val nextState = reminders.firstOrNull()?.let { reminder ->
                 val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
                 val nextVaccines = nextVaccineIds.mapNotNull { id -> inventory.find { it.id == id } }
                 
-                FollowUpSelectionState(
+                NextVaccinationState(
                     type = reminder.type,
                     dueDate = reminder.dueDate,
                     nextVaccines = nextVaccines
                 )
-            }
+            } ?: NextVaccinationState()
 
             _uiState.update { it.copy(
                 existingVaccinationId = vaccinationId,
                 givenDate = vaccination.dateGiven,
                 vaccinesGiven = if (items.isNotEmpty()) items else listOf(VaccineSelectionState()),
-                followUps = followUpStates,
+                nextVaccination = nextState,
                 cashAmount = vaccination.cashAmount.toInt().toString(),
                 onlineAmount = vaccination.onlineAmount.toInt().toString(),
                 totalAmount = vaccination.totalPaid
@@ -225,43 +224,25 @@ class AddVaccinationViewModel @Inject constructor(
         _uiState.update { it.copy(onlineAmount = amount, totalAmount = cash + online) }
     }
 
-    fun addFollowUpRow() {
-        _uiState.update { it.copy(followUps = it.followUps + FollowUpSelectionState()) }
+    fun updateNextVaccinationType(type: String) {
+        _uiState.update { it.copy(nextVaccination = it.nextVaccination.copy(type = type, typeError = false)) }
     }
 
-    fun removeFollowUpRow(id: String) {
-        _uiState.update { it.copy(followUps = it.followUps.filter { row -> row.id != id }) }
-    }
-
-    fun updateFollowUpType(rowId: String, type: String) {
+    fun toggleNextVaccinationVaccine(vaccine: InventoryItem) {
         _uiState.update { state ->
-            state.copy(followUps = state.followUps.map { row ->
-                if (row.id == rowId) row.copy(type = type, typeError = false) else row
-            })
+            val current = state.nextVaccination.nextVaccines
+            val alreadySelected = current.any { it.id == vaccine.id }
+            val updated = if (alreadySelected) {
+                current.filter { it.id != vaccine.id }
+            } else {
+                current + vaccine
+            }
+            state.copy(nextVaccination = state.nextVaccination.copy(nextVaccines = updated))
         }
     }
 
-    fun toggleFollowUpVaccine(rowId: String, vaccine: InventoryItem) {
-        _uiState.update { state ->
-            state.copy(followUps = state.followUps.map { row ->
-                if (row.id != rowId) return@map row
-                val alreadySelected = row.nextVaccines.any { it.id == vaccine.id }
-                val updatedVaccines = if (alreadySelected) {
-                    row.nextVaccines.filter { it.id != vaccine.id }
-                } else {
-                    row.nextVaccines + vaccine
-                }
-                row.copy(nextVaccines = updatedVaccines)
-            })
-        }
-    }
-
-    fun updateFollowUpDueDate(rowId: String, dueDate: String) {
-        _uiState.update { state ->
-            state.copy(followUps = state.followUps.map { row ->
-                if (row.id == rowId) row.copy(dueDate = dueDate) else row
-            })
-        }
+    fun updateNextVaccinationDueDate(dueDate: String) {
+        _uiState.update { it.copy(nextVaccination = it.nextVaccination.copy(dueDate = dueDate)) }
     }
 
     fun saveVaccination() {
@@ -278,18 +259,13 @@ class AddVaccinationViewModel @Inject constructor(
             return
         }
 
-        // Next Vaccination validation: Type is mandatory for any row the user has
-        // started filling in (i.e. has a due date). Vaccine selection stays optional.
-        val invalidFollowUps = state.followUps.filter { it.dueDate.isNotBlank() && it.type.isBlank() }
-        if (invalidFollowUps.isNotEmpty()) {
-            _uiState.update { s ->
-                s.copy(
-                    errorMessage = "Please select a Type for all Next Vaccination entries.",
-                    followUps = s.followUps.map { row ->
-                        if (row.dueDate.isNotBlank() && row.type.isBlank()) row.copy(typeError = true) else row
-                    }
-                )
-            }
+        // Next Vaccination validation: Type is mandatory if ANY Next Vaccination data is present
+        val next = state.nextVaccination
+        if (next.dueDate.isNotBlank() && next.type.isBlank()) {
+            _uiState.update { it.copy(
+                errorMessage = "Please select a Type for Next Vaccination.",
+                nextVaccination = next.copy(typeError = true)
+            ) }
             return
         }
 
@@ -315,15 +291,14 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
-                val followUpRequirements = state.followUps.filter { it.dueDate.isNotBlank() && it.type.isNotBlank() }
-                    .flatMap { row ->
-                        val vaccines = row.nextVaccines
-                        if (vaccines.isEmpty()) {
-                            listOf(FollowUpRequirement(nextVaccineId = "", nextVaccineName = "", dueDate = row.dueDate))
-                        } else {
-                            vaccines.map { v -> FollowUpRequirement(nextVaccineId = v.id, nextVaccineName = v.brandName, dueDate = row.dueDate) }
-                        }
+                // Summary for patient_visits
+                val followUpRequirement = if (next.type.isNotBlank()) {
+                    if (next.nextVaccines.isEmpty()) {
+                        listOf(FollowUpRequirement(nextVaccineId = "", nextVaccineName = "", dueDate = next.dueDate))
+                    } else {
+                        next.nextVaccines.map { v -> FollowUpRequirement(nextVaccineId = v.id, nextVaccineName = v.brandName, dueDate = next.dueDate) }
                     }
+                } else emptyList()
 
                 val vaccination = Vaccination(
                     id = vaccinationId,
@@ -337,10 +312,10 @@ class AddVaccinationViewModel @Inject constructor(
                     doctorId = state.selectedDoctor.employeeId ?: "",
                     performedBy = state.selectedDoctor.displayName,
                     items = items,
-                    followUps = followUpRequirements
+                    followUps = followUpRequirement
                 )
 
-                // 1. Record clinical visit and satisfy reminders
+                // 1. Record clinical visit
                 clinicalService.recordVaccination(vaccination, user)
 
                 // 2. Process Inventory deductions
@@ -355,24 +330,16 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
-                // 3. Schedule next vaccinations (grouped by due date + Type; Type is
-                // mandatory per Due Vaccination record, vaccine selection is optional)
-                val followUpsToSchedule = state.followUps.filter { it.dueDate.isNotBlank() && it.type.isNotBlank() }
-                val followUpsGrouped = followUpsToSchedule.groupBy { it.dueDate to it.type }
-
-                followUpsGrouped.forEach { (key, rows) ->
-                    val (date, type) = key
-                    val vaccines = rows.flatMap { it.nextVaccines }.distinctBy { it.id }
-                    reminderRepository.scheduleFollowUp(
+                // 3. Save Next Vaccination to reminders table
+                if (next.type.isNotBlank() && next.dueDate.isNotBlank()) {
+                    reminderRepository.saveNextVaccination(
                         patientId = patient.id,
                         originalVisitId = vaccinationId,
-                        type = type,
-                        vaccineNames = vaccines.map { it.brandName },
-                        nxtVaccineId = vaccines.map { it.id },
-                        dueDate = date,
+                        type = next.type,
+                        vaccineNames = next.nextVaccines.map { it.brandName },
+                        nxtVaccineId = next.nextVaccines.map { it.id },
+                        dueDate = next.dueDate,
                         notes = "Scheduled during visit on ${state.givenDate}",
-                        priority = "NORMAL",
-                        reminderEnabled = true,
                         performedBy = user
                     )
                 }

@@ -25,8 +25,8 @@ interface ReminderRepository {
     fun getDismissedDueRecords(): Flow<List<DismissedDueRecord>>
     fun getOtherEstablishmentDueRecords(): Flow<List<OtherEstablishmentDueRecord>>
 
-    // Smart Follow-up logic
-    suspend fun scheduleFollowUp(
+    // Next Vaccination logic
+    suspend fun saveNextVaccination(
         patientId: String,
         originalVisitId: String,
         type: String,
@@ -34,8 +34,8 @@ interface ReminderRepository {
         nxtVaccineId: List<String> = emptyList(),
         dueDate: String,
         notes: String,
-        priority: String,
-        reminderEnabled: Boolean,
+        priority: String = "NORMAL",
+        reminderEnabled: Boolean = true,
         performedBy: String
     )
 

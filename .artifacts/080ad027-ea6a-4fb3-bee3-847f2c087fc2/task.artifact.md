@@ -1,8 +1,14 @@
-# Task: Fix Reminder Local Persistence and Sync
+# Task: Next Vaccination Redesign
 
-- [x] Update `ReminderRepositoryImpl.kt`
-    - [x] Change `enqueueReminderSync` to use UUID
-    - [x] Update `scheduleFollowUp` to preserve existing IDs
-    - [x] Update all callers to pass UUID to sync
-- [x] Refine `SyncRepositoryImpl.kt` specialized logic
-- [x] Verify build with `./gradlew :app:compileDebugKotlin`
+- [x] Data Layer & Repositories
+    - [x] Update `ReminderRepository.kt` interface
+    - [x] Redesign `ReminderRepositoryImpl.kt` to use database as source of truth
+    - [x] Remove automatic calculation dependency on `ReminderEngine`
+- [x] UI Layer (ViewModel)
+    - [x] Refactor `AddVaccinationViewModel.kt` to handle single Next Vaccination
+    - [x] Update loading/saving logic
+- [x] UI Layer (Screen)
+    - [x] Redesign `AddVaccinationScreen.kt` UI
+- [x] Verification & Cleanup
+    - [x] Verify build with `./gradlew :app:compileDebugKotlin`
+    - [x] Remove/Comment out obsolete logic in `ReminderEngine.kt`

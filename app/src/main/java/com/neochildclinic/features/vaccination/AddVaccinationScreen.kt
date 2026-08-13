@@ -164,26 +164,17 @@ fun AddVaccinationScreen(
                     )
                 }
 
-                // 5. Next Vaccinations (Due Section)
-                item { SectionHeader("Next Vaccination(s)") }
-                items(uiState.followUps, key = { it.id }) { row ->
-                    FollowUpRow(
-                        state = row,
+                // 5. Next Vaccination Section
+                item { SectionHeader("Next Vaccination") }
+                item {
+                    NextVaccinationSection(
+                        state = uiState.nextVaccination,
                         inventory = uiState.inventory,
                         availableTypes = uiState.availableDueTypes,
-                        onTypeSelected = { type -> viewModel.updateFollowUpType(row.id, type) },
-                        onVaccineToggled = { vaccine -> viewModel.toggleFollowUpVaccine(row.id, vaccine) },
-                        onDueDateSelected = { date -> viewModel.updateFollowUpDueDate(row.id, date) },
-                        onRemove = { viewModel.removeFollowUpRow(row.id) }
+                        onTypeSelected = { viewModel.updateNextVaccinationType(it) },
+                        onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(it) },
+                        onDueDateSelected = { viewModel.updateNextVaccinationDueDate(it) }
                     )
-                }
-                
-                item {
-                    TextButton(onClick = { viewModel.addFollowUpRow() }) {
-                        Icon(Icons.Default.Event, null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Add Next Vaccination")
-                    }
                 }
             }
         }
@@ -349,14 +340,13 @@ private fun PaymentSection(
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun FollowUpRow(
-    state: FollowUpSelectionState,
+private fun NextVaccinationSection(
+    state: NextVaccinationState,
     inventory: List<InventoryItem>,
     availableTypes: List<String>,
     onTypeSelected: (String) -> Unit,
     onVaccineToggled: (InventoryItem) -> Unit,
-    onDueDateSelected: (String) -> Unit,
-    onRemove: () -> Unit
+    onDueDateSelected: (String) -> Unit
 ) {
     var vaccineSearch by remember { mutableStateOf("") }
     var vaccineExpanded by remember { mutableStateOf(false) }
@@ -366,13 +356,6 @@ private fun FollowUpRow(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Next Vaccination", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.weight(1f))
-                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, null, tint = Color.Gray)
-                }
-            }
-
             // Type -- mandatory
             DueVaccinationTypeDropdown(
                 types = availableTypes,

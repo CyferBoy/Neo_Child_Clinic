@@ -80,8 +80,8 @@ class ReminderRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Shared logic to combine raw entities into a processed list of vaccinations.
-     * Uses the unified reminders table.
+     * Authoritative logic to combine raw entities into a processed list of vaccinations.
+     * The `reminders` table is the sole source of truth for Next Vaccinations.
      */
     private fun getProcessedDueFlow(): Flow<Pair<List<Vaccination>, List<PatientEntity>>> {
         return combine(
@@ -166,46 +166,40 @@ class ReminderRepositoryImpl @Inject constructor(
         reminderEntities: List<ReminderEntity>
     ): List<Vaccination> {
         val allVaccinations = vaccEntities.map { it.toVaccination() }
-        val potential = ReminderEngine.getPotentialRequirements(allVaccinations)
-        
-        val reminderMap = reminderEntities.associateBy { "${it.patientId}_${it.originalVisitId}_${it.vaccineName}" }
         val result = mutableListOf<Vaccination>()
 
-        // 1. Group potential requirements by patient and due date
-        val groupedPotential = potential.groupBy { it.patientId to PatientUtils.formatDate(it.dueDate) }
+        // 1. Process Active/Rescheduled Reminders (Authoritative source for "Due")
+        val activeReminders = reminderEntities.filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
+        val groupedActive = activeReminders.groupBy { it.patientId to it.dueDate }
 
-        groupedPotential.forEach { (key, requirements) ->
-            val (patientId, dueDateStr) = key
+        groupedActive.forEach { (key, group) ->
+            val (patientId, dueDate) = key
+            val firstInGroup = group.first()
+            val status = if (group.any { it.status == "RESCHEDULED" }) ReminderStatus.RESCHEDULED else ReminderStatus.ACTIVE
             
-            val terminalStates = requirements.map { req ->
-                val rKey = "${req.patientId}_${req.originalVisitId}_${req.vaccineName}"
-                reminderMap[rKey]
-            }
+            // Link to original visit if available, otherwise create a shell
+            val baseVaccination = allVaccinations.find { it.id == firstInGroup.originalVisitId } ?: Vaccination(
+                id = UUID.randomUUID().toString(),
+                patientId = patientId,
+                visitType = "VACCINATION",
+                status = status
+            )
 
-            // If any in group are ACTIVE or RESCHEDULED, they should appear in the "Due" pool
-            val activeReminders = terminalStates.filter { it == null || (it.status != "COMPLETED" && it.status != "DISMISSED" && it.status != "EXTERNAL") }
-            
-            if (activeReminders.isNotEmpty()) {
-                val status = if (activeReminders.any { it?.status == "RESCHEDULED" }) ReminderStatus.RESCHEDULED else ReminderStatus.ACTIVE
-                val vaccineNames = requirements.map { it.vaccineName }.distinct()
-                val firstReq = requirements.first()
-                
-                allVaccinations.find { it.id == firstReq.originalVisitId }?.copy(
-                    // Next vaccines/due date are now derived from followUps list
-                    followUps = requirements.map { req ->
-                        FollowUpRequirement(
-                            nextVaccineName = req.vaccineName,
-                            dueDate = dueDateStr
-                        )
-                    },
-                    status = status,
-                    performedBy = activeReminders.firstOrNull { it?.performedBy?.isNotBlank() == true }?.performedBy ?: ""
-                )?.let { result.add(it) }
-            }
+            result.add(baseVaccination.copy(
+                followUps = group.map { 
+                    FollowUpRequirement(
+                        nextVaccineId = it.nxtVaccineId?.firstOrNull() ?: "",
+                        nextVaccineName = it.vaccineName,
+                        dueDate = dueDate
+                    )
+                },
+                status = status,
+                performedBy = firstInGroup.performedBy ?: ""
+            ))
         }
 
-        // 2. Process Terminal States (Completed, Dismissed, External) - Grouped by patient, date and status
-        val terminalReminders = reminderEntities.filter { it.status != "ACTIVE" && it.status != "RESCHEDULED" }
+        // 2. Process Terminal States (Completed, Dismissed, External)
+        val terminalReminders = reminderEntities.filter { it.status !in listOf("ACTIVE", "RESCHEDULED") }
         val groupedTerminal = terminalReminders.groupBy { Triple(it.patientId, it.dueDate, it.status) }
 
         groupedTerminal.forEach { (key, group) ->
@@ -272,7 +266,7 @@ class ReminderRepositoryImpl @Inject constructor(
         syncRepository.enqueue(entityName, reminderId, operation, priority, transactionGroupId)
     }
 
-    override suspend fun scheduleFollowUp(
+    override suspend fun saveNextVaccination(
         patientId: String,
         originalVisitId: String,
         type: String,
@@ -284,17 +278,17 @@ class ReminderRepositoryImpl @Inject constructor(
         reminderEnabled: Boolean,
         performedBy: String
     ) {
-        // Type is mandatory for a Due Vaccination entry; vaccine selection is optional.
+        // Type is mandatory for a Next Vaccination entry; vaccine selection is optional.
         if (type.isBlank() || dueDate.isBlank()) return
         
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                // Grouping logic: all vaccines for this visit/date/type go into ONE row.
-                // Vaccine selection is optional -- groupedNames may be blank.
                 val groupedNames = vaccineNames.distinct().joinToString(", ")
                 
-                // Stable Lookup: Check if a reminder for this visit/type/vaccines already exists
-                val existing = dueReminderDao.getReminderByStableId(patientId, originalVisitId, groupedNames, type)
+                // Stable Lookup: Check if a reminder for this visit already exists
+                // Note: We use originalVisitId as the stable link. 
+                // There is only ONE Next Vaccination per visit in the new architecture.
+                val existing = dueReminderDao.getRemindersByVisitId(originalVisitId).firstOrNull()
 
                 val reminder = ReminderEntity(
                     id = existing?.id ?: UUID.randomUUID().toString(),
@@ -303,7 +297,6 @@ class ReminderRepositoryImpl @Inject constructor(
                     originalVisitId = originalVisitId,
                     vaccineName = groupedNames,
                     dueDate = dueDate,
-                    reminderDate = dueDate,
                     status = "ACTIVE",
                     priority = priority,
                     reminderEnabled = reminderEnabled,
@@ -316,11 +309,10 @@ class ReminderRepositoryImpl @Inject constructor(
                 
                 val displayLabel = if (groupedNames.isBlank()) type else "$type ($groupedNames)"
                 logReminderUndoableChange(
-                    reminder = null, 
+                    reminder = reminder, 
                     action = "SCHEDULED",
-                    remarks = "Follow-up ($displayLabel) scheduled by $performedBy",
-                    newValue = dueDate,
-                    explicitEntityId = "${patientId}||${originalVisitId}||$groupedNames||$type"
+                    remarks = "Next Vaccination ($displayLabel) scheduled by $performedBy",
+                    newValue = dueDate
                 )
 
                 val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE

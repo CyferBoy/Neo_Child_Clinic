@@ -37,7 +37,7 @@ fun ScheduleFollowUpScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Schedule Follow-up") },
+                    title = { Text("Schedule Next Vaccination") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -123,9 +123,10 @@ fun ScheduleFollowUpScreen(
 
                 StandardButton(
                     onClick = {
-                        viewModel.scheduleFollowUp(
+                        viewModel.scheduleNextVaccination(
                             patientId = patientId,
                             originalVisitId = originalVisitId,
+                            type = "Routine",
                             vaccineNames = selectedVaccines.split(",").map { it.trim() }.filter { it.isNotBlank() },
                             dueDate = dueDate,
                             notes = notes,
@@ -137,7 +138,7 @@ fun ScheduleFollowUpScreen(
                     isLoading = uiState.isLoading,
                     enabled = selectedVaccines.isNotBlank() && dueDate.isNotBlank()
                 ) {
-                    Text("Save Follow-up")
+                    Text("Save Next Vaccination")
                 }
             }
         }
