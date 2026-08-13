@@ -365,7 +365,9 @@ private fun NextVaccinationSection(
                 isError = state.typeError
             )
 
-            // Vaccine -- optional, multi-select
+            // Vaccine -- optional, multi-select. Scoped to the selected Type: only brand
+            // names belonging to that vaccine type are offered (e.g. Type "Varicella"
+            // only shows brands like "Varilrix", not brands of other types).
             StandardAutoCompleteField(
                 value = vaccineSearch,
                 onValueChange = { 
@@ -375,21 +377,39 @@ private fun NextVaccinationSection(
                 label = "Vaccine (Optional)",
                 expanded = vaccineExpanded,
                 onExpandedChange = { vaccineExpanded = it },
-                placeholder = "Search vaccine"
+                placeholder = if (state.type.isBlank()) "Select a Type first" else "Search vaccine"
             ) {
-                val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
-                filtered.forEach { vaccine ->
-                    val isSelected = state.nextVaccines.any { it.id == vaccine.id }
+                if (state.type.isBlank()) {
                     DropdownMenuItem(
-                        text = { Text(vaccine.brandName) },
-                        leadingIcon = if (isSelected) {
-                            { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
-                        } else null,
-                        onClick = {
-                            onVaccineToggled(vaccine)
-                            vaccineSearch = ""
-                        }
+                        text = { Text("Select a Type above first") },
+                        onClick = {},
+                        enabled = false
                     )
+                } else {
+                    val filtered = inventory.filter {
+                        it.type.equals(state.type, ignoreCase = true) &&
+                            it.brandName.contains(vaccineSearch, ignoreCase = true)
+                    }
+                    if (filtered.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("No vaccines found for \"${state.type}\"") },
+                            onClick = {},
+                            enabled = false
+                        )
+                    }
+                    filtered.forEach { vaccine ->
+                        val isSelected = state.nextVaccines.any { it.id == vaccine.id }
+                        DropdownMenuItem(
+                            text = { Text(vaccine.brandName) },
+                            leadingIcon = if (isSelected) {
+                                { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
+                            } else null,
+                            onClick = {
+                                onVaccineToggled(vaccine)
+                                vaccineSearch = ""
+                            }
+                        )
+                    }
                 }
             }
 

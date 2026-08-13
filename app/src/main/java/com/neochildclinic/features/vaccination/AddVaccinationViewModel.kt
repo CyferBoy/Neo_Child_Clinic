@@ -225,7 +225,12 @@ class AddVaccinationViewModel @Inject constructor(
     }
 
     fun updateNextVaccinationType(type: String) {
-        _uiState.update { it.copy(nextVaccination = it.nextVaccination.copy(type = type, typeError = false)) }
+        _uiState.update {
+            // Changing the Type invalidates any previously picked vaccines, since the
+            // vaccine search is scoped to the selected Type -- drop them so the chips
+            // shown never belong to a different type than what's selected.
+            it.copy(nextVaccination = it.nextVaccination.copy(type = type, nextVaccines = emptyList(), typeError = false))
+        }
     }
 
     fun toggleNextVaccinationVaccine(vaccine: InventoryItem) {

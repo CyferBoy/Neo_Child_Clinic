@@ -59,15 +59,13 @@ fun VaccinationRecordCard(
         vaccineNamesText.ifBlank { vaccination.notes }.ifBlank { "Vaccination Visit" }
     }
 
-    // "Next:" text is built from the Due Vaccination record's Type (mandatory) and,
-    // if present, its vaccine name(s) (optional) or IDs -- never shows an empty/"null" vaccine value.
-    val nextLine = remember(dueVaccination, vaccineMap) {
+    // "Next:" text prefers the specific brand (Vaccine Name) when one was picked,
+    // e.g. "Next: Varilrix"; falls back to just the Type when no vaccine was selected,
+    // e.g. "Next: Varicella" -- never shows both, and never shows an empty/"null" value.
+    val nextLine = remember(dueVaccination) {
         dueVaccination?.type?.trim()?.takeIf { it.isNotEmpty() }?.let { type ->
-            val namesFromIds = dueVaccination.nxtVaccineId?.mapNotNull { vaccineMap[it] }?.joinToString(", ") ?: ""
-            val namesFromField = dueVaccination.vaccineName.trim()
-            val finalNames = namesFromIds.ifBlank { namesFromField }
-            
-            if (finalNames.isNotEmpty()) "$type • $finalNames" else type
+            val vaccineName = dueVaccination.vaccineName.trim()
+            vaccineName.ifEmpty { type }
         }
     }
 

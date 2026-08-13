@@ -1,6 +1,8 @@
 package com.neochildclinic.data.local.entity
 
 import androidx.room.*
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -72,8 +74,15 @@ data class ReminderEntity(
 /**
  * Data Transfer Object for Supabase reminders table.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class RemoteReminder(
+    // The Supabase client is configured globally with encodeDefaults = true, which would
+    // otherwise serialize a null id as an explicit "id": null in the insert payload. Since
+    // reminders.id is a server-generated BIGSERIAL NOT NULL primary key, that explicit null
+    // overrides the column default and trips the not-null constraint on CREATE. Forcing this
+    // one field to be omitted when null (its default) lets Postgres apply nextval() itself.
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val id: Long? = null,
     @SerialName("patient_id") val patientId: String,
     @SerialName("original_visit_id") val originalVisitId: String,
