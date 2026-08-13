@@ -31,7 +31,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationEntity::class,
         VaccinationItemEntity::class
     ], 
-    version = 12,
+    version = 14,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -66,20 +66,18 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val dbFile = context.getDatabasePath(DB_NAME)
-                val isNewDatabase = !dbFile.exists()
-
+                
                 val passphrase = try {
-                    SecurityUtils.getDatabasePassphrase(context, shouldGenerate = isNewDatabase)
+                    SecurityUtils.getDatabasePassphrase(context)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Passphrase unavailable. Preventing database initialization to protect data.", e)
+                    Log.e(TAG, "Hardware Keystore is unavailable. This usually means the device is locked after a reboot.", e)
                     throw IllegalStateException("Security keys could not be loaded. Please ensure your device is unlocked.", e)
                 }
 
-                val factory = SupportOpenHelperFactory(passphrase)
-                
-                if (!isNewDatabase) {
-                    Log.d(TAG, "Opening encrypted database...")
+                // Verify if we can open the database with this passphrase
+                if (dbFile.exists()) {
                     try {
+                        Log.d(TAG, "Verifying database encryption...")
                         net.zetetic.database.sqlcipher.SQLiteDatabase.openDatabase(
                             dbFile.absolutePath, 
                             passphrase, 
@@ -87,13 +85,14 @@ abstract class AppDatabase : RoomDatabase() {
                             net.zetetic.database.sqlcipher.SQLiteDatabase.OPEN_READONLY,
                             null
                         ).close()
-                        Log.d(TAG, "Database opened successfully.")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Database open failed. Key mismatch or corruption suspected.", e)
-                        throw IllegalStateException("Unable to access the encrypted database. Your security keys could not be loaded.", e)
+                        Log.w(TAG, "Existing database is unreadable (likely due to device format/restore). Wiping local database to recover...", e)
+                        context.deleteDatabase(DB_NAME)
                     }
                 }
 
+                val factory = SupportOpenHelperFactory(passphrase)
+                
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,

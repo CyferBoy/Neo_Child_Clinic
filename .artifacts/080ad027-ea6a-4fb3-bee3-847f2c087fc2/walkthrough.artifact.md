@@ -1,44 +1,26 @@
-# Walkthrough - Migrated `reminders` ID to UUID (String)
+# Walkthrough - Stabilized Reminder Persistence and Sync
 
-I have successfully migrated the `reminders` primary key from `Long` to `String` (UUID). This aligns the reminders logic with the rest of the project's UUID-based architecture.
+I have fixed the issue where scheduled reminders were not persisting or syncing correctly. This was primarily due to reminders being assigned new random IDs on every save, which broke the link with their corresponding server records.
 
 ## Changes Made
 
-### Data Layer Migrations
+### Reminder Lifecycle & Stability
 
-#### [ReminderEntity.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt)
-- Changed `ReminderEntity.id` from `Long` to `String`.
-- Initialized `id` with a generated UUID by default.
-- Updated `RemoteReminder` and mapping functions (`toRemote`, `toLocal`) to support `String` IDs.
+#### [ReminderRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/ReminderRepositoryImpl.kt)
+- **Stable ID Matching**: `scheduleFollowUp` now checks for existing reminders before creating new ones. If a matching reminder (same visit, type, and vaccines) is found, the app reuses its local UUID and `serverId`. This prevents data duplication and preserves the sync state.
+- **Unified Sync Keys**: Updated the sync enqueuing logic to consistently use the **Reminder UUID** as the identifier, replacing the previous inconsistent compound keys.
+- **Call Site Updates**: Updated all business actions (satisfy, reschedule, dismiss, restore, delete) to pass the stable UUID to the sync queue.
 
-#### [DAOs: ReminderDao.kt & DueReminderDao.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/dao/DueReminderDao.kt)
-- Updated all query and method signatures to accept/return `String` IDs instead of `Long`.
-- Modified `@Insert` methods to return `Unit` (Room requirement for non-numeric primary keys when setting manually).
-
-### Database Configuration
-
-#### [AppDatabase.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt)
-- Incremented the database `version` to **12** to trigger the required schema update.
+### Sync Engine Refinement
 
 #### [SyncRepositoryImpl.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt)
-- Removed numeric conversions when fetching reminder data for sync.
-- Updated the stable ID lookup to correctly handle the new `String` format.
-
-### UI & Core Logic
-
-#### [ReminderRepository.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/domain/repository/ReminderRepository.kt)
-- Updated the interface to use `String` IDs for `markCompleted` and other legacy support methods.
-
-#### [Notification Handlers](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/notification/NotificationActionReceiver.kt)
-- Updated `NotificationActionReceiver` to retrieve `reminderId` as a `String` from the pending intent.
-
-#### [MergePatientsUseCase.kt](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/app/src/main/java/com/neochildclinic/domain/usecase/patient/MergePatientsUseCase.kt)
-- Updated the sync enqueuing logic to use the unified `"REMINDERS"` sync key and handle the new ID type.
+- **Robust `REMINDERS` Sync**: Refined the specialized logic for reminders to correctly handle the transition from a local UUID to a server-generated `BIGINT` ID.
+- **Improved Deletion**: The sync engine now attempts to resolve the server's `BIGINT` ID from local storage before performing a deletion in Supabase, ensuring deletions are targeted correctly.
 
 ## Verification Results
 
-### Automated Tests
-- Ran `./gradlew :app:compileDebugKotlin` and verified that the build now completes **successfully**.
+### Build Status
+- Ran `./gradlew :app:compileDebugKotlin` and verified that the project builds **successfully**.
 
-> [!CAUTION]
-> **Action Required**: You must drop and recreate your Supabase `reminders` table using the SQL provided in the [Implementation Plan](file:///C:/Users/Nadeem/Desktop/vaccine_manager_app/.artifacts/080ad027-ea6a-4fb3-bee3-847f2c087fc2/implementation_plan.artifact.md) to support UUID primary keys.
+> [!TIP]
+> With these changes, when you edit a vaccination, the "Next Vaccination" entries will now correctly stay linked to their original database records instead of being replaced by "new" ones. This ensures your data remains clean and properly synchronized with Supabase.

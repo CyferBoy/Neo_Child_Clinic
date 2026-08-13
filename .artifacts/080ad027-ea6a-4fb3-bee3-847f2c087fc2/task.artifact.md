@@ -1,9 +1,8 @@
-# Task: Migrate `reminders` ID to UUID (String)
+# Task: Fix Reminder Local Persistence and Sync
 
-- [x] Modify `ReminderEntity.kt` to use `String` IDs
-- [x] Update `ReminderDao.kt` signatures
-- [x] Update `DueReminderDao.kt` signatures and logic
-- [x] Update `ReminderRepository.kt` interface
-- [x] Update `ReminderRepositoryImpl.kt` implementation
-- [x] Update `SyncRepositoryImpl.kt` fetching logic
+- [x] Update `ReminderRepositoryImpl.kt`
+    - [x] Change `enqueueReminderSync` to use UUID
+    - [x] Update `scheduleFollowUp` to preserve existing IDs
+    - [x] Update all callers to pass UUID to sync
+- [x] Refine `SyncRepositoryImpl.kt` specialized logic
 - [x] Verify build with `./gradlew :app:compileDebugKotlin`

@@ -167,12 +167,41 @@ class SyncRepositoryImpl @Inject constructor(
         }
 
         if (item.operation == SyncOperation.DELETE.name) {
-            postgrest.from(table).delete {
-                filter {
-                    eq("id", item.entityId)
+            if (item.entityName == "REMINDERS") {
+                val serverId = item.entityId.toLongOrNull() ?: database.dueReminderDao().getReminderById(item.entityId)?.serverId
+                if (serverId != null) {
+                    postgrest.from(table).delete {
+                        filter { eq("id", serverId) }
+                    }
+                }
+            } else {
+                postgrest.from(table).delete {
+                    filter { eq("id", item.entityId) }
                 }
             }
             return
+        }
+
+        // Specialized logic for REMINDERS to handle server-generated BIGINT IDs
+        if (item.entityName == "REMINDERS") {
+            val localReminder = database.dueReminderDao().getReminderById(item.entityId)
+            if (localReminder != null) {
+                if (item.operation == SyncOperation.CREATE.name && localReminder.serverId == null) {
+                    // CREATE: Insert without ID and retrieve generated ID
+                    val remote = postgrest.from(table)
+                        .insert(localReminder.toRemote().copy(id = null)) {
+                            select()
+                        }
+                        .decodeSingle<RemoteReminder>()
+                    
+                    // Update local record with server generated ID
+                    database.dueReminderDao().updateServerId(localReminder.id, remote.id!!)
+                } else if (localReminder.serverId != null || item.operation == SyncOperation.CREATE.name) {
+                    // UPDATE or CREATE (where serverId is already assigned): Normal Upsert
+                    postgrest.from(table).upsert(localReminder.toRemote())
+                }
+                return
+            }
         }
 
         val localData = fetchEntityData(item)
@@ -181,21 +210,29 @@ class SyncRepositoryImpl @Inject constructor(
             
             try {
                 // Fetch remote metadata for conflict detection
-                val remoteData = postgrest.from(table).select {
-                    filter { eq("id", item.entityId) }
-                }.decodeSingleOrNull<Map<String, kotlinx.serialization.json.JsonElement>>()
-                
-                if (remoteData != null) {
-                    val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
-                        ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
-                    
-                    val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
-                    val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
+                val remoteId = if (item.entityName == "REMINDERS") {
+                    (localData as? ReminderEntity)?.serverId?.toString()
+                } else {
+                    item.entityId
+                }
 
-                    if (remoteUpdatedAt > localUpdatedAtLong) {
-                        // REMOTE IS NEWER: Sync back to local (Self-healing)
-                        downloadAndReplaceLocal(item.entityName, remoteData)
-                        return
+                if (remoteId != null) {
+                    val remoteData = postgrest.from(table).select {
+                        filter { eq("id", remoteId) }
+                    }.decodeSingleOrNull<Map<String, kotlinx.serialization.json.JsonElement>>()
+                    
+                    if (remoteData != null) {
+                        val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
+                            ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
+                        
+                        val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
+                        val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
+
+                        if (remoteUpdatedAt > localUpdatedAtLong) {
+                            // REMOTE IS NEWER: Sync back to local (Self-healing)
+                            downloadAndReplaceLocal(item.entityName, remoteData)
+                            return
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -308,14 +345,6 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun fetchEntityData(item: SyncQueueEntity): Any? {
         val entityId = item.entityId
         
-        // Reminder State stable ID handling
-        if (item.entityName == "REMINDERS" && entityId.contains("||")) {
-            val parts = entityId.split("||")
-            if (parts.size == 4) {
-                return database.dueReminderDao().getReminderByStableId(parts[0], parts[1], parts[2], parts[3])
-            }
-        }
-
         return try {
             when (item.entityName) {
                 "PATIENT" -> {

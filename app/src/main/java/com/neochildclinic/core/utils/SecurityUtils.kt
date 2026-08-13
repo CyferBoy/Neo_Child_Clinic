@@ -19,7 +19,7 @@ object SecurityUtils {
      * Stores it in EncryptedSharedPreferences (backed by Android Keystore).
      */
     @Throws(GeneralSecurityException::class)
-    fun getDatabasePassphrase(context: Context, shouldGenerate: Boolean = false): ByteArray {
+    fun getDatabasePassphrase(context: Context): ByteArray {
         Log.d(TAG, "Loading database passphrase...")
         
         val masterKey = MasterKey.Builder(context)
@@ -27,34 +27,39 @@ object SecurityUtils {
             .build()
 
         val sharedPreferences = try {
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
+            createEncryptedPrefs(context, masterKey)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize EncryptedSharedPreferences: ${e.message}")
-            throw GeneralSecurityException("Security storage unavailable", e)
+            Log.e(TAG, "Failed to initialize EncryptedSharedPreferences: ${e.message}. Attempting recovery...")
+            deleteCorruptedPrefs(context)
+            createEncryptedPrefs(context, masterKey)
         }
 
         var passphrase = sharedPreferences.getString(DB_PASSPHRASE_KEY, null)
         
         if (passphrase == null) {
-            if (shouldGenerate) {
-                Log.i(TAG, "Generating new database passphrase...")
-                passphrase = UUID.randomUUID().toString()
-                sharedPreferences.edit().putString(DB_PASSPHRASE_KEY, passphrase).apply()
-                Log.i(TAG, "New passphrase generated and stored.")
-            } else {
-                Log.e(TAG, "Passphrase unavailable and generation not requested.")
-                throw GeneralSecurityException("Database passphrase not found")
-            }
-        } else {
-            Log.d(TAG, "Passphrase loaded successfully.")
+            Log.i(TAG, "Generating new database passphrase...")
+            passphrase = UUID.randomUUID().toString()
+            sharedPreferences.edit().putString(DB_PASSPHRASE_KEY, passphrase).apply()
         }
 
         return passphrase.toByteArray()
+    }
+
+    private fun createEncryptedPrefs(context: Context, masterKey: MasterKey) = 
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+
+    private fun deleteCorruptedPrefs(context: Context) {
+        try {
+            // Delete the underlying XML file to clear corrupted data
+            context.deleteSharedPreferences(PREFS_NAME)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete corrupted prefs: ${e.message}")
+        }
     }
 }

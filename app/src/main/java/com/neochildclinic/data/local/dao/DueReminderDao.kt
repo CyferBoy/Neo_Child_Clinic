@@ -24,6 +24,9 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type LIMIT 1")
     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String, type: String): ReminderEntity?
 
+    @Query("SELECT * FROM reminders WHERE originalVisitId = :visitId")
+    suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity>
+
     @Query("SELECT * FROM reminders WHERE id = :id LIMIT 1")
     suspend fun getReminderById(id: String): ReminderEntity?
 
@@ -57,6 +60,9 @@ interface DueReminderDao {
     
     @Query("DELETE FROM reminders WHERE id = :id")
     suspend fun softDeleteDueReminder(id: String) = softDeleteReminder(id)
+
+    @Query("UPDATE reminders SET serverId = :serverId, isSynced = 1 WHERE id = :localId")
+    suspend fun updateServerId(localId: String, serverId: Long)
 
     @Query("UPDATE reminders SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)

@@ -101,10 +101,24 @@ class AddVaccinationViewModel @Inject constructor(
                 )
             }
 
+            // Load existing follow-ups
+            val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
+            val followUpStates = reminders.map { reminder ->
+                val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
+                val nextVaccines = nextVaccineIds.mapNotNull { id -> inventory.find { it.id == id } }
+                
+                FollowUpSelectionState(
+                    type = reminder.type,
+                    dueDate = reminder.dueDate,
+                    nextVaccines = nextVaccines
+                )
+            }
+
             _uiState.update { it.copy(
                 existingVaccinationId = vaccinationId,
                 givenDate = vaccination.dateGiven,
                 vaccinesGiven = if (items.isNotEmpty()) items else listOf(VaccineSelectionState()),
+                followUps = followUpStates,
                 cashAmount = vaccination.cashAmount.toInt().toString(),
                 onlineAmount = vaccination.onlineAmount.toInt().toString(),
                 totalAmount = vaccination.totalPaid
@@ -301,6 +315,16 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
+                val followUpRequirements = state.followUps.filter { it.dueDate.isNotBlank() && it.type.isNotBlank() }
+                    .flatMap { row ->
+                        val vaccines = row.nextVaccines
+                        if (vaccines.isEmpty()) {
+                            listOf(FollowUpRequirement(nextVaccineId = "", nextVaccineName = "", dueDate = row.dueDate))
+                        } else {
+                            vaccines.map { v -> FollowUpRequirement(nextVaccineId = v.id, nextVaccineName = v.brandName, dueDate = row.dueDate) }
+                        }
+                    }
+
                 val vaccination = Vaccination(
                     id = vaccinationId,
                     patientId = patient.id,
@@ -312,7 +336,8 @@ class AddVaccinationViewModel @Inject constructor(
                     totalPaid = state.totalAmount,
                     doctorId = state.selectedDoctor.employeeId ?: "",
                     performedBy = state.selectedDoctor.displayName,
-                    items = items
+                    items = items,
+                    followUps = followUpRequirements
                 )
 
                 // 1. Record clinical visit and satisfy reminders

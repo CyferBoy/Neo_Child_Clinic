@@ -28,6 +28,7 @@ import kotlinx.serialization.Transient
 @Serializable
 data class ReminderEntity(
     @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    val serverId: Long? = null,
     val patientId: String,
     val originalVisitId: String,
     val vaccineName: String,
@@ -73,7 +74,7 @@ data class ReminderEntity(
  */
 @Serializable
 data class RemoteReminder(
-    val id: String? = null,
+    val id: Long? = null,
     @SerialName("patient_id") val patientId: String,
     @SerialName("original_visit_id") val originalVisitId: String,
     @SerialName("vaccine_name") val vaccineName: String,
@@ -95,6 +96,7 @@ data class RemoteReminder(
 )
 
 fun ReminderEntity.toRemote() = RemoteReminder(
+    id = serverId,
     patientId = patientId,
     originalVisitId = originalVisitId,
     vaccineName = vaccineName,
@@ -116,7 +118,8 @@ fun ReminderEntity.toRemote() = RemoteReminder(
 )
 
 fun RemoteReminder.toLocal(localId: String? = null) = ReminderEntity(
-    id = localId ?: id ?: java.util.UUID.randomUUID().toString(),
+    id = localId ?: java.util.UUID.randomUUID().toString(),
+    serverId = id,
     patientId = patientId,
     originalVisitId = originalVisitId,
     vaccineName = vaccineName,
