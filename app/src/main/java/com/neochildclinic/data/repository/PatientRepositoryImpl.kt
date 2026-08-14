@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.GlobalScope
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class PatientRepositoryImpl @Inject constructor(
@@ -50,6 +51,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val auditLogger: AuditLogger,
     private val idGenerator: PatientIdGenerator,
     private val preferenceManager: PreferenceManager,
+    private val memoryCache: MemoryCache,
     @ApplicationContext private val context: Context
 ) : PatientRepository {
 
@@ -81,7 +83,8 @@ class PatientRepositoryImpl @Inject constructor(
         patientDao.getAllPatients().map { list -> list.map { it.toPatient() } }
 
     override suspend fun getPatientById(id: String): Patient? {
-        return patientDao.getPatientById(id)?.toPatient()
+        memoryCache.getPatient(id)?.let { return it }
+        return patientDao.getPatientById(id)?.toPatient()?.also { memoryCache.putPatient(it) }
     }
 
     override suspend fun refreshPatients() {
@@ -130,6 +133,7 @@ class PatientRepositoryImpl @Inject constructor(
                         }
                     }
                 }
+                memoryCache.clearPatients()
                 android.util.Log.d("PatientRepo", "Refresh complete. Total local: ${patientDao.getTotalPatientCount()}")
             } catch (e: Exception) {
                 android.util.Log.e("PatientRepo", "Refresh failed", e)
@@ -157,6 +161,7 @@ class PatientRepositoryImpl @Inject constructor(
 
             val entity = patient.copy(patientClinicId = finalClinicId).toEntity(isSynced = false)
             patientDao.insertPatient(entity)
+            memoryCache.putPatient(patient.copy(patientClinicId = finalClinicId))
             
             syncRepository.enqueue(
                 entityName = "PATIENT",
@@ -195,6 +200,7 @@ class PatientRepositoryImpl @Inject constructor(
 
             // 3. Delete Patient (Mother)
             patientDao.deletePatient(id)
+            memoryCache.invalidatePatient(id)
             syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
         }
 

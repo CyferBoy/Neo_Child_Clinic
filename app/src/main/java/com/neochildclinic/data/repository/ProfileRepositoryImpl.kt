@@ -14,19 +14,22 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class ProfileRepositoryImpl @Inject constructor(
     private val profileDao: ProfileDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    private val memoryCache: MemoryCache
 ) : ProfileRepository {
 
     override val allProfiles: Flow<List<Profile>> = 
         profileDao.getAllProfiles().map { list -> list.map { it.toDomain() } }
 
     override suspend fun getProfileById(id: String): Profile? {
-        return profileDao.getProfileById(id)?.toDomain()
+        memoryCache.getProfile(id)?.let { return it }
+        return profileDao.getProfileById(id)?.toDomain()?.also { memoryCache.putProfile(it) }
     }
 
     override suspend fun refreshProfiles() {
@@ -34,6 +37,7 @@ class ProfileRepositoryImpl @Inject constructor(
             val profiles = postgrest.from("profiles").select().decodeList<Profile>()
             profiles.forEach { profile ->
                 profileDao.insertProfile(profile.toEntity())
+                memoryCache.putProfile(profile)
             }
         } catch (e: Exception) {
             android.util.Log.e("ProfileRepo", "Failed to refresh profiles", e)
@@ -42,6 +46,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun updateProfile(profile: Profile) {
         profileDao.insertProfile(profile.toEntity())
+        memoryCache.putProfile(profile)
         syncRepository.enqueue(
             entityName = "PROFILE",
             entityId = profile.id,
@@ -64,6 +69,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun deleteProfile(id: String) {
         profileDao.deleteProfile(id)
+        memoryCache.invalidateProfile(id)
         syncRepository.enqueue(
             entityName = "PROFILE",
             entityId = id,
@@ -74,5 +80,6 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun saveLocalProfile(profile: Profile) {
         profileDao.insertProfile(profile.toEntity())
+        memoryCache.putProfile(profile)
     }
 }

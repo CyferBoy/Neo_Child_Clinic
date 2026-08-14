@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class VaccinationRepositoryImpl @Inject constructor(
@@ -26,7 +27,8 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val inventoryRepository: InventoryRepository,
-    private val auditLogger: AuditLogger
+    private val auditLogger: AuditLogger,
+    private val memoryCache: MemoryCache
 ) : VaccinationRepository {
 
     private val vaccinationDao = database.vaccinationDao()
@@ -59,10 +61,13 @@ class VaccinationRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getVaccinationById(id: String): Vaccination? {
+        memoryCache.getVaccination(id)?.let { return it }
         return withContext(Dispatchers.IO) {
             val entity = vaccinationDao.getVaccinationById(id) ?: return@withContext null
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
-            entity.toVaccination().copy(items = items.map { it.toDomain() })
+            entity.toVaccination().copy(items = items.map { it.toDomain() }).also {
+                memoryCache.putVaccination(it)
+            }
         }
     }
 
@@ -127,6 +132,8 @@ class VaccinationRepositoryImpl @Inject constructor(
             val itemEntities = vaccination.items.map { it.toEntity().copy(vaccinationId = vaccination.id) }
             vaccinationItemDao.insertItems(itemEntities)
             
+            memoryCache.putVaccination(vaccination)
+
             // 4. Queue for background sync
             val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
             
@@ -165,6 +172,8 @@ class VaccinationRepositoryImpl @Inject constructor(
         database.withTransaction {
             val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction
             
+            memoryCache.invalidateVaccination(id)
+
             // 0. Delete linked finance records
             financeRepository.deleteTransactionsByVisitId(id)
 

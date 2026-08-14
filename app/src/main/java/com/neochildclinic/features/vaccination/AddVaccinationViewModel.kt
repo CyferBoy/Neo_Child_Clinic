@@ -86,8 +86,11 @@ class AddVaccinationViewModel @Inject constructor(
             val vaccination = vaccinationRepository.getVaccinationById(vaccinationId) ?: return@launch
             loadPatient(vaccination.patientId)
 
-            // Wait for inventory if not loaded
+            // Wait for inventory and doctor data before restoring the edit state.
             uiState.filter { it.inventory.isNotEmpty() }.first()
+            if (_uiState.value.allDoctors.isEmpty()) {
+                uiState.filter { it.allDoctors.isNotEmpty() }.first()
+            }
 
             val inventory = _uiState.value.inventory
             val items = vaccination.items.map { item ->
@@ -112,9 +115,14 @@ class AddVaccinationViewModel @Inject constructor(
                 )
             }
 
+            val existingDoctor = _uiState.value.allDoctors.firstOrNull {
+                it.employeeId == vaccination.doctorId
+            }
+
             _uiState.update { it.copy(
                 existingVaccinationId = vaccinationId,
                 givenDate = vaccination.dateGiven,
+                selectedDoctor = existingDoctor ?: it.selectedDoctor,
                 vaccinesGiven = if (items.isNotEmpty()) items else listOf(VaccineSelectionState()),
                 nextVaccinations = nextStates,
                 cashAmount = vaccination.cashAmount.toInt().toString(),
@@ -211,6 +219,15 @@ class AddVaccinationViewModel @Inject constructor(
         }
     }
 
+    fun updateQuantity(rowId: String, quantity: String) {
+        val parsed = quantity.toIntOrNull()?.coerceAtLeast(1) ?: return
+        _uiState.update { state ->
+            state.copy(vaccinesGiven = state.vaccinesGiven.map { row ->
+                if (row.id == rowId) row.copy(quantity = parsed) else row
+            })
+        }
+    }
+
     fun updateCash(amount: String) {
         val cash = amount.toDoubleOrNull() ?: 0.0
         val online = _uiState.value.onlineAmount.toDoubleOrNull() ?: 0.0
@@ -297,6 +314,13 @@ class AddVaccinationViewModel @Inject constructor(
             try {
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
+                val isEdit = state.existingVaccinationId != null
+
+                // Capture the original record before replacing it. This is required for
+                // correct inventory reconciliation during Edit.
+                val existingVaccination = if (isEdit) {
+                    vaccinationRepository.getVaccinationById(vaccinationId)
+                } else null
 
                 val items = state.vaccinesGiven.map { selection ->
                     VaccinationItem(
@@ -328,10 +352,22 @@ class AddVaccinationViewModel @Inject constructor(
                     nextVaccinations = emptyList()
                 )
 
-                // 1. Record clinical visit
-                clinicalService.recordVaccination(vaccination, user)
+                // 1. Update the existing visit (or create a new one). The same visit ID is
+                // always retained during Edit. Finance is handled edit-safely by the service.
+                clinicalService.recordVaccination(vaccination, user, isNew = !isEdit)
 
-                // 2. Process Inventory deductions
+                // 2. Reconcile inventory. For Edit, restore the exact quantities from the
+                // original vaccination first, then deduct the newly selected quantities.
+                if (isEdit && existingVaccination != null) {
+                    existingVaccination.items.forEach { oldItem ->
+                        inventoryRepository.reverseDeduction(
+                            batchId = oldItem.batchId,
+                            quantity = oldItem.quantity,
+                            user = user
+                        )
+                    }
+                }
+
                 state.vaccinesGiven.forEach { selection ->
                     inventoryRepository.deductStockFromBatch(
                         batchId = selection.selectedBatch!!.batchId,
@@ -343,8 +379,18 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
-                // 3. Save each Next Vaccination entry directly to reminders.
-                // Multiple entries may share the same due date; each entry keeps its own Type → Vaccine relationship.
+                // 3. Replace the Reminder rows belonging to this visit. Editing must not
+                // leave stale Next Vaccination records behind. Consultation Follow-up is
+                // completely separate and is not touched here.
+                if (isEdit) {
+                    reminderRepository.getRemindersByVisitId(vaccinationId).forEach { reminder ->
+                        reminderRepository.deleteReminder(reminder, user)
+                    }
+                }
+
+                // 4. Save the current Next Vaccination entries directly to reminders.
+                // Multiple entries may share the same due date; each entry keeps its own
+                // Type → Vaccine relationship.
                 nextRows.forEach { next ->
                     reminderRepository.saveNextVaccination(
                         patientId = patient.id,

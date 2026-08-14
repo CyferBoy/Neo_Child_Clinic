@@ -27,7 +27,7 @@ object DateClassifier {
     /**
      * Classifies a date string into clinic-friendly categories.
      * Uses device local time.
-     * Implements a 4-day grace period where dates are shown instead of "Overdue".
+     * Dates before today are strictly classified as Overdue.
      */
     fun classify(dateStr: String, todayStart: Calendar = getTodayStart()): DateCategory {
         val targetDate = PatientUtils.parseDate(dateStr) ?: return DateCategory.Future(dateStr)
@@ -44,9 +44,9 @@ object DateClassifier {
         val diffDays = TimeUnit.MILLISECONDS.toDays(diffMs).toInt()
 
         return when {
-            diffDays < -4 -> DateCategory.Overdue(-diffDays)
-            diffDays == -1 -> DateCategory.Yesterday
-            diffDays < 0 -> DateCategory.GracePeriod(PatientUtils.formatDateForDisplay(dateStr), -diffDays)
+            // A date before today is strictly overdue. There is no grace-period
+            // exception in the Due tab.
+            diffDays < 0 -> DateCategory.Overdue(-diffDays)
             diffDays == 0 -> DateCategory.Today
             diffDays == 1 -> DateCategory.Tomorrow
             else -> DateCategory.Future(PatientUtils.formatDateForDisplay(dateStr))

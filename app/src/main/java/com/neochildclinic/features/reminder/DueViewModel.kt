@@ -64,10 +64,11 @@ class DueViewModel @Inject constructor(
         val processedVaccinations = reminderRepository.getDueList(query, filterStatus).first()
         
         var filtered = when (filter) {
-            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "All" -> {
+            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "Month", "All" -> {
                 PatientUtils.filterVaccinationsByPeriod(processedVaccinations, filter)
             }
             "Week" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "This Week")
+            "Month" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "Month")
             else -> processedVaccinations
         }
 
@@ -82,7 +83,7 @@ class DueViewModel @Inject constructor(
 
         val overdue = allDue.count { 
             val cat = DateClassifier.classify(it.nextDueDate)
-            cat is DateCategory.Overdue || cat is DateCategory.Yesterday
+            cat is DateCategory.Overdue
         }
 
         DueUiState(

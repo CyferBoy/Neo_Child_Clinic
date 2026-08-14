@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class InventoryRepositoryImpl @Inject constructor(
@@ -30,7 +31,8 @@ class InventoryRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
-    private val settingsManager: NotificationSettingsManager
+    private val settingsManager: NotificationSettingsManager,
+    private val memoryCache: MemoryCache
 ) : InventoryRepository {
 
     private val vaccineDao = database.vaccineDao()
@@ -115,12 +117,15 @@ class InventoryRepositoryImpl @Inject constructor(
     override fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>> = 
         vaccineDao.getTransactionsForVaccine(vaccineId)
 
-    override suspend fun getBatchById(batchId: String): VaccineBatchEntity? = 
-        vaccineDao.getBatchById(batchId)
+    override suspend fun getBatchById(batchId: String): VaccineBatchEntity? {
+        memoryCache.getBatch<VaccineBatchEntity>(batchId)?.let { return it }
+        return vaccineDao.getBatchById(batchId)?.also { memoryCache.putBatch(batchId, it) }
+    }
 
     override suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
             vaccineDao.insertVaccine(vaccine)
+            memoryCache.putVaccineDefinition(vaccine.id, vaccine)
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
             try {
                 auditLogger.recordLog(
@@ -138,7 +143,9 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override suspend fun updateVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
-            vaccineDao.updateVaccine(vaccine.copy(lastUpdated = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()))
+            val updated = vaccine.copy(lastUpdated = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
+            vaccineDao.updateVaccine(updated)
+            memoryCache.putVaccineDefinition(updated.id, updated)
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             try {
                 auditLogger.recordLog(
@@ -160,6 +167,7 @@ class InventoryRepositoryImpl @Inject constructor(
             val currentTotal = vaccineDao.getTotalStockForVaccine(batch.vaccineId) ?: 0
             
             vaccineDao.insertBatch(batch)
+            memoryCache.putBatch(batch.batchId, batch)
 
             val transaction = InventoryTransactionEntity(
                 vaccineId = batch.vaccineId,
@@ -242,6 +250,7 @@ class InventoryRepositoryImpl @Inject constructor(
             val currentTotal = vaccineDao.getTotalStockForVaccine(batch.vaccineId) ?: 0
 
             vaccineDao.deleteBatch(batchId)
+            memoryCache.invalidateBatch(batchId)
 
             vaccineDao.insertTransaction(InventoryTransactionEntity(
                 vaccineId = batch.vaccineId,
@@ -291,6 +300,7 @@ class InventoryRepositoryImpl @Inject constructor(
             } else {
                 // Permanent Delete
                 vaccineDao.deleteVaccine(vaccineId)
+            memoryCache.invalidateVaccineDefinition(vaccineId)
                 syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
                 try {
                     auditLogger.recordLog(

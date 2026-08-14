@@ -29,5 +29,15 @@ interface FinanceRepository {
 
     suspend fun deleteTransactionsByVisitId(visitId: String)
 
+    suspend fun updateIncomeForVisit(
+        visitId: String,
+        amount: Double,
+        cashAmount: Double,
+        onlineAmount: Double,
+        remarks: String?,
+        recordedBy: String,
+        transactionGroupId: String? = null
+    )
+
     suspend fun refreshTransactions()
 }

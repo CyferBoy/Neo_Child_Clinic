@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +37,13 @@ fun AddVaccinationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val isEdit = vaccinationId != null
+    var editGivenDate by rememberSaveable { mutableStateOf(false) }
+    var editDoctor by rememberSaveable { mutableStateOf(false) }
+    var editVaccineBatch by rememberSaveable { mutableStateOf(false) }
+    var editQuantity by rememberSaveable { mutableStateOf(false) }
+    var editPayment by rememberSaveable { mutableStateOf(false) }
+    var editNextVaccination by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(patientId) {
         patientId?.let { viewModel.loadPatient(it) }
@@ -67,7 +75,7 @@ fun AddVaccinationScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
-                    title = { Text("Add Vaccination") },
+                    title = { Text(if (isEdit) "Edit Vaccination" else "Add Vaccination") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
@@ -92,7 +100,7 @@ fun AddVaccinationScreen(
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
                             isLoading = uiState.isLoading
                         ) {
-                            Text("Save Vaccination", style = MaterialTheme.typography.titleMedium)
+                            Text(if (isEdit) "Save Changes" else "Save Vaccination", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
@@ -113,81 +121,195 @@ fun AddVaccinationScreen(
 
                 // 2. Given Date
                 item {
-                    DateDropdownPicker(
-                        label = "Given Date*",
-                        currentDate = uiState.givenDate,
-                        onDateSelected = { viewModel.updateGivenDate(it) }
+                    EditSectionHeader(
+                        title = "Given Date",
+                        checked = if (isEdit) editGivenDate else true,
+                        enabled = isEdit,
+                        onCheckedChange = { editGivenDate = it }
                     )
+                    if (!isEdit || editGivenDate) {
+                        DateDropdownPicker(
+                            label = "Given Date*",
+                            currentDate = uiState.givenDate,
+                            onDateSelected = { viewModel.updateGivenDate(it) }
+                        )
+                    } else {
+                        ReadOnlyValue(uiState.givenDate)
+                    }
                 }
 
                 // 2.5 Doctor Selection
                 item {
-                    DoctorDropdown(
-                        doctors = uiState.allDoctors,
-                        selectedDoctor = uiState.selectedDoctor,
-                        onDoctorSelected = { viewModel.selectDoctor(it) },
-                        isError = uiState.doctorError
+                    EditSectionHeader(
+                        title = "Doctor",
+                        checked = if (isEdit) editDoctor else true,
+                        enabled = isEdit,
+                        onCheckedChange = { editDoctor = it }
                     )
+                    if (!isEdit || editDoctor) {
+                        DoctorDropdown(
+                            doctors = uiState.allDoctors,
+                            selectedDoctor = uiState.selectedDoctor,
+                            onDoctorSelected = { viewModel.selectDoctor(it) },
+                            isError = uiState.doctorError
+                        )
+                    } else {
+                        ReadOnlyValue(uiState.selectedDoctor?.displayName ?: "Not selected")
+                    }
                 }
 
-                // 3. Vaccines Section
-                item { SectionHeader("Vaccines Administered") }
-                
-                items(uiState.vaccinesGiven, key = { it.id }) { row ->
-                    VaccineRow(
-                        state = row,
-                        inventory = uiState.inventory,
-                        onVaccineSelected = { viewModel.selectVaccine(row.id, it) },
-                        onBatchSelected = { viewModel.selectBatch(row.id, it) },
-                        onRemove = { viewModel.removeVaccineRow(row.id) },
-                        isOnlyRow = uiState.vaccinesGiven.size == 1
-                    )
-                }
-
+                // 3. Vaccine & Batch + Quantity
                 item {
-                    TextButton(onClick = { viewModel.addVaccineRow() }) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Add Vaccine")
+                    EditSectionHeader(
+                        title = "Vaccine & Batch",
+                        checked = if (isEdit) editVaccineBatch else true,
+                        enabled = isEdit,
+                        onCheckedChange = { editVaccineBatch = it }
+                    )
+                    if (isEdit && !editVaccineBatch && !editQuantity) {
+                        ReadOnlyValue(uiState.vaccinesGiven.joinToString("\n") { row ->
+                            val vaccine = row.selectedVaccine?.brandName ?: "Not selected"
+                            val batch = row.selectedBatch?.batchNumber ?: "No batch"
+                            "$vaccine • Batch: $batch • Quantity: ${row.quantity}"
+                        })
+                    }
+                }
+                if (isEdit) {
+                    item {
+                        EditSectionHeader(
+                            title = "Quantity",
+                            checked = editQuantity,
+                            enabled = true,
+                            onCheckedChange = { editQuantity = it }
+                        )
+                    }
+                }
+                if (!isEdit || editVaccineBatch || editQuantity) {
+                    items(uiState.vaccinesGiven, key = { it.id }) { row ->
+                        VaccineRow(
+                            state = row,
+                            inventory = uiState.inventory,
+                            onVaccineSelected = { viewModel.selectVaccine(row.id, it) },
+                            onBatchSelected = { viewModel.selectBatch(row.id, it) },
+                            onQuantityChange = { viewModel.updateQuantity(row.id, it) },
+                            allowVaccineBatchEdit = !isEdit || editVaccineBatch,
+                            allowQuantityEdit = !isEdit || editQuantity,
+                            onRemove = { viewModel.removeVaccineRow(row.id) },
+                            isOnlyRow = uiState.vaccinesGiven.size == 1
+                        )
+                    }
+                    item {
+                        if (!isEdit || editVaccineBatch) {
+                            TextButton(onClick = { viewModel.addVaccineRow() }) {
+                                Icon(Icons.Default.Add, null)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Add Vaccine")
+                            }
+                        }
                     }
                 }
 
                 // 4. Payment Section
-                item { SectionHeader("Payment Details") }
                 item {
-                    PaymentSection(
-                        cash = uiState.cashAmount,
-                        online = uiState.onlineAmount,
-                        total = uiState.totalAmount,
-                        onCashChange = { viewModel.updateCash(it) },
-                        onOnlineChange = { viewModel.updateOnline(it) }
+                    EditSectionHeader(
+                        title = "Payment",
+                        checked = if (isEdit) editPayment else true,
+                        enabled = isEdit,
+                        onCheckedChange = { editPayment = it }
                     )
+                    if (!isEdit || editPayment) {
+                        PaymentSection(
+                            cash = uiState.cashAmount,
+                            online = uiState.onlineAmount,
+                            total = uiState.totalAmount,
+                            onCashChange = { viewModel.updateCash(it) },
+                            onOnlineChange = { viewModel.updateOnline(it) }
+                        )
+                    } else {
+                        ReadOnlyValue("Cash: ₹${uiState.cashAmount} | Online: ₹${uiState.onlineAmount}\nTotal: ₹${uiState.totalAmount}")
+                    }
                 }
 
                 // 5. Next Vaccination Section
-                item { SectionHeader("Next Vaccination") }
-                items(uiState.nextVaccinations.indices.toList(), key = { it }) { index ->
-                    NextVaccinationSection(
-                        index = index,
-                        state = uiState.nextVaccinations[index],
-                        inventory = uiState.inventory,
-                        availableTypes = uiState.availableDueTypes,
-                        canRemove = uiState.nextVaccinations.size > 1,
-                        onTypeSelected = { viewModel.updateNextVaccinationType(index, it) },
-                        onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(index, it) },
-                        onDueDateSelected = { viewModel.updateNextVaccinationDueDate(index, it) },
-                        onRemove = { viewModel.removeNextVaccination(index) }
-                    )
-                }
                 item {
-                    OutlinedButton(onClick = { viewModel.addNextVaccination() }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (uiState.nextVaccinations.isEmpty()) "Add Next Vaccination" else "Add Another Next Vaccination")
+                    EditSectionHeader(
+                        title = "Next Vaccination",
+                        checked = if (isEdit) editNextVaccination else true,
+                        enabled = isEdit,
+                        onCheckedChange = { editNextVaccination = it }
+                    )
+                    if (isEdit && !editNextVaccination) {
+                        ReadOnlyValue(if (uiState.nextVaccinations.isEmpty()) "No next vaccination" else uiState.nextVaccinations.joinToString("\n") { row ->
+                            val vaccines = row.nextVaccines.joinToString(", ") { it.brandName }
+                            if (vaccines.isNotBlank()) "$vaccines • Due: ${row.dueDate}" else "${row.type} • Due: ${row.dueDate}"
+                        })
+                    }
+                }
+                if (!isEdit || editNextVaccination) {
+                    items(uiState.nextVaccinations.indices.toList(), key = { it }) { index ->
+                        NextVaccinationSection(
+                            index = index,
+                            state = uiState.nextVaccinations[index],
+                            inventory = uiState.inventory,
+                            availableTypes = uiState.availableDueTypes,
+                            canRemove = uiState.nextVaccinations.size > 1,
+                            onTypeSelected = { viewModel.updateNextVaccinationType(index, it) },
+                            onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(index, it) },
+                            onDueDateSelected = { viewModel.updateNextVaccinationDueDate(index, it) },
+                            onRemove = { viewModel.removeNextVaccination(index) }
+                        )
+                    }
+                    item {
+                        OutlinedButton(onClick = { viewModel.addNextVaccination() }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (uiState.nextVaccinations.isEmpty()) "Add Next Vaccination" else "Add Another Next Vaccination")
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EditSectionHeader(
+    title: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (enabled) {
+            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        } else {
+            Spacer(Modifier.width(12.dp))
+        }
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (!enabled || !checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun ReadOnlyValue(value: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Text(
+            value,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 
@@ -213,6 +335,9 @@ private fun VaccineRow(
     inventory: List<InventoryItem>,
     onVaccineSelected: (InventoryItem) -> Unit,
     onBatchSelected: (com.neochildclinic.data.local.entity.VaccineBatchEntity) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    allowVaccineBatchEdit: Boolean,
+    allowQuantityEdit: Boolean,
     onRemove: () -> Unit,
     isOnlyRow: Boolean
 ) {
@@ -220,88 +345,92 @@ private fun VaccineRow(
     var vaccineExpanded by remember { mutableStateOf(false) }
     var batchExpanded by remember { mutableStateOf(false) }
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Vaccine Row", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                if (!isOnlyRow) {
+                if (!isOnlyRow && allowVaccineBatchEdit) {
                     IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Close, null, tint = Color.Red)
                     }
                 }
             }
 
-            // Vaccine Selection
-            StandardAutoCompleteField(
-                value = vaccineSearch,
-                onValueChange = { 
-                    vaccineSearch = it
-                    vaccineExpanded = true
-                },
-                label = "Vaccine*",
-                expanded = vaccineExpanded,
-                onExpandedChange = { vaccineExpanded = it },
-                placeholder = "Search Vaccine"
-            ) {
-                val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
-                filtered.forEach { vaccine ->
-                    DropdownMenuItem(
-                        text = { Text("${vaccine.brandName} (${vaccine.stock} in stock)") },
-                        onClick = {
-                            onVaccineSelected(vaccine)
-                            vaccineSearch = vaccine.brandName
-                            vaccineExpanded = false
-                        }
-                    )
-                }
-            }
-
-            // Batch Selection
-            val batches = state.selectedVaccine?.batches?.filter { it.remainingQuantity > 0 } ?: emptyList()
-            
-            ExposedDropdownMenuBox(
-                expanded = batchExpanded,
-                onExpandedChange = { if (batches.isNotEmpty()) batchExpanded = it }
-            ) {
-                StandardTextField(
-                    value = state.selectedBatch?.let { "${it.batchNumber} (Qty: ${it.remainingQuantity})" } ?: "Select Batch",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = "Batch*",
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = batchExpanded) }
-                )
-                ExposedDropdownMenu(
-                    expanded = batchExpanded,
-                    onDismissRequest = { batchExpanded = false }
+            if (allowVaccineBatchEdit) {
+                StandardAutoCompleteField(
+                    value = vaccineSearch,
+                    onValueChange = { vaccineSearch = it; vaccineExpanded = true },
+                    label = "Vaccine*",
+                    expanded = vaccineExpanded,
+                    onExpandedChange = { vaccineExpanded = it },
+                    placeholder = "Search Vaccine"
                 ) {
-                    batches.forEach { batch ->
+                    val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
+                    filtered.forEach { vaccine ->
                         DropdownMenuItem(
-                            text = { 
-                                Column {
-                                    Text(batch.batchNumber, fontWeight = FontWeight.Bold)
-                                    Text("Qty: ${batch.remainingQuantity} | Exp: ${batch.expiryDate}", fontSize = 12.sp)
-                                }
-                            },
+                            text = { Text("${vaccine.brandName} (${vaccine.stock} in stock)") },
                             onClick = {
-                                onBatchSelected(batch)
-                                batchExpanded = false
+                                onVaccineSelected(vaccine)
+                                vaccineSearch = vaccine.brandName
+                                vaccineExpanded = false
                             }
                         )
                     }
                 }
+            } else {
+                ReadOnlyValue("Vaccine: ${state.selectedVaccine?.brandName ?: "Not selected"}")
+            }
+
+            val batches = state.selectedVaccine?.batches?.filter { it.remainingQuantity > 0 } ?: emptyList()
+            if (allowVaccineBatchEdit) {
+                ExposedDropdownMenuBox(
+                    expanded = batchExpanded,
+                    onExpandedChange = { if (batches.isNotEmpty()) batchExpanded = it }
+                ) {
+                    StandardTextField(
+                        value = state.selectedBatch?.let { "${it.batchNumber} (Qty: ${it.remainingQuantity})" } ?: "Select Batch",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = "Batch*",
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = batchExpanded) }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = batchExpanded,
+                        onDismissRequest = { batchExpanded = false }
+                    ) {
+                        batches.forEach { batch ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(batch.batchNumber, fontWeight = FontWeight.Bold)
+                                        Text("Qty: ${batch.remainingQuantity} | Exp: ${batch.expiryDate}", fontSize = 12.sp)
+                                    }
+                                },
+                                onClick = { onBatchSelected(batch); batchExpanded = false }
+                            )
+                        }
+                    }
+                }
+            } else {
+                ReadOnlyValue("Batch: ${state.selectedBatch?.batchNumber ?: "No batch"}")
             }
 
             if (state.selectedBatch != null) {
                 Text(
-                    "Expiry: ${state.selectedBatch.expiryDate}", 
+                    "Expiry: ${state.selectedBatch.expiryDate}",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (com.neochildclinic.core.utils.InventoryUtils.isExpired(state.selectedBatch.expiryDate)) Color.Red else Color.Gray
                 )
             }
+
+            StandardTextField(
+                value = state.quantity.toString(),
+                onValueChange = onQuantityChange,
+                label = "Quantity*",
+                readOnly = !allowQuantityEdit,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
         }
     }
 }

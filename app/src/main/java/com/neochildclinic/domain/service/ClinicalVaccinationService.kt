@@ -37,15 +37,29 @@ class ClinicalVaccinationService @Inject constructor(
             // 1. Add/Update Vaccination Record
             vaccinationRepository.addVaccination(vaccination, transactionGroupId)
 
-            // 2. Record Financial Transaction (if amount > 0)
-            if (vaccination.totalPaid > 0) {
-                financeRepository.recordIncome(
+            // 2. Create the finance transaction only for a new vaccination.
+            // Editing must update the existing transaction for this visit instead of
+            // creating a second income record.
+            if (isNew) {
+                if (vaccination.totalPaid > 0) {
+                    financeRepository.recordIncome(
+                        amount = vaccination.totalPaid,
+                        cashAmount = vaccination.cashAmount,
+                        onlineAmount = vaccination.onlineAmount,
+                        category = "VACCINATION",
+                        patientId = vaccination.patientId,
+                        visitId = vaccination.id,
+                        remarks = "Vaccination: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
+                        recordedBy = user,
+                        transactionGroupId = transactionGroupId
+                    )
+                }
+            } else {
+                financeRepository.updateIncomeForVisit(
+                    visitId = vaccination.id,
                     amount = vaccination.totalPaid,
                     cashAmount = vaccination.cashAmount,
                     onlineAmount = vaccination.onlineAmount,
-                    category = "VACCINATION",
-                    patientId = vaccination.patientId,
-                    visitId = vaccination.id,
                     remarks = "Vaccination: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
                     recordedBy = user,
                     transactionGroupId = transactionGroupId

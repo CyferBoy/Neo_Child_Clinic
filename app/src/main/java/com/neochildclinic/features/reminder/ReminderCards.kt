@@ -1,4 +1,4 @@
-﻿package com.neochildclinic.features.reminder
+package com.neochildclinic.features.reminder
 
 import android.content.Intent
 import android.net.Uri
@@ -207,18 +207,18 @@ fun DuePatientCard(
             // Fourth Line: Status Badge
             val category = DateClassifier.classify(vaccination.nextDueDate)
             val (statusText, statusColor) = when (category) {
-                is DateCategory.Overdue -> "ðŸ”´ ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Yesterday -> "ðŸ”´ 1 Day Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Today -> "ðŸŸ¡ Due Today" to Color(0xFFFBC02D) // Material Yellow 700
-                is DateCategory.GracePeriod -> "ðŸ”´ ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Tomorrow -> "ðŸŸ¢ Due Tomorrow" to Color(0xFF4CAF50)
+                is DateCategory.Overdue -> "${category.days} Days Overdue" to MaterialTheme.colorScheme.error
+                is DateCategory.Yesterday -> "1 Day Overdue" to MaterialTheme.colorScheme.error
+                is DateCategory.Today -> "Due Today" to Color(0xFFFBC02D)
+                is DateCategory.GracePeriod -> "${category.days} Days Overdue" to MaterialTheme.colorScheme.error
+                is DateCategory.Tomorrow -> "Due Tomorrow" to Color(0xFF4CAF50)
                 is DateCategory.Future -> {
                     val targetDate = PatientUtils.parseDate(vaccination.nextDueDate)
                     val diff = if (targetDate != null) {
                         val diffMs = targetDate.time - DateClassifier.getTodayStart().timeInMillis
                         java.util.concurrent.TimeUnit.MILLISECONDS.toDays(diffMs).toInt()
                     } else 0
-                    "ðŸŸ¢ Due in $diff Days" to Color(0xFF4CAF50)
+                    "Due in $diff Days" to Color(0xFF4CAF50)
                 }
             }
 
@@ -227,13 +227,31 @@ fun DuePatientCard(
                 shape = RoundedCornerShape(8.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
             ) {
-                Text(
-                    text = statusText,
+                Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = statusColor
-                )
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = when (category) {
+                            is DateCategory.Overdue,
+                            is DateCategory.Yesterday,
+                            is DateCategory.GracePeriod -> Icons.Default.Error
+                            is DateCategory.Today -> Icons.Default.Today
+                            is DateCategory.Tomorrow,
+                            is DateCategory.Future -> Icons.Default.Schedule
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = statusColor
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
             }
         }
     }

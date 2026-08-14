@@ -120,6 +120,78 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateIncomeForVisit(
+        visitId: String,
+        amount: Double,
+        cashAmount: Double,
+        onlineAmount: Double,
+        remarks: String?,
+        recordedBy: String,
+        transactionGroupId: String?
+    ) {
+        database.withTransaction {
+            val transactions = financeDao.getTransactionsByVisitId(visitId)
+                .filter { it.type == "INCOME" && it.category == "VACCINATION" }
+
+            if (amount <= 0.0) {
+                // An edited vaccination with no fee should no longer have a
+                // vaccination income transaction. Remove the existing one(s).
+                for (t in transactions) {
+                    financeDao.deleteTransactionById(t.id)
+                    syncRepository.enqueue(
+                        entityName = "FINANCE",
+                        entityId = t.id,
+                        operation = SyncOperation.DELETE,
+                        priority = SyncPriority.MEDIUM,
+                        transactionGroupId = transactionGroupId
+                    )
+                }
+                return@withTransaction
+            }
+
+            val existing = transactions.firstOrNull()
+                ?: throw IllegalStateException("No vaccination finance transaction found for visit $visitId")
+
+            val paymentMethod = when {
+                cashAmount > 0 && onlineAmount > 0 -> "MIXED"
+                cashAmount > 0 -> "CASH"
+                else -> "ONLINE"
+            }
+
+            val updated = existing.copy(
+                amount = amount,
+                cashAmount = cashAmount,
+                onlineAmount = onlineAmount,
+                paymentMethod = paymentMethod,
+                patientId = existing.patientId,
+                visitId = visitId,
+                remarks = remarks,
+                recordedBy = recordedBy,
+                isSynced = false
+            )
+
+            financeDao.insertTransaction(updated)
+            syncRepository.enqueue(
+                entityName = "FINANCE",
+                entityId = updated.id,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = transactionGroupId
+            )
+
+            auditLogger.recordLog(
+                module = "FINANCE",
+                entityType = "TRANSACTION",
+                entityId = updated.id,
+                action = "INCOME_UPDATED",
+                patientId = updated.patientId,
+                newValue = amount.toString(),
+                remarks = "Vaccination income updated for visit $visitId",
+                transactionGroupId = transactionGroupId
+            )
+        }
+    }
+
     override suspend fun deleteTransactionsByVisitId(visitId: String) {
         database.withTransaction {
             val transactions = financeDao.getTransactionsByVisitId(visitId)
