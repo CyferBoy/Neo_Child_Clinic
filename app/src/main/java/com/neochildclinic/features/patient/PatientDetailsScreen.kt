@@ -58,7 +58,7 @@ fun PatientDetailsScreen(
     val patientVaccinations by viewModel.getPatientHistory(patientId).collectAsState(initial = emptyList())
     val patientConsultations by viewModel.getPatientConsultations(patientId).collectAsState(initial = emptyList())
     val documents by viewModel.documents.collectAsState()
-    val followUps by viewModel.getPatientFollowUps(patientId).collectAsState(initial = emptyList())
+    val reminders by viewModel.getPatientReminders(patientId).collectAsState(initial = emptyList())
     val patientNotes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
     val doctorMap by viewModel.doctorMap.collectAsState()
     val vaccineMap by viewModel.vaccineMap.collectAsState()
@@ -328,7 +328,7 @@ fun PatientDetailsScreen(
                     vaccinations = patientVaccinations,
                     consultations = patientConsultations,
                     documents = documents,
-                    followUps = followUps,
+                    reminders = reminders,
                     notes = patientNotes,
                     doctorMap = doctorMap,
                     vaccineMap = vaccineMap,

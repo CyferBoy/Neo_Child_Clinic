@@ -31,14 +31,13 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationEntity::class,
         VaccinationItemEntity::class
     ], 
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun patientDao(): PatientDao
     abstract fun vaccinationDao(): VaccinationDao
-    abstract fun reminderDao(): ReminderDao
     abstract fun dueReminderDao(): DueReminderDao
     abstract fun vaccineDao(): VaccineDao
     abstract fun reminderAuditDao(): ReminderAuditDao

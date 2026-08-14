@@ -17,7 +17,10 @@ import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.PostgresAction
+import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -110,21 +113,59 @@ class PatientListViewModel @Inject constructor(
     }
 
     private fun observeRealtimeChanges() {
-        val channel = realtime.channel("patients-db-changes")
-        channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "patients"
-        }.onEach {
-            refresh()
-        }.launchIn(viewModelScope)
-
-        channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "vaccinations"
-        }.onEach {
-            refresh()
-        }.launchIn(viewModelScope)
-
         viewModelScope.launch {
-            channel.subscribe()
+            try {
+                // Ensure any previous subscription with the same name is removed to avoid "already joined" error
+                realtime.subscriptions["realtime:patients-db-changes"]?.let {
+                    Log.d("Realtime", "Removing existing channel before re-subscription")
+                    realtime.removeChannel(it)
+                }
+
+                val channel = realtime.channel("patients-db-changes")
+                
+                // postgresChangeFlow MUST be called BEFORE channel.subscribe()
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = "patients"
+                }.onEach {
+                    Log.d("Realtime", "Patient change detected: $it")
+                    refresh()
+                }.catch { e ->
+                    Log.e("Realtime", "Error in patients change flow", e)
+                }.launchIn(this)
+
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = "vaccinations"
+                }.onEach {
+                    Log.d("Realtime", "Vaccination change detected: $it")
+                    refresh()
+                }.catch { e ->
+                    Log.e("Realtime", "Error in vaccinations change flow", e)
+                }.launchIn(this)
+
+                channel.subscribe()
+                Log.d("Realtime", "Subscribed to channel: patients-db-changes")
+            } catch (e: Exception) {
+                Log.e("Realtime", "Error setting up realtime changes", e)
+            }
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun onCleared() {
+        super.onCleared()
+        // Clean up realtime channel to prevent leaks and "already joined" errors on ViewModel recreation
+        val channelId = "realtime:patients-db-changes"
+        val channel = realtime.subscriptions[channelId]
+        if (channel != null) {
+            // Use GlobalScope for cleanup as viewModelScope is being cancelled
+            GlobalScope.launch {
+                try {
+                    realtime.removeChannel(channel)
+                    Log.d("Realtime", "Channel patients-db-changes removed successfully")
+                } catch (e: Exception) {
+                    Log.e("Realtime", "Failed to remove channel on cleared", e)
+                }
+            }
         }
     }
 

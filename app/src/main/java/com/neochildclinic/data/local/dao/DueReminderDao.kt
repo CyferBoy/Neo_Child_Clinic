@@ -9,17 +9,14 @@ interface DueReminderDao {
     
     // Unified Reminder Queries
     
-    @Query("SELECT * FROM reminders WHERE status IN ('ACTIVE', 'RESCHEDULED') ORDER BY dueDate ASC")
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC")
     fun getAllDueReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' ORDER BY completionDate DESC")
+    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC")
     fun getAllCompletedReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' ORDER BY dismissalDate DESC")
+    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC")
     fun getAllDismissedReminders(): Flow<List<ReminderEntity>>
-
-    @Query("SELECT * FROM reminders WHERE status = 'EXTERNAL' ORDER BY dueDate ASC")
-    fun getAllExternalReminders(): Flow<List<ReminderEntity>>
 
     @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type LIMIT 1")
     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String, type: String): ReminderEntity?
@@ -51,18 +48,8 @@ interface DueReminderDao {
     @Query("DELETE FROM reminders WHERE patientId = :patientId")
     suspend fun softDeleteRemindersForPatient(patientId: String)
 
-    // Legacy Support Mappings (redirected to unified table)
-    
-    suspend fun insertDueReminder(reminder: DueReminderEntity) { insertReminder(reminder) }
-    suspend fun insertCompletedReminder(reminder: CompletedReminderEntity) { insertReminder(reminder) }
-    suspend fun insertDismissedReminder(reminder: DismissedReminderEntity) { insertReminder(reminder) }
-    suspend fun insertExternalReminder(reminder: ExternalReminderEntity) { insertReminder(reminder) }
-    
-    @Query("DELETE FROM reminders WHERE id = :id")
-    suspend fun softDeleteDueReminder(id: String) = softDeleteReminder(id)
-
     @Query("UPDATE reminders SET serverId = :serverId, isSynced = 1 WHERE id = :localId")
-    suspend fun updateServerId(localId: String, serverId: Long)
+    suspend fun updateServerId(localId: String, serverId: String)
 
     @Query("UPDATE reminders SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)
@@ -77,10 +64,9 @@ interface DueReminderDao {
     suspend fun getLocalPriority(pId: String, vId: String, name: String, type: String): Int {
         val reminder = getReminderByStableId(pId, vId, name, type) ?: return 0
         return when (reminder.status) {
-            "EXTERNAL" -> 4
             "COMPLETED" -> 3
             "DISMISSED" -> 2
-            "ACTIVE", "RESCHEDULED" -> 1
+            "ACTIVE" -> 1
             else -> 0
         }
     }
@@ -99,6 +85,7 @@ interface DueReminderDao {
     suspend fun moveDueToCompleted(reminder: ReminderEntity, completedBy: String, notes: String? = null) {
         val updated = reminder.copy(
             status = "COMPLETED",
+            reminderEnabled = false,
             completionDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             performedBy = completedBy,
             notes = notes ?: reminder.notes,
@@ -112,6 +99,7 @@ interface DueReminderDao {
     suspend fun moveDueToDismissed(reminder: ReminderEntity, dismissedBy: String, reason: String? = null) {
         val updated = reminder.copy(
             status = "DISMISSED",
+            reminderEnabled = true,
             dismissalDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             performedBy = dismissedBy,
             dismissalReason = reason,
@@ -121,15 +109,4 @@ interface DueReminderDao {
         insertReminder(updated)
     }
 
-    @Transaction
-    suspend fun moveDueToExternal(reminder: ReminderEntity, source: String, externalDate: String, recordedBy: String, notes: String? = null) {
-        val updated = reminder.copy(
-            status = "EXTERNAL",
-            performedBy = recordedBy,
-            notes = (notes ?: reminder.notes) + "\nSource: $source\nDate: $externalDate",
-            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-            isSynced = false
-        )
-        insertReminder(updated)
-    }
 }

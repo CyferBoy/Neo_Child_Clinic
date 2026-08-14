@@ -28,13 +28,13 @@ import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
  * consistency between the two history segments.
  *
  * Row 1: vaccine name(s)                         | total fee (bold, prominent)
- * Row 2: "Next: <Type> • <next vaccine name(s)>"  | payment breakdown (Cash/Online, never "Mixed")
+ * Row 2: "Next: <vaccine name(s) OR Type>"      | payment breakdown (Cash/Online, never "Mixed")
  * Row 3: "Given: <date>"                          | "Due: <date>"
  * Row 4: doctor name (secondary style)
  *
- * Next/Due information is sourced from the linked Due Vaccination record
- * (dueVaccination, the reminders row for this visit) rather than the
- * visit's own nxtVaccineNames/nextDueDate fields.
+ * Next/Due information is sourced directly from the Reminder rows linked to
+ * this visit (`reminders.original_visit_id == patient_visits.id`). The visit's
+ * legacy next-vaccine fields are never used for this card.
  *
  * Tap -> onClick (open Vaccination Details). Long press -> onLongClick (bottom sheet).
  * No three-dot menu on the card itself.
@@ -45,7 +45,7 @@ fun VaccinationRecordCard(
     vaccination: Vaccination,
     patient: Patient,
     doctorName: String = "",
-    dueVaccination: ReminderEntity? = null,
+    reminders: List<ReminderEntity> = emptyList(),
     vaccineMap: Map<String, String> = emptyMap(),
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
@@ -59,15 +59,26 @@ fun VaccinationRecordCard(
         vaccineNamesText.ifBlank { vaccination.notes }.ifBlank { "Vaccination Visit" }
     }
 
-    // "Next:" text prefers the specific brand (Vaccine Name) when one was picked,
-    // e.g. "Next: Varilrix"; falls back to just the Type when no vaccine was selected,
-    // e.g. "Next: Varicella" -- never shows both, and never shows an empty/"null" value.
-    val nextLine = remember(dueVaccination) {
-        dueVaccination?.type?.trim()?.takeIf { it.isNotEmpty() }?.let { type ->
-            val vaccineName = dueVaccination.vaccineName.trim()
-            vaccineName.ifEmpty { type }
-        }
+    // For a history card, show the earliest due-date group linked to this visit.
+    // If that group has vaccine names, show only those names; otherwise show only Type.
+    // No reminder status is used for this display.
+    val nextDisplay = remember(reminders) {
+        val firstDue = reminders
+            .filter { it.dueDate.isNotBlank() }
+            .groupBy { it.dueDate }
+            .minByOrNull { com.neochildclinic.core.utils.PatientUtils.parseDate(it.key)?.time ?: Long.MAX_VALUE }
+            ?.value
+            .orEmpty()
+        val vaccineNames = firstDue.flatMap {
+            it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank)
+        }.distinct()
+        val types = firstDue.map { it.type.trim() }.filter(String::isNotBlank).distinct()
+        val text = if (vaccineNames.isNotEmpty()) vaccineNames.joinToString(", ") else types.joinToString(", ")
+        val dueDate = firstDue.firstOrNull()?.dueDate.orEmpty()
+        text.takeIf { it.isNotBlank() } to dueDate.takeIf { it.isNotBlank() }
     }
+    val nextLine = nextDisplay.first
+    val nextDueDate = nextDisplay.second
 
     Card(
         modifier = Modifier
@@ -161,9 +172,9 @@ fun VaccinationRecordCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (!dueVaccination?.dueDate.isNullOrBlank()) {
+                if (!nextDueDate.isNullOrBlank()) {
                     Text(
-                        text = "Due: ${formatDateForDisplay(dueVaccination!!.dueDate)}",
+                        text = "Due: ${formatDateForDisplay(nextDueDate!!)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold

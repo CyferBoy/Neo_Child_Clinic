@@ -31,12 +31,13 @@ object VaccinationValidator {
         }
 
         val nxtNames = nextVaccine.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val followUps = nxtNames.map { name ->
-            com.neochildclinic.domain.model.FollowUpRequirement(
-                nextVaccineName = name,
+        val nextVaccinations = if (nextDue.isNotBlank()) {
+            listOf(com.neochildclinic.domain.model.NextVaccinationSummary(
+                type = "",
+                vaccineNames = nxtNames,
                 dueDate = nextDue
-            )
-        }
+            ))
+        } else emptyList()
 
         val items = vaccines.mapIndexed { index, name ->
             com.neochildclinic.domain.model.VaccinationItem(
@@ -64,7 +65,7 @@ object VaccinationValidator {
             doctorsAcc = doctorsAcc,
             status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED,
             items = items,
-            followUps = followUps,
+            nextVaccinations = nextVaccinations,
             performedBy = performedBy,
             inventoryStatus = "PENDING"
         )

@@ -1,4 +1,4 @@
-package com.neochildclinic.features.reminder
+﻿package com.neochildclinic.features.reminder
 
 import android.content.Intent
 import android.net.Uri
@@ -189,9 +189,14 @@ fun DuePatientCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Third Line: Next Vaccine
+            // Third Line: Next Vaccine or Type. If any vaccine names exist, show only vaccine names.
+            val nextDisplay = vaccination.nextVaccinations
+                .flatMap { if (it.vaccineNames.isNotEmpty()) it.vaccineNames else listOf(it.type) }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .joinToString(", ")
             Text(
-                text = vaccination.nxtVaccineNames.joinToString(", "),
+                text = nextDisplay.ifBlank { "Next Vaccination" },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.primary
@@ -202,18 +207,18 @@ fun DuePatientCard(
             // Fourth Line: Status Badge
             val category = DateClassifier.classify(vaccination.nextDueDate)
             val (statusText, statusColor) = when (category) {
-                is DateCategory.Overdue -> "🔴 ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Yesterday -> "🔴 1 Day Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Today -> "🟡 Due Today" to Color(0xFFFBC02D) // Material Yellow 700
-                is DateCategory.GracePeriod -> "🔴 ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Tomorrow -> "🟢 Due Tomorrow" to Color(0xFF4CAF50)
+                is DateCategory.Overdue -> "ðŸ”´ ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
+                is DateCategory.Yesterday -> "ðŸ”´ 1 Day Overdue" to MaterialTheme.colorScheme.error
+                is DateCategory.Today -> "ðŸŸ¡ Due Today" to Color(0xFFFBC02D) // Material Yellow 700
+                is DateCategory.GracePeriod -> "ðŸ”´ ${category.days} Days Overdue" to MaterialTheme.colorScheme.error
+                is DateCategory.Tomorrow -> "ðŸŸ¢ Due Tomorrow" to Color(0xFF4CAF50)
                 is DateCategory.Future -> {
                     val targetDate = PatientUtils.parseDate(vaccination.nextDueDate)
                     val diff = if (targetDate != null) {
                         val diffMs = targetDate.time - DateClassifier.getTodayStart().timeInMillis
                         java.util.concurrent.TimeUnit.MILLISECONDS.toDays(diffMs).toInt()
                     } else 0
-                    "🟢 Due in $diff Days" to Color(0xFF4CAF50)
+                    "ðŸŸ¢ Due in $diff Days" to Color(0xFF4CAF50)
                 }
             }
 
@@ -342,200 +347,3 @@ fun DismissedRecordCard(
     }
 }
 
-@Composable
-fun CompletedDueCard(
-    record: CompletedDueRecord,
-    patient: Patient?,
-    vaccination: Vaccination?,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = patient?.name ?: "Unknown Patient",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                if (patient != null && patient.phone.isNotBlank()) {
-                    IconButton(onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${patient.phone}"))
-                        context.startActivity(intent)
-                    }) {
-                        Icon(Icons.Default.Call, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-            Text(
-                text = vaccination?.nxtVaccineNames?.joinToString(", ") ?: "Unknown Vaccine",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("COMPLETED ON", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${record.completedDate} ${record.completedTime}", style = MaterialTheme.typography.bodySmall)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("ORIGINAL DUE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(record.originalDueDate, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            if (record.remarks.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Remarks: ${record.remarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(
-                text = "Recorded by: ${record.completedBy}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun DismissedDueCard(
-    record: DismissedDueRecord,
-    patient: Patient?,
-    vaccination: Vaccination?,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = patient?.name ?: "Unknown Patient",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                if (patient != null && patient.phone.isNotBlank()) {
-                    IconButton(onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${patient.phone}"))
-                        context.startActivity(intent)
-                    }) {
-                        Icon(Icons.Default.Call, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-            Text(
-                text = vaccination?.nxtVaccineNames?.joinToString(", ") ?: "Unknown Vaccine",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("DISMISSED ON", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${record.dismissedDate} ${record.dismissedTime}", style = MaterialTheme.typography.bodySmall)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("ORIGINAL DUE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(record.originalDueDate, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Reason: ${record.dismissReason}", style = MaterialTheme.typography.bodySmall)
-            if (record.remarks.isNotBlank()) {
-                Text("Remarks: ${record.remarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(
-                text = "Dismissed by: ${record.dismissedBy}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun OtherEstablishmentDueCard(
-    record: OtherEstablishmentDueRecord,
-    patient: Patient?,
-    vaccination: Vaccination?,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = patient?.name ?: "Unknown Patient",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                if (patient != null && patient.phone.isNotBlank()) {
-                    IconButton(onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${patient.phone}"))
-                        context.startActivity(intent)
-                    }) {
-                        Icon(Icons.Default.Call, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-            Text(
-                text = vaccination?.nxtVaccineNames?.joinToString(", ") ?: "Unknown Vaccine",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF1976D2) // External Blue
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "Given at: ${record.hospitalName}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("VACCINATED ON", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(record.vaccinatedDate, style = MaterialTheme.typography.bodySmall)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("ORIGINAL DUE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(record.originalDueDate, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            if (record.remarks.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Remarks: ${record.remarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(
-                text = "Recorded by: ${record.recordedBy} on ${record.recordedDate}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-    }
-}

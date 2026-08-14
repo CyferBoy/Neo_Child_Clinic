@@ -13,6 +13,7 @@ import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import io.github.jan.supabase.serializer.KotlinXSerializer
+import io.ktor.client.engine.cio.CIO
 import kotlinx.serialization.json.Json
 import dagger.Module
 import dagger.Provides
@@ -34,6 +35,7 @@ object SupabaseModule {
             supabaseUrl = SUPABASE_URL,
             supabaseKey = SUPABASE_ANON_KEY
         ) {
+            httpEngine = CIO.create()
             defaultSerializer = KotlinXSerializer(Json {
                 ignoreUnknownKeys = true
                 coerceInputValues = true

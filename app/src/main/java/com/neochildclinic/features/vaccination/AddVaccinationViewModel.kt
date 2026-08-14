@@ -44,7 +44,7 @@ data class AddVaccinationUiState(
     val doctorError: Boolean = false,
     val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
-    val nextVaccination: NextVaccinationState = NextVaccinationState(),
+    val nextVaccinations: List<NextVaccinationState> = emptyList(),
     val cashAmount: String = "0",
     val onlineAmount: String = "0",
     val totalAmount: Double = 0.0,
@@ -100,24 +100,23 @@ class AddVaccinationViewModel @Inject constructor(
                 )
             }
 
-            // Load existing Next Vaccination
+            // Load existing Next Vaccination entries directly from reminders.
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
-            val nextState = reminders.firstOrNull()?.let { reminder ->
+            val nextStates = reminders.map { reminder ->
                 val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
                 val nextVaccines = nextVaccineIds.mapNotNull { id -> inventory.find { it.id == id } }
-                
                 NextVaccinationState(
                     type = reminder.type,
                     dueDate = reminder.dueDate,
                     nextVaccines = nextVaccines
                 )
-            } ?: NextVaccinationState()
+            }
 
             _uiState.update { it.copy(
                 existingVaccinationId = vaccinationId,
                 givenDate = vaccination.dateGiven,
                 vaccinesGiven = if (items.isNotEmpty()) items else listOf(VaccineSelectionState()),
-                nextVaccination = nextState,
+                nextVaccinations = nextStates,
                 cashAmount = vaccination.cashAmount.toInt().toString(),
                 onlineAmount = vaccination.onlineAmount.toInt().toString(),
                 totalAmount = vaccination.totalPaid
@@ -224,30 +223,45 @@ class AddVaccinationViewModel @Inject constructor(
         _uiState.update { it.copy(onlineAmount = amount, totalAmount = cash + online) }
     }
 
-    fun updateNextVaccinationType(type: String) {
-        _uiState.update {
-            // Changing the Type invalidates any previously picked vaccines, since the
-            // vaccine search is scoped to the selected Type -- drop them so the chips
-            // shown never belong to a different type than what's selected.
-            it.copy(nextVaccination = it.nextVaccination.copy(type = type, nextVaccines = emptyList(), typeError = false))
-        }
+    fun addNextVaccination() {
+        _uiState.update { it.copy(nextVaccinations = it.nextVaccinations + NextVaccinationState()) }
     }
 
-    fun toggleNextVaccinationVaccine(vaccine: InventoryItem) {
+    fun removeNextVaccination(index: Int) {
         _uiState.update { state ->
-            val current = state.nextVaccination.nextVaccines
-            val alreadySelected = current.any { it.id == vaccine.id }
-            val updated = if (alreadySelected) {
-                current.filter { it.id != vaccine.id }
-            } else {
-                current + vaccine
-            }
-            state.copy(nextVaccination = state.nextVaccination.copy(nextVaccines = updated))
+            if (index !in state.nextVaccinations.indices) state
+            else state.copy(nextVaccinations = state.nextVaccinations.toMutableList().also { it.removeAt(index) })
         }
     }
 
-    fun updateNextVaccinationDueDate(dueDate: String) {
-        _uiState.update { it.copy(nextVaccination = it.nextVaccination.copy(dueDate = dueDate)) }
+    fun updateNextVaccinationType(index: Int, type: String) {
+        _uiState.update { state ->
+            if (index !in state.nextVaccinations.indices) return@update state
+            val rows = state.nextVaccinations.toMutableList()
+            rows[index] = rows[index].copy(type = type, nextVaccines = emptyList(), typeError = false)
+            state.copy(nextVaccinations = rows)
+        }
+    }
+
+    fun toggleNextVaccinationVaccine(index: Int, vaccine: InventoryItem) {
+        _uiState.update { state ->
+            if (index !in state.nextVaccinations.indices) return@update state
+            val rows = state.nextVaccinations.toMutableList()
+            val current = rows[index].nextVaccines
+            rows[index] = rows[index].copy(
+                nextVaccines = if (current.any { it.id == vaccine.id }) current.filter { it.id != vaccine.id } else current + vaccine
+            )
+            state.copy(nextVaccinations = rows)
+        }
+    }
+
+    fun updateNextVaccinationDueDate(index: Int, dueDate: String) {
+        _uiState.update { state ->
+            if (index !in state.nextVaccinations.indices) return@update state
+            val rows = state.nextVaccinations.toMutableList()
+            rows[index] = rows[index].copy(dueDate = dueDate)
+            state.copy(nextVaccinations = rows)
+        }
     }
 
     fun saveVaccination() {
@@ -264,12 +278,15 @@ class AddVaccinationViewModel @Inject constructor(
             return
         }
 
-        // Next Vaccination validation: Type is mandatory if ANY Next Vaccination data is present
-        val next = state.nextVaccination
-        if (next.dueDate.isNotBlank() && next.type.isBlank()) {
+        // Next Vaccination validation: every entered row requires Type and Due Date.
+        val nextRows = state.nextVaccinations
+        val invalidIndex = nextRows.indexOfFirst { it.type.isBlank() || it.dueDate.isBlank() }
+        if (invalidIndex >= 0) {
+            val rows = nextRows.toMutableList()
+            rows[invalidIndex] = rows[invalidIndex].copy(typeError = rows[invalidIndex].type.isBlank())
             _uiState.update { it.copy(
-                errorMessage = "Please select a Type for Next Vaccination.",
-                nextVaccination = next.copy(typeError = true)
+                errorMessage = "Each Next Vaccination entry requires a Type and Due Date.",
+                nextVaccinations = rows
             ) }
             return
         }
@@ -296,15 +313,6 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
-                // Summary for patient_visits
-                val followUpRequirement = if (next.type.isNotBlank()) {
-                    if (next.nextVaccines.isEmpty()) {
-                        listOf(FollowUpRequirement(nextVaccineId = "", nextVaccineName = "", dueDate = next.dueDate))
-                    } else {
-                        next.nextVaccines.map { v -> FollowUpRequirement(nextVaccineId = v.id, nextVaccineName = v.brandName, dueDate = next.dueDate) }
-                    }
-                } else emptyList()
-
                 val vaccination = Vaccination(
                     id = vaccinationId,
                     patientId = patient.id,
@@ -317,7 +325,7 @@ class AddVaccinationViewModel @Inject constructor(
                     doctorId = state.selectedDoctor.employeeId ?: "",
                     performedBy = state.selectedDoctor.displayName,
                     items = items,
-                    followUps = followUpRequirement
+                    nextVaccinations = emptyList()
                 )
 
                 // 1. Record clinical visit
@@ -335,8 +343,9 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 }
 
-                // 3. Save Next Vaccination to reminders table
-                if (next.type.isNotBlank() && next.dueDate.isNotBlank()) {
+                // 3. Save each Next Vaccination entry directly to reminders.
+                // Multiple entries may share the same due date; each entry keeps its own Type → Vaccine relationship.
+                nextRows.forEach { next ->
                     reminderRepository.saveNextVaccination(
                         patientId = patient.id,
                         originalVisitId = vaccinationId,

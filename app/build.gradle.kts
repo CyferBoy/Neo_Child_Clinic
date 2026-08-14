@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.google.services)
     kotlin("plugin.serialization") version libs.versions.kotlin.get()
 }
 

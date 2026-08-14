@@ -22,7 +22,7 @@ import kotlinx.serialization.Transient
         )
     ],
     indices = [
-        Index(value = ["patientId", "originalVisitId", "vaccineName", "type"], unique = true),
+        Index(value = ["patientId", "originalVisitId", "dueDate", "type", "vaccineName"], unique = true),
         Index("status"),
         Index("dueDate")
     ]
@@ -30,7 +30,7 @@ import kotlinx.serialization.Transient
 @Serializable
 data class ReminderEntity(
     @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
-    val serverId: Long? = null,
+    val serverId: String? = null,
     val patientId: String,
     val originalVisitId: String,
     val vaccineName: String,
@@ -40,12 +40,12 @@ data class ReminderEntity(
     val reminderEnabled: Boolean = true,
     val category: String = "VACCINATION",
 
-    // Due Vaccination "Type" (mandatory on the Add Vaccination screen, e.g. "Booster").
+    // Next Vaccination "Type" (mandatory on the Add Vaccination screen, e.g. "Booster").
     // Kept separate from `category` (which distinguishes VACCINATION vs other reminder
     // sources) and separate from `vaccineName` -- Type is never inferred from the vaccine.
     val type: String = "",
 
-    // Comma-separated vaccine catalog IDs for the vaccine(s) selected alongside Type
+    // Vaccine catalog IDs for the vaccine(s) selected alongside Type
     // (optional -- may be blank/null if no vaccine was selected). Kept individually so
     // they remain available for future editing and sync, matching the comma-separated
     // convention already used for list-like columns elsewhere (e.g. patient_visits.vaccine_ids).
@@ -55,7 +55,6 @@ data class ReminderEntity(
     // Local-only or derived fields
     @Transient val vaccinationSource: String? = null,
     @Transient val reminderDate: String? = null,
-    @Transient val externalDate: String? = null,
     @Transient val source: String? = null,
     @Transient val lastReminderTime: Long = 0,
     @Transient val notificationSent: Boolean = false,
@@ -79,11 +78,11 @@ data class ReminderEntity(
 data class RemoteReminder(
     // The Supabase client is configured globally with encodeDefaults = true, which would
     // otherwise serialize a null id as an explicit "id": null in the insert payload. Since
-    // reminders.id is a server-generated BIGSERIAL NOT NULL primary key, that explicit null
+    // reminders.id is a server-generated UUID (or BIGSERIAL) primary key, that explicit null
     // overrides the column default and trips the not-null constraint on CREATE. Forcing this
-    // one field to be omitted when null (its default) lets Postgres apply nextval() itself.
+    // one field to be omitted when null (its default) lets Postgres apply nextval() or default values.
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val id: Long? = null,
+    val id: String? = null,
     @SerialName("patient_id") val patientId: String,
     @SerialName("original_visit_id") val originalVisitId: String,
     @SerialName("vaccine_name") val vaccineName: String,
@@ -148,9 +147,3 @@ fun RemoteReminder.toLocal(localId: String? = null) = ReminderEntity(
     updatedAt = updatedAt ?: "",
     isSynced = true
 )
-
-// Legacy aliases for type safety during transition
-typealias DueReminderEntity = ReminderEntity
-typealias CompletedReminderEntity = ReminderEntity
-typealias DismissedReminderEntity = ReminderEntity
-typealias ExternalReminderEntity = ReminderEntity

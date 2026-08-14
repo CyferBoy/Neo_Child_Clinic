@@ -20,11 +20,6 @@ interface ReminderRepository {
     fun getDueTomorrow(): Flow<List<Vaccination>>
     fun getOverdue(): Flow<List<Vaccination>>
     
-    // New Manual Management Observation
-    fun getCompletedDueRecords(): Flow<List<CompletedDueRecord>>
-    fun getDismissedDueRecords(): Flow<List<DismissedDueRecord>>
-    fun getOtherEstablishmentDueRecords(): Flow<List<OtherEstablishmentDueRecord>>
-
     // Next Vaccination logic
     suspend fun saveNextVaccination(
         patientId: String,
@@ -40,25 +35,19 @@ interface ReminderRepository {
     )
 
     // Core Business Actions (Atomic)
-    suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String? = null, transactionGroupId: String? = null)
-    suspend fun reschedule(requirement: PendingRequirement, newDate: String, reminderDate: String, reason: String, performedBy: String)
-    suspend fun markVaccinatedElsewhere(
-        requirement: PendingRequirement,
-        hospitalName: String,
-        vaccinatedDate: String,
-        notes: String,
-        performedBy: String
-    )
-    suspend fun dismissReminder(requirement: PendingRequirement, reason: String, performedBy: String)
-    suspend fun restoreReminder(requirement: PendingRequirement, performedBy: String)
-    suspend fun deleteReminder(requirement: PendingRequirement, performedBy: String) // Admin only check usually in VM
+    suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? = null, transactionGroupId: String? = null)
+    suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String)
+    suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String)
+    suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String)
+    suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) // Admin only check usually in VM
     
     suspend fun undoAction(auditId: String, performedBy: String)
 
     // Audit Trail & Management
     fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>>
-    fun getPatientFollowUps(patientId: String): Flow<List<ReminderEntity>>
+    fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>>
     suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity>
+    suspend fun getReminderById(id: String): ReminderEntity?
 
     // Dashboard Stats
     fun getDashboardStats(): Flow<ReminderStats>
@@ -78,8 +67,6 @@ data class ReminderStats(
     val dueTomorrow: Int = 0,
     val overdue: Int = 0,
     val completedToday: Int = 0,
-    val rescheduledToday: Int = 0,
-    val externalToday: Int = 0,
     val dismissedToday: Int = 0,
     val notificationsSentToday: Int = 0
 )

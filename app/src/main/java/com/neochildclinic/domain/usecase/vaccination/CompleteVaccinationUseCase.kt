@@ -2,7 +2,6 @@ package com.neochildclinic.domain.usecase.vaccination
 
 import com.neochildclinic.domain.manager.VaccinationManager
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.PendingRequirement
 import javax.inject.Inject
 
 /**
@@ -20,7 +19,6 @@ class CompleteVaccinationUseCase @Inject constructor(
         isNew: Boolean,
         selectedVaccineIds: List<String>,
         user: String,
-        requirement: PendingRequirement? = null,
         selectedBatchIds: List<String> = emptyList()
     ): String? {
         return vaccinationManager.completeVaccination(
@@ -28,20 +26,8 @@ class CompleteVaccinationUseCase @Inject constructor(
             user = user,
             isNew = isNew,
             selectedVaccineIds = selectedVaccineIds,
-            requirement = requirement,
             selectedBatchIds = selectedBatchIds
         )
-    }
-
-    /**
-     * Completion from a reminder/requirement (e.g., from Dashboard/Due list).
-     */
-    suspend fun fromRequirement(
-        requirement: PendingRequirement,
-        user: String,
-        notes: String = ""
-    ) {
-        vaccinationManager.completeFromRequirement(requirement, user, notes)
     }
 
     /**

@@ -23,7 +23,7 @@ fun CompletedDismissedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Completed", "Dismissed", "Other Establishment")
+    val tabs = listOf("Completed", "Dismissed")
 
     AppBackground {
         Scaffold(
@@ -64,20 +64,18 @@ fun CompletedDismissedScreen(
                             CircularProgressIndicator()
                         }
                     } else {
-                        val isEmpty = when (selectedTabIndex) {
-                            0 -> uiState.completedRecords.isEmpty()
-                            1 -> uiState.dismissedRecords.isEmpty()
-                            2 -> uiState.otherRecords.isEmpty()
-                            else -> true
+                        val visibleRecords = uiState.processedVaccinations.filter {
+                            if (selectedTabIndex == 0) it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED
+                            else it.status == com.neochildclinic.domain.model.ReminderStatus.DISMISSED
                         }
+                        val isEmpty = visibleRecords.isEmpty()
                         
                         if (isEmpty) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
                                     text = when (selectedTabIndex) {
-                                        0 -> "No vaccinations completed today."
-                                        1 -> "No reminders dismissed today."
-                                        2 -> "No other establishment records found."
+                                        0 -> "No completed vaccinations found."
+                                        1 -> "No dismissed reminders found."
                                         else -> ""
                                     },
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -89,60 +87,14 @@ fun CompletedDismissedScreen(
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                when (selectedTabIndex) {
-                                    0 -> {
-                                        items(uiState.completedRecords, key = { it.id }) { record ->
-                                            val patient = remember(record.patientId, uiState.patients) { 
-                                                uiState.patients.find { it.id == record.patientId } 
-                                            }
-                                            val vaccination = remember(record.patientId, record.originalDueDate, uiState.processedVaccinations) {
-                                                uiState.processedVaccinations.find { 
-                                                    it.patientId == record.patientId && it.nextDueDate == record.originalDueDate 
-                                                }
-                                            }
-                                            CompletedDueCard(
-                                                record = record,
-                                                patient = patient,
-                                                vaccination = vaccination,
-                                                onClick = { onPatientClick(record.patientId) }
-                                            )
-                                        }
+                                items(visibleRecords, key = { it.patientId + it.nextDueDate + it.status }) { vaccination ->
+                                    val patient = remember(vaccination.patientId, uiState.patients) {
+                                        uiState.patients.find { it.id == vaccination.patientId }
                                     }
-                                    1 -> {
-                                        items(uiState.dismissedRecords, key = { it.id }) { record ->
-                                            val patient = remember(record.patientId, uiState.patients) { 
-                                                uiState.patients.find { it.id == record.patientId } 
-                                            }
-                                            val vaccination = remember(record.patientId, record.originalDueDate, uiState.processedVaccinations) {
-                                                uiState.processedVaccinations.find { 
-                                                    it.patientId == record.patientId && it.nextDueDate == record.originalDueDate 
-                                                }
-                                            }
-                                            DismissedDueCard(
-                                                record = record,
-                                                patient = patient,
-                                                vaccination = vaccination,
-                                                onClick = { onPatientClick(record.patientId) }
-                                            )
-                                        }
-                                    }
-                                    2 -> {
-                                        items(uiState.otherRecords, key = { it.id }) { record ->
-                                            val patient = remember(record.patientId, uiState.patients) { 
-                                                uiState.patients.find { it.id == record.patientId } 
-                                            }
-                                            val vaccination = remember(record.patientId, record.originalDueDate, uiState.processedVaccinations) {
-                                                uiState.processedVaccinations.find { 
-                                                    it.patientId == record.patientId && it.nextDueDate == record.originalDueDate 
-                                                }
-                                            }
-                                            OtherEstablishmentDueCard(
-                                                record = record,
-                                                patient = patient,
-                                                vaccination = vaccination,
-                                                onClick = { onPatientClick(record.patientId) }
-                                            )
-                                        }
+                                    if (vaccination.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED) {
+                                        CompletedRecordCard(vaccination, patient) { onPatientClick(vaccination.patientId) }
+                                    } else {
+                                        DismissedRecordCard(vaccination, patient) { onPatientClick(vaccination.patientId) }
                                     }
                                 }
                             }

@@ -193,7 +193,7 @@ object PatientUtils {
      */
     fun getPendingVaccinations(allVaccinations: List<Vaccination>): List<Vaccination> {
         return allVaccinations.filter { v ->
-            if (v.status != ReminderStatus.ACTIVE && v.status != ReminderStatus.RESCHEDULED) return@filter false
+            if (v.status != ReminderStatus.ACTIVE) return@filter false
             if (v.nextDueDate.isBlank()) return@filter false
             
             val thisDateGiven = parseDate(v.dateGiven)

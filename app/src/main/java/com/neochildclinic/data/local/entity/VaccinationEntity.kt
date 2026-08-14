@@ -47,7 +47,7 @@ data class VisitEntity(
     @SerialName("total_paid") val totalPaid: Double = 0.0,
     @SerialName("payment_id") val paymentId: String? = null, // Linked to finance_transactions
     
-    // Reminders logic preserved
+    // Legacy columns retained only for database compatibility; Next/Due display comes from reminders.
     @SerialName("nxt_vaccine_names") val nxtVaccineNames: String = "",
     @SerialName("next_due_date") val nextDueDate: String = "",
     @SerialName("cash_amount") val cashAmount: Double = 0.0,
@@ -110,8 +110,9 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = VisitEntity(
     createdAt = if (updatedAt.isEmpty()) null else updatedAt,
     updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
     isSynced = isSynced,
-    nxtVaccineNames = followUps.joinToString(",") { it.nextVaccineName },
-    nextDueDate = followUps.firstOrNull()?.dueDate ?: ""
+    // Next vaccination is stored only in reminders; do not duplicate it in patient_visits.
+    nxtVaccineNames = "",
+    nextDueDate = ""
 )
 
 fun VaccinationItem.toEntity() = VaccinationItemEntity(

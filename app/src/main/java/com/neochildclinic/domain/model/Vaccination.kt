@@ -17,7 +17,7 @@ data class Vaccination(
     @SerialName("doctor_id") val doctorId: String = "",
     @SerialName("performed_by") val performedBy: String = "",
     val items: List<VaccinationItem> = emptyList(),
-    val followUps: List<FollowUpRequirement> = emptyList(),
+    val nextVaccinations: List<NextVaccinationSummary> = emptyList(),
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
     val status: ReminderStatus = ReminderStatus.ACTIVE,
@@ -37,8 +37,8 @@ data class Vaccination(
     val batchNumbers: List<String> get() = items.map { it.batchNumber }
     val batchIds: List<String> get() = items.map { it.batchId }
     val expiryDates: List<String> get() = items.map { it.expiryDate }
-    val nxtVaccineNames: List<String> get() = followUps.map { it.nextVaccineName }
-    val nextDueDate: String get() = followUps.firstOrNull()?.dueDate ?: ""
+    val nxtVaccineNames: List<String> get() = nextVaccinations.flatMap { it.vaccineNames }
+    val nextDueDate: String get() = nextVaccinations.minByOrNull { it.dueDate }?.dueDate ?: ""
 }
 
 @Serializable
@@ -56,8 +56,9 @@ data class VaccinationItem(
 )
 
 @Serializable
-data class FollowUpRequirement(
-    @SerialName("next_vaccine_id") val nextVaccineId: String = "",
-    @SerialName("next_vaccine_name") val nextVaccineName: String = "",
-    @SerialName("due_date") val dueDate: String = ""
+data class NextVaccinationSummary(
+    val reminderId: String = "",
+    val type: String = "",
+    val vaccineNames: List<String> = emptyList(),
+    val dueDate: String = ""
 )

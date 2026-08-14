@@ -93,7 +93,6 @@ fun DueScreen(
                         },
                         onDismissReminder = viewModel::dismissReminder,
                         onReschedule = viewModel::rescheduleVaccination,
-                        onVaccinatedElsewhere = viewModel::markVaccinatedElsewhere,
                         onRestoreReminder = viewModel::restoreReminder,
                         onNavigateToCompletedDismissed = onNavigateToCompletedDismissed,
                         onPatientClick = onPatientClick

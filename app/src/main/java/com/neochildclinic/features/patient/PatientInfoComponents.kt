@@ -33,7 +33,6 @@ import com.neochildclinic.domain.model.Consultation
 import io.github.jan.supabase.storage.FileObject
 import com.neochildclinic.core.utils.PatientUtils.calculateAgeLabel
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
-import com.neochildclinic.features.reminder.FollowUpCard
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -45,7 +44,7 @@ fun PatientDetailsContent(
     vaccinations: List<Vaccination>,
     consultations: List<Consultation>,
     documents: List<FileObject>,
-    followUps: List<ReminderEntity>,
+    reminders: List<ReminderEntity>,
     notes: List<PatientNotesEntity>,
     doctorMap: Map<String, String>,
     vaccineMap: Map<String, String>,
@@ -71,13 +70,11 @@ fun PatientDetailsContent(
         )
     }
 
-    // Due Vaccination lookup: most recent ACTIVE/RESCHEDULED reminder per visit,
-    // used to source the card's "Next:"/"Due:" info instead of the visit's own
-    // nxtVaccineNames/nextDueDate fields.
-    val dueVaccinationByVisit = remember(followUps) {
-        followUps
-            .filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
-            .associateBy { it.originalVisitId }
+    // Vaccination cards read Next/Due directly from reminders.
+    // Keep every reminder for a visit; do not use associateBy because one visit
+    // may have multiple Next Vaccination entries. No status filter is applied here.
+    val remindersByVisit = remember(reminders) {
+        reminders.groupBy { it.originalVisitId }
     }
 
     LazyColumn(
@@ -109,7 +106,7 @@ fun PatientDetailsContent(
                             vaccination = vaccination,
                             patient = patient,
                             doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
-                            dueVaccination = dueVaccinationByVisit[vaccination.id],
+                            reminders = remindersByVisit[vaccination.id].orEmpty(),
                             vaccineMap = vaccineMap,
                             onClick = { onOpenVaccinationDetails(vaccination) },
                             onLongClick = { onLongClickVaccination(vaccination) },
@@ -124,22 +121,15 @@ fun PatientDetailsContent(
                 }
             }
             1 -> {
-                // Consultation Segment: strictly show records where visitType is CONSULTATION from patient_visits table
-                val segmentConsultations = vaccinations.filter { it.visitType == "CONSULTATION" }
-                if (segmentConsultations.isEmpty()) {
+                // Consultation segment uses the Consultation table/model only.
+                if (consultations.isEmpty()) {
                     item { EmptySectionText("No consultation records found.") }
                 } else {
-                    itemsIndexed(segmentConsultations, key = { _, v -> v.id }) { _, consultation ->
-                        // Re-use the VaccinationRecordCard for consistent UI, as patient_visits contains all needed info
-                        VaccinationRecordCard(
-                            vaccination = consultation,
-                            patient = patient,
-                            doctorName = doctorMap[consultation.doctorId] ?: consultation.performedBy,
-                            dueVaccination = dueVaccinationByVisit[consultation.id],
-                            vaccineMap = vaccineMap,
-                            onClick = { /* View details if any */ },
-                            onLongClick = { onLongClickVaccination(consultation) },
-                            onShowInventoryIssues = { }
+                    items(consultations, key = { it.id }) { consultation ->
+                        ConsultationRecordCard(
+                            consultation = consultation,
+                            doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
+                            onLongClick = { onLongClickConsultation(consultation) }
                         )
                     }
                 }

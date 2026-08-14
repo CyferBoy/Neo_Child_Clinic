@@ -68,7 +68,7 @@ class NeoChildApp : Application(), Configuration.Provider {
     }
 
     private fun installSecurityProvider() {
-        ProviderInstaller.installIfNeededAsync(this, object : ProviderInstaller.ProviderInstallListener {
+        ProviderInstaller.installIfNeededAsync(applicationContext, object : ProviderInstaller.ProviderInstallListener {
             override fun onProviderInstalled() {
                 Log.d(TAG, "Security provider installed successfully")
             }

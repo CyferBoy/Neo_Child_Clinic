@@ -5,11 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.PendingRequirement
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ReminderStats
 import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
-import com.neochildclinic.domain.usecase.vaccination.CompleteVaccinationUseCase
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
@@ -32,7 +30,6 @@ data class DueUiState(
 @HiltViewModel
 class DueViewModel @Inject constructor(
     private val getPatientsUseCase: GetPatientsUseCase,
-    private val completeVaccinationUseCase: CompleteVaccinationUseCase,
     private val reminderRepository: ReminderRepository,
     private val auth: Auth
 ) : ViewModel() {
@@ -61,8 +58,7 @@ class DueViewModel @Inject constructor(
         val filterStatus = when (filter) {
             "Completed" -> listOf(ReminderStatus.COMPLETED)
             "Dismissed" -> listOf(ReminderStatus.DISMISSED)
-            "Vaccinated Elsewhere" -> listOf(ReminderStatus.EXTERNAL)
-            else -> listOf(ReminderStatus.ACTIVE, ReminderStatus.RESCHEDULED)
+            else -> listOf(ReminderStatus.ACTIVE)
         }
 
         val processedVaccinations = reminderRepository.getDueList(query, filterStatus).first()
@@ -82,7 +78,7 @@ class DueViewModel @Inject constructor(
         
         // Count overall overdue from the "Active/Due" pool for the badge, regardless of current tab
         val allDue = if (filterStatus.contains(ReminderStatus.ACTIVE)) processedVaccinations 
-                     else reminderRepository.getDueList("", listOf(ReminderStatus.ACTIVE, ReminderStatus.RESCHEDULED)).first()
+                     else reminderRepository.getDueList("", listOf(ReminderStatus.ACTIVE)).first()
 
         val overdue = allDue.count { 
             val cat = DateClassifier.classify(it.nextDueDate)
@@ -120,67 +116,33 @@ class DueViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
+    private suspend fun remindersFor(vaccination: Vaccination): List<com.neochildclinic.data.local.entity.ReminderEntity> {
+        val reminders = reminderRepository.getRemindersByVisitId(vaccination.id)
+        if (vaccination.nextVaccinations.isEmpty()) return reminders
+        val ids = vaccination.nextVaccinations.map { it.reminderId }.filter { it.isNotBlank() }.toSet()
+        return if (ids.isNotEmpty()) reminders.filter { it.id in ids } else reminders
+    }
+
     fun dismissReminder(vaccination: Vaccination, reason: String) {
         viewModelScope.launch {
-            val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            for (name in vaccination.nxtVaccineNames) {
-                val req = PendingRequirement(
-                    patientId = vaccination.patientId,
-                    vaccineName = name,
-                    dueDate = dueDate,
-                    originalVisitId = vaccination.id
-                )
-                reminderRepository.dismissReminder(req, reason, currentUserEmail)
+            remindersFor(vaccination).forEach { reminder ->
+                reminderRepository.dismissReminder(reminder, reason, currentUserEmail)
             }
         }
     }
 
     fun rescheduleVaccination(vaccination: Vaccination, newDate: String, reminderDate: String, reason: String) {
         viewModelScope.launch {
-            val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            for (name in vaccination.nxtVaccineNames) {
-                val req = PendingRequirement(
-                    patientId = vaccination.patientId,
-                    vaccineName = name,
-                    dueDate = dueDate,
-                    originalVisitId = vaccination.id
-                )
-                reminderRepository.reschedule(req, newDate, reminderDate, reason, currentUserEmail)
-            }
-        }
-    }
-
-    fun markVaccinatedElsewhere(
-        vaccination: Vaccination,
-        hospitalName: String,
-        date: String,
-        notes: String
-    ) {
-        viewModelScope.launch {
-            val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            for (name in vaccination.nxtVaccineNames) {
-                val req = PendingRequirement(
-                    patientId = vaccination.patientId,
-                    vaccineName = name,
-                    dueDate = dueDate,
-                    originalVisitId = vaccination.id
-                )
-                reminderRepository.markVaccinatedElsewhere(req, hospitalName, date, notes, currentUserEmail)
+            remindersFor(vaccination).forEach { reminder ->
+                reminderRepository.reschedule(reminder, newDate, reminderDate, reason, currentUserEmail)
             }
         }
     }
 
     fun restoreReminder(vaccination: Vaccination) {
         viewModelScope.launch {
-            val dueDate = PatientUtils.parseDate(vaccination.nextDueDate) ?: return@launch
-            for (name in vaccination.nxtVaccineNames) {
-                val req = PendingRequirement(
-                    patientId = vaccination.patientId,
-                    vaccineName = name,
-                    dueDate = dueDate,
-                    originalVisitId = vaccination.id
-                )
-                reminderRepository.restoreReminder(req, currentUserEmail)
+            remindersFor(vaccination).forEach { reminder ->
+                reminderRepository.restoreReminder(reminder, currentUserEmail)
             }
         }
     }

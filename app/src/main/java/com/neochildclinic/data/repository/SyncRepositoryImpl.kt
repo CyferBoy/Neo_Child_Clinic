@@ -148,7 +148,7 @@ class SyncRepositoryImpl @Inject constructor(
             "VACCINATION", "VISIT" -> "patient_visits"
             "VACCINATION_ITEM" -> "vaccination_items"
             "WASTE" -> "waste_records"
-            "REMINDERS", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> "reminders"
+            "REMINDERS" -> "reminders"
             "VACCINE" -> "vaccines"
             "BATCH" -> {
                 if (item.operation == SyncOperation.UPDATE.name) {
@@ -168,7 +168,7 @@ class SyncRepositoryImpl @Inject constructor(
 
         if (item.operation == SyncOperation.DELETE.name) {
             if (item.entityName == "REMINDERS") {
-                val serverId = item.entityId.toLongOrNull() ?: database.dueReminderDao().getReminderById(item.entityId)?.serverId
+                val serverId = database.dueReminderDao().getReminderById(item.entityId)?.serverId
                 if (serverId != null) {
                     postgrest.from(table).delete {
                         filter { eq("id", serverId) }
@@ -182,7 +182,7 @@ class SyncRepositoryImpl @Inject constructor(
             return
         }
 
-        // Specialized logic for REMINDERS to handle server-generated BIGINT IDs
+        // Specialized logic for REMINDERS to handle server-generated IDs
         if (item.entityName == "REMINDERS") {
             val localReminder = database.dueReminderDao().getReminderById(item.entityId)
             if (localReminder != null) {
@@ -300,7 +300,7 @@ class SyncRepositoryImpl @Inject constructor(
                 val entity = json.decodeFromJsonElement<AuditLogEntity>(element)
                 database.auditLogDao().insertLog(entity.copy(isSynced = true))
             }
-            "REMINDERS", "DUE_REMINDER", "COMPLETED_REMINDER", "DISMISSED_REMINDER", "EXTERNAL_REMINDER" -> {
+            "REMINDERS" -> {
                 val remote = json.decodeFromJsonElement<RemoteReminder>(element)
                 val local = database.dueReminderDao().getReminderByStableId(
                     remote.patientId, 

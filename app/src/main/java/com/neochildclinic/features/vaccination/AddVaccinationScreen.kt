@@ -166,15 +166,25 @@ fun AddVaccinationScreen(
 
                 // 5. Next Vaccination Section
                 item { SectionHeader("Next Vaccination") }
-                item {
+                items(uiState.nextVaccinations.indices.toList(), key = { it }) { index ->
                     NextVaccinationSection(
-                        state = uiState.nextVaccination,
+                        index = index,
+                        state = uiState.nextVaccinations[index],
                         inventory = uiState.inventory,
                         availableTypes = uiState.availableDueTypes,
-                        onTypeSelected = { viewModel.updateNextVaccinationType(it) },
-                        onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(it) },
-                        onDueDateSelected = { viewModel.updateNextVaccinationDueDate(it) }
+                        canRemove = uiState.nextVaccinations.size > 1,
+                        onTypeSelected = { viewModel.updateNextVaccinationType(index, it) },
+                        onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(index, it) },
+                        onDueDateSelected = { viewModel.updateNextVaccinationDueDate(index, it) },
+                        onRemove = { viewModel.removeNextVaccination(index) }
                     )
+                }
+                item {
+                    OutlinedButton(onClick = { viewModel.addNextVaccination() }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (uiState.nextVaccinations.isEmpty()) "Add Next Vaccination" else "Add Another Next Vaccination")
+                    }
                 }
             }
         }
@@ -341,14 +351,17 @@ private fun PaymentSection(
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun NextVaccinationSection(
+    index: Int,
     state: NextVaccinationState,
     inventory: List<InventoryItem>,
     availableTypes: List<String>,
+    canRemove: Boolean,
     onTypeSelected: (String) -> Unit,
     onVaccineToggled: (InventoryItem) -> Unit,
-    onDueDateSelected: (String) -> Unit
+    onDueDateSelected: (String) -> Unit,
+    onRemove: () -> Unit
 ) {
-    var vaccineSearch by remember { mutableStateOf("") }
+    var vaccineSearch by remember(state.type) { mutableStateOf("") }
     var vaccineExpanded by remember { mutableStateOf(false) }
 
     ElevatedCard(
@@ -356,7 +369,15 @@ private fun NextVaccinationSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Type -- mandatory
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Next Vaccination ${index + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                if (canRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Remove next vaccination")
+                    }
+                }
+            }
+
             DueVaccinationTypeDropdown(
                 types = availableTypes,
                 selectedType = state.type,
@@ -365,49 +386,30 @@ private fun NextVaccinationSection(
                 isError = state.typeError
             )
 
-            // Vaccine -- optional, multi-select. Scoped to the selected Type: only brand
-            // names belonging to that vaccine type are offered (e.g. Type "Varicella"
-            // only shows brands like "Varilrix", not brands of other types).
             StandardAutoCompleteField(
                 value = vaccineSearch,
-                onValueChange = { 
-                    vaccineSearch = it
-                    vaccineExpanded = true
-                },
+                onValueChange = { vaccineSearch = it; vaccineExpanded = true },
                 label = "Vaccine (Optional)",
                 expanded = vaccineExpanded,
                 onExpandedChange = { vaccineExpanded = it },
                 placeholder = if (state.type.isBlank()) "Select a Type first" else "Search vaccine"
             ) {
                 if (state.type.isBlank()) {
-                    DropdownMenuItem(
-                        text = { Text("Select a Type above first") },
-                        onClick = {},
-                        enabled = false
-                    )
+                    DropdownMenuItem(text = { Text("Select a Type above first") }, onClick = {}, enabled = false)
                 } else {
                     val filtered = inventory.filter {
                         it.type.equals(state.type, ignoreCase = true) &&
                             it.brandName.contains(vaccineSearch, ignoreCase = true)
                     }
                     if (filtered.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text("No vaccines found for \"${state.type}\"") },
-                            onClick = {},
-                            enabled = false
-                        )
+                        DropdownMenuItem(text = { Text("No vaccines found for \"${state.type}\"") }, onClick = {}, enabled = false)
                     }
                     filtered.forEach { vaccine ->
                         val isSelected = state.nextVaccines.any { it.id == vaccine.id }
                         DropdownMenuItem(
                             text = { Text(vaccine.brandName) },
-                            leadingIcon = if (isSelected) {
-                                { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
-                            } else null,
-                            onClick = {
-                                onVaccineToggled(vaccine)
-                                vaccineSearch = ""
-                            }
+                            leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null,
+                            onClick = { onVaccineToggled(vaccine); vaccineSearch = "" }
                         )
                     }
                 }
@@ -423,15 +425,12 @@ private fun NextVaccinationSection(
                             selected = true,
                             onClick = { onVaccineToggled(vaccine) },
                             label = { Text(vaccine.brandName) },
-                            trailingIcon = {
-                                Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp))
-                            }
+                            trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp)) }
                         )
                     }
                 }
             }
 
-            // Due Date
             DateDropdownPicker(
                 label = "Due Date*",
                 currentDate = state.dueDate,

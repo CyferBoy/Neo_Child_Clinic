@@ -10,11 +10,15 @@
 
     <queries>
         <package android:name="com.google.android.gms" />
+        <package android:name="com.android.vending" />
         <intent>
             <action android:name="com.google.android.gms.auth.api.signin.SERVICE" />
         </intent>
         <intent>
             <action android:name="com.google.android.gms.integrity.service.BIND" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.common.api.BIND_SERVICE" />
         </intent>
     </queries>
 

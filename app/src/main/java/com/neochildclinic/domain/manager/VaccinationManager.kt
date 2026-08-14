@@ -9,7 +9,6 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.ReminderStatus
-import com.neochildclinic.domain.model.PendingRequirement
 import com.neochildclinic.domain.repository.*
 import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.InventoryProcessingService
@@ -41,7 +40,6 @@ class VaccinationManager @Inject constructor(
         user: String,
         isNew: Boolean = true,
         selectedVaccineIds: List<String> = emptyList(),
-        requirement: PendingRequirement? = null,
         selectedBatchIds: List<String> = emptyList()
     ): String? {
         return database.withTransaction {
@@ -51,8 +49,7 @@ class VaccinationManager @Inject constructor(
             clinicalService.recordVaccination(
                 vaccination = vaccination,
                 user = user,
-                isNew = isNew,
-                requirement = requirement
+                isNew = isNew
             )
 
             // 2. Inventory Management Logic
@@ -89,66 +86,6 @@ class VaccinationManager @Inject constructor(
             }
             null // Return null on success
         }
-    }
-
-    /**
-     * Specialized flow to complete a vaccination directly from a pending requirement.
-     * Automatically handles inventory mapping and record creation.
-     */
-    suspend fun completeFromRequirement(
-        requirement: PendingRequirement,
-        user: String,
-        notes: String = ""
-    ) {
-        val vaccination = Vaccination(
-            id = UUID.randomUUID().toString(),
-            patientId = requirement.patientId,
-            items = listOf(VaccinationItem(vaccineName = requirement.vaccineName)),
-            dateGiven = PatientUtils.formatDate(Date()),
-            status = ReminderStatus.COMPLETED,
-            performedBy = user,
-            notes = notes
-        )
-
-        // Automated Inventory Mapping
-        val vaccines = vaccineDao.getAllVaccines().first()
-        val matchingVaccine = vaccines.find { 
-            it.brandName.contains(requirement.vaccineName, ignoreCase = true) 
-        }
-        
-        val matchingVaccineId = matchingVaccine?.id
-        val selectedIds = matchingVaccineId?.let { listOf(it) } ?: emptyList()
-
-        // Attempt to find FEFO batch to record expiry date even for automated completions
-        var enrichedVaccination = vaccination
-        val selectedBatchIds = mutableListOf<String>()
-        
-        if (matchingVaccineId != null) {
-            val activeBatches = vaccineDao.getActiveBatchesByExpiry(matchingVaccineId)
-            val firstBatch = activeBatches.firstOrNull { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
-            if (firstBatch != null) {
-                enrichedVaccination = vaccination.copy(
-                    items = listOf(
-                        VaccinationItem(
-                            vaccineName = requirement.vaccineName,
-                            batchId = firstBatch.batchId,
-                            batchNumber = firstBatch.batchNumber,
-                            expiryDate = firstBatch.expiryDate
-                        )
-                    )
-                )
-                selectedBatchIds.add(firstBatch.batchId)
-            }
-        }
-
-        completeVaccination(
-            vaccination = enrichedVaccination,
-            user = user,
-            isNew = true,
-            selectedVaccineIds = selectedIds,
-            requirement = requirement,
-            selectedBatchIds = selectedBatchIds
-        )
     }
 
     /**

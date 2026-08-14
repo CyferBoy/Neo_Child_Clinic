@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.VaccinationItem
-import com.neochildclinic.domain.model.FollowUpRequirement
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.repository.ReminderStats
 import com.neochildclinic.core.designsystem.NeoChildTheme
@@ -33,7 +32,6 @@ fun DueTab(
     onMarkAsDone: (Vaccination) -> Unit = {},
     onDismissReminder: (Vaccination, String) -> Unit = { _, _ -> },
     onReschedule: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
-    onVaccinatedElsewhere: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
     onRestoreReminder: (Vaccination) -> Unit = {},
     onNavigateToCompletedDismissed: () -> Unit = {},
     onPatientClick: (String) -> Unit = {}
@@ -43,7 +41,6 @@ fun DueTab(
     var selectedVaccination by remember { mutableStateOf<Vaccination?>(null) }
     var showManageSheet by remember { mutableStateOf(false) }
     var showReschedulePicker by remember { mutableStateOf(false) }
-    var showElsewhereSheet by remember { mutableStateOf(false) }
     var showDismissDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -126,10 +123,6 @@ fun DueTab(
                 showManageSheet = false
                 showReschedulePicker = true 
             },
-            onVaccinatedElsewhere = { 
-                showManageSheet = false
-                showElsewhereSheet = true 
-            },
             onRestore = {
                 selectedVaccination?.let { onRestoreReminder(it) }
                 showManageSheet = false
@@ -172,15 +165,6 @@ fun DueTab(
         )
     }
 
-    if (showElsewhereSheet && selectedVaccination != null) {
-        VaccinatedElsewhereBottomSheet(
-            onDismiss = { showElsewhereSheet = false },
-            onSave = { hospitalName, date, notes ->
-                selectedVaccination?.let { onVaccinatedElsewhere(it, hospitalName, date, notes) }
-                showElsewhereSheet = false
-            }
-        )
-    }
 }
 
 @Preview(showBackground = true)
@@ -194,7 +178,11 @@ private fun DueTabPreview() {
                     id = "1",
                     patientId = "1",
                     items = listOf(VaccinationItem(vaccineName = "BCG")),
-                    followUps = listOf(FollowUpRequirement(nextVaccineName = "HepB", dueDate = "1 Feb 2024")),
+                    nextVaccinations = listOf(com.neochildclinic.domain.model.NextVaccinationSummary(
+                        type = "Booster",
+                        vaccineNames = listOf("HepB"),
+                        dueDate = "1 Feb 2024"
+                    )),
                     dateGiven = "1 Jan 2024",
                     cashAmount = 500.0,
                     onlineAmount = 0.0,
@@ -209,7 +197,6 @@ private fun DueTabPreview() {
             onMarkAsDone = {},
             onDismissReminder = { _, _ -> },
             onReschedule = { _, _, _, _ -> },
-            onVaccinatedElsewhere = { _, _, _, _ -> }
         )
     }
 }

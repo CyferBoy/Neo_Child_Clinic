@@ -266,8 +266,8 @@ class PatientViewModel @Inject constructor(
         return patientRepository.getPatientTimeline(patientId)
     }
 
-    fun getPatientFollowUps(patientId: String): Flow<List<ReminderEntity>> {
-        return reminderRepository.getPatientFollowUps(patientId)
+    fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
+        return reminderRepository.getPatientReminders(patientId)
     }
 
     fun getPatientNotes(patientId: String): Flow<List<PatientNotesEntity>> {

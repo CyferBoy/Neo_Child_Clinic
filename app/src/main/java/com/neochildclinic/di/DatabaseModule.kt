@@ -3,7 +3,6 @@ package com.neochildclinic.di
 import android.content.Context
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.PatientDao
-import com.neochildclinic.data.local.dao.ReminderDao
 import com.neochildclinic.data.local.dao.DueReminderDao
 import com.neochildclinic.data.local.dao.ReminderAuditDao
 import com.neochildclinic.data.local.dao.AuditLogDao
@@ -42,11 +41,6 @@ object DatabaseModule {
     @Provides
     fun provideVaccinationDao(database: AppDatabase): VaccinationDao {
         return database.vaccinationDao()
-    }
-
-    @Provides
-    fun provideReminderDao(database: AppDatabase): ReminderDao {
-        return database.reminderDao()
     }
 
     @Provides

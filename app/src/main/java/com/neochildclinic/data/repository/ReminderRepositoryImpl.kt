@@ -14,8 +14,6 @@ import com.neochildclinic.core.utils.*
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
-import com.neochildclinic.domain.logic.ReminderEngine
-import com.neochildclinic.domain.model.PendingRequirement
 import io.github.jan.supabase.postgrest.Postgrest
 import com.neochildclinic.core.utils.WidgetUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,7 +35,6 @@ import javax.inject.Singleton
 class ReminderRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val reminderDao: ReminderDao,
     private val dueReminderDao: DueReminderDao,
     private val vaccinationDao: VaccinationDao,
     private val patientDao: PatientDao,
@@ -101,7 +98,7 @@ class ReminderRepositoryImpl @Inject constructor(
         val patientMap = patientEntities.associateBy { it.id }
         
         val stateFiltered = if (filterStatus == null || filterStatus.isEmpty()) {
-            processed.filter { it.status == ReminderStatus.ACTIVE || it.status == ReminderStatus.RESCHEDULED }
+            processed.filter { it.status == ReminderStatus.ACTIVE }
         } else {
             processed.filter { filterStatus.contains(it.status) }
         }
@@ -154,8 +151,6 @@ class ReminderRepositoryImpl @Inject constructor(
                 cat is DateCategory.Overdue || cat is DateCategory.Yesterday || cat is DateCategory.GracePeriod
             },
             completedToday = reminders.count { it.status == "COMPLETED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.completionDate) >= todayStart },
-            rescheduledToday = reminders.count { it.status == "RESCHEDULED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.updatedAt) >= todayStart },
-            externalToday = reminders.count { it.status == "EXTERNAL" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.updatedAt) >= todayStart },
             dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.dismissalDate) >= todayStart },
             notificationsSentToday = reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }
         )
@@ -168,14 +163,14 @@ class ReminderRepositoryImpl @Inject constructor(
         val allVaccinations = vaccEntities.map { it.toVaccination() }
         val result = mutableListOf<Vaccination>()
 
-        // 1. Process Active/Rescheduled Reminders (Authoritative source for "Due")
-        val activeReminders = reminderEntities.filter { it.status == "ACTIVE" || it.status == "RESCHEDULED" }
+        // The reminders table is the source of truth for the Due section.
+        val activeReminders = reminderEntities.filter { it.status == "ACTIVE" && it.reminderEnabled }
         val groupedActive = activeReminders.groupBy { it.patientId to it.dueDate }
 
         groupedActive.forEach { (key, group) ->
             val (patientId, dueDate) = key
             val firstInGroup = group.first()
-            val status = if (group.any { it.status == "RESCHEDULED" }) ReminderStatus.RESCHEDULED else ReminderStatus.ACTIVE
+            val status = ReminderStatus.ACTIVE
             
             // Link to original visit if available, otherwise create a shell
             val baseVaccination = allVaccinations.find { it.id == firstInGroup.originalVisitId } ?: Vaccination(
@@ -186,11 +181,12 @@ class ReminderRepositoryImpl @Inject constructor(
             )
 
             result.add(baseVaccination.copy(
-                followUps = group.map { 
-                    FollowUpRequirement(
-                        nextVaccineId = it.nxtVaccineId?.firstOrNull() ?: "",
-                        nextVaccineName = it.vaccineName,
-                        dueDate = dueDate
+                nextVaccinations = group.map {
+                    NextVaccinationSummary(
+                        reminderId = it.id,
+                        type = it.type,
+                        vaccineNames = it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank),
+                        dueDate = it.dueDate
                     )
                 },
                 status = status,
@@ -198,8 +194,11 @@ class ReminderRepositoryImpl @Inject constructor(
             ))
         }
 
-        // 2. Process Terminal States (Completed, Dismissed, External)
-        val terminalReminders = reminderEntities.filter { it.status !in listOf("ACTIVE", "RESCHEDULED") }
+        // Completed and dismissed records remain in reminders and are grouped for display.
+        val terminalReminders = reminderEntities.filter {
+            (it.status == "COMPLETED" && !it.reminderEnabled) ||
+                (it.status == "DISMISSED" && it.reminderEnabled)
+        }
         val groupedTerminal = terminalReminders.groupBy { Triple(it.patientId, it.dueDate, it.status) }
 
         groupedTerminal.forEach { (key, group) ->
@@ -210,13 +209,17 @@ class ReminderRepositoryImpl @Inject constructor(
             val vaccination = allVaccinations.find { it.id == firstState.originalVisitId }
             if (vaccination != null) {
                 result.add(vaccination.copy(
-                    followUps = group.map { 
-                        FollowUpRequirement(nextVaccineName = it.vaccineName, dueDate = dueDate)
+                    nextVaccinations = group.map {
+                        NextVaccinationSummary(
+                            reminderId = it.id,
+                            type = it.type,
+                            vaccineNames = it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank),
+                            dueDate = it.dueDate
+                        )
                     },
                     status = status,
                     dateGiven = when (status) {
                         ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.utils.PatientUtils.isoToLong(firstState.completionDate)))
-                        ReminderStatus.EXTERNAL -> firstState.notes?.substringAfter("Date: ")?.substringBefore("\n") ?: ""
                         ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.utils.PatientUtils.isoToLong(firstState.dismissalDate)))
                         else -> ""
                     },
@@ -227,33 +230,6 @@ class ReminderRepositoryImpl @Inject constructor(
         }
 
         return result
-    }
-
-    override fun getCompletedDueRecords(): Flow<List<CompletedDueRecord>> = flow {
-        try {
-            val records = postgrest.from("completed_due_vaccinations").select().decodeList<CompletedDueRecord>()
-            emit(records)
-        } catch (e: Exception) {
-            emit(emptyList())
-        }
-    }
-
-    override fun getDismissedDueRecords(): Flow<List<DismissedDueRecord>> = flow {
-        try {
-            val records = postgrest.from("dismissed_due_vaccinations").select().decodeList<DismissedDueRecord>()
-            emit(records)
-        } catch (e: Exception) {
-            emit(emptyList())
-        }
-    }
-
-    override fun getOtherEstablishmentDueRecords(): Flow<List<OtherEstablishmentDueRecord>> = flow {
-        try {
-            val records = postgrest.from("other_establishment_due_vaccinations").select().decodeList<OtherEstablishmentDueRecord>()
-            emit(records)
-        } catch (e: Exception) {
-            emit(emptyList())
-        }
     }
 
     private suspend fun enqueueReminderSync(
@@ -284,15 +260,9 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val groupedNames = vaccineNames.distinct().joinToString(", ")
-                
-                // Stable Lookup: Check if a reminder for this visit already exists
-                // Note: We use originalVisitId as the stable link. 
-                // There is only ONE Next Vaccination per visit in the new architecture.
-                val existing = dueReminderDao.getRemindersByVisitId(originalVisitId).firstOrNull()
-
                 val reminder = ReminderEntity(
-                    id = existing?.id ?: UUID.randomUUID().toString(),
-                    serverId = existing?.serverId,
+                    id = UUID.randomUUID().toString(),
+                    serverId = null,
                     patientId = patientId,
                     originalVisitId = originalVisitId,
                     vaccineName = groupedNames,
@@ -300,307 +270,118 @@ class ReminderRepositoryImpl @Inject constructor(
                     status = "ACTIVE",
                     priority = priority,
                     reminderEnabled = reminderEnabled,
+                    category = "VACCINATION",
                     type = type,
-                    nxtVaccineId = nxtVaccineId.ifEmpty { null },
+                    nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
                     notes = notes,
                     isSynced = false
                 )
                 dueReminderDao.insertReminder(reminder)
-                
-                val displayLabel = if (groupedNames.isBlank()) type else "$type ($groupedNames)"
+
+                val displayLabel = if (groupedNames.isBlank()) type else groupedNames
                 logReminderUndoableChange(
-                    reminder = reminder, 
+                    reminder = reminder,
                     action = "SCHEDULED",
                     remarks = "Next Vaccination ($displayLabel) scheduled by $performedBy",
                     newValue = dueDate
                 )
 
-                val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
-                enqueueReminderSync("REMINDERS", reminder.id, operation, SyncPriority.MEDIUM)
+                // Every Next Vaccination row is a new Reminder record, even when
+                // another row has the same patient, visit, type, or due date.
+                enqueueReminderSync("REMINDERS", reminder.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
             }
             if (reminderEnabled) triggerImmediateCheck()
         }
     }
 
-    override suspend fun markRequirementSatisfied(requirement: PendingRequirement, performedBy: String, linkedVaccinationId: String?, transactionGroupId: String?) {
+    override suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String?, transactionGroupId: String?) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                // Smart Lookup: Find any reminder whose vaccineName contains the administered vaccine
-                val allReminders = dueReminderDao.getDueRemindersForPatient(requirement.patientId).first()
-                val targetReminder = allReminders.find { 
-                    it.originalVisitId == requirement.originalVisitId && 
-                    it.vaccineName.split(", ").contains(requirement.vaccineName) 
-                }
-                
-                if (targetReminder != null) {
-                    val remainingVaccines = targetReminder.vaccineName.split(", ")
-                        .filter { it != requirement.vaccineName }
-                    
-                    if (remainingVaccines.isEmpty()) {
-                        // All vaccines in this reminder are done
-                        logReminderUndoableChange(targetReminder, "COMPLETED", "${requirement.vaccineName} marked done by $performedBy", transactionGroupId = transactionGroupId)
-                        dueReminderDao.moveDueToCompleted(targetReminder, performedBy, "Requirement satisfied")
-                        enqueueReminderSync("REMINDERS", targetReminder.id, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
-                    } else {
-                        // Partially satisfied: Update the row with remaining vaccines
-                        val updatedName = remainingVaccines.joinToString(", ")
-                        val updated = targetReminder.copy(
-                            vaccineName = updatedName,
-                            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-                            isSynced = false
-                        )
-                        dueReminderDao.insertReminder(updated)
-                        logReminderUndoableChange(targetReminder, "PARTIAL", "Administered ${requirement.vaccineName}, remaining: $updatedName", transactionGroupId = transactionGroupId)
-                        enqueueReminderSync("REMINDERS", targetReminder.id, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
-                    }
-                } else {
-                    // Fallback for direct matches or legacy data
-                    val existing = dueReminderDao.getAllDueReminders().first().find { 
-                        it.patientId == requirement.patientId && 
-                        it.originalVisitId == requirement.originalVisitId && 
-                        it.vaccineName == requirement.vaccineName 
-                    }
-                    if (existing != null) {
-                        dueReminderDao.moveDueToCompleted(existing, performedBy, "Requirement satisfied")
-                        enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                    }
-                }
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                logReminderUndoableChange(existing, "COMPLETED", "Reminder marked done by $performedBy", transactionGroupId = transactionGroupId)
+                dueReminderDao.moveDueToCompleted(existing, performedBy, "Reminder completed")
+                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
 
-                // Supabase audit record
-                val now = Calendar.getInstance()
-                val record = CompletedDueRecord(
-                    patientId = requirement.patientId,
-                    originalDueDate = PatientUtils.formatDate(requirement.dueDate),
-                    completedDate = PatientUtils.formatDate(now.time),
-                    completedTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time),
-                    completedBy = performedBy,
-                    linkedVaccinationId = linkedVaccinationId ?: "",
-                    remarks = "Administered ${requirement.vaccineName}"
-                )
-                postgrest.from("completed_due_vaccinations").insert(record)
             }
             triggerImmediateCheck()
         }
     }
 
-    override suspend fun reschedule(requirement: PendingRequirement, newDate: String, reminderDate: String, reason: String, performedBy: String) {
+    override suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                val existing = dueReminderDao.getAllDueReminders().first().find {
-                    it.patientId == requirement.patientId &&
-                    it.originalVisitId == requirement.originalVisitId &&
-                    it.vaccineName == requirement.vaccineName
-                }
-                
-                val updated = existing?.copy(
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                val updated = existing.copy(
                     dueDate = newDate,
                     reminderDate = reminderDate,
-                    status = "RESCHEDULED",
-                    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+                    status = "ACTIVE",
+                    reminderEnabled = true,
+                    updatedAt = PatientUtils.getCurrentIsoTimestamp(),
                     notes = if (reason.isNotBlank()) "${existing.notes ?: ""}\nRescheduled: $reason" else existing.notes,
                     isSynced = false
-                ) ?: ReminderEntity(
-                    patientId = requirement.patientId,
-                    originalVisitId = requirement.originalVisitId,
-                    vaccineName = requirement.vaccineName,
-                    dueDate = newDate,
-                    reminderDate = reminderDate,
-                    status = "RESCHEDULED",
-                    notes = reason,
-                    isSynced = false
                 )
-
                 dueReminderDao.insertReminder(updated)
-
-                logReminderUndoableChange(
-                    reminder = existing, 
-                    action = "RESCHEDULED",
-                    remarks = "Rescheduled: $reason",
-                    newValue = newDate,
-                    explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}||${existing?.type ?: ""}"
-                )
-                
+                logReminderUndoableChange(updated, "RESCHEDULED", "Rescheduled: $reason", newValue = newDate)
                 enqueueReminderSync("REMINDERS", updated.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             }
             triggerImmediateCheck()
         }
     }
 
-    override suspend fun markVaccinatedElsewhere(
-        requirement: PendingRequirement,
-        hospitalName: String,
-        vaccinatedDate: String,
-        notes: String,
-        performedBy: String
-    ) {
+
+    override suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                // 1. Record Visit (Vaccinated elsewhere is still a visit record)
-                val visit = VisitEntity(
-                    id = UUID.randomUUID().toString(),
-                    patientId = requirement.patientId,
-                    dateGiven = vaccinatedDate,
-                    doctor = performedBy,
-                    vaccineNames = requirement.vaccineName,
-                    notes = notes,
-                    source = "EXTERNAL",
-                    status = ReminderStatus.EXTERNAL
-                )
-                vaccinationDao.insertVaccination(visit)
-                syncRepository.enqueue("VACCINATION", visit.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                logReminderUndoableChange(existing, "DISMISSED", "Dismissed: $reason")
+                dueReminderDao.moveDueToDismissed(existing, performedBy, reason)
+                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
 
-                // 2. Update Reminder State
-                val existing = dueReminderDao.getAllDueReminders().first().find {
-                    it.patientId == requirement.patientId &&
-                    it.originalVisitId == requirement.originalVisitId &&
-                    it.vaccineName == requirement.vaccineName
-                }
-                
-                logReminderUndoableChange(
-                    reminder = existing,
-                    action = "EXTERNAL",
-                    remarks = "Vaccinated elsewhere: $hospitalName",
-                    explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}||${existing?.type ?: ""}"
-                )
-
-                if (existing != null) {
-                    dueReminderDao.moveDueToExternal(existing, hospitalName, vaccinatedDate, performedBy, notes)
-                    enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                } else {
-                    val external = ReminderEntity(
-                        patientId = requirement.patientId,
-                        originalVisitId = requirement.originalVisitId,
-                        vaccineName = requirement.vaccineName,
-                        dueDate = PatientUtils.formatDate(requirement.dueDate),
-                        status = "EXTERNAL",
-                        externalDate = vaccinatedDate,
-                        source = hospitalName,
-                        performedBy = performedBy,
-                        notes = notes
-                    )
-                    dueReminderDao.insertReminder(external)
-                    enqueueReminderSync("REMINDERS", external.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
-                }
-                
-                // Supabase: Write to separate table
-                val now = Calendar.getInstance()
-                val record = OtherEstablishmentDueRecord(
-                    patientId = requirement.patientId,
-                    originalDueDate = PatientUtils.formatDate(requirement.dueDate),
-                    vaccinatedDate = vaccinatedDate,
-                    hospitalName = hospitalName,
-                    recordedBy = performedBy,
-                    recordedDate = PatientUtils.formatDate(now.time),
-                    recordedTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time),
-                    remarks = notes
-                )
-                postgrest.from("other_establishment_due_vaccinations").insert(record)
             }
             triggerImmediateCheck()
         }
     }
 
-    override suspend fun dismissReminder(requirement: PendingRequirement, reason: String, performedBy: String) {
+    override suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                val existing = dueReminderDao.getAllDueReminders().first().find {
-                    it.patientId == requirement.patientId &&
-                    it.originalVisitId == requirement.originalVisitId &&
-                    it.vaccineName == requirement.vaccineName
-                }
-                
-                logReminderUndoableChange(
-                    reminder = existing,
-                    action = "DISMISSED",
-                    remarks = "Dismissed: $reason",
-                    explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}||${existing?.type ?: ""}"
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                val restored = existing.copy(
+                    status = "ACTIVE",
+                    reminderEnabled = true,
+                    updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                    isSynced = false
                 )
-
-                if (existing != null) {
-                    dueReminderDao.moveDueToDismissed(existing, performedBy, reason)
-                    enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                } else {
-                    val dismissed = ReminderEntity(
-                        patientId = requirement.patientId,
-                        originalVisitId = requirement.originalVisitId,
-                        vaccineName = requirement.vaccineName,
-                        dueDate = PatientUtils.formatDate(requirement.dueDate),
-                        status = "DISMISSED",
-                        dismissalDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-                        performedBy = performedBy,
-                        dismissalReason = reason
-                    )
-                    dueReminderDao.insertReminder(dismissed)
-                    enqueueReminderSync("REMINDERS", dismissed.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
-                }
-
-                // Supabase: Write to separate table
-                val now = Calendar.getInstance()
-                val record = DismissedDueRecord(
-                    patientId = requirement.patientId,
-                    originalDueDate = PatientUtils.formatDate(requirement.dueDate),
-                    dismissedDate = PatientUtils.formatDate(now.time),
-                    dismissedTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time),
-                    dismissedBy = performedBy,
-                    dismissReason = reason,
-                    remarks = ""
-                )
-                postgrest.from("dismissed_due_vaccinations").insert(record)
+                logReminderUndoableChange(existing, "RESTORED", "Restored by $performedBy")
+                dueReminderDao.insertReminder(restored)
+                enqueueReminderSync("REMINDERS", restored.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             }
             triggerImmediateCheck()
         }
     }
 
-    override suspend fun restoreReminder(requirement: PendingRequirement, performedBy: String) {
+    override suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                val existing = dueReminderDao.getAllReminders().first().find {
-                    it.patientId == requirement.patientId &&
-                    it.originalVisitId == requirement.originalVisitId &&
-                    it.vaccineName == requirement.vaccineName
-                }
-                if (existing != null) {
-                    logReminderUndoableChange(existing, "RESTORED", explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}||${existing.type}")
-                    val restored = existing.copy(
-                        status = "ACTIVE",
-                        updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-                        isSynced = false
-                    )
-                    dueReminderDao.insertReminder(restored)
-
-                    enqueueReminderSync("REMINDERS", restored.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                }
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                logReminderUndoableChange(existing, "DELETED", "Deleted by $performedBy")
+                dueReminderDao.softDeleteReminder(existing.id)
+                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.DELETE, SyncPriority.LOW)
             }
             triggerImmediateCheck()
         }
     }
 
-    override suspend fun deleteReminder(requirement: PendingRequirement, performedBy: String) {
-        withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getAllReminders().first().find {
-                    it.patientId == requirement.patientId &&
-                    it.originalVisitId == requirement.originalVisitId &&
-                    it.vaccineName == requirement.vaccineName
-                }
-                if (existing != null) {
-                    logReminderUndoableChange(existing, "DELETED", explicitEntityId = "${requirement.patientId}||${requirement.originalVisitId}||${requirement.vaccineName}||${existing.type}")
-                    dueReminderDao.softDeleteReminder(existing.id)
-                    
-                    enqueueReminderSync("REMINDERS", existing.id, SyncOperation.DELETE, SyncPriority.LOW)
-                }
-            }
-            triggerImmediateCheck()
-        }
-    }
-
-    override fun getPatientFollowUps(patientId: String): Flow<List<ReminderEntity>> {
+    override fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
         return dueReminderDao.getDueRemindersForPatient(patientId)
     }
+
 
     override suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
         return dueReminderDao.getRemindersByVisitId(visitId)
     }
+
+    override suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
 
     override suspend fun undoAction(auditId: String, performedBy: String) {
         withContext(Dispatchers.IO) {
@@ -707,10 +488,7 @@ class ReminderRepositoryImpl @Inject constructor(
             val existing = dueReminderDao.getReminderById(id)
             if (existing != null) {
                 logReminderUndoableChange(existing, "COMPLETED", "Marked done via notification", explicitEntityId = "${existing.patientId}||${existing.originalVisitId}||${existing.vaccineName}||${existing.type}")
-                markRequirementSatisfied(
-                    PendingRequirement(existing.patientId, existing.vaccineName, PatientUtils.parseDate(existing.dueDate) ?: Date(), existing.originalVisitId),
-                    "SYSTEM_NOTIFICATION"
-                )
+                markReminderCompleted(existing, "SYSTEM_NOTIFICATION")
             }
         }
     }

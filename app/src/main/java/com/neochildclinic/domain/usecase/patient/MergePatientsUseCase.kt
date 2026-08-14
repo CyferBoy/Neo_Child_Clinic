@@ -33,7 +33,7 @@ class MergePatientsUseCase @Inject constructor(
             for (dupId in duplicateIds) {
                 // Fetch record IDs before moving them so we can queue sync properly
                 val vaccIds = vaccinationRepository.getVaccinationsForPatient(dupId).first().map { it.id }
-                val reminderIds = reminderRepository.getPatientFollowUps(dupId).first().map { it.id }
+                val reminderIds = reminderRepository.getPatientReminders(dupId).first().map { it.id }
                 val auditIds = reminderRepository.getAuditTrail(dupId).first().map { it.auditId }
 
                 // 1. Move all vaccinations from duplicate to master
