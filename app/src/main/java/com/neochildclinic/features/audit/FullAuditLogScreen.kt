@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +19,8 @@ import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.AuditLogEntity
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +35,7 @@ fun FullAuditLogScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Clinic Audit Logs") },
+                    title = { Text("Application Audit") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -51,29 +54,124 @@ fun FullAuditLogScreen(
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.padding(paddingValues)
             ) {
-                if (uiState.isLoading && uiState.logs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else if (uiState.error != null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
-                    }
-                } else if (uiState.logs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No audit logs found", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(uiState.logs, key = { it.id }) { log ->
-                            AuditLogItem(log)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    AuditPeriodSelector(
+                        start = uiState.periodStart,
+                        end = uiState.periodEnd,
+                        canGoNext = uiState.periodEnd.isBefore(java.time.LocalDate.now()),
+                        onPrevious = viewModel::previousPeriod,
+                        onNext = viewModel::nextPeriod,
+                        onCurrent = viewModel::currentPeriod
+                    )
+                    AuditFilters(
+                        actions = uiState.availableActions,
+                        users = uiState.availableUsers,
+                        selectedAction = uiState.selectedAction,
+                        selectedUser = uiState.selectedUser,
+                        onActionSelected = viewModel::setAction,
+                        onUserSelected = viewModel::setUser
+                    )
+
+                    when {
+                        uiState.isLoading && uiState.logs.isEmpty() -> Box(
+                            modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
+                        uiState.error != null -> Box(
+                            modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
+                        ) { Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error) }
+                        uiState.logs.isEmpty() -> Box(
+                            modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center
+                        ) { Text("No audit logs found for this 7-day period", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.logs, key = { it.id }) { log -> AuditLogItem(log) }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuditPeriodSelector(
+    start: java.time.LocalDate,
+    end: java.time.LocalDate,
+    canGoNext: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onCurrent: () -> Unit
+) {
+    val formatter = DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, "Previous 7 days") }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("${start.format(formatter)} – ${end.format(formatter)}", fontWeight = FontWeight.SemiBold)
+                TextButton(onClick = onCurrent) { Text("Current 7 days") }
+            }
+            IconButton(onClick = onNext, enabled = canGoNext) { Icon(Icons.Default.ChevronRight, "Next 7 days") }
+        }
+    }
+}
+
+@Composable
+private fun AuditFilters(
+    actions: List<String>,
+    users: List<String>,
+    selectedAction: String,
+    selectedUser: String,
+    onActionSelected: (String) -> Unit,
+    onUserSelected: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        AuditDropdown(
+            modifier = Modifier.weight(1f),
+            label = "Action",
+            selected = selectedAction,
+            options = listOf("ALL") + actions,
+            onSelected = onActionSelected
+        )
+        AuditDropdown(
+            modifier = Modifier.weight(1f),
+            label = "User",
+            selected = selectedUser,
+            options = listOf("ALL") + users,
+            onSelected = onUserSelected
+        )
+    }
+}
+
+@Composable
+private fun AuditDropdown(
+    modifier: Modifier,
+    label: String,
+    selected: String,
+    options: List<String>,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (selected == "ALL") "All $label" else selected, maxLines = 1)
+            Icon(Icons.Default.ArrowDropDown, null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(if (option == "ALL") "All $label" else option) },
+                    onClick = { onSelected(option); expanded = false }
+                )
             }
         }
     }

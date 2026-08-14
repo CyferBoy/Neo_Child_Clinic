@@ -127,6 +127,7 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             authViewModel.refreshSessionStatus()
             checkAppLock()
+            deviceRepository.registerCurrentDevice()
             deviceRepository.updateActivity()
             settingsManager.updateLastOpenTimestamp()
             syncManager.scheduleSync()

@@ -59,7 +59,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                     )
                     patientDao.insertPatient(updatedPatient)
                     
-                    // Queue for Firestore Update
+                    // Queue for Supabase Update
                     syncRepository.enqueue(
                         entityName = "PATIENT",
                         entityId = patient.id,

@@ -118,14 +118,13 @@ class InventoryRepositoryImpl @Inject constructor(
         vaccineDao.getTransactionsForVaccine(vaccineId)
 
     override suspend fun getBatchById(batchId: String): VaccineBatchEntity? {
-        memoryCache.getBatch<VaccineBatchEntity>(batchId)?.let { return it }
-        return vaccineDao.getBatchById(batchId)?.also { memoryCache.putBatch(batchId, it) }
+        memoryCache.getBatch(batchId)?.let { return it }
+        return vaccineDao.getBatchById(batchId)?.also { memoryCache.putBatch(it) }
     }
 
     override suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
             vaccineDao.insertVaccine(vaccine)
-            memoryCache.putVaccineDefinition(vaccine.id, vaccine)
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
             try {
                 auditLogger.recordLog(
@@ -145,7 +144,6 @@ class InventoryRepositoryImpl @Inject constructor(
         database.withTransaction {
             val updated = vaccine.copy(lastUpdated = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
             vaccineDao.updateVaccine(updated)
-            memoryCache.putVaccineDefinition(updated.id, updated)
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             try {
                 auditLogger.recordLog(
@@ -167,7 +165,7 @@ class InventoryRepositoryImpl @Inject constructor(
             val currentTotal = vaccineDao.getTotalStockForVaccine(batch.vaccineId) ?: 0
             
             vaccineDao.insertBatch(batch)
-            memoryCache.putBatch(batch.batchId, batch)
+            memoryCache.putBatch(batch)
 
             val transaction = InventoryTransactionEntity(
                 vaccineId = batch.vaccineId,
@@ -300,7 +298,6 @@ class InventoryRepositoryImpl @Inject constructor(
             } else {
                 // Permanent Delete
                 vaccineDao.deleteVaccine(vaccineId)
-            memoryCache.invalidateVaccineDefinition(vaccineId)
                 syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
                 try {
                     auditLogger.recordLog(

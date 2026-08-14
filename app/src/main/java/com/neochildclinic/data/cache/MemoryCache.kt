@@ -1,5 +1,6 @@
 package com.neochildclinic.data.cache
 
+import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.Vaccination
@@ -10,12 +11,8 @@ import javax.inject.Singleton
 /**
  * Application-wide L1 in-memory cache.
  *
- * This cache is deliberately non-persistent: it is lost when the process dies.
- * Room remains the persistent/offline source of truth and Supabase remains the
- * cloud source of truth.
- *
- * Entries have a short TTL and repositories explicitly invalidate/update them
- * after writes so that L1 does not become a second database.
+ * Non-persistent and process-scoped. Room remains the persistent/offline
+ * source of truth and Supabase remains the cloud source of truth.
  */
 @Singleton
 class MemoryCache @Inject constructor() {
@@ -25,27 +22,18 @@ class MemoryCache @Inject constructor() {
     private val patients = ConcurrentHashMap<String, Entry<Patient?>>()
     private val vaccinations = ConcurrentHashMap<String, Entry<Vaccination?>>()
     private val profiles = ConcurrentHashMap<String, Entry<Profile?>>()
-    private val vaccineDefinitions = ConcurrentHashMap<String, Entry<Any?>>()
-    private val batches = ConcurrentHashMap<String, Entry<Any?>>()
-
-    // Small bounded set of recently viewed patient ids. The actual Patient
-    // objects live in the patient cache above.
-    private val recentPatientIds = ArrayDeque<String>()
-    private val recentLock = Any()
+    private val batches = ConcurrentHashMap<String, Entry<VaccineBatchEntity?>>()
 
     private val ttlMs = 5 * 60 * 1000L
-    private val maxRecentPatients = 20
 
-    fun getPatient(id: String): Patient? = get(patients, id)?.also { markPatientRecentlyViewed(id) }
+    fun getPatient(id: String): Patient? = get(patients, id)
 
     fun putPatient(patient: Patient) {
         patients[patient.id] = Entry(patient, expiresAt())
-        markPatientRecentlyViewed(patient.id)
     }
 
     fun invalidatePatient(id: String) {
         patients.remove(id)
-        synchronized(recentLock) { recentPatientIds.remove(id) }
     }
 
     fun getVaccination(id: String): Vaccination? = get(vaccinations, id)
@@ -54,7 +42,9 @@ class MemoryCache @Inject constructor() {
         vaccinations[vaccination.id] = Entry(vaccination, expiresAt())
     }
 
-    fun invalidateVaccination(id: String) { vaccinations.remove(id) }
+    fun invalidateVaccination(id: String) {
+        vaccinations.remove(id)
+    }
 
     fun getProfile(id: String): Profile? = get(profiles, id)
 
@@ -62,59 +52,45 @@ class MemoryCache @Inject constructor() {
         profiles[profile.id] = Entry(profile, expiresAt())
     }
 
-    fun invalidateProfile(id: String) { profiles.remove(id) }
-
-    @Suppress("UNCHECKED_CAST")
-    fun <T : Any> getVaccineDefinition(id: String): T? = get(vaccineDefinitions, id) as? T
-
-    fun putVaccineDefinition(id: String, value: Any) {
-        vaccineDefinitions[id] = Entry(value, expiresAt())
+    fun invalidateProfile(id: String) {
+        profiles.remove(id)
     }
 
-    fun invalidateVaccineDefinition(id: String) { vaccineDefinitions.remove(id) }
+    fun getBatch(id: String): VaccineBatchEntity? = get(batches, id)
 
-    @Suppress("UNCHECKED_CAST")
-    fun <T : Any> getBatch(id: String): T? = get(batches, id) as? T
-
-    fun putBatch(id: String, value: Any) {
-        batches[id] = Entry(value, expiresAt())
+    fun putBatch(batch: VaccineBatchEntity) {
+        batches[batch.batchId] = Entry(batch, expiresAt())
     }
 
-    fun invalidateBatch(id: String) { batches.remove(id) }
+    fun invalidateBatch(id: String) {
+        batches.remove(id)
+    }
 
     fun clearPatients() {
         patients.clear()
-        synchronized(recentLock) { recentPatientIds.clear() }
     }
 
+    /**
+     * Clears every L1 entry. Must be called when the authenticated user changes
+     * so data from a previous staff session cannot be served to the next user.
+     */
     fun clearAll() {
         patients.clear()
         vaccinations.clear()
         profiles.clear()
-        vaccineDefinitions.clear()
         batches.clear()
-        synchronized(recentLock) { recentPatientIds.clear() }
     }
 
+    /**
+     * Optional maintenance sweep. Normal reads also lazily remove expired
+     * entries, so a periodic job is not required for correctness.
+     */
     fun clearExpired() {
         val now = System.currentTimeMillis()
         patients.removeExpired(now)
         vaccinations.removeExpired(now)
         profiles.removeExpired(now)
-        vaccineDefinitions.removeExpired(now)
         batches.removeExpired(now)
-    }
-
-    fun recentlyViewedPatientIds(): List<String> = synchronized(recentLock) {
-        recentPatientIds.toList()
-    }
-
-    private fun markPatientRecentlyViewed(id: String) {
-        synchronized(recentLock) {
-            recentPatientIds.remove(id)
-            recentPatientIds.addFirst(id)
-            while (recentPatientIds.size > maxRecentPatients) recentPatientIds.removeLast()
-        }
     }
 
     private fun expiresAt(): Long = System.currentTimeMillis() + ttlMs

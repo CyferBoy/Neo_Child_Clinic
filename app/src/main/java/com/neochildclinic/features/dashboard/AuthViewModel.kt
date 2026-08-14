@@ -6,6 +6,7 @@ import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.DeviceRepository
+import com.neochildclinic.data.cache.MemoryCache
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.user.UserInfo
@@ -23,7 +24,8 @@ class AuthViewModel @Inject constructor(
     private val auth: Auth,
     private val profileRepository: ProfileRepository,
     private val deviceRepository: DeviceRepository,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val memoryCache: MemoryCache
 ) : ViewModel() {
 
     val currentUser: UserInfo? get() = auth.currentSessionOrNull()?.user
@@ -42,6 +44,9 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             auth.currentSessionOrNull()?.user?.id?.let { userId ->
                 fetchProfile(userId)
+                if (auth.currentSessionOrNull()?.user?.id != null) {
+                    deviceRepository.registerCurrentDevice()
+                }
             }
         }
     }
@@ -130,6 +135,9 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            // Clear process-scoped L1 before ending the session so a new
+            // staff member can never receive the previous user's cached PHI.
+            memoryCache.clearAll()
             deviceRepository.deactivateCurrentDevice()
             auth.signOut()
             _profile.value = null

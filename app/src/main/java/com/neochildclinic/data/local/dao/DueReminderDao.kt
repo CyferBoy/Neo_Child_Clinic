@@ -87,8 +87,6 @@ interface DueReminderDao {
             status = "COMPLETED",
             reminderEnabled = false,
             completionDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-            performedBy = completedBy,
-            notes = notes ?: reminder.notes,
             updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
@@ -101,8 +99,6 @@ interface DueReminderDao {
             status = "DISMISSED",
             reminderEnabled = true,
             dismissalDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-            performedBy = dismissedBy,
-            dismissalReason = reason,
             updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )

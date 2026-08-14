@@ -23,8 +23,11 @@ interface AuditLogDao {
     @Query("SELECT * FROM audit_logs WHERE module = :module ORDER BY timestamp DESC")
     fun getLogsForModule(module: String): Flow<List<AuditLogEntity>>
 
-    @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 200")
+    @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC")
     fun getAllLogs(): Flow<List<AuditLogEntity>>
+
+    @Query("SELECT * FROM audit_logs WHERE timestamp >= :startTimestamp AND timestamp < :endTimestamp ORDER BY timestamp DESC")
+    fun getLogsBetween(startTimestamp: String, endTimestamp: String): Flow<List<AuditLogEntity>>
 
     @Query("SELECT * FROM audit_logs WHERE isSynced = 0")
     suspend fun getUnsyncedLogs(): List<AuditLogEntity>

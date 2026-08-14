@@ -125,10 +125,6 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.hilt.work)
 
-    // Firebase App Check (Removed as we move to Supabase)
-    // implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    // implementation("com.google.firebase:firebase-appcheck-debug")
-
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -70,9 +70,8 @@ class DueViewModel @Inject constructor(
         _isRefreshing
     ) { patients, processedVaccinations, activeDue, filter, refreshing ->
         var filtered = when (filter) {
-            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "Month", "All" ->
+            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "Week", "Month", "All" ->
                 PatientUtils.filterVaccinationsByPeriod(processedVaccinations, filter)
-            "Week" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "This Week")
             else -> processedVaccinations
         }
 
