@@ -51,3 +51,4 @@ app/google-services.json
 
 # Temp files
 java_pid*.hprof
+.kotlin/
