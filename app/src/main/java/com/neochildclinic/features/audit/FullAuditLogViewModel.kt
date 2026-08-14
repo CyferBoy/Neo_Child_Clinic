@@ -5,12 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.*
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import javax.inject.Inject
 
 private val ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME
@@ -33,6 +33,7 @@ data class AuditLogUiState(
     val error: String? = null
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class FullAuditLogViewModel @Inject constructor(
     private val auditLogDao: AuditLogDao

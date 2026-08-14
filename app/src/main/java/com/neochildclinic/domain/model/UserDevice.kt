@@ -1,10 +1,13 @@
 package com.neochildclinic.domain.model
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class UserDevice(
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val id: String? = null,
     @SerialName("user_id") val userId: String,
     @SerialName("fcm_token") val fcmToken: String,
