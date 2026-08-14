@@ -3,6 +3,7 @@ package com.neochildclinic.di
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.domain.usecase.patient.DeletePatientUseCase
@@ -59,8 +60,16 @@ object UseCaseModule {
         vaccinationRepository: VaccinationRepository,
         wasteRepository: WasteRepository,
         inventoryRepository: InventoryRepository,
-        reminderRepository: ReminderRepository
-    ) = RefreshDataUseCase(patientRepository, vaccinationRepository, wasteRepository, inventoryRepository, reminderRepository)
+        reminderRepository: ReminderRepository,
+        consultationRepository: ConsultationRepository
+    ) = RefreshDataUseCase(
+        patientRepository,
+        vaccinationRepository,
+        wasteRepository,
+        inventoryRepository,
+        reminderRepository,
+        consultationRepository
+    )
 
     @Provides
     @ViewModelScoped

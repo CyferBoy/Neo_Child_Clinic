@@ -142,6 +142,15 @@ class PatientListViewModel @Inject constructor(
                     Log.e("Realtime", "Error in vaccinations change flow", e)
                 }.launchIn(this)
 
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = "consultations"
+                }.onEach {
+                    Log.d("Realtime", "Consultation change detected: $it")
+                    refresh()
+                }.catch { e ->
+                    Log.e("Realtime", "Error in consultations change flow", e)
+                }.launchIn(this)
+
                 channel.subscribe()
                 Log.d("Realtime", "Subscribed to channel: patients-db-changes")
             } catch (e: Exception) {

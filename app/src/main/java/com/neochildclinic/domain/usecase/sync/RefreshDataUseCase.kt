@@ -5,6 +5,7 @@ import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
@@ -18,12 +19,14 @@ class RefreshDataUseCase @Inject constructor(
     private val vaccinationRepository: VaccinationRepository,
     private val wasteRepository: WasteRepository,
     private val inventoryRepository: InventoryRepository,
-    private val reminderRepository: ReminderRepository
+    private val reminderRepository: ReminderRepository,
+    private val consultationRepository: ConsultationRepository
 ) {
     suspend operator fun invoke() = coroutineScope {
-        // 1. Mandatory Order: Patients then Vaccinations then Reminders
+        // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
         patientRepository.refreshPatients()
         vaccinationRepository.refreshVaccinations()
+        consultationRepository.refreshConsultations()
         reminderRepository.refreshReminders()
         
         // 2. Parallel Independent Tasks
