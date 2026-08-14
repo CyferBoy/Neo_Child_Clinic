@@ -28,7 +28,6 @@ fun ActionDropdownMenu(
     onPrint: (() -> Unit)? = null,
     onDownload: (() -> Unit)? = null,
     onMerge: (() -> Unit)? = null,
-    onMarkAsDone: (() -> Unit)? = null,
     onEditRole: (() -> Unit)? = null,
     onAuditLog: (() -> Unit)? = null,
     isAdmin: Boolean = true,
@@ -38,17 +37,6 @@ fun ActionDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss
     ) {
-        if (onMarkAsDone != null) {
-            DropdownMenuItem(
-                text = { Text("Mark as Done") },
-                onClick = {
-                    onDismiss()
-                    onMarkAsDone()
-                },
-                leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50)) }
-            )
-            HorizontalDivider()
-        }
         if (onAuditLog != null) {
             DropdownMenuItem(
                 text = { Text("View Audit Log") },

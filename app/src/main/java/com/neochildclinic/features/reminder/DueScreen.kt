@@ -18,7 +18,6 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 @Composable
 fun DueScreen(
     onBack: () -> Unit,
-    onNavigateToAddVaccination: (String, String) -> Unit,
     onNavigateToCompletedDismissed: () -> Unit,
     onPatientClick: (String) -> Unit,
     viewModel: DueViewModel = hiltViewModel()
@@ -88,12 +87,9 @@ fun DueScreen(
                         initialFilter = uiState.selectedFilter,
                         onFilterChanged = viewModel::updateFilter,
                         onSearchQueryChanged = viewModel::updateSearchQuery,
-                        onMarkAsDone = { v -> 
-                            onNavigateToAddVaccination(v.patientId, v.nxtVaccineNames.firstOrNull() ?: "")
-                        },
+                        onComplete = viewModel::completeVaccination,
                         onDismissReminder = viewModel::dismissReminder,
                         onReschedule = viewModel::rescheduleVaccination,
-                        onRestoreReminder = viewModel::restoreReminder,
                         onNavigateToCompletedDismissed = onNavigateToCompletedDismissed,
                         onPatientClick = onPatientClick
                     )

@@ -360,9 +360,6 @@ fun AppNavigation(
         composable(Routes.DUE) {
             DueScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToAddVaccination = { patientId, vaccineName ->
-                    navController.navigate("add_vaccine_with_details/$patientId/$vaccineName")
-                },
                 onNavigateToCompletedDismissed = {
                     navController.navigate(Routes.COMPLETED_DISMISSED)
                 },

@@ -44,9 +44,6 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             auth.currentSessionOrNull()?.user?.id?.let { userId ->
                 fetchProfile(userId)
-                if (auth.currentSessionOrNull()?.user?.id != null) {
-                    deviceRepository.registerCurrentDevice()
-                }
             }
         }
     }
@@ -135,8 +132,6 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            // Clear process-scoped L1 before ending the session so a new
-            // staff member can never receive the previous user's cached PHI.
             memoryCache.clearAll()
             deviceRepository.deactivateCurrentDevice()
             auth.signOut()

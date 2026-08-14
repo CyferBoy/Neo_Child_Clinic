@@ -244,7 +244,6 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val groupedNames = vaccineNames.distinct().joinToString(", ")
-                val now = PatientUtils.getCurrentIsoTimestamp()
                 val reminder = ReminderEntity(
                     id = UUID.randomUUID().toString(),
                     serverId = null,
@@ -259,8 +258,6 @@ class ReminderRepositoryImpl @Inject constructor(
                     type = type,
                     nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
                     notes = notes,
-                    createdAt = now,
-                    updatedAt = now,
                     isSynced = false
                 )
                 dueReminderDao.insertReminder(reminder)
@@ -301,7 +298,6 @@ class ReminderRepositoryImpl @Inject constructor(
                 val updated = existing.copy(
                     dueDate = newDate,
                     status = "ACTIVE",
-                    reminderEnabled = true,
                     updatedAt = PatientUtils.getCurrentIsoTimestamp(),
                     isSynced = false
                 )

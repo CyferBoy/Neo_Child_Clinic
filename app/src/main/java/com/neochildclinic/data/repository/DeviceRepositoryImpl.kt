@@ -6,13 +6,14 @@ import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.neochildclinic.domain.model.UserDevice
 import com.neochildclinic.domain.repository.DeviceRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Columns
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
-import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 @Singleton
 class DeviceRepositoryImpl @Inject constructor(
@@ -24,31 +25,20 @@ class DeviceRepositoryImpl @Inject constructor(
     private val userDevicesTable = postgrest.from("user_devices")
 
     override suspend fun registerCurrentDevice() {
-        val token = getFcmToken()
-        if (token == null) {
-            Log.w(TAG, "FCM token unavailable; device registration skipped")
-            return
-        }
+        val token = getFcmToken() ?: return
         registerDeviceWithToken(token)
     }
 
     override suspend fun registerDeviceWithToken(token: String) {
-        val currentUser = auth.currentSessionOrNull()?.user
-        if (currentUser == null) {
-            Log.w(TAG, "No authenticated Supabase user; device registration skipped")
-            return
-        }
-
-        val now = Instant.now().toString()
-        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
         val appVersion = getAppVersion()
 
         try {
-            // Reuse an existing row for this token. This keeps registration idempotent.
+            // Check if device already registered with this token
             val existingDevice = userDevicesTable.select {
                 filter {
                     eq("fcm_token", token)
-                    eq("user_id", currentUser.id)
                 }
             }.decodeSingleOrNull<UserDevice>()
 
@@ -58,82 +48,57 @@ class DeviceRepositoryImpl @Inject constructor(
                 fcmToken = token,
                 deviceName = deviceName,
                 appVersion = appVersion,
-                isActive = true,
-                lastSeenAt = now,
-                createdAt = existingDevice?.createdAt ?: now
+                isActive = true
             )
 
             userDevicesTable.upsert(device)
-
-            Log.d(TAG, "FCM device registered successfully for user ${currentUser.id}")
+            Log.d("DeviceRepository", "Device registered successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to register FCM device", e)
-            throw e
+            Log.e("DeviceRepository", "Failed to register device", e)
         }
     }
 
     override suspend fun deactivateCurrentDevice() {
         val token = getFcmToken() ?: return
-
-        try {
-            userDevicesTable.update(
-                mapOf(
-                    "is_active" to false,
-                    "last_seen_at" to Instant.now().toString()
-                )
-            ) {
-                filter {
-                    eq("fcm_token", token)
-                    eq("user_id", auth.currentSessionOrNull()?.user?.id ?: "")
-                }
+        
+        userDevicesTable.update(
+            mapOf("is_active" to false)
+        ) {
+            filter {
+                eq("fcm_token", token)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to deactivate FCM device", e)
         }
     }
 
     override suspend fun updateActivity() {
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
         val token = getFcmToken() ?: return
-
-        try {
-            userDevicesTable.update(
-                mapOf(
-                    "last_seen_at" to Instant.now().toString(),
-                    "app_version" to getAppVersion(),
-                    "is_active" to true
-                )
-            ) {
-                filter {
-                    eq("fcm_token", token)
-                    eq("user_id", currentUser.id)
-                }
+        
+        userDevicesTable.update(
+            mapOf(
+                "last_seen_at" to "now()",
+                "app_version" to getAppVersion()
+            )
+        ) {
+            filter {
+                eq("fcm_token", token)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update FCM device activity", e)
         }
     }
 
     private suspend fun getFcmToken(): String? {
         return try {
-            FirebaseMessaging.getInstance().token.await().takeIf { it.isNotBlank() }
+            FirebaseMessaging.getInstance().token.await()
         } catch (e: Exception) {
-            Log.e(TAG, "Unable to obtain FCM token", e)
             null
         }
     }
 
     private fun getAppVersion(): String {
         return try {
-            context.packageManager
-                .getPackageInfo(context.packageName, 0)
-                .versionName ?: "unknown"
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName ?: "unknown"
         } catch (e: Exception) {
             "unknown"
         }
-    }
-
-    companion object {
-        private const val TAG = "DeviceRepository"
     }
 }

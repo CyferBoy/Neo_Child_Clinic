@@ -58,7 +58,7 @@ class MergePatientsUseCase @Inject constructor(
                 // 5. Delete duplicate patient locally (this also queues sync)
                 patientRepository.deletePatient(dupId)
 
-                // 6. Queue sync for moved records to update Supabase
+                // 6. Queue sync for moved records to update Firestore
                 vaccIds.forEach { id ->
                     syncRepository.enqueue("VACCINATION", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
                 }

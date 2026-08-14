@@ -271,16 +271,6 @@ object PatientUtils {
                         !dateCal.before(tomorrowStart) && !dateCal.after(tomorrowEnd)
                     }
                     "This Week" -> !dateCal.before(weekStart) && !dateCal.after(weekEnd)
-                    // Due tab "Week": tomorrow through 7 days from today (today excluded).
-                    "Week" -> {
-                        val weekStart = (todayStart.clone() as Calendar).apply {
-                            add(Calendar.DAY_OF_YEAR, 1)
-                        }
-                        val weekEnd = (todayStart.clone() as Calendar).apply {
-                            add(Calendar.DAY_OF_YEAR, 7)
-                        }
-                        !dateCal.before(weekStart) && !dateCal.after(weekEnd)
-                    }
                     "Month" -> !dateCal.before(monthStart) && !dateCal.after(monthEnd)
                     "Upcoming" -> dateCal.after(weekEnd)
                     "All" -> true

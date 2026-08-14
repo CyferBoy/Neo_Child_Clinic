@@ -1,9 +1,9 @@
 package com.neochildclinic.data.cache
 
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,8 +11,12 @@ import javax.inject.Singleton
 /**
  * Application-wide L1 in-memory cache.
  *
- * Non-persistent and process-scoped. Room remains the persistent/offline
- * source of truth and Supabase remains the cloud source of truth.
+ * This cache is deliberately non-persistent: it is lost when the process dies.
+ * Room remains the persistent/offline source of truth and Supabase remains the
+ * cloud source of truth.
+ *
+ * Entries have a short TTL and repositories explicitly invalidate/update them
+ * after writes so that L1 does not become a second database.
  */
 @Singleton
 class MemoryCache @Inject constructor() {
@@ -25,7 +29,6 @@ class MemoryCache @Inject constructor() {
     private val batches = ConcurrentHashMap<String, Entry<VaccineBatchEntity?>>()
 
     private val ttlMs = 5 * 60 * 1000L
-
     fun getPatient(id: String): Patient? = get(patients, id)
 
     fun putPatient(patient: Patient) {
@@ -42,9 +45,7 @@ class MemoryCache @Inject constructor() {
         vaccinations[vaccination.id] = Entry(vaccination, expiresAt())
     }
 
-    fun invalidateVaccination(id: String) {
-        vaccinations.remove(id)
-    }
+    fun invalidateVaccination(id: String) { vaccinations.remove(id) }
 
     fun getProfile(id: String): Profile? = get(profiles, id)
 
@@ -52,9 +53,7 @@ class MemoryCache @Inject constructor() {
         profiles[profile.id] = Entry(profile, expiresAt())
     }
 
-    fun invalidateProfile(id: String) {
-        profiles.remove(id)
-    }
+    fun invalidateProfile(id: String) { profiles.remove(id) }
 
     fun getBatch(id: String): VaccineBatchEntity? = get(batches, id)
 
@@ -62,18 +61,12 @@ class MemoryCache @Inject constructor() {
         batches[batch.batchId] = Entry(batch, expiresAt())
     }
 
-    fun invalidateBatch(id: String) {
-        batches.remove(id)
-    }
+    fun invalidateBatch(id: String) { batches.remove(id) }
 
     fun clearPatients() {
         patients.clear()
     }
 
-    /**
-     * Clears every L1 entry. Must be called when the authenticated user changes
-     * so data from a previous staff session cannot be served to the next user.
-     */
     fun clearAll() {
         patients.clear()
         vaccinations.clear()
@@ -81,10 +74,6 @@ class MemoryCache @Inject constructor() {
         batches.clear()
     }
 
-    /**
-     * Optional maintenance sweep. Normal reads also lazily remove expired
-     * entries, so a periodic job is not required for correctness.
-     */
     fun clearExpired() {
         val now = System.currentTimeMillis()
         patients.removeExpired(now)

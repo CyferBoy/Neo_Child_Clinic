@@ -29,10 +29,9 @@ fun DueTab(
     initialFilter: String = "Today",
     onFilterChanged: (String) -> Unit = {},
     onSearchQueryChanged: (String) -> Unit = {},
-    onMarkAsDone: (Vaccination) -> Unit = {},
+    onComplete: (Vaccination) -> Unit = {},
     onDismissReminder: (Vaccination, String) -> Unit = { _, _ -> },
     onReschedule: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
-    onRestoreReminder: (Vaccination) -> Unit = {},
     onNavigateToCompletedDismissed: () -> Unit = {},
     onPatientClick: (String) -> Unit = {}
 ) {
@@ -109,10 +108,9 @@ fun DueTab(
 
     if (showManageSheet && selectedVaccination != null) {
         ManageDueBottomSheet(
-            status = selectedVaccination?.status ?: ReminderStatus.ACTIVE,
             onDismiss = { showManageSheet = false },
-            onMarkAsDone = { 
-                selectedVaccination?.let { onMarkAsDone(it) }
+            onComplete = {
+                selectedVaccination?.let { onComplete(it) }
                 showManageSheet = false 
             },
             onDismissReminder = {
@@ -123,10 +121,6 @@ fun DueTab(
                 showManageSheet = false
                 showReschedulePicker = true 
             },
-            onRestore = {
-                selectedVaccination?.let { onRestoreReminder(it) }
-                showManageSheet = false
-            }
         )
     }
 
@@ -194,7 +188,7 @@ private fun DueTabPreview() {
             ),
             overdueCount = 1,
             stats = ReminderStats(completedToday = 12, dismissedToday = 3),
-            onMarkAsDone = {},
+            onComplete = {},
             onDismissReminder = { _, _ -> },
             onReschedule = { _, _, _, _ -> },
         )
