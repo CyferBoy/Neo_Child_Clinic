@@ -67,11 +67,11 @@ class ClinicStatsManager @Inject constructor(
             val todayCal = DateClassifier.getTodayStart()
             val dueToday = dueVaccinations.count { 
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Today || cat is DateCategory.GracePeriod || cat is DateCategory.Yesterday
+                cat is DateCategory.Today
             }
             val overdue = dueVaccinations.count { 
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Overdue || cat is DateCategory.Yesterday
+                cat is DateCategory.Overdue
             }
 
             val topVaccines = calculateTopVaccines(vaccineNamesList)

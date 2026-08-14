@@ -16,10 +16,6 @@ interface ReminderRepository {
         filterStatus: List<ReminderStatus>? = null
     ): Flow<List<Vaccination>>
     
-    fun getDueToday(): Flow<List<Vaccination>>
-    fun getDueTomorrow(): Flow<List<Vaccination>>
-    fun getOverdue(): Flow<List<Vaccination>>
-    
     // Next Vaccination logic
     suspend fun saveNextVaccination(
         patientId: String,

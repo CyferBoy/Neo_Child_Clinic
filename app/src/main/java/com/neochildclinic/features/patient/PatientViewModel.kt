@@ -32,6 +32,11 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class PatientVaccinationCardData(
+    val vaccination: Vaccination,
+    val reminders: List<ReminderEntity>
+)
+
 @HiltViewModel
 class PatientViewModel @Inject constructor(
     private val getPatientsUseCase: GetPatientsUseCase,
@@ -134,7 +139,6 @@ class PatientViewModel @Inject constructor(
                 initialValue = emptyMap()
             )
 
-        refresh()
     }
 
     private fun fetchProfile() {
@@ -269,6 +273,25 @@ class PatientViewModel @Inject constructor(
     fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
         return reminderRepository.getPatientReminders(patientId)
     }
+
+    /**
+     * Emits a complete vaccination-card data set from the same local snapshot.
+     * The UI no longer renders vaccination history first and attaches reminders
+     * in a later, independent emission.
+     */
+    fun getPatientVaccinationCards(patientId: String): Flow<List<PatientVaccinationCardData>> =
+        combine(
+            getPatientHistory(patientId),
+            reminderRepository.getPatientReminders(patientId)
+        ) { vaccinations, reminders ->
+            val remindersByVisit = reminders.groupBy { it.originalVisitId }
+            vaccinations.map { vaccination ->
+                PatientVaccinationCardData(
+                    vaccination = vaccination,
+                    reminders = remindersByVisit[vaccination.id].orEmpty()
+                )
+            }
+        }
 
     fun getPatientNotes(patientId: String): Flow<List<PatientNotesEntity>> {
         return patientRepository.getNotes(patientId)

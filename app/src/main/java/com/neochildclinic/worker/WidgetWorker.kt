@@ -45,9 +45,7 @@ class WidgetWorker @AssistedInject constructor(
                 val displayDate = when (category) {
                     is DateCategory.Today -> "Today"
                     is DateCategory.Tomorrow -> "Tomorrow"
-                    is DateCategory.Yesterday -> "Yesterday"
                     is DateCategory.Overdue -> PatientUtils.formatDateForDisplay(vacc.nextDueDate)
-                    is DateCategory.GracePeriod -> category.dateStr
                     is DateCategory.Future -> category.dateStr
                 }
 
@@ -55,7 +53,7 @@ class WidgetWorker @AssistedInject constructor(
                     patientName = patient?.name ?: "Unknown",
                     vaccineName = vacc.nxtVaccineNames.joinToString(", "),
                     dueDate = displayDate,
-                    isOverdue = category is DateCategory.Overdue || category is DateCategory.Yesterday
+                    isOverdue = category is DateCategory.Overdue
                 )
             }
 

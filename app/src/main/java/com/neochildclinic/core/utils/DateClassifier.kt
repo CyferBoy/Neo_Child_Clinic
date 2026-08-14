@@ -5,10 +5,8 @@ import java.util.concurrent.TimeUnit
 
 sealed class DateCategory {
     data class Overdue(val days: Int) : DateCategory()
-    object Yesterday : DateCategory()
     object Today : DateCategory()
     object Tomorrow : DateCategory()
-    data class GracePeriod(val dateStr: String, val days: Int) : DateCategory()
     data class Future(val dateStr: String) : DateCategory()
 }
 
@@ -59,10 +57,8 @@ object DateClassifier {
     fun formatDisplay(dateStr: String, todayStart: Calendar = getTodayStart()): String {
         return when (val category = classify(dateStr, todayStart)) {
             is DateCategory.Overdue -> PatientUtils.formatDateForDisplay(dateStr)
-            is DateCategory.Yesterday -> "Yesterday"
             is DateCategory.Today -> "Today"
             is DateCategory.Tomorrow -> "Tomorrow"
-            is DateCategory.GracePeriod -> category.dateStr
             is DateCategory.Future -> category.dateStr
         }
     }

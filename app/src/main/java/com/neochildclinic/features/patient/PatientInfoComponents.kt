@@ -42,9 +42,9 @@ fun PatientDetailsContent(
     paddingValues: PaddingValues,
     patient: Patient,
     vaccinations: List<Vaccination>,
+    vaccinationCardData: List<PatientVaccinationCardData>?,
     consultations: List<Consultation>,
     documents: List<FileObject>,
-    reminders: List<ReminderEntity>,
     notes: List<PatientNotesEntity>,
     doctorMap: Map<String, String>,
     vaccineMap: Map<String, String>,
@@ -68,13 +68,6 @@ fun PatientDetailsContent(
             deductions = deductionsForVisit,
             onDismiss = { selectedVisitForDeductions = null }
         )
-    }
-
-    // Vaccination cards read Next/Due directly from reminders.
-    // Keep every reminder for a visit; do not use associateBy because one visit
-    // may have multiple Next Vaccination entries. No status filter is applied here.
-    val remindersByVisit = remember(reminders) {
-        reminders.groupBy { it.originalVisitId }
     }
 
     LazyColumn(
@@ -102,11 +95,12 @@ fun PatientDetailsContent(
                     item { EmptySectionText("No vaccination records found.") }
                 } else {
                     itemsIndexed(segmentVaccinations, key = { _, v -> v.id }) { _, vaccination ->
+                        val cardData = vaccinationCardData?.firstOrNull { it.vaccination.id == vaccination.id }
                         VaccinationRecordCard(
                             vaccination = vaccination,
                             patient = patient,
                             doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
-                            reminders = remindersByVisit[vaccination.id].orEmpty(),
+                            reminders = cardData?.reminders.orEmpty(),
                             vaccineMap = vaccineMap,
                             onClick = { onOpenVaccinationDetails(vaccination) },
                             onLongClick = { onLongClickVaccination(vaccination) },

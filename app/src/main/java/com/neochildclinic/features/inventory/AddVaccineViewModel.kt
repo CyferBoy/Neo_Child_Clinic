@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
@@ -54,21 +55,20 @@ class AddVaccineViewModel @Inject constructor(
     fun loadVaccine(vaccineId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            inventoryRepository.getInventoryItems().collect { items ->
-                val item = items.find { it.id == vaccineId }
-                if (item != null) {
-                    val entity = VaccineEntity(
-                        id = item.id,
-                        type = item.type,
-                        brandName = item.brandName,
-                        companyName = item.company,
-                        mrp = item.mrp,
-                        netRate = item.netRate
-                    )
-                    _uiState.update { it.copy(vaccine = entity, isLoading = false) }
-                } else {
-                    _uiState.update { it.copy(isLoading = false, error = "Vaccine not found") }
-                }
+            val items = inventoryRepository.getInventoryItems().first()
+            val item = items.find { it.id == vaccineId }
+            if (item != null) {
+                val entity = VaccineEntity(
+                    id = item.id,
+                    type = item.type,
+                    brandName = item.brandName,
+                    companyName = item.company,
+                    mrp = item.mrp,
+                    netRate = item.netRate
+                )
+                _uiState.update { it.copy(vaccine = entity, isLoading = false) }
+            } else {
+                _uiState.update { it.copy(isLoading = false, error = "Vaccine not found") }
             }
         }
     }

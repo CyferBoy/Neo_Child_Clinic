@@ -208,9 +208,7 @@ fun DuePatientCard(
             val category = DateClassifier.classify(vaccination.nextDueDate)
             val (statusText, statusColor) = when (category) {
                 is DateCategory.Overdue -> "${category.days} Days Overdue" to MaterialTheme.colorScheme.error
-                is DateCategory.Yesterday -> "1 Day Overdue" to MaterialTheme.colorScheme.error
                 is DateCategory.Today -> "Due Today" to Color(0xFFFBC02D)
-                is DateCategory.GracePeriod -> "${category.days} Days Overdue" to MaterialTheme.colorScheme.error
                 is DateCategory.Tomorrow -> "Due Tomorrow" to Color(0xFF4CAF50)
                 is DateCategory.Future -> {
                     val targetDate = PatientUtils.parseDate(vaccination.nextDueDate)
@@ -233,9 +231,7 @@ fun DuePatientCard(
                 ) {
                     Icon(
                         imageVector = when (category) {
-                            is DateCategory.Overdue,
-                            is DateCategory.Yesterday,
-                            is DateCategory.GracePeriod -> Icons.Default.Error
+                            is DateCategory.Overdue -> Icons.Default.Error
                             is DateCategory.Today -> Icons.Default.Today
                             is DateCategory.Tomorrow,
                             is DateCategory.Future -> Icons.Default.Schedule

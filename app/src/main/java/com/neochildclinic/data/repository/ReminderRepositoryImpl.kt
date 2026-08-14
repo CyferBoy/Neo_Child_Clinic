@@ -114,22 +114,6 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getDueToday(): Flow<List<Vaccination>> = getProcessedDueFlow().map { (list, _) ->
-        PatientUtils.filterVaccinationsByPeriod(list, "Today")
-    }
-
-    override fun getDueTomorrow(): Flow<List<Vaccination>> = getProcessedDueFlow().map { (list, _) ->
-        val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }.time
-        val tomorrowStr = PatientUtils.formatDate(tomorrow)
-        PatientUtils.filterVaccinationsByPeriod(list, "This Week").filter { v ->
-            v.nextDueDate == tomorrowStr
-        }
-    }
-
-    override fun getOverdue(): Flow<List<Vaccination>> = getProcessedDueFlow().map { (list, _) ->
-        PatientUtils.filterVaccinationsByPeriod(list, "Overdue")
-    }
-
     override fun getDashboardStats(): Flow<ReminderStats> = combine(
         vaccinationDao.getAllVaccinations(),
         dueReminderDao.getAllReminders(),
@@ -148,7 +132,7 @@ class ReminderRepositoryImpl @Inject constructor(
             dueTomorrow = dueList.count { DateClassifier.classify(it.nextDueDate, todayCal) is DateCategory.Tomorrow },
             overdue = dueList.count { 
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Overdue || cat is DateCategory.Yesterday || cat is DateCategory.GracePeriod
+                cat is DateCategory.Overdue
             },
             completedToday = reminders.count { it.status == "COMPLETED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.completionDate) >= todayStart },
             dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.dismissalDate) >= todayStart },

@@ -48,42 +48,40 @@ class DueViewModel @Inject constructor(
     private val currentUserEmail: String
         get() = auth.currentSessionOrNull()?.user?.email ?: "Unknown Staff"
 
+    private val activeDueFlow: Flow<List<Vaccination>> =
+        reminderRepository.getDueList("", listOf(ReminderStatus.ACTIVE))
+
+    private val selectedDueFlow: Flow<List<Vaccination>> =
+        combine(_searchQuery, _selectedFilter) { query, filter -> query to filter }
+            .flatMapLatest { (query, filter) ->
+                val status = when (filter) {
+                    "Completed" -> listOf(ReminderStatus.COMPLETED)
+                    "Dismissed" -> listOf(ReminderStatus.DISMISSED)
+                    else -> listOf(ReminderStatus.ACTIVE)
+                }
+                reminderRepository.getDueList(query, status)
+            }
+
     val uiState: StateFlow<DueUiState> = combine(
         getPatientsUseCase(),
-        _searchQuery,
+        selectedDueFlow,
+        activeDueFlow,
         _selectedFilter,
         _isRefreshing
-    ) { patients, query, filter, refreshing ->
-        
-        val filterStatus = when (filter) {
-            "Completed" -> listOf(ReminderStatus.COMPLETED)
-            "Dismissed" -> listOf(ReminderStatus.DISMISSED)
-            else -> listOf(ReminderStatus.ACTIVE)
-        }
-
-        val processedVaccinations = reminderRepository.getDueList(query, filterStatus).first()
-        
+    ) { patients, processedVaccinations, activeDue, filter, refreshing ->
         var filtered = when (filter) {
-            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "Month", "All" -> {
+            "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "Month", "All" ->
                 PatientUtils.filterVaccinationsByPeriod(processedVaccinations, filter)
-            }
             "Week" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "This Week")
-            "Month" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "Month")
             else -> processedVaccinations
         }
 
-        // Apply custom sorting for Overdue (latest first as per request)
         if (filter == "Overdue") {
             filtered = filtered.sortedByDescending { PatientUtils.parseDate(it.nextDueDate)?.time ?: 0L }
         }
-        
-        // Count overall overdue from the "Active/Due" pool for the badge, regardless of current tab
-        val allDue = if (filterStatus.contains(ReminderStatus.ACTIVE)) processedVaccinations 
-                     else reminderRepository.getDueList("", listOf(ReminderStatus.ACTIVE)).first()
 
-        val overdue = allDue.count { 
-            val cat = DateClassifier.classify(it.nextDueDate)
-            cat is DateCategory.Overdue
+        val overdue = activeDue.count {
+            DateClassifier.classify(it.nextDueDate) is DateCategory.Overdue
         }
 
         DueUiState(
