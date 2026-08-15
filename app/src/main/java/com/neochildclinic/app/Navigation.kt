@@ -31,6 +31,14 @@ import com.neochildclinic.features.patient.PatientListScreen
 import com.neochildclinic.features.sync.SyncScreen
 import com.neochildclinic.features.audit.FullAuditLogScreen
 import com.neochildclinic.features.settings.SettingsScreen
+import com.neochildclinic.features.settings.AppUpdateScreen
+import com.neochildclinic.features.settings.TermsOfServiceScreen
+import com.neochildclinic.features.settings.PrivacyPolicyScreen
+import com.neochildclinic.features.settings.HelpSupportScreen
+import com.neochildclinic.features.settings.SecuritySettingsScreen
+import com.neochildclinic.features.settings.BackupSettingsScreen
+import com.neochildclinic.features.settings.InventorySettingsScreen
+import com.neochildclinic.features.settings.NotificationSettingsScreen
 import com.neochildclinic.features.profile.ProfileScreen
 import com.neochildclinic.features.reminder.DueScreen
 import com.neochildclinic.features.statistics.MonthlyFinanceDetailsScreen
@@ -103,8 +111,48 @@ fun AppNavigation(
 
         composable(Routes.SETTINGS) {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNotifications = { navController.navigate(Routes.NOTIFICATION_SETTINGS) },
+                onInventory = { navController.navigate(Routes.INVENTORY_SETTINGS) },
+                onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
+                onSecurity = { navController.navigate(Routes.SECURITY_SETTINGS) },
+                onHelpSupport = { navController.navigate(Routes.HELP_SUPPORT) },
+                onPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
+                onTermsOfService = { navController.navigate(Routes.TERMS_OF_SERVICE) },
+                onCheckForUpdates = { navController.navigate(Routes.APP_UPDATE) }
             )
+        }
+
+        composable(Routes.NOTIFICATION_SETTINGS) {
+            NotificationSettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.INVENTORY_SETTINGS) {
+            InventorySettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.BACKUP_SETTINGS) {
+            BackupSettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.SECURITY_SETTINGS) {
+            SecuritySettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.HELP_SUPPORT) {
+            HelpSupportScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PRIVACY_POLICY) {
+            PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.TERMS_OF_SERVICE) {
+            TermsOfServiceScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.APP_UPDATE) {
+            AppUpdateScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PROFILE) {
