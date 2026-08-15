@@ -1,38 +1,40 @@
-name: CodeQL
+name: "CodeQL Advanced"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   schedule:
-    - cron: '30 2 * * 1'
+    - cron: "32 20 * * 4"
 
 jobs:
   analyze:
-    name: CodeQL Analysis
+    name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
 
     permissions:
       security-events: write
+      packages: read
       actions: read
       contents: read
 
     strategy:
       fail-fast: false
       matrix:
-        language: [ "java-kotlin" ]
-        build-mode: [ "manual" ]
+        include:
+          - language: java-kotlin
+            build-mode: manual
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
-      - name: Set up JDK
+      - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -40,10 +42,48 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
+      # google-services.json is intentionally excluded from Git.
+      # Create a temporary CI-only configuration so the Google Services
+      # Gradle plugin can configure the debug build.
+      - name: Create CI Firebase configuration
+        shell: bash
+        run: |
+          cat > app/google-services.json <<'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "neo-child-clinic-ci",
+              "storage_bucket": "neo-child-clinic-ci.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.neochildclinic"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "CI_BUILD_ONLY"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
       - name: Build Android project
+        shell: bash
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
+
+      - name: Remove temporary Firebase configuration
+        if: always()
+        shell: bash
+        run: |
+          rm -f app/google-services.json
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
