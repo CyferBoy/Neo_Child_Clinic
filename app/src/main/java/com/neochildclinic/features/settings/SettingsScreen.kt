@@ -6,7 +6,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -14,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -26,59 +24,35 @@ import com.neochildclinic.core.ui.AppBackground
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onNavigateToInventoryIssues: () -> Unit = {},
-    viewModel: NotificationSettingsViewModel = hiltViewModel()
+    viewModel: NotificationSettingsViewModel = hiltViewModel(),
+    appUpdateViewModel: AppUpdateViewModel = hiltViewModel()
 ) {
     val settingsState by viewModel.settings.collectAsState()
-    val isBackfilling by viewModel.isBackfilling.collectAsState()
-    val backfillResults by viewModel.backfillResults.collectAsState()
+    val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
+    val checkingUpdates by appUpdateViewModel.checking.collectAsState()
+    val installingUpdate by appUpdateViewModel.installing.collectAsState()
+    val updateMessage by appUpdateViewModel.message.collectAsState()
     
     var expandedSection by remember { mutableStateOf<String?>(null) }
-    var showBackfillConfirm by remember { mutableStateOf(false) }
 
-    if (showBackfillConfirm) {
-        AlertDialog(
-            onDismissRequest = { showBackfillConfirm = false },
-            title = { Text("Confirm Inventory Backfill") },
-            text = { Text("This will deduct historical vaccine usage from current stock based on all past vaccination records. This cannot be undone. Continue?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showBackfillConfirm = false
-                        viewModel.runInventoryBackfill()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Confirm & Run") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showBackfillConfirm = false }) { Text("Cancel") }
-            }
+    updateInfo?.let { info ->
+        com.neochildclinic.core.ui.AppUpdateDialog(
+            info = info,
+            installing = installingUpdate,
+            onUpdate = { appUpdateViewModel.installUpdate() },
+            onLater = { appUpdateViewModel.dismissUpdate() }
         )
     }
 
-    if (backfillResults != null) {
+    updateMessage?.let { message ->
         AlertDialog(
-            onDismissRequest = { viewModel.clearBackfillResults() },
-            title = { Text("Backfill Summary") },
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                    items(backfillResults!!) { result ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(result.vaccineName, fontWeight = FontWeight.Bold)
-                                Text(result.message, style = MaterialTheme.typography.bodySmall, color = if (result.success) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error)
-                            }
-                            Text("Count: ${result.countFound}", style = MaterialTheme.typography.labelMedium)
-                        }
-                        HorizontalDivider(modifier = Modifier.alpha(0.5f))
-                    }
-                }
-            },
+            onDismissRequest = { appUpdateViewModel.clearMessage() },
+            title = { Text("App Updates") },
+            text = { Text(message) },
             confirmButton = {
-                TextButton(onClick = { viewModel.clearBackfillResults() }) { Text("Close") }
+                TextButton(onClick = { appUpdateViewModel.clearMessage() }) {
+                    Text("OK")
+                }
             }
         )
     }
@@ -218,52 +192,6 @@ fun SettingsScreen(
                         }
                     }
 
-                    // Admin Maintenance Section
-                    if (viewModel.isAdmin) {
-                        item {
-                            ExpandableSettingsSection(
-                                title = "Maintenance (Admin)",
-                                icon = Icons.Default.Build,
-                                isExpanded = expandedSection == "Maintenance",
-                                onExpandToggle = { expandedSection = if (expandedSection == "Maintenance") null else "Maintenance" }
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(
-                                        "Perform system-wide data reconciliation and cleanup tasks.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    
-                                    Button(
-                                        onClick = { showBackfillConfirm = true },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isBackfilling,
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
-                                    ) {
-                                        if (isBackfilling) {
-                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.error)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("Processing Backfill...")
-                                        } else {
-                                            Icon(Icons.Default.History, contentDescription = null)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("Backfill Inventory From History")
-                                        }
-                                    }
-
-                                    OutlinedButton(
-                                        onClick = onNavigateToInventoryIssues,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(Icons.Default.ErrorOutline, contentDescription = null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Manage Inventory Issues")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     // Support Section
                     item {
                         ExpandableSettingsSection(
@@ -282,8 +210,14 @@ fun SettingsScreen(
                                 SettingItem(label = "Terms of Service", value = "Read") {
                                     // Terms Logic
                                 }
+                                SettingItem(
+                                    label = "Check for Updates",
+                                    value = if (checkingUpdates) "Checking…" else "Check"
+                                ) {
+                                    appUpdateViewModel.checkForUpdates(isManual = true)
+                                }
                                 Text(
-                                    text = "Version: 1.0.0",
+                                    text = "Version: ${com.neochildclinic.BuildConfig.VERSION_NAME}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp)

@@ -1,0 +1,38 @@
+name: Notify app users about release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Supabase update endpoint
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          UPDATE_NOTIFIER_SECRET: ${{ secrets.UPDATE_NOTIFIER_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$UPDATE_NOTIFIER_SECRET" ]; then
+            echo "Secrets are not configured; skipping notification."
+            exit 0
+          fi
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          BODY="$(python - <<'PY'
+import json, os
+event = os.environ.get("GITHUB_EVENT_PATH")
+data = json.load(open(event))
+print(data.get("release", {}).get("body", ""))
+PY
+)"
+
+          MANDATORY="false"
+          if echo "$BODY" | grep -qi "update-type: mandatory"; then
+            MANDATORY="true"
+          fi
+
+          curl --fail-with-body -X POST "$SUPABASE_URL/functions/v1/notify-update" \
+            -H "Authorization: Bearer $UPDATE_NOTIFIER_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"version_name\":\"$VERSION\",\"mandatory\":$MANDATORY}"

@@ -114,7 +114,7 @@ class VaccineWidget : GlanceAppWidget() {
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp)
+                .padding(vertical = 3.dp)
         ) {
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),

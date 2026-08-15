@@ -27,6 +27,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import com.neochildclinic.core.utils.BiometricLockManager
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.LockScreen
+import com.neochildclinic.core.ui.AppUpdateDialog
+import com.neochildclinic.features.settings.AppUpdateViewModel
 import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.features.dashboard.AuthViewModel
@@ -66,6 +68,7 @@ class MainActivity : FragmentActivity() {
     lateinit var deviceRepository: DeviceRepository
 
     private val authViewModel: AuthViewModel by viewModels()
+    private val appUpdateViewModel: AppUpdateViewModel by viewModels()
 
     private var openDueTab by mutableStateOf(false)
 
@@ -87,12 +90,23 @@ class MainActivity : FragmentActivity() {
             NeoChildTheme {
                 val isLocked by BiometricLockManager.isAppLocked.collectAsState()
                 val navController = rememberNavController()
+                val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
+                val installingUpdate by appUpdateViewModel.installing.collectAsState()
                 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AppNavigation(navController = navController)
                     
                     if (isLocked) {
                         LockScreen(onAuthenticate = { authenticateWithBiometrics() })
+                    }
+
+                    updateInfo?.let { info ->
+                        AppUpdateDialog(
+                            info = info,
+                            installing = installingUpdate,
+                            onUpdate = { appUpdateViewModel.installUpdate() },
+                            onLater = { appUpdateViewModel.dismissUpdate() }
+                        )
                     }
                 }
 
@@ -130,6 +144,9 @@ class MainActivity : FragmentActivity() {
             deviceRepository.updateActivity()
             settingsManager.updateLastOpenTimestamp()
             syncManager.scheduleSync()
+            if (auth.currentSessionOrNull() != null) {
+                appUpdateViewModel.checkForUpdates()
+            }
         }
     }
 
@@ -212,6 +229,11 @@ class MainActivity : FragmentActivity() {
         // The key is usually the string name used in ActionParameters.Key
         if (intent?.extras?.containsKey("OPEN_DUE_TAB") == true) {
             openDueTab = intent.getBooleanExtra("OPEN_DUE_TAB", false)
+        }
+        if (intent?.getBooleanExtra("CHECK_APP_UPDATE", false) == true) {
+            if (auth.currentSessionOrNull() != null) {
+                appUpdateViewModel.checkForUpdates()
+            }
         }
     }
 

@@ -33,6 +33,5 @@ object Routes {
     const val ADD_VACCINE = "add_vaccine"
     const val ADD_VACCINE_FOR_PATIENT = "add_vaccine/{patientId}"
     const val ADD_CONSULTATION = "add_consultation/{patientId}"
-    const val INVENTORY_ISSUES = "inventory_issues"
     const val COMPLETED_DISMISSED = "completed_dismissed"
 }

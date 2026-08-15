@@ -28,7 +28,6 @@ git clone https://github.com/CyferBoy/Vaccine_Manager.git
 
 ### 2. Supabase Configuration
 1. Create a new project on [Supabase](https://supabase.com/).
-2. Run the provided SQL schema scripts (found in the artifacts directory) in the Supabase SQL Editor to create the necessary tables and RLS policies.
 3. Enable **Email Auth** in the Authentication settings.
 4. Add `neochild://auth-callback` to your Redirect URLs.
 5. Create a storage bucket named `patient-docs`.
@@ -57,3 +56,64 @@ git clone https://github.com/CyferBoy/Vaccine_Manager.git
 
 ## License
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.
+
+## Public GitHub release notes
+
+This repository contains the Vaccine Manager Android application.
+
+### Supabase
+The Android client uses the Supabase URL and publishable/anon client key required by the application. Do not commit Supabase service-role keys, database passwords, or other server-side secrets.
+
+### Push notifications
+Firebase Cloud Messaging (FCM) is used for push notifications. Device FCM tokens are associated with authenticated users through the application's backend. Firebase Authentication is not required for application authentication.
+
+### Building a release
+1. Open the project in Android Studio.
+2. Configure your private release signing key locally; never commit the keystore or signing credentials.
+3. Update `versionCode` and `versionName` for each release.
+4. Build a signed release APK/AAB.
+5. Publish the release artifact separately in GitHub Releases.
+
+### GitHub Releases
+The source repository and release APKs are separate concerns. Do not commit APK/AAB files to the source tree. Release APKs should be attached to GitHub Releases.
+
+### Security
+Before deploying with real patient data, review Supabase Row Level Security (RLS), Edge Function authorization, and all server-side access controls.
+
+### In-app update releases
+
+The app checks the latest GitHub Release and downloads the APK from its release assets. Each release should attach one `.apk` file.
+
+Recommended release body metadata:
+
+```text
+version-code: 2
+update-type: mandatory
+minimum-version-code: 2
+```
+
+For an optional release:
+
+```text
+version-code: 3
+update-type: optional
+```
+
+`version-code` must match the Android `versionCode`. `update-type: mandatory` prevents dismissal. `minimum-version-code` can force an older installed build to update even when the newest release itself is optional.
+
+The app remembers a dismissed optional version and will not show it again until a newer release is available.
+
+### Update Automation
+
+The project includes a GitHub Action (`notify-update.yml`) that triggers when a release is published. It notifies all registered devices via FCM about the new version.
+
+#### 1. GitHub Secrets
+Configure these in GitHub (Settings → Secrets and variables → Actions):
+- `SUPABASE_URL`: Your project URL (e.g., `https://xyz.supabase.co`).
+- `UPDATE_NOTIFIER_SECRET`: A long random string to authenticate GitHub to your Edge Function.
+
+#### 2. Supabase Configuration
+- **Edge Function**: Deploy the `notify-update` function using the Supabase CLI.
+- **Secrets**: Set these in Supabase (`supabase secrets set`):
+  - `UPDATE_NOTIFIER_SECRET`: Same value as in GitHub.
+  - `FIREBASE_SERVICE_ACCOUNT`: The content of your Firebase Service Account JSON.

@@ -24,10 +24,12 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_DAILY_SUMMARY = "daily_summary"
         const val CHANNEL_LOW_STOCK = "low_stock_alerts"
         const val CHANNEL_SYNC_BACKUP = "sync_backup_alerts"
+        const val CHANNEL_APP_UPDATES = "app_updates"
         
         const val SUMMARY_ID = 1001
         const val LOW_STOCK_ID = 1002
         const val SYNC_ALERT_ID = 1003
+        const val APP_UPDATE_ID = 1004
     }
 
     init {
@@ -57,6 +59,13 @@ class NotificationHelper @Inject constructor(
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Critical alerts for data synchronization failures"
+                },
+                NotificationChannel(
+                    CHANNEL_APP_UPDATES,
+                    "App Updates",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications about new Vaccine Manager releases"
                 }
             )
             notificationManager.createNotificationChannels(channels)
@@ -127,6 +136,37 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
 
         NotificationManagerCompat.from(context).notify(SYNC_ALERT_ID, builder.build())
+    }
+
+    fun showUpdateNotification(versionName: String, mandatory: Boolean) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("CHECK_APP_UPDATE", true)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            APP_UPDATE_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val title = if (mandatory) "Vaccine Manager update required" else "Vaccine Manager update available"
+        val text = if (mandatory) {
+            "Version $versionName is required. Tap to update."
+        } else {
+            "Version $versionName is now available. Tap to update."
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_APP_UPDATES)
+            .setSmallIcon(R.drawable.app_logo)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+
+        NotificationManagerCompat.from(context).notify(APP_UPDATE_ID, builder.build())
     }
 
     fun cancelSummaryNotification() {

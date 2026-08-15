@@ -13,7 +13,6 @@ import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.usecase.vaccination.DeleteVaccinationUseCase
 import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.neochildclinic.domain.usecase.vaccination.SaveVaccinationUseCase
-import com.neochildclinic.domain.usecase.inventory.BackfillInventoryUsageUseCase
 import com.neochildclinic.domain.usecase.inventory.ReconcileInventoryUseCase
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.VaccinationDao
@@ -70,14 +69,6 @@ object UseCaseModule {
         reminderRepository,
         consultationRepository
     )
-
-    @Provides
-    @ViewModelScoped
-    fun provideBackfillInventoryUsageUseCase(
-        vaccinationRepository: VaccinationRepository,
-        inventoryRepository: InventoryRepository,
-        vaccineDao: VaccineDao
-    ) = BackfillInventoryUsageUseCase(vaccinationRepository, inventoryRepository, vaccineDao)
 
     @Provides
     @ViewModelScoped

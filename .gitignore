@@ -1,69 +1,58 @@
-*.iml
-.gradle
-/local.properties
-/.idea/
-.idea/caches
-.idea/libraries
-.idea/modules.xml
-.idea/workspace.xml
-.idea/navEditor.xml
-.idea/assetWizardSettings.xml
-.idea/appInsightsSettings.xml
-.idea/deploymentTargetSelector.xml
-.idea/gradle.xml
-.idea/misc.xml
-.idea/vcs.xml
-.idea/planningMode.xml
-.idea/runConfigurations.xml
-.idea/studiobot.xml
-.idea/codeStyles/
-.idea/inspectionProfiles/
-.DS_Store
-/build
+# Android / Gradle
+.gradle/
 **/build/
-/captures
-**/captures/
-.externalNativeBuild
-.cxx
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
 
-# Android Studio
-*.hprof
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+.externalNativeBuild/
+.cxx/
 
-# Built variants
-app/release/
-app/debug/
-*.apk
-
-# Google Services
-app/google-services.json
-
-# Navigation editor temp files
-.navigation/
-
-# Log files
-*.log
-
-# Temp files
-java_pid*.hprof
+# Kotlin
 .kotlin/
+
+# Generated / packaged artifacts
+*.apk
+*.aab
+*.apks
+*.idsig
+*.mapping
+*.dex
+*.hprof
+app/release/
 
 # Local Dev Artifacts
 .artifacts/
 
-# Local signing material — NEVER commit
-sign
+# Signing keys and certificates — NEVER commit
 *.jks
 *.keystore
 *.p12
+*.pfx
 *.pkcs12
+*.pem
+*.key
+sign
+/sign
 
 # Secrets / environment files
 .env
 .env.*
 !.env.example
 **/secrets.properties
-**/secrets.gradle
 **/keystore.properties
+**/secret.properties
 
-# Release artifacts
-*.aab
+# Firebase / Google service credentials
+**/google-services.json
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
