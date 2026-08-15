@@ -7,6 +7,9 @@ on:
 jobs:
   notify:
     runs-on: ubuntu-latest
+
+    permissions: {}
+
     steps:
       - name: Notify Supabase update endpoint
         env:
@@ -19,13 +22,14 @@ jobs:
           fi
 
           VERSION="${GITHUB_REF_NAME#v}"
+
           BODY="$(python - <<'PY'
-import json, os
-event = os.environ.get("GITHUB_EVENT_PATH")
-data = json.load(open(event))
-print(data.get("release", {}).get("body", ""))
-PY
-)"
+          import json, os
+          event = os.environ.get("GITHUB_EVENT_PATH")
+          data = json.load(open(event))
+          print(data.get("release", {}).get("body", ""))
+          PY
+          )"
 
           MANDATORY="false"
           if echo "$BODY" | grep -qi "update-type: mandatory"; then
