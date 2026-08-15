@@ -75,19 +75,17 @@ class VaccineWidget : GlanceAppWidget() {
                     )
                 )
         ) {
-            // Header
-            Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Material 3 style header
+            Column(modifier = GlanceModifier.fillMaxWidth()) {
                 Text(
-                    text = "Due Vaccine",
+                    text = "Due Vaccination",
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = textColorProvider
                     )
                 )
+                Divider()
             }
 
             if (items.isEmpty()) {
@@ -98,7 +96,9 @@ class VaccineWidget : GlanceAppWidget() {
                     )
                 }
             } else {
-                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = GlanceModifier.fillMaxSize().padding(top = 4.dp)
+                ) {
                     items(items) { item ->
                         VaccineRow(item, textColorProvider)
                     }
@@ -109,28 +109,48 @@ class VaccineWidget : GlanceAppWidget() {
 
     @Composable
     private fun VaccineRow(item: WidgetDueEntity, textColorProvider: ColorProvider) {
-        val overdueColor = GlanceTheme.colors.error
-        val otherDateColor = GlanceTheme.colors.onSurfaceVariant
+        val dateColor = if (item.isOverdue) GlanceTheme.colors.error else GlanceTheme.colors.primary
 
-        Row(
-            modifier = GlanceModifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
         ) {
-            Text(
-                text = item.patientName,
-                modifier = GlanceModifier.defaultWeight(),
-                style = TextStyle(fontSize = 12.sp, color = textColorProvider),
-                maxLines = 1
-            )
-            
-            Text(
-                text = item.dueDate,
-                style = TextStyle(
-                    fontSize = 11.sp,
-                    color = if (item.isOverdue) overdueColor else otherDateColor,
-                    fontWeight = if (item.isOverdue) FontWeight.Bold else FontWeight.Normal
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${item.patientName}: ",
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = textColorProvider
+                    ),
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight()
                 )
-            )
+                Text(
+                    text = item.dueDate,
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        color = dateColor,
+                        fontWeight = if (item.isOverdue) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    maxLines = 1
+                )
+            }
+
         }
+    }
+
+    @Composable
+    private fun Divider(modifier: GlanceModifier = GlanceModifier) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(GlanceTheme.colors.onSurfaceVariant)
+        ) {}
     }
 }

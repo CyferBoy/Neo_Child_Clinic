@@ -67,6 +67,10 @@ class AddVaccinationViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AddVaccinationUiState())
     val uiState: StateFlow<AddVaccinationUiState> = _uiState.asStateFlow()
 
+    // Snapshot of the persisted vaccination items used by Edit mode.
+    // This prevents validation/save from depending solely on transient Compose selection state.
+    private var originalVaccinationItems: List<VaccinationItem> = emptyList()
+
     init {
         fetchInventory()
         fetchDoctors()
@@ -86,16 +90,35 @@ class AddVaccinationViewModel @Inject constructor(
             val vaccination = vaccinationRepository.getVaccinationById(vaccinationId) ?: return@launch
             loadPatient(vaccination.patientId)
 
-            // Wait for inventory and doctor data before restoring the edit state.
-            uiState.filter { it.inventory.isNotEmpty() }.first()
+            // Wait until the inventory contains the vaccines AND their referenced batches.
+            // getInventoryItems() combines vaccine and batch flows, so its first non-empty
+            // emission can contain vaccines before the batch query has emitted. Waiting only
+            // for inventory.isNotEmpty() caused Edit Vaccination to restore rows with a
+            // missing batch and later fail with "Please select vaccine and batch for all rows."
+            uiState.filter { state ->
+                vaccination.items.all { item ->
+                    val vaccine = state.inventory.firstOrNull { it.id == item.vaccineId }
+                    vaccine != null && vaccine.batches.any { it.batchId == item.batchId }
+                }
+            }.first()
+
             if (_uiState.value.allDoctors.isEmpty()) {
                 uiState.filter { it.allDoctors.isNotEmpty() }.first()
             }
 
             val inventory = _uiState.value.inventory
+            originalVaccinationItems = vaccination.items
+
             val items = vaccination.items.map { item ->
-                val vaccine = inventory.find { it.id == item.vaccineId }
-                val batch = vaccine?.batches?.find { it.batchId == item.batchId }
+                val vaccine = inventory.firstOrNull { it.id == item.vaccineId }
+                // Do not depend on the batch being present in the filtered UI list.
+                // An old batch can have zero stock and therefore be unavailable in the
+                // dropdown, while it is still a valid batch reference for this vaccination.
+                val batch = inventory
+                    .firstOrNull { it.id == item.vaccineId }
+                    ?.batches
+                    ?.firstOrNull { it.batchId == item.batchId }
+                    ?: inventoryRepository.getBatchById(item.batchId)
                 VaccineSelectionState(
                     selectedVaccine = vaccine,
                     selectedBatch = batch,
@@ -281,7 +304,10 @@ class AddVaccinationViewModel @Inject constructor(
         }
     }
 
-    fun saveVaccination() {
+    fun saveVaccination(
+        editVaccineBatch: Boolean = true,
+        editQuantity: Boolean = true
+    ) {
         val state = _uiState.value
         val patient = state.patient ?: return
         
@@ -290,7 +316,16 @@ class AddVaccinationViewModel @Inject constructor(
             return
         }
 
-        if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
+        // In Edit mode, Vaccine & Batch is optional until its checkbox is selected.
+        // The persisted vaccination remains valid even if a transient UI selection is missing.
+        // Only require selections when the user explicitly chose to edit Vaccine & Batch.
+        if (!state.existingVaccinationId.isNullOrBlank() && editVaccineBatch) {
+            if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
+                _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
+                return
+            }
+        } else if (state.existingVaccinationId.isNullOrBlank() &&
+            state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
             _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
             return
         }
@@ -322,19 +357,33 @@ class AddVaccinationViewModel @Inject constructor(
                     vaccinationRepository.getVaccinationById(vaccinationId)
                 } else null
 
-                val items = state.vaccinesGiven.map { selection ->
-                    VaccinationItem(
-                        id = UUID.randomUUID().toString(),
-                        vaccinationId = vaccinationId,
-                        vaccineId = selection.selectedVaccine!!.id,
-                        vaccineName = selection.selectedVaccine.brandName,
-                        batchId = selection.selectedBatch!!.batchId,
-                        batchNumber = selection.selectedBatch.batchNumber,
-                        expiryDate = selection.selectedBatch.expiryDate,
-                        quantity = selection.quantity,
-                        mrp = selection.selectedBatch.sellingPrice,
-                        netRate = selection.selectedBatch.purchaseCost
-                    )
+                val items = if (isEdit && !editVaccineBatch) {
+                    // Vaccine & Batch was not selected for editing. Preserve the exact
+                    // persisted vaccine/batch references and only apply quantity changes
+                    // when the Quantity checkbox is selected.
+                    originalVaccinationItems.mapIndexed { index, original ->
+                        val row = state.vaccinesGiven.getOrNull(index)
+                        original.copy(
+                            id = original.id.ifBlank { UUID.randomUUID().toString() },
+                            vaccinationId = vaccinationId,
+                            quantity = if (editQuantity) row?.quantity ?: original.quantity else original.quantity
+                        )
+                    }
+                } else {
+                    state.vaccinesGiven.map { selection ->
+                        VaccinationItem(
+                            id = UUID.randomUUID().toString(),
+                            vaccinationId = vaccinationId,
+                            vaccineId = selection.selectedVaccine!!.id,
+                            vaccineName = selection.selectedVaccine.brandName,
+                            batchId = selection.selectedBatch!!.batchId,
+                            batchNumber = selection.selectedBatch.batchNumber,
+                            expiryDate = selection.selectedBatch.expiryDate,
+                            quantity = selection.quantity,
+                            mrp = selection.selectedBatch.sellingPrice,
+                            netRate = selection.selectedBatch.purchaseCost
+                        )
+                    }
                 }
 
                 val vaccination = Vaccination(

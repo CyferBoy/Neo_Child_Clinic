@@ -76,12 +76,8 @@ data class ReminderEntity(
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class RemoteReminder(
-    // The Supabase client is configured globally with encodeDefaults = true, which would
-    // otherwise serialize a null id as an explicit "id": null in the insert payload. Since
-    // reminders.id is a server-generated UUID (or BIGSERIAL) primary key, that explicit null
-    // overrides the column default and trips the not-null constraint on CREATE. Forcing this
-    // one field to be omitted when null (its default) lets Postgres apply nextval() or default values.
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    // The app generates the UUID locally and uses the same ID in Supabase.
+    // This keeps Room and Supabase identity stable and avoids NULL primary-key inserts.
     val id: String? = null,
     @SerialName("patient_id") val patientId: String,
     @SerialName("original_visit_id") val originalVisitId: String,
@@ -104,7 +100,7 @@ data class RemoteReminder(
 )
 
 fun ReminderEntity.toRemote() = RemoteReminder(
-    id = serverId,
+    id = serverId ?: id,
     patientId = patientId,
     originalVisitId = originalVisitId,
     vaccineName = vaccineName,

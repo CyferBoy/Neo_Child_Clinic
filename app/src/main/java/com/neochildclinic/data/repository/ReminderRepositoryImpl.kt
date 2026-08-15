@@ -244,22 +244,43 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val groupedNames = vaccineNames.distinct().joinToString(", ")
-                val reminder = ReminderEntity(
-                    id = UUID.randomUUID().toString(),
-                    serverId = null,
-                    patientId = patientId,
-                    originalVisitId = originalVisitId,
-                    vaccineName = groupedNames,
-                    dueDate = dueDate,
-                    status = "ACTIVE",
-                    priority = priority,
-                    reminderEnabled = reminderEnabled,
-                    category = "VACCINATION",
-                    type = type,
-                    nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
-                    notes = notes,
-                    isSynced = false
+                val existing = dueReminderDao.getReminderByUniqueEvent(
+                    patientId, originalVisitId, dueDate, groupedNames, type
                 )
+                val now = PatientUtils.getCurrentIsoTimestamp()
+                val reminder = if (existing != null) {
+                    existing.copy(
+                        dueDate = dueDate,
+                        status = "ACTIVE",
+                        priority = priority,
+                        reminderEnabled = reminderEnabled,
+                        category = "VACCINATION",
+                        type = type,
+                        nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
+                        notes = notes,
+                        updatedAt = now,
+                        isSynced = false
+                    )
+                } else {
+                    ReminderEntity(
+                        id = UUID.randomUUID().toString(),
+                        serverId = null,
+                        patientId = patientId,
+                        originalVisitId = originalVisitId,
+                        vaccineName = groupedNames,
+                        dueDate = dueDate,
+                        status = "ACTIVE",
+                        priority = priority,
+                        reminderEnabled = reminderEnabled,
+                        category = "VACCINATION",
+                        type = type,
+                        nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
+                        notes = notes,
+                        createdAt = now,
+                        updatedAt = now,
+                        isSynced = false
+                    )
+                }
                 dueReminderDao.insertReminder(reminder)
 
                 val displayLabel = if (groupedNames.isBlank()) type else groupedNames

@@ -96,7 +96,7 @@ fun AddVaccinationScreen(
                 ) {
                     PaddingValues(16.dp).let {
                         StandardButton(
-                            onClick = { viewModel.saveVaccination() },
+                            onClick = { viewModel.saveVaccination(editVaccineBatch = editVaccineBatch, editQuantity = editQuantity) },
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
                             isLoading = uiState.isLoading
                         ) {

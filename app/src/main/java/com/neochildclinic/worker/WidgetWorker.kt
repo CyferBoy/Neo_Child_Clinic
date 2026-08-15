@@ -33,7 +33,7 @@ class WidgetWorker @AssistedInject constructor(
         return try {
             val dueList = reminderRepository.getDueList().first()
                 .sortedBy { DateClassifier.getSortWeight(it.nextDueDate) }
-                .take(20)
+                
             
             val patients = patientRepository.allPatients.first().associateBy { it.id }
             
@@ -41,13 +41,8 @@ class WidgetWorker @AssistedInject constructor(
                 val patient = patients[vacc.patientId]
                 val category = DateClassifier.classify(vacc.nextDueDate)
                 
-                // Match original MMM d format for future dates, specific labels for others
-                val displayDate = when (category) {
-                    is DateCategory.Today -> "Today"
-                    is DateCategory.Tomorrow -> "Tomorrow"
-                    is DateCategory.Overdue -> PatientUtils.formatDateForDisplay(vacc.nextDueDate)
-                    is DateCategory.Future -> category.dateStr
-                }
+                // Keep the widget compact and consistent: always show the date as dd MMM yy.
+                val displayDate = formatWidgetDate(vacc.nextDueDate)
 
                 WidgetDueEntity(
                     patientName = patient?.name ?: "Unknown",
@@ -61,6 +56,25 @@ class WidgetWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.failure()
+        }
+    }
+
+    private fun formatWidgetDate(value: String): String {
+        return try {
+            val input = java.time.OffsetDateTime.parse(value)
+            input.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yy"))
+        } catch (_: Exception) {
+            try {
+                val input = java.time.LocalDateTime.parse(value)
+                input.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yy"))
+            } catch (_: Exception) {
+                try {
+                    val input = java.time.LocalDate.parse(value)
+                    input.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yy"))
+                } catch (_: Exception) {
+                    value
+                }
+            }
         }
     }
 }

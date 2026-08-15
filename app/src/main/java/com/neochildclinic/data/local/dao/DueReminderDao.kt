@@ -27,6 +27,9 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders WHERE id = :id LIMIT 1")
     suspend fun getReminderById(id: String): ReminderEntity?
 
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND dueDate = :dueDate AND vaccineName = :vaccineName AND type = :type LIMIT 1")
+    suspend fun getReminderByUniqueEvent(patientId: String, visitId: String, dueDate: String, vaccineName: String, type: String): ReminderEntity?
+
     @Query("SELECT * FROM reminders WHERE patientId = :pId AND originalVisitId = :vId AND vaccineName = :name AND type = :type LIMIT 1")
     suspend fun getReminderByStableId(pId: String, vId: String, name: String, type: String): ReminderEntity?
 

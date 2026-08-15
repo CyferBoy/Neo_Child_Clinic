@@ -187,17 +187,12 @@ class SyncRepositoryImpl @Inject constructor(
             val localReminder = database.dueReminderDao().getReminderById(item.entityId)
             if (localReminder != null) {
                 if (item.operation == SyncOperation.CREATE.name && localReminder.serverId == null) {
-                    // CREATE: Insert without ID and retrieve generated ID
-                    val remote = postgrest.from(table)
-                        .insert(localReminder.toRemote().copy(id = null)) {
-                            select()
-                        }
-                        .decodeSingle<RemoteReminder>()
-                    
-                    // Update local record with server generated ID
-                    database.dueReminderDao().updateServerId(localReminder.id, remote.id!!)
+                    // CREATE: use the locally generated UUID as the Supabase primary key.
+                    // This keeps Room and Supabase IDs identical and never sends id = NULL.
+                    postgrest.from(table).insert(localReminder.toRemote())
+                    database.dueReminderDao().updateServerId(localReminder.id, localReminder.id)
                 } else if (localReminder.serverId != null || item.operation == SyncOperation.CREATE.name) {
-                    // UPDATE or CREATE (where serverId is already assigned): Normal Upsert
+                    // UPDATE or CREATE where the remote identity is already known.
                     postgrest.from(table).upsert(localReminder.toRemote())
                 }
                 return
