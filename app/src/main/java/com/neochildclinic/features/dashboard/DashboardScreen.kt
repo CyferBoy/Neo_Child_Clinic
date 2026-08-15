@@ -82,7 +82,7 @@ fun DashboardScreen(
                 userName = authProfile?.displayName ?: "User",
                 userRole = role,
                 syncState = uiState.syncState,
-                appVersion = "1.0.0",
+                appVersion = com.neochildclinic.BuildConfig.VERSION_NAME,
                 onProfileClick = {
                     scope.launch { drawerState.close() }
                     onProfile()

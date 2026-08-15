@@ -158,7 +158,13 @@ private fun StatisticsDrawerContent(
             icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
             modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "v${com.neochildclinic.BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 16.dp)
+        )
     }
 }
 
