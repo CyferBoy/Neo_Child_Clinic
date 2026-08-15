@@ -41,6 +41,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -173,18 +179,67 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private companion object {
+        private const val BIOMETRIC_KEY_ALIAS = "neochild_biometric_key"
+        private val BIOMETRIC_CHALLENGE = "neochild_unlock".toByteArray()
+    }
+
+    private fun getOrCreateSecretKey(): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val existingKey = keyStore.getKey(BIOMETRIC_KEY_ALIAS, null) as? SecretKey
+        if (existingKey != null) return existingKey
+
+        val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            BIOMETRIC_KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+            .setUserAuthenticationRequired(true)
+            .setInvalidatedByBiometricEnrollment(true)
+            .build()
+        keyGenerator.init(keyGenParameterSpec)
+        return keyGenerator.generateKey()
+    }
+
+    private fun createBiometricCipher(): Cipher {
+        val cipher = Cipher.getInstance(
+            "${KeyProperties.KEY_ALGORITHM_AES}/${KeyProperties.BLOCK_MODE_CBC}/${KeyProperties.ENCRYPTION_PADDING_PKCS7}"
+        )
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+        return cipher
+    }
+
     private fun authenticateWithBiometrics() {
         val biometricManager = BiometricManager.from(this)
         val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        
+
         when (biometricManager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
+                val cipher = try {
+                    createBiometricCipher()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Unable to initialize secure authentication.", Toast.LENGTH_SHORT).show()
+                    return
+                }
+
                 val executor = ContextCompat.getMainExecutor(this)
                 val biometricPrompt = BiometricPrompt(this, executor,
                     object : BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                             super.onAuthenticationSucceeded(result)
-                            BiometricLockManager.unlock()
+                            try {
+                                val authenticatedCipher = result.cryptoObject?.cipher
+                                if (authenticatedCipher == null) {
+                                    Toast.makeText(this@MainActivity, "Authentication failed: missing secure context.", Toast.LENGTH_SHORT).show()
+                                    return
+                                }
+                                authenticatedCipher.doFinal(BIOMETRIC_CHALLENGE)
+                                BiometricLockManager.unlock()
+                            } catch (e: Exception) {
+                                Toast.makeText(this@MainActivity, "Authentication failed: secure verification error.", Toast.LENGTH_SHORT).show()
+                            }
                         }
 
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -205,7 +260,7 @@ class MainActivity : FragmentActivity() {
                     .setAllowedAuthenticators(authenticators)
                     .build()
 
-                biometricPrompt.authenticate(promptInfo)
+                biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
             }
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
                 BiometricLockManager.unlock()
