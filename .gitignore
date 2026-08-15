@@ -52,3 +52,21 @@ app/google-services.json
 # Temp files
 java_pid*.hprof
 .kotlin/
+# Local signing material — NEVER commit
+sign
+/sign
+*.p12
+*.pkcs12
+
+# Secrets / environment files
+.env
+.env.*
+!.env.example
+**/secrets.properties
+**/secrets.gradle
+**/keystore.properties
+
+# Firebase / Google service credentials
+
+# Release artifacts
+*.aab
