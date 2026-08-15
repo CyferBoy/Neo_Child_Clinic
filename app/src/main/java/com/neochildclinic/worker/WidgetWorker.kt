@@ -1,10 +1,12 @@
 package com.neochildclinic.worker
 
 import android.content.Context
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.features.widget.VaccineWidget
 import com.neochildclinic.data.local.entity.WidgetDueEntity
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.PatientRepository
@@ -53,6 +55,17 @@ class WidgetWorker @AssistedInject constructor(
             }
 
             database.widgetDueDao().refreshCache(widgetItems)
+
+            // Update the Glance widget only after the cache has been populated.
+            // Previously WidgetUtils refreshed the widget immediately after enqueueing
+            // this worker, so the widget could read the old/empty cache and display
+            // "No upcoming vaccinations".
+            val manager = GlanceAppWidgetManager(applicationContext)
+            val ids = manager.getGlanceIds(VaccineWidget::class.java)
+            ids.forEach { id ->
+                VaccineWidget().update(applicationContext, id)
+            }
+
             Result.success()
         } catch (e: Exception) {
             Result.failure()

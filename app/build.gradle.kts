@@ -12,6 +12,10 @@ android {
     namespace = "com.neochildclinic"
     compileSdk = 35
 
+    ndk {
+        abiFilters += listOf("arm64-v8a")
+    }
+
     defaultConfig {
         applicationId = "com.neochildclinic"
         minSdk = 24
@@ -29,7 +33,8 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
