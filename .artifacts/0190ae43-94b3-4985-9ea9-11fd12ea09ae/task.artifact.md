@@ -1,4 +1,0 @@
-- [x] Add `<queries>` for `com.google.android.gms` in `AndroidManifest.xml`
-- [x] Move Firebase initialization in `NeoChildApp.kt` to after `super.onCreate()`
-- [x] Refine secondary app initialization in `AdminViewModel.kt`
-- [x] Verify fix by running/building the app

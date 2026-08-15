@@ -1,7 +1,0 @@
-- [ ] Update Models (`VaccineEntity`, `InventoryItem`)
-- [ ] Implement Database Migration (v24 -> v25)
-- [ ] Update `FirestoreMappers`
-- [ ] Update `InventoryRepositoryImpl` (Visibility + Fallback Logic)
-- [ ] Update `AddVaccineViewModel` (Suggestions + New Fields)
-- [ ] Update `AddVaccineScreen` (Hybrid Dropdown + UI Enhancements)
-- [ ] Verify and Test

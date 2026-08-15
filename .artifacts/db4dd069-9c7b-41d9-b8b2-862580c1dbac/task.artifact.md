@@ -1,4 +1,0 @@
-- [x] Update `AndroidManifest.xml` with improved package visibility
-- [x] Align GMS and Google Services plugin versions in `libs.versions.toml`
-- [x] Refine `ProviderInstaller` initialization in `NeoChildApp.kt`
-- [x] Verify build and check logs

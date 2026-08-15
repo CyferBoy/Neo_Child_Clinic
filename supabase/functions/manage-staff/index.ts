@@ -22,19 +22,42 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Log the request for debugging
+    // 1. Verify Authorization Header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('Missing Authorization header')
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+
+    if (userError || !user) {
+      throw new Error('Invalid user token')
+    }
+
+    // 2. Check if user is ADMIN in profiles table
+    const { data: profile, error: profileGetError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileGetError || profile?.role !== 'ADMIN') {
+      console.error(`Unauthorized access attempt by user ${user.email} with role ${profile?.role}`)
+      throw new Error('Unauthorized: Only admins can manage staff')
+    }
+
+    // Process the request
     const body = await req.json()
-    console.log("Received request:", JSON.stringify(body))
+    console.log("Authorized request received:", JSON.stringify(body))
 
     const { name, email, password, role, employeeId, phoneNumber, action } = body
-
-    // Default to 'CREATE' if action is missing but all data is present
     const effectiveAction = action || (name && email && password ? 'CREATE' : null)
 
     if (effectiveAction === 'CREATE') {
       console.log(`Creating staff user: ${email} with role: ${role}`)
 
-      // 1. Create the user in Supabase Auth
+      // Create the user in Supabase Auth
       const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -53,7 +76,7 @@ serve(async (req) => {
         throw authError
       }
 
-      // 2. Insert into the profiles table
+      // Insert into the profiles table
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .insert([
@@ -70,8 +93,6 @@ serve(async (req) => {
 
       if (profileError) {
         console.error("Profile insertion error:", profileError.message)
-        // Cleanup the auth user if profile fails?
-        // For simplicity, we just throw, but in prod you might want to delete the auth user.
         throw profileError
       }
 
@@ -81,7 +102,6 @@ serve(async (req) => {
       })
     }
 
-    console.error("Unsupported or missing action:", action)
     throw new Error(`Unsupported action: ${action}`)
 
   } catch (error) {

@@ -1,9 +1,0 @@
-- `[x]` Standardize `updated_at` and `timestamp` fields to ISO 8601 Strings
-- `[x]` Implement `transactionGroupId` for atomic grouping of related records
-- `[x]` Update `SyncRepositoryImpl` with transactional processing and sorting logic
-- `[x]` Transition to Transaction-based Inventory Sync (Stock Movements)
-- `[x]` Implement "Download on Conflict" (Self-healing) logic
-- `[x]` Optimize `SyncWorker` with run-loop and idempotency
-- `[x]` Provide Supabase SQL for server-side stock calculation
-- `[x]` Increment database version to 5 to resolve schema integrity mismatch
-- `[x]` Verified build and dependency integrity

@@ -1,4 +1,0 @@
-- `[x]` Update `ReminderDao.kt` to use `reminders` table
-- `[x]` Update `ReminderRepositoryImpl.kt` comments
-- `[x]` Update `VaccinationCards.kt` comments
-- `[x]` Verify build with `kspDebugKotlin`

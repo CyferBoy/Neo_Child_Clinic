@@ -25,7 +25,6 @@
 **/captures/
 .externalNativeBuild
 .cxx
-local.properties
 
 # Android Studio
 *.hprof
@@ -34,11 +33,6 @@ local.properties
 app/release/
 app/debug/
 *.apk
-
-# Keystore files
-*.jks
-*.keystore
-/sign/
 
 # Google Services
 app/google-services.json
@@ -52,9 +46,14 @@ app/google-services.json
 # Temp files
 java_pid*.hprof
 .kotlin/
+
+# Local Dev Artifacts
+.artifacts/
+
 # Local signing material — NEVER commit
 sign
-/sign
+*.jks
+*.keystore
 *.p12
 *.pkcs12
 
@@ -65,8 +64,6 @@ sign
 **/secrets.properties
 **/secrets.gradle
 **/keystore.properties
-
-# Firebase / Google service credentials
 
 # Release artifacts
 *.aab

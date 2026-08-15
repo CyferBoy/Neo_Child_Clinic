@@ -1,3 +1,0 @@
-- [x] Fix `observeRealtimeChanges` in `PatientListViewModel.kt`
-- [x] Implement `onCleared()` in `PatientListViewModel.kt`
-- [x] Verify build and build success

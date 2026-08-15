@@ -6,7 +6,7 @@ package com.neochildclinic.core.constants
 object Constants {
     // Admin email addresses for managing staff
     val ADMIN_EMAILS = listOf(
-        "anjumnadeem580@gmail.com"
+        "admin@neochildclinic.com"
     )
 
     // Standard date format used across the entire app (e.g., 9 May 2026)
