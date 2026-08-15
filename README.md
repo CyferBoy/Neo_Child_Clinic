@@ -25,7 +25,7 @@ Neo Child Clinic is a modern, production-grade Android application designed for 
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/CyferBoy/Vaccine_Manager.git
+git clone https://github.com/CyferBoy/Neo_Child_Clinic.git
 ```
 
 ### 2. Supabase Configuration

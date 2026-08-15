@@ -22,7 +22,7 @@ class AppUpdateManager @Inject constructor(
 ) {
     companion object {
         private const val GITHUB_LATEST_URL =
-            "https://api.github.com/repos/CyferBoy/Vaccine_Manager/releases/latest"
+            "https://api.github.com/repos/CyferBoy/Neo_Child_Clinic/releases/latest"
         private const val PREFS = "app_update"
         private const val DISMISSED_VERSION_CODE = "dismissed_version_code"
         private const val APK_FILE = "vaccine-manager-update.apk"

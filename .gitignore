@@ -38,6 +38,7 @@ app/release/
 *.key
 sign
 /sign
+neochildclinic-release
 
 # Secrets / environment files
 .env
