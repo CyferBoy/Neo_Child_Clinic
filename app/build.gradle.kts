@@ -12,10 +12,6 @@ android {
     namespace = "com.neochildclinic"
     compileSdk = 35
 
-    ndk {
-        abiFilters += listOf("arm64-v8a")
-    }
-
     defaultConfig {
         applicationId = "com.neochildclinic"
         minSdk = 24
@@ -24,6 +20,10 @@ android {
         versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
