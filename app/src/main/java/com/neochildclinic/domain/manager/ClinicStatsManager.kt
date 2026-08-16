@@ -6,6 +6,8 @@ import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.domain.model.ClinicStats
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.repository.*
+import com.neochildclinic.features.statistics.FinanceCalculator
+import com.neochildclinic.features.statistics.StatisticsUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.text.SimpleDateFormat
@@ -21,7 +23,8 @@ import javax.inject.Singleton
 class ClinicStatsManager @Inject constructor(
     private val vaccinationRepository: VaccinationRepository,
     private val reminderRepository: ReminderRepository,
-    private val inventoryRepository: InventoryRepository
+    private val inventoryRepository: InventoryRepository,
+    private val financeRepository: FinanceRepository
 ) {
     /**
      * Returns a combined flow of all high-level clinic metrics.
@@ -36,33 +39,40 @@ class ClinicStatsManager @Inject constructor(
 
         return combine(
             vaccinationRepository.getTodayCount(todayStr),
-            vaccinationRepository.getTodayRevenue(todayStr),
-            vaccinationRepository.getTodayCash(todayStr),
-            vaccinationRepository.getTodayOnline(todayStr),
             vaccinationRepository.getMonthlyCount(monthPattern),
-            vaccinationRepository.getMonthlyRevenue(monthPattern),
+            financeRepository.getAllTransactions(),
             reminderRepository.getDueList(), // Use full list to re-calculate stats consistently
             inventoryRepository.getInventoryItems(),
-            vaccinationRepository.getVaccineNamesForMonth(monthPattern)
+            vaccinationRepository.allVaccinations
         ) { args ->
             @Suppress("UNCHECKED_CAST")
-            val todayCount = args[0] as Int
+            val transactions = args[2] as List<com.neochildclinic.data.local.entity.FinanceEntity>
             @Suppress("UNCHECKED_CAST")
-            val todayRevenue = args[1] as? Double ?: 0.0
+            val dueVaccinations = args[3] as List<com.neochildclinic.domain.model.Vaccination>
             @Suppress("UNCHECKED_CAST")
-            val todayCash = args[2] as? Double ?: 0.0
+            val inventory = args[4] as List<InventoryItem>
             @Suppress("UNCHECKED_CAST")
-            val todayOnline = args[3] as? Double ?: 0.0
-            @Suppress("UNCHECKED_CAST")
-            val monthlyCount = args[4] as Int
-            @Suppress("UNCHECKED_CAST")
-            val monthlyRevenue = args[5] as? Double ?: 0.0
-            @Suppress("UNCHECKED_CAST")
-            val dueVaccinations = args[6] as List<com.neochildclinic.domain.model.Vaccination>
-            @Suppress("UNCHECKED_CAST")
-            val inventory = args[7] as List<InventoryItem>
-            @Suppress("UNCHECKED_CAST")
-            val vaccineNamesList = args[8] as List<String>
+            val allVaccinations = args[5] as List<com.neochildclinic.domain.model.Vaccination>
+            val validVaccinations = StatisticsUtils.filterValidVaccinations(allVaccinations)
+            val todayCount = validVaccinations.count { it.dateGiven == todayStr }
+            val monthLabel = SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(today.time)
+            val monthlyCount = validVaccinations.count {
+                val date = PatientUtils.parseDate(it.dateGiven)
+                date != null && SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(date) == monthLabel
+            }
+
+            val todayTransactions = transactions.filter { tx ->
+                PatientUtils.parseDate(tx.timestamp)?.let { PatientUtils.formatDate(it) == todayStr } == true
+            }
+            val todayFinance = FinanceCalculator.calculateFinanceStats(todayTransactions, allVaccinations, transactions)
+            val todayRevenue = todayFinance.totalRevenue
+            val todayCash = todayFinance.cashTotal
+            val todayOnline = todayFinance.onlineTotal
+            val monthlyTransactions = transactions.filter { tx ->
+                PatientUtils.parseDate(tx.timestamp)?.let { d -> SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(d) == monthLabel } == true
+            }
+            val monthlyFinance = FinanceCalculator.calculateFinanceStats(monthlyTransactions, allVaccinations, transactions)
+            val monthlyRevenue = monthlyFinance.totalRevenue
 
             val todayCal = DateClassifier.getTodayStart()
             val dueToday = dueVaccinations.count { 
@@ -74,7 +84,7 @@ class ClinicStatsManager @Inject constructor(
                 cat is DateCategory.Overdue
             }
 
-            val topVaccines = calculateTopVaccines(vaccineNamesList)
+            val topVaccines = calculateTopVaccines(allVaccinations, monthPattern)
 
             ClinicStats(
                 todayVaccinations = todayCount,
@@ -91,15 +101,25 @@ class ClinicStatsManager @Inject constructor(
         }
     }
 
-    private fun calculateTopVaccines(vaccineNamesList: List<String>): List<Pair<String, Int>> {
-        return vaccineNamesList.flatMap { names -> 
-            names.split(",").map { it.trim() } 
-        }
-        .filter { it.isNotEmpty() }
-        .groupBy { it }
-        .mapValues { it.value.size }
-        .toList()
-        .sortedByDescending { it.second }
-        .take(5)
+    private fun calculateTopVaccines(
+        vaccinations: List<com.neochildclinic.domain.model.Vaccination>,
+        monthPattern: String
+    ): List<Pair<String, Int>> {
+        val monthLabel = monthPattern.removePrefix("% ").trim()
+        val counts = mutableMapOf<String, Int>()
+        vaccinations
+            .filter { it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED || it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL || it.source.equals("EXTERNAL", true) }
+            .filter { vaccination ->
+                val date = PatientUtils.parseDate(vaccination.dateGiven)
+                date != null && SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(date) == monthLabel
+            }
+            .forEach { vaccination ->
+                vaccination.items.forEachIndexed { index, item ->
+                    val rawName = item.vaccineName.ifBlank { vaccination.vaccineNames.getOrNull(index).orEmpty() }
+                    val name = PatientUtils.cleanVaccineName(rawName)
+                    if (name.isNotBlank()) counts[name] = (counts[name] ?: 0) + item.quantity.coerceAtLeast(0)
+                }
+            }
+        return counts.toList().sortedByDescending { it.second }.take(5)
     }
 }

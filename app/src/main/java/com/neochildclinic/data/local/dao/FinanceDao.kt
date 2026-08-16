@@ -13,6 +13,9 @@ interface FinanceDao {
     suspend fun getTransactionById(id: String): FinanceEntity?
 
     @Query("SELECT * FROM finance_transactions ORDER BY timestamp DESC")
+    suspend fun getAllTransactionsSnapshot(): List<FinanceEntity>
+
+    @Query("SELECT * FROM finance_transactions ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<FinanceEntity>>
 
     @Query("SELECT * FROM finance_transactions WHERE patientId = :patientId ORDER BY timestamp DESC")

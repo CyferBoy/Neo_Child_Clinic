@@ -9,6 +9,8 @@ import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
 import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.data.local.entity.FinanceEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -18,9 +20,11 @@ data class StatisticsUiState(
     val patients: List<Patient> = emptyList(),
     val vaccinations: List<Vaccination> = emptyList(),
     val inventory: List<InventoryItem> = emptyList(),
+    val financeTransactions: List<FinanceEntity> = emptyList(),
     val isLoading: Boolean = false,
     val selectedTab: Int = 0,
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val refreshError: String? = null
 )
 
 @HiltViewModel
@@ -28,6 +32,7 @@ class StatisticsViewModel @Inject constructor(
     private val getPatientsUseCase: GetPatientsUseCase,
     private val getVaccinationsUseCase: GetVaccinationsUseCase,
     private val inventoryRepository: InventoryRepository,
+    private val financeRepository: FinanceRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -35,15 +40,27 @@ class StatisticsViewModel @Inject constructor(
     val selectedTab = _selectedTab.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
+    private val _refreshError = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<StatisticsUiState> = combine(
-        getPatientsUseCase(),
-        getVaccinationsUseCase(),
-        inventoryRepository.getInventoryItems(),
-        _selectedTab,
-        _isRefreshing
-    ) { patients, vaccinations, inventory, tab, refreshing ->
-        StatisticsUiState(patients, vaccinations, inventory, false, tab, refreshing)
+        listOf(
+            getPatientsUseCase(),
+            getVaccinationsUseCase(),
+            inventoryRepository.getInventoryItems(),
+            financeRepository.getAllTransactions(),
+            _selectedTab,
+            _isRefreshing,
+            _refreshError
+        )
+    ) { values ->
+        @Suppress("UNCHECKED_CAST") val patients = values[0] as List<Patient>
+        @Suppress("UNCHECKED_CAST") val vaccinations = values[1] as List<Vaccination>
+        @Suppress("UNCHECKED_CAST") val inventory = values[2] as List<InventoryItem>
+        @Suppress("UNCHECKED_CAST") val financeTransactions = values[3] as List<FinanceEntity>
+        val tab = values[4] as Int
+        val refreshing = values[5] as Boolean
+        val refreshError = values[6] as String?
+        StatisticsUiState(patients, vaccinations, inventory, financeTransactions, false, tab, refreshing, refreshError)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(isLoading = true))
 
     fun updateTab(tab: Int) {
@@ -53,10 +70,12 @@ class StatisticsViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
+            _refreshError.value = null
             try {
                 refreshDataUseCase()
-            } catch (_: Exception) { }
-            finally {
+            } catch (e: Exception) {
+                _refreshError.value = e.message ?: "Unable to refresh statistics"
+            } finally {
                 _isRefreshing.value = false
             }
         }

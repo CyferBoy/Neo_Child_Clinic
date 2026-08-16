@@ -63,12 +63,8 @@ class ConsultationRepositoryImpl @Inject constructor(
         database.withTransaction {
             val existing = consultationDao.getConsultationById(id) ?: return@withTransaction
             
-            // 1. Delete linked finance records (using visitId)
-            if (existing.visitId.isNotBlank()) {
-                financeRepository.deleteTransactionsByVisitId(existing.visitId)
-            }
-
-            // 2. Delete Consultation (Child)
+            // Financial transactions are historical records and must remain after a clinical record is deleted.
+            // 1. Delete Consultation (Child)
             consultationDao.deleteConsultation(id)
             syncRepository.enqueue(
                 entityName = "CONSULTATION",

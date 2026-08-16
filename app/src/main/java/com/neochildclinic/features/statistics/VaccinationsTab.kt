@@ -27,10 +27,11 @@ fun VaccinationsTab(vaccinations: List<Vaccination>) {
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
-    val availableYears = remember(vaccinations) { StatisticsUtils.getAvailableFinancialYears(vaccinations.map { it.dateGiven }) }
+    val validVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
+    val availableYears = remember(validVaccinations) { StatisticsUtils.getAvailableFinancialYears(validVaccinations.map { it.dateGiven }) }
 
-    val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
-        vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
+    val filteredVaccinations = remember(validVaccinations, filterMode, fyQuarter, selectedMonth) {
+        validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
 
     val vaccineStats = remember(filteredVaccinations) { calculateVaccineStats(filteredVaccinations) }
@@ -92,7 +93,7 @@ private fun VaccinationsContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        SummaryCards(vaccinations = vaccinations)
+        SummaryCards(vaccinations = vaccinations, filterMode = filterMode, fyQuarter = fyQuarter, selectedMonth = selectedMonth)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -190,12 +191,16 @@ private fun QuarterAndMonthFilters(
 
 @Suppress("DEPRECATION")
 @Composable
-private fun SummaryCards(vaccinations: List<Vaccination>) {
+private fun SummaryCards(vaccinations: List<Vaccination>, filterMode: String, fyQuarter: Int, selectedMonth: Int) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        StatCardSmall(Modifier.weight(1f), "Total Doses", vaccinations.sumOf { it.items.size }.toString(), Icons.Default.FactCheck, Color(0xFF4CAF50))
+        val totalDoses = vaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }
+        val monthCount = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
+            StatisticsUtils.monthCountForFilter(vaccinations.map { it.dateGiven }, filterMode, fyQuarter, selectedMonth)
+        }
+        val avg = if (monthCount == 0) 0.0 else totalDoses.toDouble() / monthCount
+        StatCardSmall(Modifier.weight(1f), "Total Doses", totalDoses.toString(), Icons.Default.FactCheck, Color(0xFF4CAF50))
         Spacer(modifier = Modifier.width(12.dp))
-        val avg = remember(vaccinations) { if (vaccinations.isEmpty()) 0.0 else vaccinations.size.toDouble() / 30 }
-        StatCardSmall(Modifier.weight(1f), "Avg Per Month", String.format(Locale.getDefault(), "%.1f", avg), Icons.Default.Timeline, Color(0xFF2196F3))
+        StatCardSmall(Modifier.weight(1f), "Avg Doses / Month", String.format(Locale.getDefault(), "%.1f", avg), Icons.Default.Timeline, Color(0xFF2196F3))
     }
 }
 
@@ -224,9 +229,9 @@ private fun VaccineStatsSection(stats: List<Pair<String, Int>>) {
 private fun calculateVaccineStats(vaccinations: List<Vaccination>): List<Pair<String, Int>> {
     val vaccineCounts = mutableMapOf<String, Int>()
     vaccinations.forEach { v ->
-        v.items.forEach { item ->
-            val cleanName = PatientUtils.cleanVaccineName(item.vaccineName)
-            vaccineCounts[cleanName] = (vaccineCounts[cleanName] ?: 0) + 1
+        v.items.forEachIndexed { index, item ->
+            val cleanName = PatientUtils.cleanVaccineName(StatisticsUtils.vaccineName(v, index))
+            if (cleanName.isNotBlank()) vaccineCounts[cleanName] = (vaccineCounts[cleanName] ?: 0) + item.quantity.coerceAtLeast(0)
         }
     }
     return vaccineCounts.toList().sortedByDescending { it.second }

@@ -15,9 +15,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppPullToRefresh
 import kotlinx.coroutines.launch
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 
 @Composable
 fun StatisticsScreen(
@@ -28,6 +31,8 @@ fun StatisticsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.refreshError) { uiState.refreshError?.let { snackbarHostState.showSnackbar(it) } }
 
     StatisticsContent(
         uiState = uiState,
@@ -39,7 +44,8 @@ fun StatisticsScreen(
         onRefresh = viewModel::refresh,
         onMenuClick = { scope.launch { drawerState.open() } },
         onBack = onBack,
-        onMonthClick = onMonthClick
+        onMonthClick = onMonthClick,
+        snackbarHostState = snackbarHostState
     )
 }
 
@@ -52,7 +58,8 @@ private fun StatisticsContent(
     onRefresh: () -> Unit,
     onMenuClick: () -> Unit,
     onBack: () -> Unit,
-    onMonthClick: (String) -> Unit
+    onMonthClick: (String) -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
     val tabs = remember { listOf("Overview", "Patients", "Vaccinations", "Finance") }
 
@@ -68,6 +75,7 @@ private fun StatisticsContent(
         }
     ) {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
                     title = {
@@ -107,6 +115,7 @@ private fun StatisticsContent(
                         patients = uiState.patients,
                         vaccinations = uiState.vaccinations,
                         inventory = uiState.inventory,
+                        financeTransactions = uiState.financeTransactions,
                         onMonthClick = onMonthClick
                     )
                 }
@@ -174,13 +183,14 @@ private fun StatisticsTabContent(
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
     inventory: List<InventoryItem>,
+    financeTransactions: List<FinanceEntity>,
     onMonthClick: (String) -> Unit
 ) {
     when (selectedTab) {
-        0 -> OverviewTab(patients, vaccinations)
+        0 -> OverviewTab(patients, vaccinations, financeTransactions)
         1 -> PatientsTab(patients)
         2 -> VaccinationsTab(vaccinations)
-        3 -> FinanceTab(vaccinations, inventory, onMonthClick)
+        3 -> FinanceTab(vaccinations, financeTransactions, onMonthClick)
     }
 }
 
@@ -196,7 +206,8 @@ private fun StatisticsPreview() {
             onMenuClick = {},
             onBack = {},
             onMonthClick = {},
-            onRefresh = {}
+            onRefresh = {},
+            snackbarHostState = remember { SnackbarHostState() }
         )
     }
 }

@@ -174,9 +174,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             
             memoryCache.invalidateVaccination(id)
 
-            // 0. Delete linked finance records
-            financeRepository.deleteTransactionsByVisitId(id)
-
+            // Financial transactions are historical records and must remain after a clinical record is soft-deleted.
             // 1. Identify batches used in this vaccination
             val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
             val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"

@@ -6,12 +6,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,27 +29,45 @@ import java.util.*
 
 @Composable
 fun PatientsTab(patients: List<Patient>) {
-    val patientStats = remember(patients) { calculatePatientStats(patients) }
+    var filterMode by rememberSaveable { mutableStateOf("Overall") }
+    var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
+    var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
+    val availableYears = remember(patients) { StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" }) }
+    val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
+        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", filterMode, fyQuarter, selectedMonth) }
+    }
+    val patientStats = remember(filteredPatients, patients) { calculatePatientStats(filteredPatients, patients) }
 
-    PatientsContent(patients = patients, stats = patientStats)
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        PatientsHeader(
+            filterMode = filterMode,
+            fyQuarter = fyQuarter,
+            selectedMonth = selectedMonth,
+            availableYears = availableYears,
+            onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
+            onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
+            onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it }
+        )
+        PatientsContent(patients = filteredPatients, totalPatients = patients.size, stats = patientStats)
+    }
 }
 
 @Composable
-private fun PatientsContent(patients: List<Patient>, stats: PatientAnalyticsData) {
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+private fun PatientsContent(patients: List<Patient>, totalPatients: Int, stats: PatientAnalyticsData) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text("Patient Analytics", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            StatCardSmall(Modifier.weight(1f), "Total Patients", patients.size.toString(), Icons.Default.People, Color(0xFF2196F3))
+            StatCardSmall(Modifier.weight(1f), "Total Patients", totalPatients.toString(), Icons.Default.People, Color(0xFF2196F3))
             Spacer(modifier = Modifier.width(12.dp))
-            StatCardSmall(Modifier.weight(1f), "New This Month", stats.newPatientsThisMonth.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50))
+            StatCardSmall(Modifier.weight(1f), "Registered in Period", stats.newPatientsThisMonth.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50))
         }
         
         Spacer(modifier = Modifier.height(12.dp))
         
         Row(modifier = Modifier.fillMaxWidth()) {
-            StatCardSmall(Modifier.weight(1f), "New Today", stats.newPatientsToday.toString(), Icons.Default.Today, Color(0xFF9C27B0))
+            StatCardSmall(Modifier.weight(1f), "Registered Today", stats.newPatientsToday.toString(), Icons.Default.Today, Color(0xFF9C27B0))
             Spacer(modifier = Modifier.weight(1f))
         }
 
@@ -69,9 +88,9 @@ private fun GenderDistributionCard(stats: PatientAnalyticsData) {
             Text("Gender Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             SimplePieChart(
-                data = listOf(stats.maleCount.toFloat(), stats.femaleCount.toFloat(), stats.otherCount.toFloat()),
-                colors = listOf(Color(0xFF2196F3), Color(0xFFE91E63), Color(0xFF9E9E9E)),
-                labels = listOf("Male", "Female", "Other")
+                data = listOf(stats.maleCount.toFloat(), stats.femaleCount.toFloat(), stats.otherCount.toFloat(), stats.unknownCount.toFloat()),
+                colors = listOf(Color(0xFF2196F3), Color(0xFFE91E63), Color(0xFF9E9E9E), Color(0xFF757575)),
+                labels = listOf("Male", "Female", "Other", "Unknown")
             )
         }
     }
@@ -99,59 +118,123 @@ private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: I
     }
 }
 
+@Composable
+private fun PatientsHeader(
+    filterMode: String,
+    fyQuarter: Int,
+    selectedMonth: Int,
+    availableYears: List<String>,
+    onFilterModeChange: (String) -> Unit,
+    onQuarterChange: (Int) -> Unit,
+    onMonthChange: (Int) -> Unit
+) {
+    val options = listOf("Overall") + availableYears.reversed().map { "FY $it" }
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("Patient Analytics", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    when {
+                        filterMode == "Overall" -> "All Time"
+                        selectedMonth != -1 -> "${StatisticsUtils.monthNames[selectedMonth]} Statistics"
+                        fyQuarter != 0 -> "Quarter $fyQuarter Statistics"
+                        else -> "Annual Statistics ($filterMode)"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                AssistChip(onClick = { expanded = true }, label = { Text(filterMode) }, trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) })
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    options.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onFilterModeChange(option); expanded = false }) }
+                }
+            }
+        }
+        if (filterMode.startsWith("FY ")) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatisticsUtils.fyQuarters.forEachIndexed { index, _ ->
+                    val q = index + 1
+                    FilterChip(selected = fyQuarter == q, onClick = { onQuarterChange(q) }, label = { Text("Q$q") }, modifier = Modifier.weight(1f))
+                }
+            }
+            if (fyQuarter > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatisticsUtils.fyQuarters[fyQuarter - 1].second.forEach { month ->
+                        FilterChip(selected = selectedMonth == month, onClick = { onMonthChange(month) }, label = { Text(StatisticsUtils.monthNames[month]) })
+                    }
+                }
+            }
+        }
+    }
+}
+
 private data class PatientAnalyticsData(
     val newPatientsToday: Int,
     val newPatientsThisMonth: Int,
     val maleCount: Int,
     val femaleCount: Int,
     val otherCount: Int,
+    val unknownCount: Int,
     val ageGroups: Map<String, Int>
 )
 
-private fun calculatePatientStats(patients: List<Patient>): PatientAnalyticsData {
-    val today = Calendar.getInstance()
-    val currentMonth = today.get(Calendar.MONTH)
-    val currentYear = today.get(Calendar.YEAR)
+private fun calculatePatientStats(patients: List<Patient>, allPatients: List<Patient>): PatientAnalyticsData {
     val todayStr = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
 
-    var newToday = 0
-    var newMonth = 0
     var male = 0
     var female = 0
+    var other = 0
+    var unknown = 0
     
     val ageMap = mutableMapOf(
-        "0-6 Weeks" to 0, "6-14 Weeks" to 0, "3-9 Months" to 0,
-        "9-18 Months" to 0, "18m - 5y" to 0, "Above 5y" to 0
+        "0-6 Weeks" to 0, ">6-14 Weeks" to 0, ">14 Weeks-9 Months" to 0,
+        ">9-18 Months" to 0, ">18m-5y" to 0, "Above 5y" to 0, "Invalid / Unknown" to 0
     )
 
     patients.forEach { p ->
-        if (p.registrationDate == todayStr) newToday++
-        
-        PatientUtils.parseDate(p.registrationDate ?: "")?.let { date ->
-            val c = Calendar.getInstance().apply { time = date }
-            if (c.get(Calendar.MONTH) == currentMonth && c.get(Calendar.YEAR) == currentYear) newMonth++
-        }
-
         when {
             p.gender.equals("Male", true) -> male++
             p.gender.equals("Female", true) -> female++
+            p.gender.equals("Other", true) -> other++
+            else -> unknown++
         }
 
-        PatientUtils.parseDate(p.dob)?.let { dob ->
-            val diffMs = Date().time - dob.time
-            val diffDays = (diffMs / (1000 * 60 * 60 * 24)).toInt()
-            when {
-                diffDays <= 42 -> ageMap["0-6 Weeks"] = ageMap["0-6 Weeks"]!! + 1
-                diffDays <= 98 -> ageMap["6-14 Weeks"] = ageMap["6-14 Weeks"]!! + 1
-                diffDays <= 270 -> ageMap["3-9 Months"] = ageMap["3-9 Months"]!! + 1
-                diffDays <= 540 -> ageMap["9-18 Months"] = ageMap["9-18 Months"]!! + 1
-                diffDays <= 1825 -> ageMap["18m - 5y"] = ageMap["18m - 5y"]!! + 1
-                else -> ageMap["Above 5y"] = ageMap["Above 5y"]!! + 1
+        val dob = PatientUtils.parseDate(p.dob)
+        if (dob == null) {
+            ageMap["Invalid / Unknown"] = ageMap["Invalid / Unknown"]!! + 1
+        } else {
+            val dobCal = Calendar.getInstance().apply { time = dob }
+            val now = Calendar.getInstance()
+            if (dobCal.after(now)) {
+                ageMap["Invalid / Unknown"] = ageMap["Invalid / Unknown"]!! + 1
+            } else {
+                val sixWeeks = (dobCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 42) }
+                val fourteenWeeks = (dobCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 98) }
+                val nineMonths = (dobCal.clone() as Calendar).apply { add(Calendar.MONTH, 9) }
+                val eighteenMonths = (dobCal.clone() as Calendar).apply { add(Calendar.MONTH, 18) }
+                val fiveYears = (dobCal.clone() as Calendar).apply { add(Calendar.YEAR, 5) }
+                when {
+                    !now.after(sixWeeks) -> ageMap["0-6 Weeks"] = ageMap["0-6 Weeks"]!! + 1
+                    !now.after(fourteenWeeks) -> ageMap[">6-14 Weeks"] = ageMap[">6-14 Weeks"]!! + 1
+                    !now.after(nineMonths) -> ageMap[">14 Weeks-9 Months"] = ageMap[">14 Weeks-9 Months"]!! + 1
+                    !now.after(eighteenMonths) -> ageMap[">9-18 Months"] = ageMap[">9-18 Months"]!! + 1
+                    !now.after(fiveYears) -> ageMap[">18m-5y"] = ageMap[">18m-5y"]!! + 1
+                    else -> ageMap["Above 5y"] = ageMap["Above 5y"]!! + 1
+                }
             }
         }
     }
 
-    return PatientAnalyticsData(newToday, newMonth, male, female, patients.size - male - female, ageMap)
+    val newTodayAll = allPatients.count { it.registrationDate == todayStr }
+    // "Registered in Period" is exactly the filtered patient population; date validity
+    // has already been enforced by StatisticsUtils.isDateInFilter().
+    val registeredInPeriod = patients.size
+
+    return PatientAnalyticsData(newTodayAll, registeredInPeriod, male, female, other, unknown, ageMap)
 }
 
 @Preview(showBackground = true)
@@ -160,7 +243,8 @@ private fun PatientsTabPreview() {
     NeoChildTheme {
         PatientsContent(
             patients = emptyList(),
-            stats = PatientAnalyticsData(1, 5, 10, 10, 0, mapOf("0-6 Weeks" to 5))
+            totalPatients = 0,
+            stats = PatientAnalyticsData(1, 5, 10, 10, 0, 0, mapOf("0-6 Weeks" to 5))
         )
     }
 }

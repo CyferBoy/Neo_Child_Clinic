@@ -61,8 +61,8 @@ fun RevenueOverviewCard(revenue: Double, filterMode: String) {
 @Composable
 fun CashOnlineSummary(cash: Double, online: Double) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        FinanceStatItem(Modifier.weight(1f), "Cash Total", "₹${cash.toInt()}", Color(0xFF4CAF50))
+        FinanceStatItem(Modifier.weight(1f), "Net Cash", "₹${cash.toInt()}", Color(0xFF4CAF50))
         Spacer(modifier = Modifier.width(12.dp))
-        FinanceStatItem(Modifier.weight(1f), "Online Total", "₹${online.toInt()}", Color(0xFF2196F3))
+        FinanceStatItem(Modifier.weight(1f), "Net Online", "₹${online.toInt()}", Color(0xFF2196F3))
     }
 }

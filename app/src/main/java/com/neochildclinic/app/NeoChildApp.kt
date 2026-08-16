@@ -6,6 +6,8 @@ import android.webkit.WebView
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.neochildclinic.notification.ReminderScheduler
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.neochildclinic.worker.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
@@ -14,6 +16,7 @@ import android.content.IntentFilter
 import com.neochildclinic.core.utils.BiometricLockManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -25,6 +28,12 @@ class NeoChildApp : Application(), Configuration.Provider {
 
     @Inject
     lateinit var reminderScheduler: ReminderScheduler
+
+    @Inject
+    lateinit var financeRepository: FinanceRepository
+
+    @Inject
+    lateinit var getVaccinationsUseCase: GetVaccinationsUseCase
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -61,9 +70,17 @@ class NeoChildApp : Application(), Configuration.Provider {
             }
         }, filter)
 
-        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
         scope.launch {
             reminderScheduler.scheduleDailySummary()
+        }
+        scope.launch {
+            try {
+                val vaccinations = getVaccinationsUseCase().first()
+                financeRepository.migrateLegacyVaccinationCogs(vaccinations)
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to migrate historical finance COGS snapshots", e)
+            }
         }
     }
 

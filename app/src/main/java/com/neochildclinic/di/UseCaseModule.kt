@@ -2,6 +2,7 @@ package com.neochildclinic.di
 
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
@@ -21,57 +22,59 @@ import com.neochildclinic.data.local.database.AppDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.components.ViewModelComponent
-import dagger.hilt.android.scopes.ViewModelScoped
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
 @Module
-@InstallIn(ViewModelComponent::class)
+@InstallIn(SingletonComponent::class)
 object UseCaseModule {
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideGetPatientsUseCase(repository: PatientRepository) = GetPatientsUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideSavePatientUseCase(repository: PatientRepository) = SavePatientUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideDeletePatientUseCase(repository: PatientRepository) = DeletePatientUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideGetVaccinationsUseCase(repository: VaccinationRepository) = GetVaccinationsUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideSaveVaccinationUseCase(repository: VaccinationRepository) = SaveVaccinationUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideDeleteVaccinationUseCase(repository: VaccinationRepository) = DeleteVaccinationUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideRefreshDataUseCase(
         patientRepository: PatientRepository,
         vaccinationRepository: VaccinationRepository,
         wasteRepository: WasteRepository,
         inventoryRepository: InventoryRepository,
         reminderRepository: ReminderRepository,
-        consultationRepository: ConsultationRepository
+        consultationRepository: ConsultationRepository,
+        financeRepository: FinanceRepository
     ) = RefreshDataUseCase(
         patientRepository,
         vaccinationRepository,
         wasteRepository,
         inventoryRepository,
         reminderRepository,
-        consultationRepository
+        consultationRepository,
+        financeRepository
     )
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideReconcileInventoryUseCase(
         vaccinationDao: VaccinationDao,
         vaccineDao: VaccineDao,

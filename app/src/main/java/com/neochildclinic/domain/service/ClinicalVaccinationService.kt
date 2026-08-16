@@ -10,6 +10,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.features.statistics.FinanceCalculator
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.PatientUtils
@@ -41,26 +42,32 @@ class ClinicalVaccinationService @Inject constructor(
             // Editing must update the existing transaction for this visit instead of
             // creating a second income record.
             if (isNew) {
-                if (vaccination.totalPaid > 0) {
-                    financeRepository.recordIncome(
-                        amount = vaccination.totalPaid,
+                // Record every vaccination in the finance ledger, including free
+                // vaccinations, so vaccine COGS remains historically reportable.
+                financeRepository.recordIncome(
+                        amount = vaccination.totalPaid.coerceAtLeast(0.0),
                         cashAmount = vaccination.cashAmount,
                         onlineAmount = vaccination.onlineAmount,
                         category = "VACCINATION",
                         patientId = vaccination.patientId,
                         visitId = vaccination.id,
-                        remarks = "Vaccination: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
+                        remarks = FinanceCalculator.buildVaccinationRemarks(
+                            vaccination.items.joinToString(", ") { it.vaccineName },
+                            vaccination.items.sumOf { it.netRate.coerceAtLeast(0.0) * it.quantity.coerceAtLeast(0) }
+                        ),
                         recordedBy = user,
                         transactionGroupId = transactionGroupId
                     )
-                }
             } else {
                 financeRepository.updateIncomeForVisit(
                     visitId = vaccination.id,
                     amount = vaccination.totalPaid,
                     cashAmount = vaccination.cashAmount,
                     onlineAmount = vaccination.onlineAmount,
-                    remarks = "Vaccination: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
+                    remarks = FinanceCalculator.buildVaccinationRemarks(
+                            vaccination.items.joinToString(", ") { it.vaccineName },
+                            vaccination.items.sumOf { it.netRate.coerceAtLeast(0.0) * it.quantity.coerceAtLeast(0) }
+                        ),
                     recordedBy = user,
                     transactionGroupId = transactionGroupId
                 )

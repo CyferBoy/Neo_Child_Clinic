@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 data class FinanceEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
     val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-    val type: String, // INCOME, EXPENSE, REFUND
+    val type: String, // INCOME, EXPENSE
     val category: String, // VACCINATION, CONSULTATION, PURCHASE, etc.
     val amount: Double,
     @SerialName("cash_amount") val cashAmount: Double = 0.0,

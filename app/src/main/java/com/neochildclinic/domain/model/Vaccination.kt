@@ -22,6 +22,7 @@ data class Vaccination(
     @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
     val status: ReminderStatus = ReminderStatus.ACTIVE,
     @SerialName("visit_type") val visitType: String = "VACCINATION",
+    val source: String = "CLINIC",
     @SerialName("receipt_number") val receiptNumber: String = "",
     @SerialName("with_fees") val withFees: Boolean = false,
     @SerialName("doctors_acc") val doctorsAcc: Boolean = false,

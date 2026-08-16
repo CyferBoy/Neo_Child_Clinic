@@ -1,6 +1,7 @@
 package com.neochildclinic.domain.usecase.sync
 
 import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.domain.repository.InventoryRepository
@@ -8,6 +9,7 @@ import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
@@ -20,12 +22,17 @@ class RefreshDataUseCase @Inject constructor(
     private val wasteRepository: WasteRepository,
     private val inventoryRepository: InventoryRepository,
     private val reminderRepository: ReminderRepository,
-    private val consultationRepository: ConsultationRepository
+    private val consultationRepository: ConsultationRepository,
+    private val financeRepository: FinanceRepository
 ) {
     suspend operator fun invoke() = coroutineScope {
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
         patientRepository.refreshPatients()
         vaccinationRepository.refreshVaccinations()
+        // Remote vaccination records may arrive after the application-startup migration.
+        // Re-run the idempotent COGS snapshot migration after refresh so legacy finance rows
+        // are upgraded as soon as their linked vaccinations are available locally.
+        financeRepository.migrateLegacyVaccinationCogs(vaccinationRepository.allVaccinations.first())
         consultationRepository.refreshConsultations()
         reminderRepository.refreshReminders()
         

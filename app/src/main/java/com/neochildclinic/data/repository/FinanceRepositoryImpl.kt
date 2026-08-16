@@ -5,6 +5,8 @@ import androidx.room.withTransaction
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.features.statistics.FinanceCalculator
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -56,7 +58,12 @@ class FinanceRepositoryImpl @Inject constructor(
                 amount = amount,
                 cashAmount = cashAmount,
                 onlineAmount = onlineAmount,
-                paymentMethod = if (cashAmount > 0 && onlineAmount > 0) "MIXED" else if (cashAmount > 0) "CASH" else "ONLINE",
+                paymentMethod = when {
+                    cashAmount > 0 && onlineAmount > 0 -> "MIXED"
+                    cashAmount > 0 -> "CASH"
+                    onlineAmount > 0 -> "ONLINE"
+                    else -> "FREE"
+                },
                 patientId = patientId,
                 visitId = visitId,
                 remarks = remarks,
@@ -133,39 +140,53 @@ class FinanceRepositoryImpl @Inject constructor(
             val transactions = financeDao.getTransactionsByVisitId(visitId)
                 .filter { it.type == "INCOME" && it.category == "VACCINATION" }
 
-            if (amount <= 0.0) {
-                // An edited vaccination with no fee should no longer have a
-                // vaccination income transaction. Remove the existing one(s).
-                for (t in transactions) {
-                    financeDao.deleteTransactionById(t.id)
-                    syncRepository.enqueue(
-                        entityName = "FINANCE",
-                        entityId = t.id,
-                        operation = SyncOperation.DELETE,
-                        priority = SyncPriority.MEDIUM,
-                        transactionGroupId = transactionGroupId
-                    )
-                }
+            // Keep a vaccination finance record even when the fee is zero so historical
+            // vaccine COGS remains reportable. Never delete historical finance rows here.
+
+            val existing = transactions.maxByOrNull { it.timestamp }
+            if (existing == null) {
+                val transaction = FinanceEntity(
+                    type = "INCOME",
+                    category = "VACCINATION",
+                    amount = amount,
+                    cashAmount = cashAmount,
+                    onlineAmount = onlineAmount,
+                    paymentMethod = when {
+                        cashAmount > 0 && onlineAmount > 0 -> "MIXED"
+                        cashAmount > 0 -> "CASH"
+                        onlineAmount > 0 -> "ONLINE"
+                        else -> "FREE"
+                    },
+                    patientId = null,
+                    visitId = visitId,
+                    remarks = remarks,
+                    recordedBy = recordedBy,
+                    isSynced = false
+                )
+                financeDao.insertTransaction(transaction)
+                syncRepository.enqueue(entityName = "FINANCE", entityId = transaction.id, operation = SyncOperation.CREATE, priority = SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
                 return@withTransaction
             }
 
-            val existing = transactions.firstOrNull()
-                ?: throw IllegalStateException("No vaccination finance transaction found for visit $visitId")
+            val existingTransaction = existing
 
             val paymentMethod = when {
                 cashAmount > 0 && onlineAmount > 0 -> "MIXED"
                 cashAmount > 0 -> "CASH"
-                else -> "ONLINE"
+                onlineAmount > 0 -> "ONLINE"
+                else -> "FREE"
             }
 
-            val updated = existing.copy(
+            val snapshot = existingTransaction.remarks?.substringAfter("[COGS_SNAPSHOT:", missingDelimiterValue = "")?.substringBefore("]")?.toDoubleOrNull()
+            val updatedRemarks = if (snapshot != null) existingTransaction.remarks else remarks
+            val updated = existingTransaction.copy(
                 amount = amount,
                 cashAmount = cashAmount,
                 onlineAmount = onlineAmount,
                 paymentMethod = paymentMethod,
                 patientId = existing.patientId,
                 visitId = visitId,
-                remarks = remarks,
+                remarks = updatedRemarks,
                 recordedBy = recordedBy,
                 isSynced = false
             )
@@ -192,27 +213,39 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteTransactionsByVisitId(visitId: String) {
+
+    override suspend fun migrateLegacyVaccinationCogs(vaccinations: List<Vaccination>) {
         database.withTransaction {
-            val transactions = financeDao.getTransactionsByVisitId(visitId)
-            for (t in transactions) {
-                financeDao.deleteTransactionById(t.id)
-                syncRepository.enqueue(
-                    entityName = "FINANCE",
-                    entityId = t.id,
-                    operation = SyncOperation.DELETE,
-                    priority = SyncPriority.MEDIUM
-                )
-                
-                auditLogger.recordLog(
-                    module = "FINANCE",
-                    entityType = "TRANSACTION",
-                    entityId = t.id,
-                    action = "DELETED",
-                    patientId = t.patientId,
-                    remarks = "Transaction for visit $visitId deleted"
-                )
-            }
+            val validById = vaccinations.associateBy { it.id }
+            val transactions = financeDao.getAllTransactionsSnapshot()
+            transactions
+                .filter { it.type.equals("INCOME", true) && it.category.equals("VACCINATION", true) }
+                .forEach { transaction ->
+                    val visitId = transaction.visitId ?: return@forEach
+                    if (transaction.remarks?.contains("[COGS_SNAPSHOT:") == true) return@forEach
+                    val vaccination = validById[visitId] ?: return@forEach
+                    val cogs = vaccination.items.sumOf { item ->
+                        item.netRate.coerceAtLeast(0.0) * item.quantity.coerceAtLeast(0)
+                    }
+                    val snapshotRemarks = FinanceCalculator.buildVaccinationRemarks(
+                        vaccination.items.joinToString(", ") { it.vaccineName },
+                        cogs
+                    )
+                    val updatedRemarks = transaction.remarks?.let {
+                        if (it.contains("[COGS_SNAPSHOT:") ) it else "$it $snapshotRemarks"
+                    } ?: snapshotRemarks
+                    val updated = transaction.copy(
+                        remarks = updatedRemarks,
+                        isSynced = false
+                    )
+                    financeDao.insertTransaction(updated)
+                    syncRepository.enqueue(
+                        entityName = "FINANCE",
+                        entityId = updated.id,
+                        operation = SyncOperation.UPDATE,
+                        priority = SyncPriority.MEDIUM
+                    )
+                }
         }
     }
 

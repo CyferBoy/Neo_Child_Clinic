@@ -15,16 +15,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.core.designsystem.NeoChildTheme
 
 @Composable
-fun OverviewTab(patients: List<Patient>, vaccinations: List<Vaccination>) {
+fun OverviewTab(patients: List<Patient>, vaccinations: List<Vaccination>, financeTransactions: List<FinanceEntity>) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
     val availableYears = remember(patients, vaccinations) {
-        StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" } + vaccinations.map { it.dateGiven })
+        StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" } + vaccinations.map { it.dateGiven } + financeTransactions.map { it.timestamp })
     }
 
     val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
@@ -32,17 +33,26 @@ fun OverviewTab(patients: List<Patient>, vaccinations: List<Vaccination>) {
     }
     
     val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
-        vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
+        StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
 
-    val stats = remember(filteredPatients, filteredVaccinations) {
+    val filteredTransactions = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
+        financeTransactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, filterMode, fyQuarter, selectedMonth) }
+    }
+
+    val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
+    val financeStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
+        FinanceCalculator.calculateFinanceStats(filteredTransactions, allValidVaccinations, financeTransactions, filteredVaccinations)
+    }
+    val stats = remember(filteredPatients, filteredVaccinations, financeStats) {
         listOf(
-            StatItem("New Patients", filteredPatients.size.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50)),
-            StatItem("Active Patients", filteredVaccinations.map { it.patientId }.distinct().size.toString(), Icons.Default.PersonSearch, Color(0xFF673AB7)),
-            StatItem("Vaccinations", filteredVaccinations.sumOf { it.items.size }.toString(), Icons.Default.Vaccines, Color(0xFFFF9800)),
-            StatItem("Revenue", "₹${filteredVaccinations.sumOf { it.totalPaid }.toInt()}", Icons.Default.Payments, Color(0xFF3F51B5)),
-            StatItem("Cash", "₹${filteredVaccinations.sumOf { it.cashAmount }.toInt()}", Icons.Default.Money, Color(0xFF4CAF50)),
-            StatItem("Online", "₹${filteredVaccinations.sumOf { it.onlineAmount }.toInt()}", Icons.Default.AccountBalanceWallet, Color(0xFF03A9F4))
+            StatItem("Registered in Period", filteredPatients.size.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50)),
+            StatItem("Patients Vaccinated", filteredVaccinations.map { it.patientId }.distinct().size.toString(), Icons.Default.PersonSearch, Color(0xFF673AB7)),
+            StatItem("Doses", filteredVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }.toString(), Icons.Default.Vaccines, Color(0xFFFF9800)),
+            StatItem("Revenue", "₹${financeStats.totalRevenue.toInt()}", Icons.Default.Payments, Color(0xFF3F51B5)),
+            StatItem("Cash", "₹${financeStats.cashTotal.toInt()}", Icons.Default.Money, Color(0xFF4CAF50)),
+            StatItem("Online", "₹${financeStats.onlineTotal.toInt()}", Icons.Default.AccountBalanceWallet, Color(0xFF03A9F4)),
+            StatItem("Net Profit", if (financeStats.isProfitComplete) "₹${financeStats.netProfit.toInt()}" else "Unavailable", Icons.Default.TrendingUp, Color(0xFF009688))
         )
     }
 
@@ -79,7 +89,7 @@ private fun OverviewContent(
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit
 ) {
-    val mainOptions = remember(availableYears) { listOf("Overall") + availableYears.map { "FY $it" } }
+    val mainOptions = remember(availableYears) { listOf("Overall") + availableYears.reversed().map { "FY $it" } }
     
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         item {

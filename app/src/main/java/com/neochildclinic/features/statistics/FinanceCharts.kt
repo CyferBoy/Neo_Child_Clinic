@@ -20,67 +20,66 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.core.utils.PatientUtils
 import java.util.*
 
 @Composable
-fun ChartsSection(filterMode: String, availableYears: List<String>, vaccinations: List<Vaccination>) {
+fun ChartsSection(filterMode: String, availableYears: List<String>, transactions: List<FinanceEntity>, vaccinations: List<com.neochildclinic.domain.model.Vaccination>) {
     if (filterMode == "Overall") {
-        YearlyTrendCharts(availableYears = availableYears, vaccinations = vaccinations)
+        YearlyTrendCharts(availableYears = availableYears, transactions = transactions, vaccinations = vaccinations)
     } else {
-        MonthlyTrendCharts(filterMode = filterMode, vaccinations = vaccinations)
+        MonthlyTrendCharts(filterMode = filterMode, transactions = transactions, vaccinations = vaccinations)
     }
 }
 
 @Composable
-fun YearlyTrendCharts(availableYears: List<String>, vaccinations: List<Vaccination>) {
+fun YearlyTrendCharts(availableYears: List<String>, transactions: List<FinanceEntity>, vaccinations: List<com.neochildclinic.domain.model.Vaccination>) {
     Text("Total Revenue Trend (Yearly)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(16.dp))
-    
-    val yearlyTotals = availableYears.map { fy ->
-        val revenue = vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, "FY $fy") }.sumOf { it.totalPaid }.toFloat()
-        listOf(revenue)
+    val yearly = remember(availableYears, transactions, vaccinations) {
+        availableYears.map { fy ->
+            FinanceCalculator.calculateFinanceStats(
+                transactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, "FY $fy") },
+                vaccinations,
+                transactions
+            )
+        }
     }
-    MultiBarChart(availableYears, yearlyTotals, colors = listOf(MaterialTheme.colorScheme.primary))
+    MultiBarChart(availableYears, yearly.map { listOf(it.totalRevenue.toFloat()) }, colors = listOf(MaterialTheme.colorScheme.primary))
 
     Spacer(modifier = Modifier.height(32.dp))
-
     Text("Cash vs Online Breakdown (Yearly)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(16.dp))
-    
-    val yearlyBreakdown = availableYears.map { fy ->
-        val fyVax = vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, "FY $fy") }
-        listOf(fyVax.sumOf { it.cashAmount }.toFloat(), fyVax.sumOf { it.onlineAmount }.toFloat())
-    }
-    MultiBarChart(availableYears, yearlyBreakdown, colors = listOf(Color(0xFF4CAF50), Color(0xFF2196F3)))
+    MultiBarChart(availableYears, yearly.map { listOf(it.cashTotal.toFloat(), it.onlineTotal.toFloat()) }, colors = listOf(Color(0xFF4CAF50), Color(0xFF2196F3)))
 }
 
 @Composable
-fun MonthlyTrendCharts(filterMode: String, vaccinations: List<Vaccination>) {
-    val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toInt()
-    val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
+fun MonthlyTrendCharts(filterMode: String, transactions: List<FinanceEntity>, vaccinations: List<com.neochildclinic.domain.model.Vaccination>) {
     val monthLabels = listOf("Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")
-    
-    val monthlyData = (4..15).map { mAdjusted ->
-        val monthIdx = (mAdjusted - 1) % 12
-        val yearAdjusted = if (mAdjusted > 12) fyStartYear + 1 else fyStartYear
-        vaccinations.filter {
-            val date = PatientUtils.parseDate(it.dateGiven) ?: return@filter false
-            val cal = Calendar.getInstance().apply { time = date }
-            cal.get(Calendar.MONTH) == monthIdx && cal.get(Calendar.YEAR) == yearAdjusted
+    val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: return
+    val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
+    val monthStats = remember(filterMode, transactions, vaccinations) {
+        (0 until 12).map { offset ->
+            val monthIdx = (Calendar.APRIL + offset) % 12
+            val year = if (monthIdx >= Calendar.APRIL) fyStartYear else fyStartYear + 1
+            val monthTx = transactions.filter { tx ->
+                val date = PatientUtils.parseDate(tx.timestamp) ?: return@filter false
+                val cal = Calendar.getInstance().apply { time = date }
+                cal.get(Calendar.YEAR) == year && cal.get(Calendar.MONTH) == monthIdx
+            }
+            FinanceCalculator.calculateFinanceStats(monthTx, vaccinations, transactions)
         }
     }
 
     Text("Total Revenue Trend (Monthly)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(16.dp))
-    MultiBarChart(monthLabels, monthlyData.map { listOf(it.sumOf { v -> v.totalPaid }.toFloat()) }, colors = listOf(MaterialTheme.colorScheme.primary))
+    MultiBarChart(monthLabels, monthStats.map { listOf(it.totalRevenue.toFloat()) }, colors = listOf(MaterialTheme.colorScheme.primary))
 
     Spacer(modifier = Modifier.height(32.dp))
-
     Text("Cash vs Online Breakdown (Monthly)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(16.dp))
-    MultiBarChart(monthLabels, monthlyData.map { listOf(it.sumOf { v -> v.cashAmount }.toFloat(), it.sumOf { v -> v.onlineAmount }.toFloat()) }, colors = listOf(Color(0xFF4CAF50), Color(0xFF2196F3)))
+    MultiBarChart(monthLabels, monthStats.map { listOf(it.cashTotal.toFloat(), it.onlineTotal.toFloat()) }, colors = listOf(Color(0xFF4CAF50), Color(0xFF2196F3)))
 }
 
 @Composable
@@ -89,8 +88,6 @@ fun ChartLegend() {
         LegendItem("Cash", Color(0xFF4CAF50))
         Spacer(modifier = Modifier.width(16.dp))
         LegendItem("Online", Color(0xFF2196F3))
-        Spacer(modifier = Modifier.width(16.dp))
-        LegendItem("Total", MaterialTheme.colorScheme.primary)
     }
 }
 
