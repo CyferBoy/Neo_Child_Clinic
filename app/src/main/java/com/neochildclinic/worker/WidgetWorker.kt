@@ -48,13 +48,15 @@ class WidgetWorker @AssistedInject constructor(
 
                 WidgetDueEntity(
                     patientName = patient?.name ?: "Unknown",
-                    vaccineName = vacc.nxtVaccineNames.joinToString(", "),
+                    vaccineName = "", // Widget displays patient name and due date only
                     dueDate = displayDate,
                     isOverdue = category is DateCategory.Overdue
                 )
             }
 
             database.widgetDueDao().refreshCache(widgetItems)
+
+
 
             // Update the Glance widget only after the cache has been populated.
             // Previously WidgetUtils refreshed the widget immediately after enqueueing
@@ -66,6 +68,8 @@ class WidgetWorker @AssistedInject constructor(
                 VaccineWidget().update(applicationContext, id)
             }
 
+            // Cache must be populated before the widget is refreshed, otherwise the
+            // widget can render a stale empty state.
             Result.success()
         } catch (e: Exception) {
             Result.failure()
