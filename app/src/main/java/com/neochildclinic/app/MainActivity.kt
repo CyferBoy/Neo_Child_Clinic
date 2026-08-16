@@ -184,12 +184,25 @@ class MainActivity : FragmentActivity() {
         private val BIOMETRIC_CHALLENGE = "neochild_unlock".toByteArray()
     }
 
+    private fun deleteBiometricKey() {
+        runCatching {
+            KeyStore.getInstance("AndroidKeyStore").apply {
+                load(null)
+                deleteEntry(BIOMETRIC_KEY_ALIAS)
+            }
+        }
+    }
+
     private fun getOrCreateSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         val existingKey = keyStore.getKey(BIOMETRIC_KEY_ALIAS, null) as? SecretKey
         if (existingKey != null) return existingKey
 
-        val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        val keyGenerator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES,
+            "AndroidKeyStore"
+        )
+
         val keyGenParameterSpec = KeyGenParameterSpec.Builder(
             BIOMETRIC_KEY_ALIAS,
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
@@ -199,6 +212,7 @@ class MainActivity : FragmentActivity() {
             .setUserAuthenticationRequired(true)
             .setInvalidatedByBiometricEnrollment(true)
             .build()
+
         keyGenerator.init(keyGenParameterSpec)
         return keyGenerator.generateKey()
     }
@@ -211,65 +225,195 @@ class MainActivity : FragmentActivity() {
         return cipher
     }
 
-    private fun authenticateWithBiometrics() {
+    private fun showCredentialOrBiometricPrompt() {
         val biometricManager = BiometricManager.from(this)
-        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        val authenticators =
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
 
-        when (biometricManager.canAuthenticate(authenticators)) {
-            BiometricManager.BIOMETRIC_SUCCESS -> {
-                val cipher = try {
-                    createBiometricCipher()
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Unable to initialize secure authentication.", Toast.LENGTH_SHORT).show()
-                    return
+        if (biometricManager.canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
+            BiometricLockManager.unlock()
+            return
+        }
+
+        val executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(
+            this,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(
+                    result: BiometricPrompt.AuthenticationResult
+                ) {
+                    super.onAuthenticationSucceeded(result)
+                    BiometricLockManager.unlock()
                 }
 
-                val executor = ContextCompat.getMainExecutor(this)
-                val biometricPrompt = BiometricPrompt(this, executor,
-                    object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            super.onAuthenticationSucceeded(result)
-                            try {
-                                val authenticatedCipher = result.cryptoObject?.cipher
-                                if (authenticatedCipher == null) {
-                                    Toast.makeText(this@MainActivity, "Authentication failed: missing secure context.", Toast.LENGTH_SHORT).show()
-                                    return
-                                }
-                                authenticatedCipher.doFinal(BIOMETRIC_CHALLENGE)
-                                BiometricLockManager.unlock()
-                            } catch (e: Exception) {
-                                Toast.makeText(this@MainActivity, "Authentication failed: secure verification error.", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-
-                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                            super.onAuthenticationError(errorCode, errString)
-                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-                                Toast.makeText(this@MainActivity, "Authentication error: $errString", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-
-                        override fun onAuthenticationFailed() {
-                            super.onAuthenticationFailed()
-                        }
-                    })
-
-                val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("Clinic Access")
-                    .setSubtitle("Authenticate to access patient data")
-                    .setAllowedAuthenticators(authenticators)
-                    .build()
-
-                biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
+                override fun onAuthenticationError(
+                    errorCode: Int,
+                    errString: CharSequence
+                ) {
+                    super.onAuthenticationError(errorCode, errString)
+                    if (
+                        errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
+                        errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                    ) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Authentication error: $errString",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
             }
-            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                BiometricLockManager.unlock()
-                Toast.makeText(this, "No biometrics enrolled. Please set up fingerprint in device settings.", Toast.LENGTH_LONG).show()
+        )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Clinic Access")
+            .setSubtitle("Authenticate to access patient data")
+            .setAllowedAuthenticators(authenticators)
+            .build()
+
+        // No CryptoObject here: this path supports both strong biometrics and
+        // device credentials as required by Android's BiometricPrompt API.
+        biometricPrompt.authenticate(promptInfo)
+    }
+
+    private fun authenticateWithBiometrics() {
+        val biometricManager = BiometricManager.from(this)
+
+        // CryptoObject authentication must request BIOMETRIC_STRONG only.
+        // DEVICE_CREDENTIAL cannot be combined with a crypto-based prompt.
+        val strongBiometric = BiometricManager.Authenticators.BIOMETRIC_STRONG
+        val credentialOrBiometric =
+            strongBiometric or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+        when {
+            biometricManager.canAuthenticate(strongBiometric) ==
+                BiometricManager.BIOMETRIC_SUCCESS -> {
+                authenticateWithStrongBiometricCrypto()
             }
+
+            biometricManager.canAuthenticate(credentialOrBiometric) ==
+                BiometricManager.BIOMETRIC_SUCCESS -> {
+                // Fallback for devices where strong biometric crypto is unavailable
+                // but a secure device credential is available.
+                showCredentialOrBiometricPrompt()
+            }
+
             else -> {
                 BiometricLockManager.unlock()
+                Toast.makeText(
+                    this,
+                    "No supported secure authentication is available.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
+    }
+
+    private fun authenticateWithStrongBiometricCrypto() {
+        val strongBiometric = BiometricManager.Authenticators.BIOMETRIC_STRONG
+        val cipher = try {
+            createBiometricCipher()
+        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+            // Biometric enrollment/security state changed. Recreate the local key.
+            deleteBiometricKey()
+            try {
+                createBiometricCipher()
+            } catch (retry: Exception) {
+                Toast.makeText(
+                    this,
+                    "Unable to initialize secure authentication.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
+        } catch (e: java.security.InvalidKeyException) {
+            // Recover from stale/invalid Android Keystore state.
+            deleteBiometricKey()
+            try {
+                createBiometricCipher()
+            } catch (retry: Exception) {
+                Toast.makeText(
+                    this,
+                    "Unable to initialize secure authentication.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Unable to initialize secure authentication.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(
+            this,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(
+                    result: BiometricPrompt.AuthenticationResult
+                ) {
+                    super.onAuthenticationSucceeded(result)
+                    try {
+                        val authenticatedCipher = result.cryptoObject?.cipher
+                            ?: throw IllegalStateException("Missing authenticated cipher")
+
+                        authenticatedCipher.doFinal(BIOMETRIC_CHALLENGE)
+                        BiometricLockManager.unlock()
+                    } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+                        // The key became invalid during authentication. Recreate it;
+                        // the next authentication attempt will use the new key.
+                        deleteBiometricKey()
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Secure authentication was reset. Please authenticate again.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Authentication failed. Please try again.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+
+                override fun onAuthenticationError(
+                    errorCode: Int,
+                    errString: CharSequence
+                ) {
+                    super.onAuthenticationError(errorCode, errString)
+                    if (
+                        errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
+                        errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                    ) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Authentication error: $errString",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                }
+            }
+        )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Clinic Access")
+            .setSubtitle("Authenticate to access patient data")
+            .setAllowedAuthenticators(strongBiometric)
+            .setNegativeButtonText("Cancel")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
     }
 
     override fun onNewIntent(intent: Intent) {
