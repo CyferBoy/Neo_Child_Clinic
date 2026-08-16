@@ -42,16 +42,30 @@ class DeviceRepositoryImpl @Inject constructor(
                 }
             }.decodeSingleOrNull<UserDevice>()
 
-            val device = UserDevice(
-                id = existingDevice?.id,
-                userId = currentUser.id,
-                fcmToken = token,
-                deviceName = deviceName,
-                appVersion = appVersion,
-                isActive = true
-            )
-
-            userDevicesTable.upsert(device)
+            if (existingDevice != null) {
+                userDevicesTable.update(
+                    mapOf(
+                        "user_id" to currentUser.id,
+                        "device_name" to deviceName,
+                        "platform" to "Android",
+                        "app_version" to appVersion,
+                        "is_active" to true,
+                        "last_seen_at" to java.time.Instant.now().toString()
+                    )
+                ) {
+                    filter { eq("id", existingDevice.id!!) }
+                }
+            } else {
+                val device = UserDevice(
+                    userId = currentUser.id,
+                    fcmToken = token,
+                    deviceName = deviceName,
+                    appVersion = appVersion,
+                    isActive = true,
+                    lastSeenAt = java.time.Instant.now().toString()
+                )
+                userDevicesTable.insert(device)
+            }
             Log.d("DeviceRepository", "Device registered successfully")
         } catch (e: Exception) {
             Log.e("DeviceRepository", "Failed to register device", e)
@@ -75,7 +89,7 @@ class DeviceRepositoryImpl @Inject constructor(
         
         userDevicesTable.update(
             mapOf(
-                "last_seen_at" to "now()",
+                "last_seen_at" to java.time.Instant.now().toString(),
                 "app_version" to getAppVersion()
             )
         ) {

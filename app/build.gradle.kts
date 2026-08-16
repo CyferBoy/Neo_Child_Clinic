@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "com.neochildclinic"
-        minSdk = 29
+        minSdk = 24
         targetSdk = 35
         versionCode = libs.versions.appVersionCode.get().toInt()
         versionName = libs.versions.appVersionName.get()

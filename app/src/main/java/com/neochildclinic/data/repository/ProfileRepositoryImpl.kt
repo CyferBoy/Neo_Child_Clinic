@@ -34,7 +34,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun refreshProfiles() {
         try {
-            val profiles = postgrest.from("profiles").select().decodeList<Profile>()
+            val profiles = postgrest.from("profiles").select { filter { eq("is_deleted", false) } }.decodeList<Profile>()
             profiles.forEach { profile ->
                 profileDao.insertProfile(profile.toEntity())
                 memoryCache.putProfile(profile)

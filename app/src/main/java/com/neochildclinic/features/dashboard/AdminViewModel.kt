@@ -84,29 +84,20 @@ class AdminViewModel @Inject constructor(
     }
 
     fun deleteStaff(staffId: String) {
-        _uiState.value = _uiState.value.copy(isLoading = true)
-        viewModelScope.launch {
-            try {
-                profileRepository.deleteProfile(staffId)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = "Staff data deleted successfully",
-                    error = "Note: Auth account must be deleted via Supabase Dashboard."
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-            }
-        }
+        runStaffAction(
+            StaffActionRequest(action = "SOFT_DELETE", staffId = staffId),
+            "Staff deactivated and archived"
+        )
     }
 
-    fun resetStaffPassword(email: String) {
+    fun resetStaffPassword(staffId: String) {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                auth.resetPasswordForEmail(email)
+                functions.invoke("manage-staff", StaffActionRequest(action = "RESET_PASSWORD_EMAIL", staffId = staffId))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    success = "Password reset email sent to $email"
+                    success = "Password reset email sent"
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
@@ -115,50 +106,39 @@ class AdminViewModel @Inject constructor(
     }
 
     fun updateStaffRole(staffId: String, newRole: UserRole) {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
-        viewModelScope.launch {
-            try {
-                profileRepository.updateProfileRole(staffId, newRole)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = "Role updated to ${newRole.name}"
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-            }
-        }
+        runStaffAction(
+            StaffActionRequest(action = "CHANGE_ROLE", staffId = staffId, role = newRole.name),
+            "Role updated to ${newRole.name}"
+        )
     }
 
     fun toggleStaffStatus(staffId: String, isActive: Boolean) {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
-        viewModelScope.launch {
-            try {
-                profileRepository.toggleProfileStatus(staffId, isActive)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = if (isActive) "Staff activated" else "Staff deactivated"
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-            }
-        }
+        runStaffAction(
+            StaffActionRequest(action = "SET_STATUS", staffId = staffId, isActive = isActive),
+            if (isActive) "Staff activated" else "Staff deactivated"
+        )
     }
 
     fun updateStaffDetails(staffId: String, name: String, phone: String, role: UserRole) {
+        runStaffAction(
+            StaffActionRequest(
+                action = "UPDATE_PROFILE",
+                staffId = staffId,
+                name = name,
+                phoneNumber = phone,
+                role = role.name
+            ),
+            "Staff updated successfully"
+        )
+    }
+
+    private fun runStaffAction(request: StaffActionRequest, successMessage: String) {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                val profile = profileRepository.getProfileById(staffId) ?: return@launch
-                val updated = profile.copy(
-                    displayName = name,
-                    phoneNumber = phone,
-                    role = role
-                )
-                profileRepository.updateProfile(updated)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = "Staff updated successfully"
-                )
+                functions.invoke("manage-staff", request)
+                _uiState.value = _uiState.value.copy(isLoading = false, success = successMessage)
+                fetchStaff()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -169,6 +149,19 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null, success = null)
     }
 }
+
+@Serializable
+data class StaffActionRequest(
+    val action: String,
+    val staffId: String? = null,
+    val name: String? = null,
+    val email: String? = null,
+    val password: String? = null,
+    val role: String? = null,
+    val employeeId: String? = null,
+    val phoneNumber: String? = null,
+    val isActive: Boolean? = null
+)
 
 @Serializable
 data class CreateStaffRequest(

@@ -109,7 +109,6 @@ class VaccineWidget : GlanceAppWidget() {
 
     @Composable
     private fun VaccineRow(item: WidgetDueEntity, textColorProvider: ColorProvider) {
-        // Only patient name and due date are shown in the widget.
         val dateColor = if (item.isOverdue) GlanceTheme.colors.error else GlanceTheme.colors.primary
 
         Column(
