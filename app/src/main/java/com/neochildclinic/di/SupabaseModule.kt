@@ -25,8 +25,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
 
-    private const val SUPABASE_URL = "https://vcklefokfcmkuszlezow.supabase.co"
-    private const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZja2xlZm9rZmNta3Vzemxlem93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwODAwOTQsImV4cCI6MjEwMDY1NjA5NH0.w8Z52DPK3_rxscH7OBAI6jx4oUEoYyEq0M8-1rSyPEc"
+    private const val SUPABASE_URL = com.neochildclinic.BuildConfig.SUPABASE_URL
+    private const val SUPABASE_ANON_KEY = com.neochildclinic.BuildConfig.SUPABASE_ANON_KEY
 
     @Provides
     @Singleton

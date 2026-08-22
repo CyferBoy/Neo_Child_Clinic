@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,18 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.google.services)
     kotlin("plugin.serialization") version libs.versions.kotlin.get()
+}
+
+// Helper to read .env.local
+val env = Properties().apply {
+    val envFile = rootProject.file(".env.local")
+    if (envFile.exists()) {
+        envFile.inputStream().use { load(it) }
+    }
+}
+
+fun getEnv(key: String, default: String = ""): String {
+    return env.getProperty(key) ?: System.getenv(key) ?: default
 }
 
 android {
@@ -20,6 +34,9 @@ android {
         versionName = libs.versions.appVersionName.get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "SUPABASE_URL", "\"${getEnv("NEXT_PUBLIC_SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${getEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")}\"")
 
         ndk {
             abiFilters += listOf("arm64-v8a")
