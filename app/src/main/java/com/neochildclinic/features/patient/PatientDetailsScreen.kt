@@ -30,6 +30,7 @@ fun PatientDetailsScreen(
     onBack: () -> Unit = {}, 
     onAddVaccine: (String) -> Unit = {},
     onAddConsultation: (String) -> Unit = {},
+    onEditConsultation: (String) -> Unit = {},
     onEditVaccination: (String) -> Unit = {},
     onViewVaccination: (String) -> Unit = {},
     onEditPatient: (String) -> Unit = {},
@@ -211,6 +212,14 @@ fun PatientDetailsScreen(
                     )
                 } else if (selectedConsultationForAction != null) {
                     if (canEditOrDelete) {
+                        ListItem(
+                            headlineContent = { Text("Edit Record") },
+                            leadingContent = { Icon(Icons.Default.Edit, null) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                onEditConsultation(selectedConsultationForAction!!.id)
+                            }
+                        )
                         ListItem(
                             headlineContent = { Text("Delete Record", color = MaterialTheme.colorScheme.error) },
                             leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },

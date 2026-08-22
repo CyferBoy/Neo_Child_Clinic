@@ -291,9 +291,8 @@ class ReminderRepositoryImpl @Inject constructor(
                     newValue = dueDate
                 )
 
-                // Every Next Vaccination row is a new Reminder record, even when
-                // another row has the same patient, visit, type, or due date.
-                enqueueReminderSync("REMINDERS", reminder.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
+                val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
+                enqueueReminderSync("REMINDERS", reminder.id, operation, SyncPriority.MEDIUM)
             }
             if (reminderEnabled) triggerImmediateCheck()
         }
@@ -359,6 +358,37 @@ class ReminderRepositoryImpl @Inject constructor(
                 enqueueReminderSync("REMINDERS", restored.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             }
             triggerImmediateCheck()
+        }
+    }
+
+    override suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String?) {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                val now = PatientUtils.getCurrentIsoTimestamp()
+                val updated = reminder.copy(
+                    id = existing.id,
+                    createdAt = existing.createdAt,
+                    updatedAt = now,
+                    performedBy = existing.performedBy,
+                    isSynced = false
+                )
+                dueReminderDao.updateReminder(updated)
+                logReminderUndoableChange(
+                    reminder = updated,
+                    action = "UPDATED",
+                    remarks = "Next Vaccination reminder updated by $performedBy",
+                    newValue = "dueDate=${updated.dueDate}; type=${updated.type}; vaccines=${updated.vaccineName}",
+                    transactionGroupId = transactionGroupId
+                )
+                enqueueReminderSync(
+                    "REMINDERS",
+                    updated.id,
+                    SyncOperation.UPDATE,
+                    SyncPriority.MEDIUM,
+                    transactionGroupId = transactionGroupId
+                )
+            }
         }
     }
 

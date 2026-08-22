@@ -384,11 +384,12 @@ class InventoryRepositoryImpl @Inject constructor(
         transactionType: InventoryTransactionType,
         visitId: String?,
         patientId: String?,
-        notes: String?
+        notes: String?,
+        allowExpired: Boolean
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
-            if (transactionType == InventoryTransactionType.VACCINATION && InventoryUtils.isExpired(batch.expiryDate)) {
+            if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired && InventoryUtils.isExpired(batch.expiryDate)) {
                 throw IllegalStateException("Cannot deduct stock from an expired batch.")
             }
             if (batch.remainingQuantity < quantity) {
@@ -457,14 +458,39 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun reverseDeduction(batchId: String, quantity: Int, user: String) {
-        addStockToBatch(
-            batchId = batchId,
-            quantity = quantity,
-            user = user,
-            transactionType = InventoryTransactionType.REVERSAL,
-            notes = "Stock reversal from deleted/edited vaccination"
-        )
+    override suspend fun reverseDeduction(
+        batchId: String,
+        quantity: Int,
+        user: String,
+        visitId: String?,
+        patientId: String?
+    ) {
+        database.withTransaction {
+            val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
+            val current = vaccineDao.getTotalStockForVaccine(batch.vaccineId) ?: 0
+            vaccineDao.updateBatch(batch.copy(remainingQuantity = batch.remainingQuantity + quantity))
+
+            val transaction = InventoryTransactionEntity(
+                vaccineId = batch.vaccineId,
+                batchId = batchId,
+                patientId = patientId,
+                visitId = visitId,
+                transactionType = InventoryTransactionType.REVERSAL.name,
+                quantity = quantity,
+                previousQuantity = current,
+                currentQuantity = current + quantity,
+                user = user,
+                notes = "Stock reversal from edited vaccination${visitId?.let { " (visit: $it)" } ?: ""}",
+                timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            )
+            vaccineDao.insertTransaction(transaction)
+            syncRepository.enqueue(
+                entityName = "INVENTORY_TRANSACTION",
+                entityId = transaction.transactionId,
+                operation = SyncOperation.CREATE,
+                priority = SyncPriority.HIGH
+            )
+        }
     }
 
     override suspend fun adjustStock(batchId: String, newQuantity: Int, user: String, reason: String) {

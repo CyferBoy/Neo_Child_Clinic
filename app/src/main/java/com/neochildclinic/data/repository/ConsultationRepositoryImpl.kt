@@ -10,6 +10,7 @@ import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
+import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -57,6 +58,85 @@ class ConsultationRepositoryImpl @Inject constructor(
             remarks = "Consultation recorded: ₹${consultation.amount}",
             transactionGroupId = transactionGroupId
         )
+    }
+
+    override suspend fun updateConsultation(consultation: Consultation, transactionGroupId: String?) {
+        database.withTransaction {
+            val existing = consultationDao.getConsultationById(consultation.id)
+                ?: throw IllegalArgumentException("Consultation not found")
+
+            val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            val visitId = if (consultation.visitId.isBlank()) existing.visitId else consultation.visitId
+            val updatedEntity = consultation.copy(
+                visitId = visitId,
+                // Creation time belongs to the original persisted record and must never
+                // be replaced by the edit request.
+                createdAt = existing.createdAt ?: consultation.createdAt,
+                updatedAt = now
+            ).toEntity(isSynced = false)
+
+            consultationDao.insertConsultation(updatedEntity)
+
+            // Keep the visit header in sync only when fields mirrored to the visit
+            // actually changed. A consultation-only edit should not create an
+            // unnecessary VISIT UPDATE/sync operation.
+            if (updatedEntity.visitId.isNotBlank()) {
+                val visit = vaccinationDao.getVaccinationById(updatedEntity.visitId)
+                if (visit != null) {
+                    val visitChanged =
+                        visit.dateGiven != updatedEntity.date ||
+                        visit.doctorId != updatedEntity.doctorId ||
+                        visit.doctor != updatedEntity.doctorName ||
+                        visit.notes != updatedEntity.problem ||
+                        visit.cashAmount != updatedEntity.cashAmount ||
+                        visit.onlineAmount != updatedEntity.onlineAmount ||
+                        visit.totalPaid != updatedEntity.amount
+
+                    if (visitChanged) {
+                        vaccinationDao.insertVaccination(
+                            visit.copy(
+                                dateGiven = updatedEntity.date,
+                                doctorId = updatedEntity.doctorId,
+                                doctor = updatedEntity.doctorName,
+                                notes = updatedEntity.problem,
+                                cashAmount = updatedEntity.cashAmount,
+                                onlineAmount = updatedEntity.onlineAmount,
+                                totalPaid = updatedEntity.amount,
+                                updatedAt = now,
+                                isSynced = false
+                            )
+                        )
+                        syncRepository.enqueue(
+                            entityName = "VISIT",
+                            entityId = updatedEntity.visitId,
+                            operation = SyncOperation.UPDATE,
+                            priority = SyncPriority.HIGH,
+                            transactionGroupId = transactionGroupId
+                        )
+                    }
+                }
+            }
+
+            syncRepository.enqueue(
+                entityName = "CONSULTATION",
+                entityId = updatedEntity.id,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = transactionGroupId
+            )
+
+            auditLogger.recordLog(
+                module = "PATIENT",
+                entityType = "CONSULTATION",
+                entityId = updatedEntity.id,
+                action = "CONSULTATION_UPDATED",
+                patientId = updatedEntity.patientId,
+                oldValue = kotlinx.serialization.json.Json.encodeToString(existing.toDomain()),
+                newValue = kotlinx.serialization.json.Json.encodeToString(updatedEntity.toDomain()),
+                remarks = "Consultation updated",
+                transactionGroupId = transactionGroupId
+            )
+        }
     }
 
     override suspend fun deleteConsultation(id: String) {

@@ -98,9 +98,14 @@ fun AddVaccinationScreen(
                         StandardButton(
                             onClick = { viewModel.saveVaccination(editVaccineBatch = editVaccineBatch, editQuantity = editQuantity) },
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            enabled = !isEdit || !uiState.isVaccinationLoading,
                             isLoading = uiState.isLoading
                         ) {
-                            Text(if (isEdit) "Save Changes" else "Save Vaccination", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (isEdit && uiState.isVaccinationLoading) "Loading..."
+                                else if (isEdit) "Save Changes" else "Save Vaccination",
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
                     }
                 }

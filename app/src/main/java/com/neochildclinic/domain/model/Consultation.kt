@@ -16,5 +16,6 @@ data class Consultation(
     val problem: String = "",
     val notes: String = "",
     val nextFollowUpDate: String = "",
+    val createdAt: String = "",
     val updatedAt: String = ""
 )

@@ -29,6 +29,7 @@ import java.util.*
 @Composable
 fun AddConsultationScreen(
     patientId: String,
+    consultationId: String? = null,
     onBack: () -> Unit,
     viewModel: AddConsultationViewModel = hiltViewModel()
 ) {
@@ -41,16 +42,33 @@ fun AddConsultationScreen(
     var onlineAmount by rememberSaveable { mutableStateOf("") }
     var problem by rememberSaveable { mutableStateOf("") }
     var nextFollowUpDate by rememberSaveable { mutableStateOf("") }
+    var editFieldsLoaded by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(patientId) {
-        viewModel.loadPatient(patientId)
+    LaunchedEffect(patientId, consultationId) {
+        if (consultationId.isNullOrBlank()) {
+            viewModel.loadPatient(patientId)
+        } else {
+            viewModel.loadForEdit(consultationId)
+        }
+    }
+
+    LaunchedEffect(uiState.editingConsultation) {
+        val consultation = uiState.editingConsultation
+        if (consultation != null && !editFieldsLoaded) {
+            date = consultation.date
+            cashAmount = consultation.cashAmount.toString()
+            onlineAmount = consultation.onlineAmount.toString()
+            problem = consultation.problem
+            nextFollowUpDate = consultation.nextFollowUpDate
+            editFieldsLoaded = true
+        }
     }
 
     val totalAmount = (cashAmount.toDoubleOrNull() ?: 0.0) + (onlineAmount.toDoubleOrNull() ?: 0.0)
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
-            Toast.makeText(context, "Consultation saved", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, if (consultationId.isNullOrBlank()) "Consultation saved" else "Consultation updated", Toast.LENGTH_SHORT).show()
             viewModel.resetState()
             onBack()
         }
@@ -68,7 +86,7 @@ fun AddConsultationScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("Add Consultation") },
+                    title = { Text(if (consultationId.isNullOrBlank()) "Add Consultation" else "Edit Consultation") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
@@ -108,7 +126,7 @@ fun AddConsultationScreen(
                         isLoading = uiState.isLoading,
                         modifier = Modifier.padding(16.dp).fillMaxWidth()
                     ) {
-                        Text("Save Consultation", style = MaterialTheme.typography.titleMedium)
+                        Text(if (consultationId.isNullOrBlank()) "Save Consultation" else "Save Changes", style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }

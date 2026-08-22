@@ -126,7 +126,7 @@ class ClinicalVaccinationService @Inject constructor(
                 category = "CONSULTATION",
                 patientId = consultation.patientId,
                 visitId = visitId,
-                remarks = "Consultation: ${consultation.problem}",
+                remarks = "Consultation: ${consultation.problem} [CONSULTATION_ID:${finalConsultation.id}]",
                 recordedBy = user,
                 transactionGroupId = transactionGroupId
             )

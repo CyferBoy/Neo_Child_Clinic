@@ -58,6 +58,7 @@ fun ConsultationEntity.toDomain() = Consultation(
     problem = problem,
     notes = notes,
     nextFollowUpDate = nextFollowUpDate,
+    createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: ""
 )
 
@@ -74,7 +75,7 @@ fun Consultation.toEntity(isSynced: Boolean = true) = ConsultationEntity(
     problem = problem,
     notes = notes,
     nextFollowUpDate = nextFollowUpDate,
-    createdAt = if (updatedAt.isEmpty()) null else updatedAt,
+    createdAt = if (createdAt.isEmpty()) null else createdAt,
     updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
     isSynced = isSynced
 )

@@ -121,22 +121,45 @@ class VaccinationRepositoryImpl @Inject constructor(
 
     override suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String?) {
         database.withTransaction {
-            // 1. Check if it's an update
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
-            
-            // 2. Save header
             vaccinationDao.insertVaccination(vaccination.toEntity(isSynced = false))
 
-            // 3. Save items
-            vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
-            val itemEntities = vaccination.items.map { it.toEntity().copy(vaccinationId = vaccination.id) }
-            vaccinationItemDao.insertItems(itemEntities)
-            
-            memoryCache.putVaccination(vaccination)
+            // Reconcile item identity instead of deleting/recreating every row. This keeps
+            // unchanged item IDs stable and queues explicit DELETE operations for removed rows.
+            val existingItems = vaccinationItemDao.getItemsForVaccination(vaccination.id).first()
+            val usedExistingIds = mutableSetOf<String>()
 
-            // 4. Queue for background sync
+            val itemEntities = vaccination.items.map { incoming ->
+                val matching = existingItems.firstOrNull { old ->
+                    old.id !in usedExistingIds &&
+                        old.vaccineId == incoming.vaccineId &&
+                        old.batchId == incoming.batchId
+                }
+
+                if (matching != null) {
+                    usedExistingIds += matching.id
+                    incoming.toEntity().copy(
+                        id = matching.id,
+                        vaccinationId = vaccination.id
+                    )
+                } else {
+                    incoming.toEntity().copy(
+                        id = incoming.id.ifBlank { java.util.UUID.randomUUID().toString() },
+                        vaccinationId = vaccination.id
+                    )
+                }
+            }
+
+            val removedItems = existingItems.filter { old ->
+                old.id !in usedExistingIds && itemEntities.none { it.id == old.id }
+            }
+
+            vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
+            vaccinationItemDao.insertItems(itemEntities)
+
+            memoryCache.putVaccination(vaccination.copy(items = itemEntities.map { it.toDomain() }))
+
             val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
-            
             syncRepository.enqueue(
                 entityName = "VACCINATION",
                 entityId = vaccination.id,
@@ -145,22 +168,36 @@ class VaccinationRepositoryImpl @Inject constructor(
                 transactionGroupId = transactionGroupId
             )
 
-            // Sync individual items
             itemEntities.forEach { item ->
+                val itemOperation = if (existingItems.any { it.id == item.id }) {
+                    SyncOperation.UPDATE
+                } else {
+                    SyncOperation.CREATE
+                }
                 syncRepository.enqueue(
                     entityName = "VACCINATION_ITEM",
                     entityId = item.id,
-                    operation = SyncOperation.CREATE,
+                    operation = itemOperation,
                     priority = SyncPriority.MEDIUM,
                     transactionGroupId = transactionGroupId
                 )
             }
-            
+
+            removedItems.forEach { item ->
+                syncRepository.enqueue(
+                    entityName = "VACCINATION_ITEM",
+                    entityId = item.id,
+                    operation = SyncOperation.DELETE,
+                    priority = SyncPriority.MEDIUM,
+                    transactionGroupId = transactionGroupId
+                )
+            }
+
             auditLogger.recordLog(
                 module = "PATIENT",
                 entityType = "VACCINATION",
                 entityId = vaccination.id,
-                action = "VACCINATION",
+                action = if (existing == null) "VACCINATION" else "VACCINATION_UPDATED",
                 patientId = vaccination.patientId,
                 remarks = "Vaccines: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
                 transactionGroupId = transactionGroupId
@@ -182,7 +219,13 @@ class VaccinationRepositoryImpl @Inject constructor(
             // 2. Replenish inventory atomically
             for (batchId in batchIds) {
                 try {
-                    inventoryRepository.reverseDeduction(batchId, 1, user)
+                    inventoryRepository.reverseDeduction(
+                        batchId = batchId,
+                        quantity = 1,
+                        user = user,
+                        visitId = id,
+                        patientId = existing.patientId
+                    )
                 } catch (e: Exception) {
                     android.util.Log.e("VaccinationRepo", "Failed to replenish stock for batch $batchId: ${e.message}")
                 }

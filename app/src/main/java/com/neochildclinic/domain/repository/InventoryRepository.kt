@@ -49,7 +49,11 @@ interface InventoryRepository {
         transactionType: InventoryTransactionType,
         visitId: String? = null,
         patientId: String? = null,
-        notes: String? = null
+        notes: String? = null,
+        // Skip the expiry guard for a batch that was already recorded against this visit
+        // before it expired (e.g. bumping quantity on an edit). New batch selections should
+        // still be blocked once expired.
+        allowExpired: Boolean = false
     )
 
     suspend fun addStockToBatch(
@@ -63,7 +67,9 @@ interface InventoryRepository {
     suspend fun reverseDeduction(
         batchId: String,
         quantity: Int,
-        user: String
+        user: String,
+        visitId: String? = null,
+        patientId: String? = null
     )
 
     suspend fun adjustStock(

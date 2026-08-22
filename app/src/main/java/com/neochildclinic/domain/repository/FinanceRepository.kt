@@ -29,6 +29,20 @@ interface FinanceRepository {
     )
 
 
+    suspend fun updateConsultationIncome(
+        visitId: String,
+        consultationId: String,
+        originalAmount: Double,
+        originalCashAmount: Double,
+        originalOnlineAmount: Double,
+        amount: Double,
+        cashAmount: Double,
+        onlineAmount: Double,
+        remarks: String?,
+        recordedBy: String,
+        transactionGroupId: String? = null
+    )
+
     suspend fun updateIncomeForVisit(
         visitId: String,
         amount: Double,

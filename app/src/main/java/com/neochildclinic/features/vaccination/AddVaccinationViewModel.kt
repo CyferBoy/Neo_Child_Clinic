@@ -12,10 +12,12 @@ import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.service.ClinicalVaccinationService
+import com.neochildclinic.domain.service.VaccinationEditEngine
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -37,6 +39,7 @@ data class NextVaccinationState(
 data class AddVaccinationUiState(
     val patient: Patient? = null,
     val isLoading: Boolean = false,
+    val isVaccinationLoading: Boolean = false,
     val inventory: List<InventoryItem> = emptyList(),
     val availableDueTypes: List<String> = emptyList(),
     val allDoctors: List<Profile> = emptyList(),
@@ -61,6 +64,7 @@ class AddVaccinationViewModel @Inject constructor(
     private val reminderRepository: ReminderRepository,
     private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val clinicalService: ClinicalVaccinationService,
+    private val vaccinationEditEngine: VaccinationEditEngine,
     private val auth: Auth
 ) : ViewModel() {
 
@@ -70,6 +74,10 @@ class AddVaccinationViewModel @Inject constructor(
     // Snapshot of the persisted vaccination items used by Edit mode.
     // This prevents validation/save from depending solely on transient Compose selection state.
     private var originalVaccinationItems: List<VaccinationItem> = emptyList()
+
+    // The doctorId recorded on the vaccination being edited (if any). Kept separate from
+    // selectedDoctor so the doctor list can include this doctor even if they're now inactive.
+    private val editingDoctorId = MutableStateFlow<String?>(null)
 
     init {
         fetchInventory()
@@ -87,7 +95,11 @@ class AddVaccinationViewModel @Inject constructor(
     fun loadVaccination(vaccinationId: String?) {
         if (vaccinationId.isNullOrBlank()) return
         viewModelScope.launch {
-            val vaccination = vaccinationRepository.getVaccinationById(vaccinationId) ?: return@launch
+            _uiState.update { it.copy(isVaccinationLoading = true) }
+            val vaccination = vaccinationRepository.getVaccinationById(vaccinationId) ?: run {
+                _uiState.update { it.copy(isVaccinationLoading = false) }
+                return@launch
+            }
             loadPatient(vaccination.patientId)
 
             // Wait until the inventory contains the vaccines AND their referenced batches.
@@ -95,14 +107,33 @@ class AddVaccinationViewModel @Inject constructor(
             // emission can contain vaccines before the batch query has emitted. Waiting only
             // for inventory.isNotEmpty() caused Edit Vaccination to restore rows with a
             // missing batch and later fail with "Please select vaccine and batch for all rows."
-            uiState.filter { state ->
-                vaccination.items.all { item ->
-                    val vaccine = state.inventory.firstOrNull { it.id == item.vaccineId }
-                    vaccine != null && vaccine.batches.any { it.batchId == item.batchId }
-                }
-            }.first()
+            // Bounded: if a vaccine or batch this vaccination references was later deleted from
+            // the catalog, this condition can never become true - an unbounded wait here used to
+            // leave originalVaccinationItems at its empty default, and a save (even one that only
+            // touched an unrelated field like payment) would then silently persist an empty item
+            // list, wiping the vaccine names off this record. Fall through after the timeout so
+            // the screen still loads (existing item data is preserved as-is; see the guard in
+            // saveVaccination()).
+            withTimeoutOrNull(5000) {
+                uiState.filter { state ->
+                    vaccination.items.all { item ->
+                        val vaccine = state.inventory.firstOrNull { it.id == item.vaccineId }
+                        vaccine != null && vaccine.batches.any { it.batchId == item.batchId }
+                    }
+                }.first()
+            }
 
-            if (_uiState.value.allDoctors.isEmpty()) {
+            if (vaccination.doctorId.isNotBlank()) {
+                editingDoctorId.value = vaccination.doctorId
+                // Wait for the doctor list to include this doctor (covers the inactive-doctor
+                // case above). Falls back to "list is non-empty" so we don't hang forever if the
+                // doctor record was deleted entirely rather than just deactivated.
+                withTimeoutOrNull(5000) {
+                    uiState.filter { state ->
+                        state.allDoctors.any { it.employeeId == vaccination.doctorId || it.id == vaccination.doctorId }
+                    }.first()
+                }
+            } else if (_uiState.value.allDoctors.isEmpty()) {
                 uiState.filter { it.allDoctors.isNotEmpty() }.first()
             }
 
@@ -139,7 +170,7 @@ class AddVaccinationViewModel @Inject constructor(
             }
 
             val existingDoctor = _uiState.value.allDoctors.firstOrNull {
-                it.employeeId == vaccination.doctorId
+                it.employeeId == vaccination.doctorId || it.id == vaccination.doctorId
             }
 
             _uiState.update { it.copy(
@@ -150,7 +181,8 @@ class AddVaccinationViewModel @Inject constructor(
                 nextVaccinations = nextStates,
                 cashAmount = vaccination.cashAmount.toInt().toString(),
                 onlineAmount = vaccination.onlineAmount.toInt().toString(),
-                totalAmount = vaccination.totalPaid
+                totalAmount = vaccination.totalPaid,
+                isVaccinationLoading = false
             ) }
         }
     }
@@ -185,19 +217,28 @@ class AddVaccinationViewModel @Inject constructor(
     }
 
     private fun fetchDoctors() {
-        profileRepository.allProfiles.onEach { profiles ->
-            val doctors = profiles.filter { it.role == UserRole.doctor && it.isActive }
-                .sortedBy { it.displayName }
-            
-            val currentUserId = auth.currentSessionOrNull()?.user?.id
-            val currentUserProfile = profiles.find { it.id == currentUserId }
-            val defaultDoctor = if (currentUserProfile?.role == UserRole.doctor) currentUserProfile else null
+        // Recomputes whenever profiles change OR the vaccination being edited (and its
+        // doctorId) becomes known, so an inactive doctor who performed a past vaccination
+        // is still selectable/visible when editing that record.
+        combine(profileRepository.allProfiles, editingDoctorId) { profiles, editId -> profiles to editId }
+            .onEach { (profiles, editId) ->
+                val doctors = profiles.filter {
+                    it.role == UserRole.doctor &&
+                        (it.isActive || (!editId.isNullOrBlank() && (it.employeeId == editId || it.id == editId)))
+                }.sortedBy { it.displayName }
 
-            _uiState.update { it.copy(
-                allDoctors = doctors,
-                selectedDoctor = if (it.selectedDoctor == null) defaultDoctor else it.selectedDoctor
-            ) }
-        }.launchIn(viewModelScope)
+                val currentUserId = auth.currentSessionOrNull()?.user?.id
+                val currentUserProfile = profiles.find { it.id == currentUserId }
+                val defaultDoctor = if (currentUserProfile?.role == UserRole.doctor) currentUserProfile else null
+
+                _uiState.update { state ->
+                    val editDoctor = editId?.let { id -> doctors.firstOrNull { it.employeeId == id || it.id == id } }
+                    state.copy(
+                        allDoctors = doctors,
+                        selectedDoctor = editDoctor ?: if (state.selectedDoctor == null) defaultDoctor else state.selectedDoctor
+                    )
+                }
+            }.launchIn(viewModelScope)
     }
 
     fun selectDoctor(doctor: Profile) {
@@ -310,27 +351,34 @@ class AddVaccinationViewModel @Inject constructor(
     ) {
         val state = _uiState.value
         val patient = state.patient ?: return
-        
+
         if (state.selectedDoctor == null) {
             _uiState.update { it.copy(doctorError = true, errorMessage = "Please select a doctor.") }
             return
         }
 
-        // In Edit mode, Vaccine & Batch is optional until its checkbox is selected.
-        // The persisted vaccination remains valid even if a transient UI selection is missing.
-        // Only require selections when the user explicitly chose to edit Vaccine & Batch.
-        if (!state.existingVaccinationId.isNullOrBlank() && editVaccineBatch) {
-            if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
-                _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
-                return
-            }
-        } else if (state.existingVaccinationId.isNullOrBlank() &&
-            state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
-            _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
+        val isEdit = !state.existingVaccinationId.isNullOrBlank()
+
+        // Defense in depth: if this is an edit that isn't touching Vaccine & Batch, the save
+        // path below relies on originalVaccinationItems (the persisted item snapshot from
+        // loadVaccination()). If that snapshot never populated - e.g. loadVaccination() was
+        // still waiting on inventory data, or timed out because a referenced vaccine/batch was
+        // deleted from the catalog - saving here would silently persist an empty item list and
+        // wipe the vaccine names off this record. Refuse rather than corrupt existing data.
+        if (isEdit && !editVaccineBatch && originalVaccinationItems.isEmpty()) {
+            _uiState.update { it.copy(
+                errorMessage = "Vaccine details haven't finished loading yet. Please wait a moment and try again, or check \"Vaccine & Batch\" to re-enter them."
+            ) }
             return
         }
 
-        // Next Vaccination validation: every entered row requires Type and Due Date.
+        if (state.vaccinesGiven.any { it.selectedVaccine == null || it.selectedBatch == null }) {
+            if (!isEdit || editVaccineBatch) {
+                _uiState.update { it.copy(errorMessage = "Please select vaccine and batch for all rows.") }
+                return
+            }
+        }
+
         val nextRows = state.nextVaccinations
         val invalidIndex = nextRows.indexOfFirst { it.type.isBlank() || it.dueDate.isBlank() }
         if (invalidIndex >= 0) {
@@ -349,18 +397,12 @@ class AddVaccinationViewModel @Inject constructor(
             try {
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
-                val isEdit = state.existingVaccinationId != null
 
-                // Capture the original record before replacing it. This is required for
-                // correct inventory reconciliation during Edit.
                 val existingVaccination = if (isEdit) {
                     vaccinationRepository.getVaccinationById(vaccinationId)
                 } else null
 
                 val items = if (isEdit && !editVaccineBatch) {
-                    // Vaccine & Batch was not selected for editing. Preserve the exact
-                    // persisted vaccine/batch references and only apply quantity changes
-                    // when the Quantity checkbox is selected.
                     originalVaccinationItems.mapIndexed { index, original ->
                         val row = state.vaccinesGiven.getOrNull(index)
                         original.copy(
@@ -395,62 +437,47 @@ class AddVaccinationViewModel @Inject constructor(
                     cashAmount = state.cashAmount.toDoubleOrNull() ?: 0.0,
                     onlineAmount = state.onlineAmount.toDoubleOrNull() ?: 0.0,
                     totalPaid = state.totalAmount,
-                    doctorId = state.selectedDoctor.employeeId ?: "",
+                    doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                     performedBy = state.selectedDoctor.displayName,
                     items = items,
                     nextVaccinations = emptyList()
                 )
 
-                // 1. Update the existing visit (or create a new one). The same visit ID is
-                // always retained during Edit. Finance is handled edit-safely by the service.
-                clinicalService.recordVaccination(vaccination, user, isNew = !isEdit)
-
-                // 2. Reconcile inventory. For Edit, restore the exact quantities from the
-                // original vaccination first, then deduct the newly selected quantities.
                 if (isEdit && existingVaccination != null) {
-                    existingVaccination.items.forEach { oldItem ->
-                        inventoryRepository.reverseDeduction(
-                            batchId = oldItem.batchId,
-                            quantity = oldItem.quantity,
-                            user = user
+                    val reminderSpecs = nextRows.map { next ->
+                        VaccinationEditEngine.ReminderSpec(
+                            type = next.type,
+                            vaccineNames = next.nextVaccines.map { it.brandName },
+                            vaccineIds = next.nextVaccines.map { it.id },
+                            dueDate = next.dueDate,
+                            notes = "Scheduled during visit on ${state.givenDate}"
                         )
                     }
-                }
 
-                state.vaccinesGiven.forEach { selection ->
-                    inventoryRepository.deductStockFromBatch(
-                        batchId = selection.selectedBatch!!.batchId,
-                        quantity = selection.quantity,
+                    // All edit side effects are diff-driven. Unchanged inventory, finance,
+                    // vaccination-item identity, and reminders produce no transactions.
+                    vaccinationEditEngine.execute(
+                        original = existingVaccination,
+                        updated = vaccination,
                         user = user,
-                        transactionType = InventoryTransactionType.VACCINATION,
-                        visitId = vaccinationId,
-                        patientId = patient.id
+                        reminderSpecs = reminderSpecs
                     )
-                }
+                } else {
+                    // New vaccination keeps the existing creation workflow.
+                    clinicalService.recordVaccination(vaccination, user, isNew = true)
 
-                // 3. Replace the Reminder rows belonging to this visit. Editing must not
-                // leave stale Next Vaccination records behind. Consultation Follow-up is
-                // completely separate and is not touched here.
-                if (isEdit) {
-                    reminderRepository.getRemindersByVisitId(vaccinationId).forEach { reminder ->
-                        reminderRepository.deleteReminder(reminder, user)
+                    nextRows.forEach { next ->
+                        reminderRepository.saveNextVaccination(
+                            patientId = patient.id,
+                            originalVisitId = vaccinationId,
+                            type = next.type,
+                            vaccineNames = next.nextVaccines.map { it.brandName },
+                            nxtVaccineId = next.nextVaccines.map { it.id },
+                            dueDate = next.dueDate,
+                            notes = "Scheduled during visit on ${state.givenDate}",
+                            performedBy = user
+                        )
                     }
-                }
-
-                // 4. Save the current Next Vaccination entries directly to reminders.
-                // Multiple entries may share the same due date; each entry keeps its own
-                // Type → Vaccine relationship.
-                nextRows.forEach { next ->
-                    reminderRepository.saveNextVaccination(
-                        patientId = patient.id,
-                        originalVisitId = vaccinationId,
-                        type = next.type,
-                        vaccineNames = next.nextVaccines.map { it.brandName },
-                        nxtVaccineId = next.nextVaccines.map { it.id },
-                        dueDate = next.dueDate,
-                        notes = "Scheduled during visit on ${state.givenDate}",
-                        performedBy = user
-                    )
                 }
 
                 _uiState.update { it.copy(isLoading = false, saveSuccess = true) }

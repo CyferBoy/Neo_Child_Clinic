@@ -36,6 +36,7 @@ interface ReminderRepository {
     suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String)
     suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String)
     suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) // Admin only check usually in VM
+    suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String? = null)
     
     suspend fun undoAction(auditId: String, performedBy: String)
 

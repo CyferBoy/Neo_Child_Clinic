@@ -279,6 +279,9 @@ fun AppNavigation(
                 onEditVaccination = { id ->
                     navController.navigate("edit_vaccination/$id")
                 },
+                onEditConsultation = { id ->
+                    navController.navigate("edit_consultation/$id")
+                },
                 onEditPatient = { id ->
                     navController.navigate("edit_patient/$id")
                 }
@@ -451,6 +454,18 @@ fun AppNavigation(
             val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
             AddConsultationScreen(
                 patientId = patientId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_CONSULTATION,
+            arguments = listOf(navArgument("consultationId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val consultationId = backStackEntry.arguments?.getString("consultationId") ?: ""
+            AddConsultationScreen(
+                patientId = "",
+                consultationId = consultationId,
                 onBack = { navController.popBackStack() }
             )
         }

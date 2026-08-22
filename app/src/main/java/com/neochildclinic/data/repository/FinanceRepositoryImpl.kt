@@ -66,7 +66,7 @@ class FinanceRepositoryImpl @Inject constructor(
                 },
                 patientId = patientId,
                 visitId = visitId,
-                remarks = remarks,
+                remarks = remarks ?: "Consultation",
                 recordedBy = recordedBy,
                 isSynced = false
             )
@@ -123,6 +123,114 @@ class FinanceRepositoryImpl @Inject constructor(
                 action = "EXPENSE_RECORDED",
                 newValue = amount.toString(),
                 remarks = "Expense of $amount recorded in $category"
+            )
+        }
+    }
+
+    override suspend fun updateConsultationIncome(
+        visitId: String,
+        consultationId: String,
+        originalAmount: Double,
+        originalCashAmount: Double,
+        originalOnlineAmount: Double,
+        amount: Double,
+        cashAmount: Double,
+        onlineAmount: Double,
+        remarks: String?,
+        recordedBy: String,
+        transactionGroupId: String?
+    ) {
+        database.withTransaction {
+            val consultationTransactions = financeDao.getTransactionsByVisitId(visitId)
+                .filter { it.type == "INCOME" && it.category == "CONSULTATION" }
+
+            // Identify the transaction belonging to the consultation being edited.
+            // Prefer an exact match to the persisted payment snapshot instead of
+            // blindly updating the latest consultation transaction for the visit.
+            // Prefer the stable consultation marker so another consultation's
+            // income cannot be modified when a visit has multiple finance rows.
+            val marker = "[CONSULTATION_ID:$consultationId]"
+            val markedMatches = consultationTransactions.filter {
+                it.remarks?.contains(marker) == true
+            }
+
+            // Compare money using cents rather than exact Double equality.
+            // This keeps legacy fallback matching stable when values such as 500.00
+            // are represented with tiny floating-point differences.
+            fun moneyCents(value: Double): Long = kotlin.math.round(value * 100.0).toLong()
+
+            val originalAmountCents = moneyCents(originalAmount)
+            val originalCashCents = moneyCents(originalCashAmount)
+            val originalOnlineCents = moneyCents(originalOnlineAmount)
+
+            val exactMatches = consultationTransactions.filter {
+                moneyCents(it.amount) == originalAmountCents &&
+                    moneyCents(it.cashAmount) == originalCashCents &&
+                    moneyCents(it.onlineAmount) == originalOnlineCents
+            }
+
+            val existing = when {
+                markedMatches.size == 1 -> markedMatches.first()
+                markedMatches.size > 1 -> throw IllegalStateException(
+                    "Multiple finance transactions are linked to consultation $consultationId"
+                )
+                exactMatches.size == 1 -> exactMatches.first()
+                consultationTransactions.size == 1 -> consultationTransactions.first()
+                exactMatches.isEmpty() -> throw IllegalStateException(
+                    "Unable to identify the consultation finance transaction for consultation $consultationId"
+                )
+                else -> throw IllegalStateException(
+                    "Multiple possible finance transactions for consultation $consultationId"
+                )
+            }
+
+            val paymentMethod = when {
+                cashAmount > 0 && onlineAmount > 0 -> "MIXED"
+                cashAmount > 0 -> "CASH"
+                onlineAmount > 0 -> "ONLINE"
+                else -> "FREE"
+            }
+
+            // Always preserve the consultation marker. Without this, the first edit
+            // would remove the marker and later edits would have to fall back to
+            // payment-value matching, which can be ambiguous when a visit has
+            // multiple consultation transactions.
+            val baseRemarks = remarks?.trim().orEmpty()
+            val preservedRemarks = if (baseRemarks.contains(marker)) {
+                baseRemarks
+            } else if (baseRemarks.isEmpty()) {
+                marker
+            } else {
+                "$baseRemarks $marker"
+            }
+
+            val updated = existing.copy(
+                amount = amount,
+                cashAmount = cashAmount,
+                onlineAmount = onlineAmount,
+                paymentMethod = paymentMethod,
+                remarks = preservedRemarks,
+                recordedBy = recordedBy,
+                isSynced = false
+            )
+            financeDao.insertTransaction(updated)
+            syncRepository.enqueue(
+                entityName = "FINANCE",
+                entityId = updated.id,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = transactionGroupId
+            )
+            auditLogger.recordLog(
+                module = "FINANCE",
+                entityType = "TRANSACTION",
+                entityId = updated.id,
+                action = "INCOME_UPDATED",
+                patientId = updated.patientId,
+                oldValue = existing.amount.toString(),
+                newValue = amount.toString(),
+                remarks = "Consultation income updated for visit $visitId",
+                transactionGroupId = transactionGroupId
             )
         }
     }
