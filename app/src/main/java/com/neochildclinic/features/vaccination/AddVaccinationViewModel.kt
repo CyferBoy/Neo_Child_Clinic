@@ -100,6 +100,7 @@ class AddVaccinationViewModel @Inject constructor(
                 _uiState.update { it.copy(isVaccinationLoading = false) }
                 return@launch
             }
+            android.util.Log.d("EditVaxDebug", "Loaded vaccination id=${vaccination.id} items=${vaccination.items.map { "vaccineId=${it.vaccineId} batchId=${it.batchId} qty=${it.quantity}" }}")
             loadPatient(vaccination.patientId)
 
             // Wait until the inventory contains the vaccines AND their referenced batches.
@@ -114,14 +115,18 @@ class AddVaccinationViewModel @Inject constructor(
             // list, wiping the vaccine names off this record. Fall through after the timeout so
             // the screen still loads (existing item data is preserved as-is; see the guard in
             // saveVaccination()).
-            withTimeoutOrNull(5000) {
+            val waitResult = withTimeoutOrNull(5000) {
                 uiState.filter { state ->
+                    android.util.Log.d("EditVaxDebug", "inventory check: inventorySize=${state.inventory.size} inventoryIds=${state.inventory.map { it.id }}")
                     vaccination.items.all { item ->
                         val vaccine = state.inventory.firstOrNull { it.id == item.vaccineId }
-                        vaccine != null && vaccine.batches.any { it.batchId == item.batchId }
+                        val matched = vaccine != null && vaccine.batches.any { it.batchId == item.batchId }
+                        android.util.Log.d("EditVaxDebug", "item vaccineId=${item.vaccineId} batchId=${item.batchId} -> vaccineFound=${vaccine != null} vaccineBrand=${vaccine?.brandName} batchIdsOnVaccine=${vaccine?.batches?.map { it.batchId }} matched=$matched")
+                        matched
                     }
                 }.first()
             }
+            android.util.Log.d("EditVaxDebug", "wait finished, timedOut=${waitResult == null}")
 
             if (vaccination.doctorId.isNotBlank()) {
                 editingDoctorId.value = vaccination.doctorId
@@ -208,6 +213,7 @@ class AddVaccinationViewModel @Inject constructor(
 
     private fun fetchInventory() {
         inventoryRepository.getInventoryItems().onEach { items ->
+            android.util.Log.d("EditVaxDebug", "fetchInventory emitted: size=${items.size} ids=${items.map { it.id }}")
             val types = items.map { it.type }.filter { it.isNotBlank() }.distinct().sorted()
             _uiState.update { it.copy(
                 inventory = items,

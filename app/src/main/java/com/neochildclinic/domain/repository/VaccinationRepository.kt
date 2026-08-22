@@ -1,11 +1,14 @@
 package com.neochildclinic.domain.repository
 
+import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
+
 import com.neochildclinic.domain.model.Vaccination
 import kotlinx.coroutines.flow.Flow
 
 interface VaccinationRepository {
     val allVaccinations: Flow<List<Vaccination>>
     fun getVaccinationsForPatient(patientId: String): Flow<List<Vaccination>>
+    fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
     suspend fun refreshVaccinations()
     suspend fun getVaccinationById(id: String): Vaccination?
     suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String? = null)

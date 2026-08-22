@@ -60,6 +60,9 @@ class VaccinationRepositoryImpl @Inject constructor(
             combine(flows) { it.toList() }
         }
 
+    override fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
+        vaccinationDao.getVaccinationCardsForPatient(patientId)
+
     override suspend fun getVaccinationById(id: String): Vaccination? {
         memoryCache.getVaccination(id)?.let { return it }
         return withContext(Dispatchers.IO) {

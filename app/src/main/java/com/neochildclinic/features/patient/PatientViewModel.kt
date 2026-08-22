@@ -6,12 +6,15 @@ import com.neochildclinic.data.local.entity.AuditLogEntity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.DocumentRepository
@@ -42,6 +45,7 @@ class PatientViewModel @Inject constructor(
     private val getPatientsUseCase: GetPatientsUseCase,
     private val getPatientByIdUseCase: GetPatientByIdUseCase,
     private val getVaccinationsUseCase: GetVaccinationsUseCase,
+    private val vaccinationRepository: VaccinationRepository,
     private val savePatientUseCase: SavePatientUseCase,
     private val deletePatientUseCase: DeletePatientUseCase,
     private val saveVaccinationUseCase: SaveVaccinationUseCase,
@@ -275,23 +279,24 @@ class PatientViewModel @Inject constructor(
     }
 
     /**
-     * Emits a complete vaccination-card data set from the same local snapshot.
-     * The UI no longer renders vaccination history first and attaches reminders
-     * in a later, independent emission.
+     * Emits each patient's vaccination history as one Room transaction snapshot.
+     * The visit, vaccination items, and reminders are loaded together so the
+     * card is not rendered first and then completed by a later reminder flow.
      */
     fun getPatientVaccinationCards(patientId: String): Flow<List<PatientVaccinationCardData>> =
-        combine(
-            getPatientHistory(patientId),
-            reminderRepository.getPatientReminders(patientId)
-        ) { vaccinations, reminders ->
-            val remindersByVisit = reminders.groupBy { it.originalVisitId }
-            vaccinations.map { vaccination ->
-                PatientVaccinationCardData(
-                    vaccination = vaccination,
-                    reminders = remindersByVisit[vaccination.id].orEmpty()
-                )
+        vaccinationRepository.getVaccinationCardsForPatient(patientId)
+            .map { snapshots ->
+                snapshots
+                    .filter { it.visit.visitType == "VACCINATION" }
+                    .map { snapshot ->
+                        PatientVaccinationCardData(
+                            vaccination = snapshot.visit.toVaccination().copy(
+                                items = snapshot.items.map { it.toDomain() }
+                            ),
+                            reminders = snapshot.reminders
+                        )
+                    }
             }
-        }
 
     fun getPatientNotes(patientId: String): Flow<List<PatientNotesEntity>> {
         return patientRepository.getNotes(patientId)

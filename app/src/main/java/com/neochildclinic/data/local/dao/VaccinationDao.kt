@@ -2,6 +2,7 @@ package com.neochildclinic.data.local.dao
 
 import androidx.room.*
 import com.neochildclinic.data.local.entity.VisitEntity
+import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -11,6 +12,10 @@ interface VaccinationDao {
 
     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId")
     fun getVaccinationsForPatient(patientId: String): Flow<List<VisitEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId")
+    fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
 
     @Query("SELECT * FROM patient_visits WHERE id = :id")
     suspend fun getActiveVaccinationById(id: String): VisitEntity?
