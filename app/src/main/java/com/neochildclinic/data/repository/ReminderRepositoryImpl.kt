@@ -489,6 +489,18 @@ class ReminderRepositoryImpl @Inject constructor(
                 val entities = postgrest.from("reminders").select().decodeList<RemoteReminder>()
                 database.withTransaction {
                     for (remote in entities) {
+                        // Guard against reminders whose parent visit no longer exists
+                        // locally. A visit deletion that didn't (or hadn't yet) cleaned up
+                        // its Supabase-side reminder leaves an orphaned remote row - pulling
+                        // it back down here would just resurrect it locally with no valid
+                        // parent, and any future sync attempt for it would permanently fail
+                        // with a foreign key violation. Skip it instead.
+                        val visitExists = database.vaccinationDao().getVaccinationById(remote.originalVisitId) != null
+                        if (!visitExists) {
+                            android.util.Log.e("ReminderRepo", "Skipping orphaned remote reminder for missing visit ${remote.originalVisitId}")
+                            continue
+                        }
+
                         // Check if we have a local version and if it's unsynced
                         val local = dueReminderDao.getReminderByStableId(
                             remote.patientId, 

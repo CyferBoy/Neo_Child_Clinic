@@ -35,6 +35,8 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val vaccinationItemDao = database.vaccinationItemDao()
     private val inventoryDeductionDao = database.inventoryDeductionDao()
     private val patientDao = database.patientDao()
+    private val vaccineDao = database.vaccineDao()
+    private val dueReminderDao = database.dueReminderDao()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override val allVaccinations: Flow<List<Vaccination>> = 
@@ -115,10 +117,75 @@ class VaccinationRepositoryImpl @Inject constructor(
                     - Failed Validation (Missing Data): $failedValidation
                     - Skipped (Missing Patients): $skippedMissingPatient
                 """.trimIndent())
-                
+
             } catch (e: Exception) {
                 android.util.Log.e("VaccinationRepo", "Cloud Refresh failed", e)
             }
+        }
+    }
+
+    // Pure network fetch, no local writes - safe to run in parallel with other
+    // startup sync tasks (e.g. inventory) without any ordering dependency.
+    override suspend fun fetchRemoteVaccinationItems(): List<VaccinationItemEntity> =
+        withContext(Dispatchers.IO) {
+            try {
+                postgrest.from("vaccination_items").select().decodeList<VaccinationItemEntity>()
+            } catch (e: Exception) {
+                android.util.Log.e("VaccinationRepo", "Vaccination items fetch failed", e)
+                emptyList()
+            }
+        }
+
+    // Local insert only - patient_visits carries only a denormalized name/id snapshot,
+    // so without this the line items (and therefore Edit Vaccination's vaccine/batch
+    // selection) stay empty on any device that re-syncs from scratch (fresh install,
+    // cleared data), even though the visit itself looks complete.
+    //
+    // Callers MUST ensure vaccines/vaccine_batches are already synced locally before
+    // calling this - vaccineId/batchId are CASCADE foreign keys, so an item whose
+    // vaccine or batch isn't present locally yet gets silently skipped below rather
+    // than crashing the whole transaction, and it will not be retried until the next
+    // full refresh. Calling this before inventory sync has completed will skip
+    // everything on a fresh install/cleared data.
+    override suspend fun applyDownloadedVaccinationItems(items: List<VaccinationItemEntity>) {
+        withContext(Dispatchers.IO) {
+            val totalItemsDownloaded = items.size
+            var itemsImported = 0
+            var itemsSkippedMissingVisit = 0
+            var itemsSkippedMissingCatalogRef = 0
+
+            database.withTransaction {
+                for (remoteItem in items) {
+                    // FOREIGN KEY CHECK: the visit this item belongs to must exist locally.
+                    val visitExists = vaccinationDao.getVaccinationById(remoteItem.vaccinationId) != null
+                    if (!visitExists) {
+                        itemsSkippedMissingVisit++
+                        continue
+                    }
+
+                    // FOREIGN KEY CHECK: vaccine and batch (both CASCADE FKs) must exist
+                    // locally, or the insert would violate the constraint and silently
+                    // fail the whole transaction.
+                    val vaccineExists = vaccineDao.getVaccineById(remoteItem.vaccineId) != null
+                    val batchExists = vaccineDao.getBatchById(remoteItem.batchId) != null
+                    if (!vaccineExists || !batchExists) {
+                        android.util.Log.e("VaccinationRepo", "FK Violation Avoided: Skipping vaccination_item ${remoteItem.id} - vaccineExists=$vaccineExists batchExists=$batchExists")
+                        itemsSkippedMissingCatalogRef++
+                        continue
+                    }
+
+                    vaccinationItemDao.insertItems(listOf(remoteItem))
+                    itemsImported++
+                }
+            }
+
+            android.util.Log.i("VaccinationRepo", """
+                Vaccination Items Sync Complete:
+                - Total Downloaded: $totalItemsDownloaded
+                - Successfully Imported: $itemsImported
+                - Skipped (Missing Visit Locally): $itemsSkippedMissingVisit
+                - Skipped (Missing Vaccine/Batch Locally): $itemsSkippedMissingCatalogRef
+            """.trimIndent())
         }
     }
 
@@ -236,6 +303,22 @@ class VaccinationRepositoryImpl @Inject constructor(
 
             // 3. Clean up deduction logs
             inventoryDeductionDao.deleteForVaccination(id)
+
+            // 3b. Clean up reminders tied to this visit. Without this, a reminder that
+            // already synced to Supabase is left behind there after the visit is deleted -
+            // a later refreshReminders() pull then re-downloads that now-parentless
+            // reminder locally, and any subsequent create/update sync for it permanently
+            // fails with a foreign key violation (its originalVisitId no longer exists).
+            val remindersForVisit = dueReminderDao.getRemindersByVisitId(id)
+            for (reminder in remindersForVisit) {
+                dueReminderDao.softDeleteReminder(reminder.id)
+                syncRepository.enqueue(
+                    entityName = "REMINDERS",
+                    entityId = reminder.id,
+                    operation = SyncOperation.DELETE,
+                    priority = SyncPriority.LOW
+                )
+            }
 
             // 4. Soft-delete the record
             vaccinationDao.deleteVaccination(id)

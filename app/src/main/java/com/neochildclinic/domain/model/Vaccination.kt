@@ -30,7 +30,12 @@ data class Vaccination(
     @SerialName("vaccine_ids") val vaccineIds: List<String> = emptyList() // Legacy support for validator
 ) {
     // Computed properties for legacy support
-    val vaccineNames: List<String> get() = items.map { it.vaccineName }.ifEmpty { 
+    // Falls back to the visit-level snapshot whenever items don't carry a usable name -
+    // either because there are no items yet, or because they exist but vaccineName is
+    // blank (VaccinationItemEntity has no vaccineName column, so it's always "" for any
+    // item loaded from local storage - only the denormalized rawVaccineNames snapshot
+    // captured at save time has the real value for locally-loaded records).
+    val vaccineNames: List<String> get() = items.map { it.vaccineName }.filter { it.isNotBlank() }.ifEmpty { 
         if (rawVaccineNames.isNotBlank()) {
             rawVaccineNames.split(",").map { it.trim() }.filter { it.isNotEmpty() } 
         } else emptyList()

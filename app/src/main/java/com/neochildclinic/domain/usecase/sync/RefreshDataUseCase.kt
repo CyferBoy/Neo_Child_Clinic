@@ -37,10 +37,18 @@ class RefreshDataUseCase @Inject constructor(
         reminderRepository.refreshReminders()
         
         // 2. Parallel Independent Tasks
+        // vaccination_items reference vaccineId/batchId (CASCADE FKs), so importing them
+        // locally has to wait until inventory sync has actually landed those rows - but the
+        // network fetch itself has no such dependency, so it's kicked off here alongside
+        // waste/inventory to avoid adding extra wall-clock time to the sync as a whole.
+        val vaccinationItemsFetchTask = async { vaccinationRepository.fetchRemoteVaccinationItems() }
         val wasteTask = async { wasteRepository.refreshWaste() }
         val inventoryTask = async { inventoryRepository.refreshInventory() }
         
         wasteTask.await()
         inventoryTask.await()
+
+        // Vaccines/batches are now guaranteed present locally, so it's safe to apply.
+        vaccinationRepository.applyDownloadedVaccinationItems(vaccinationItemsFetchTask.await())
     }
 }

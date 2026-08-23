@@ -88,7 +88,12 @@ fun VisitEntity.toVaccination() = Vaccination(
     doctorsAcc = doctorsAcc
 )
 
-fun Vaccination.toEntity(isSynced: Boolean = true) = VisitEntity(
+fun Vaccination.toEntity(isSynced: Boolean = true) = run {
+    // updatedAt is blank for a brand-new vaccination (nothing sets it before this point),
+    // and createdAt/updatedAt were previously left as null in that case - which Supabase's
+    // patient_visits.created_at (NOT NULL) rejects outright, failing every new record's sync.
+    val timestamp = updatedAt.ifBlank { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
+    VisitEntity(
     id = id,
     patientId = patientId,
     dateGiven = dateGiven,
@@ -109,13 +114,14 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = VisitEntity(
     visitType = "VACCINATION",
     source = source,
     inventoryStatus = inventoryStatus,
-    createdAt = if (updatedAt.isEmpty()) null else updatedAt,
-    updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
+    createdAt = timestamp,
+    updatedAt = timestamp,
     isSynced = isSynced,
     // Next vaccination is stored only in reminders; do not duplicate it in patient_visits.
     nxtVaccineNames = "",
     nextDueDate = ""
-)
+    )
+}
 
 fun VaccinationItem.toEntity() = VaccinationItemEntity(
     id = if (id.isBlank()) java.util.UUID.randomUUID().toString() else id,
