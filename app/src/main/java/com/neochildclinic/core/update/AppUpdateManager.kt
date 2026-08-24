@@ -189,8 +189,11 @@ class AppUpdateManager @Inject constructor(
                 action = AppUpdateInstallReceiver.ACTION_INSTALL_STATUS
                 putExtra(AppUpdateInstallReceiver.EXTRA_SESSION_ID, sessionId)
             }
-            val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
             val pendingIntent = PendingIntent.getBroadcast(context, sessionId, callbackIntent, pendingIntentFlags)
             session.commit(pendingIntent.intentSender)
         } catch (t: Throwable) {
