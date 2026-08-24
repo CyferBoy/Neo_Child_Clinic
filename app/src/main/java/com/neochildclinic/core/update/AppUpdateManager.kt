@@ -62,10 +62,7 @@ class AppUpdateManager @Inject constructor(
             val downloadUrl = apkUrl ?: return@withContext null
 
             val body = json.optString("body")
-            val mandatory = Regex(
-                "(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$"
-            ).containsMatchIn(body)
-
+            
             val minimumVersionCode = Regex(
                 "(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$"
             ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
@@ -73,7 +70,9 @@ class AppUpdateManager @Inject constructor(
             val currentVersionCode = currentVersionCode()
             if (versionCode <= currentVersionCode) return@withContext null
 
-            val required = mandatory || (minimumVersionCode != null && currentVersionCode < minimumVersionCode)
+            // Hardcoded Rule: Major versions (1.0.0, 2.0.0, etc.) are mandatory.
+            // Minor/Patch versions are optional.
+            val required = tagName.matches(Regex("^\\d+\\.0\\.0$"))
             val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
             if (!required && dismissed == versionCode) return@withContext null
 

@@ -9,6 +9,5 @@ data class AppUpdateInfo(
     val releaseNotes: String,
     val htmlUrl: String
 ) {
-    fun isRequired(currentVersionCode: Long): Boolean =
-        mandatory || (minimumVersionCode != null && currentVersionCode < minimumVersionCode)
+    fun isRequired(): Boolean = mandatory
 }
