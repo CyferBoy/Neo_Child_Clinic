@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.update.AppUpdateInfo
 import com.neochildclinic.core.update.AppUpdateManager
+import com.neochildclinic.core.update.UpdateType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +40,12 @@ class AppUpdateViewModel @Inject constructor(
             _message.value = null
             runCatching { updateManager.checkForUpdate() }
                 .onSuccess { info ->
-                    _updateInfo.value = info
+                    if (info?.updateType == UpdateType.REUPDATE && !isManual) {
+                        // Silent on startup if already latest
+                        _updateInfo.value = null
+                    } else {
+                        _updateInfo.value = info
+                    }
                     if (isManual && info == null) _message.value = "Your application is up to date."
                 }
                 .onFailure { _message.value = it.message ?: "Unable to check for updates." }

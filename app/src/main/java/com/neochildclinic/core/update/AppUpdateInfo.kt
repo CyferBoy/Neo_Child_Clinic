@@ -2,6 +2,7 @@ package com.neochildclinic.core.update
 
 enum class UpdateType {
     UPDATE,
+    REUPDATE,
     DOWNGRADE
 }
 

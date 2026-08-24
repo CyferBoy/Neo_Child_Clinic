@@ -20,12 +20,15 @@ fun AppUpdateDialog(
     onLater: () -> Unit
 ) {
     val isDowngrade = info.updateType == UpdateType.DOWNGRADE
-    val title = if (isDowngrade) "Older Version Available" else {
-        if (info.mandatory) "Update Required" else "New Update Available"
+    val title = when (info.updateType) {
+        UpdateType.UPDATE -> if (info.mandatory) "Update Required" else "New Update Available"
+        UpdateType.REUPDATE -> "Re-update Available"
+        UpdateType.DOWNGRADE -> "Older Version Available"
     }
     val actionText = when {
         installing -> "Downloading…"
         info.updateType == UpdateType.UPDATE -> "Update Now"
+        info.updateType == UpdateType.REUPDATE -> "Re-update"
         else -> "Install Older Version"
     }
 
