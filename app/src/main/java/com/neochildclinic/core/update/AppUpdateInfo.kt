@@ -1,5 +1,11 @@
 package com.neochildclinic.core.update
 
+enum class UpdateType {
+    UPDATE,
+    REUPDATE,
+    DOWNGRADE
+}
+
 data class AppUpdateInfo(
     val versionName: String,
     val versionCode: Long,
@@ -7,7 +13,9 @@ data class AppUpdateInfo(
     val minimumVersionCode: Long?,
     val downloadUrl: String,
     val releaseNotes: String,
-    val htmlUrl: String
+    val htmlUrl: String,
+    val currentVersionCode: Long,
+    val updateType: UpdateType
 ) {
     fun isRequired(): Boolean = mandatory
 }

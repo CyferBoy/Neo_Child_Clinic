@@ -7,6 +7,7 @@ import com.neochildclinic.core.model.SyncItem
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.model.SyncStatus
+import com.neochildclinic.core.model.SyncErrorDetails
 import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
@@ -114,10 +115,10 @@ class SyncRepositoryImpl @Inject constructor(
                 
                 for (item in groupItems) {
                     if (isNetworkError && item.retryCount < 5) {
-                        syncDao.incrementRetryCount(item.queueId, e.message ?: "Network error")
+                        syncDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
                         syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
                     } else {
-                        syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, e.message ?: "Sync failed")
+                        syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, buildSyncErrorDetails(e))
                     }
                 }
             }
@@ -128,6 +129,71 @@ class SyncRepositoryImpl @Inject constructor(
         // 3. Loop if more items arrived during processing
         if (syncDao.getPendingCountSync() > 0 && !hasError) {
             processNextItems()
+        }
+    }
+
+
+    private fun buildSyncErrorDetails(error: Throwable): String {
+        val reason = error.message?.takeIf { it.isNotBlank() } ?: "Sync failed"
+        var current: Throwable? = error
+
+        repeat(8) {
+            val throwable = current ?: return@repeat
+            val response = invokeGetter(throwable, "getResponse")
+            if (response != null) {
+                val request = invokeGetter(response, "getRequest")
+                val url = invokeGetter(request, "getUrl")?.toString()
+                val requestHeaders = extractSafeHeaders(invokeGetter(request, "getHeaders"))
+                    .mapKeys { "Request-${it.key}" }
+                val responseHeaders = extractSafeHeaders(invokeGetter(response, "getHeaders"))
+                    .mapKeys { "Response-${it.key}" }
+                return SyncErrorDetails(
+                    reason = reason,
+                    url = url,
+                    headers = responseHeaders + requestHeaders
+                ).encode()
+            }
+            current = throwable.cause
+        }
+
+        return SyncErrorDetails(reason = reason).encode()
+    }
+
+    private fun invokeGetter(target: Any?, methodName: String): Any? {
+        if (target == null) return null
+        return runCatching {
+            target.javaClass.methods
+                .firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }
+                ?.invoke(target)
+        }.getOrNull()
+    }
+
+    private fun extractSafeHeaders(headersObject: Any?): Map<String, String> {
+        if (headersObject == null) return emptyMap()
+
+        val sensitiveNames = setOf(
+            "authorization", "proxy-authorization", "apikey", "api-key",
+            "cookie", "set-cookie", "x-api-key", "x-auth-token", "access-token"
+        )
+
+        val entries = runCatching {
+            val entriesMethod = headersObject.javaClass.methods
+                .firstOrNull { it.name == "entries" && it.parameterTypes.isEmpty() }
+            @Suppress("UNCHECKED_CAST")
+            entriesMethod?.invoke(headersObject) as? Iterable<Any?>
+        }.getOrNull() ?: return emptyMap()
+
+        return buildMap {
+            entries.forEach { entry ->
+                val pair = entry as? Pair<*, *>
+                val name = pair?.first?.toString() ?: return@forEach
+                if (name.lowercase() in sensitiveNames) return@forEach
+                val value = when (val raw = pair.second) {
+                    is Iterable<*> -> raw.joinToString(",")
+                    else -> raw?.toString().orEmpty()
+                }
+                put(name, value)
+            }
         }
     }
 

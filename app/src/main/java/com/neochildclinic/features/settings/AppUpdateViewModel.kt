@@ -11,22 +11,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class DownloadProgress(
+    val percent: Int = 0,
+    val downloadedBytes: Long = 0L,
+    val totalBytes: Long = -1L
+)
+
 @HiltViewModel
 class AppUpdateViewModel @Inject constructor(
     private val updateManager: AppUpdateManager
 ) : ViewModel() {
-
     private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     val updateInfo: StateFlow<AppUpdateInfo?> = _updateInfo.asStateFlow()
-
     private val _checking = MutableStateFlow(false)
     val checking: StateFlow<Boolean> = _checking.asStateFlow()
-
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
-
     private val _installing = MutableStateFlow(false)
     val installing: StateFlow<Boolean> = _installing.asStateFlow()
+    private val _downloadProgress = MutableStateFlow(DownloadProgress())
+    val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
 
     fun checkForUpdates(isManual: Boolean = false) {
         if (_checking.value) return
@@ -36,9 +40,7 @@ class AppUpdateViewModel @Inject constructor(
             runCatching { updateManager.checkForUpdate() }
                 .onSuccess { info ->
                     _updateInfo.value = info
-                    if (isManual && info == null) {
-                        _message.value = "Your application is up to date."
-                    }
+                    if (isManual && info == null) _message.value = "Your application is up to date."
                 }
                 .onFailure { _message.value = it.message ?: "Unable to check for updates." }
             _checking.value = false
@@ -52,15 +54,18 @@ class AppUpdateViewModel @Inject constructor(
 
     fun installUpdate() {
         val info = _updateInfo.value ?: return
+        if (_installing.value) return
         viewModelScope.launch {
             _installing.value = true
-            updateManager.downloadAndInstall(info)
-                .onFailure { _message.value = it.message ?: "Unable to install the update." }
+            _downloadProgress.value = DownloadProgress()
+            updateManager.downloadAndInstall(info) { percent, downloaded, total ->
+                _downloadProgress.value = DownloadProgress(percent, downloaded, total)
+            }.onFailure {
+                _message.value = it.message ?: "Unable to install the update."
+            }
             _installing.value = false
         }
     }
 
-    fun clearMessage() {
-        _message.value = null
-    }
+    fun clearMessage() { _message.value = null }
 }

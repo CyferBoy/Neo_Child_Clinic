@@ -21,12 +21,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.model.SyncItem
 import com.neochildclinic.core.model.SyncStatus
+import com.neochildclinic.core.model.SyncErrorDetails
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyncScreen(
     onBack: () -> Unit,
+    isAdmin: Boolean = false,
     viewModel: SyncViewModel = hiltViewModel()
 ) {
     val syncQueue by viewModel.syncQueue.collectAsState()
@@ -86,12 +88,6 @@ fun SyncScreen(
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
                             }
                         } else {
-                            IconButton(onClick = { viewModel.processSync() }) {
-                                Icon(Icons.Default.CloudSync, contentDescription = "Sync Now")
-                            }
-                            IconButton(onClick = { viewModel.clearSynced() }) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = "Clear Synced")
-                            }
                             IconButton(
                                 onClick = { viewModel.forceRefreshFromCloud() },
                                 enabled = !isRefreshing
@@ -145,6 +141,7 @@ fun SyncScreen(
                         items(failedItems, key = { "failed_${it.id}" }) { item ->
                             SyncItemCard(
                                 item = item,
+                                isAdmin = isAdmin,
                                 isSelected = selectedItems.contains(item.id),
                                 onToggleSelection = {
                                     selectedItems = if (selectedItems.contains(item.id)) {
@@ -168,7 +165,7 @@ fun SyncScreen(
                             )
                         }
                         items(pendingItems, key = { "pending_${it.id}" }) { item ->
-                            SyncItemCard(item = item)
+                            SyncItemCard(item = item, isAdmin = isAdmin)
                         }
                     }
 
@@ -238,6 +235,7 @@ private fun SyncSummary(total: Int, failed: Int) {
 @Composable
 private fun SyncItemCard(
     item: SyncItem,
+    isAdmin: Boolean = false,
     isSelected: Boolean = false,
     onToggleSelection: () -> Unit = {}
 ) {
@@ -276,10 +274,48 @@ private fun SyncItemCard(
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider(modifier = Modifier.alpha(0.3f))
                 Spacer(Modifier.height(8.dp))
-                Text("Reason: ${item.lastError ?: "Unknown error"}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Failed: ${formatDateForDisplay(Date(item.updatedAt))}", style = MaterialTheme.typography.labelSmall)
-                    Text("Retries: ${item.retryCount}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                val errorDetails = remember(item.lastError) {
+                    SyncErrorDetails.fromStoredError(item.lastError)
+                }
+                Text(
+                    "Reason: ${errorDetails.reason}",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                if (isAdmin) {
+                    errorDetails.url?.takeIf { it.isNotBlank() }?.let { url ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "URL: $url",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (errorDetails.headers.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Headers:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        errorDetails.headers.forEach { (name, value) ->
+                            Text(
+                                "$name: $value",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                if (isAdmin) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Failed: ${formatDateForDisplay(Date(item.updatedAt))}", style = MaterialTheme.typography.labelSmall)
+                        Text("Retries: ${item.retryCount}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

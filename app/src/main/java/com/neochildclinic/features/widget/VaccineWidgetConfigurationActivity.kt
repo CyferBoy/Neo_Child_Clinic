@@ -23,14 +23,12 @@ class VaccineWidgetConfigurationActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setResult(RESULT_CANCELED)
 
-        intent.extras?.let {
-            appWidgetId = it.getInt(
-                AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID
-            )
-        }
+        appWidgetId = intent?.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
 
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             finish()
@@ -39,71 +37,82 @@ class VaccineWidgetConfigurationActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    OpacityConfigurationScreen(
-                        onConfirm = { opacity ->
-                            saveOpacity(opacity)
-                        }
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    WidgetConfigurationScreen(
+                        onConfirm = { opacity, theme -> saveSettings(opacity, theme) }
                     )
                 }
             }
         }
     }
 
-    private fun saveOpacity(opacity: Float) {
-        val scope = MainScope()
-        scope.launch {
+    private fun saveSettings(opacity: Float, theme: String) {
+        MainScope().launch {
             val glanceId = GlanceAppWidgetManager(this@VaccineWidgetConfigurationActivity)
                 .getGlanceIdBy(appWidgetId)
-            
-            updateAppWidgetState(this@VaccineWidgetConfigurationActivity, PreferencesGlanceStateDefinition, glanceId) { prefs ->
+
+            updateAppWidgetState(
+                this@VaccineWidgetConfigurationActivity,
+                PreferencesGlanceStateDefinition,
+                glanceId
+            ) { prefs ->
                 prefs.toMutablePreferences().apply {
                     set(VaccineWidget.OPACITY_KEY, opacity)
+                    set(VaccineWidget.THEME_KEY, theme)
                 }
             }
+
             VaccineWidget().update(this@VaccineWidgetConfigurationActivity, glanceId)
 
-            val resultValue = Intent().apply {
+            setResult(RESULT_OK, Intent().apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            }
-            setResult(RESULT_OK, resultValue)
+            })
             finish()
         }
     }
 }
 
 @Composable
-fun OpacityConfigurationScreen(onConfirm: (Float) -> Unit) {
-    var opacity by remember { mutableStateOf(0.8f) }
+private fun WidgetConfigurationScreen(onConfirm: (Float, String) -> Unit) {
+    var opacity by remember { mutableStateOf(0.85f) }
+    var theme by remember { mutableStateOf(VaccineWidgetTheme.SYSTEM.key) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        Text("Edit Widget", style = MaterialTheme.typography.headlineSmall)
+
         Text(
-            text = "Widget Background Opacity",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        
-        Text(
-            text = "Opacity: ${(opacity * 100).toInt()}%",
+            "Transparency: ${(opacity * 100).toInt()}%",
             style = MaterialTheme.typography.bodyLarge
         )
-        
         Slider(
             value = opacity,
             onValueChange = { opacity = it },
-            valueRange = 0.1f..1.0f,
-            modifier = Modifier.padding(vertical = 24.dp)
-        )
-        
-        Button(
-            onClick = { onConfirm(opacity) },
+            valueRange = 0f..1f,
             modifier = Modifier.fillMaxWidth()
+        )
+
+        Text(
+            "Theme",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        )
+
+        VaccineWidgetTheme.entries.forEach { option ->
+            FilterChip(
+                selected = theme == option.key,
+                onClick = { theme = option.key },
+                label = { Text(option.label) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Button(
+            onClick = { onConfirm(opacity, theme) },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
         ) {
             Text("Apply Settings")
         }

@@ -54,7 +54,6 @@ fun DashboardScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val role = authProfile?.role ?: UserRole.nurse
-    val showStatistics = role == UserRole.admin || role == UserRole.doctor
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -149,7 +148,6 @@ fun DashboardScreen(
                         DashboardMainGrid(
                             isWideScreen = isWideScreen,
                             uiState = uiState,
-                            showStatistics = showStatistics,
                             onPatientList = onPatientList,
                             onAddPatient = onAddPatient,
                             onInventory = onAddVaccine,

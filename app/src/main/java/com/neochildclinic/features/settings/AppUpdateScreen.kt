@@ -14,6 +14,7 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel = hiltView
     val info by viewModel.updateInfo.collectAsState()
     val checking by viewModel.checking.collectAsState()
     val installing by viewModel.installing.collectAsState()
+    val progress by viewModel.downloadProgress.collectAsState()
     val message by viewModel.message.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.checkForUpdates(isManual = true) }
@@ -22,6 +23,7 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel = hiltView
         AppUpdateDialog(
             info = it,
             installing = installing,
+            progress = progress,
             onUpdate = { viewModel.installUpdate() },
             onLater = { viewModel.dismissUpdate() }
         )

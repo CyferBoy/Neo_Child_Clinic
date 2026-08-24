@@ -99,6 +99,7 @@ class MainActivity : FragmentActivity() {
                 val navController = rememberNavController()
                 val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
                 val installingUpdate by appUpdateViewModel.installing.collectAsState()
+                val downloadProgress by appUpdateViewModel.downloadProgress.collectAsState()
                 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AppNavigation(navController = navController)
@@ -111,6 +112,7 @@ class MainActivity : FragmentActivity() {
                         AppUpdateDialog(
                             info = info,
                             installing = installingUpdate,
+                            progress = downloadProgress,
                             onUpdate = { appUpdateViewModel.installUpdate() },
                             onLater = { appUpdateViewModel.dismissUpdate() }
                         )

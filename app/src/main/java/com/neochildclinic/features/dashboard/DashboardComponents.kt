@@ -16,7 +16,6 @@ import com.neochildclinic.core.designsystem.*
 fun DashboardMainGrid(
     isWideScreen: Boolean,
     uiState: DashboardUiState,
-    showStatistics: Boolean,
     onPatientList: () -> Unit,
     onAddPatient: () -> Unit,
     onInventory: () -> Unit,
@@ -68,7 +67,6 @@ fun DashboardMainGrid(
                     containerColor = if (isSystemInDarkTheme()) DarkPurpleContainer else Color(0xFFF3E5F5),
                     contentColor = if (isSystemInDarkTheme()) DarkOnPurpleContainer else Color(0xFF4A148C),
                     height = 160.dp,
-                    isRestricted = !showStatistics,
                     modifier = Modifier.weight(1f),
                     onClick = onStatistics
                 )
@@ -98,7 +96,6 @@ fun DashboardMainGrid(
                     containerColor = if (isSystemInDarkTheme()) DarkPurpleContainer else Color(0xFFF3E5F5),
                     contentColor = if (isSystemInDarkTheme()) DarkOnPurpleContainer else Color(0xFF4A148C),
                     height = 140.dp,
-                    isRestricted = !showStatistics,
                     onClick = onStatistics
                 )
             }

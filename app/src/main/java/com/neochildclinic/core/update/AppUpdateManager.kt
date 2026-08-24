@@ -27,7 +27,6 @@ class AppUpdateManager @Inject constructor(
         private const val PREFS = "app_update"
         private const val DISMISSED_VERSION_CODE = "dismissed_version_code"
         private const val APK_FILE = "neo-child-clinic-update.apk"
-        private const val INSTALL_SESSION_NAME = "Neo Child Clinic Update"
     }
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -48,33 +47,33 @@ class AppUpdateManager @Inject constructor(
             val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
             val tagName = json.optString("tag_name").removePrefix("v").trim()
             val versionCode = extractVersionCode(json, tagName) ?: return@withContext null
-
             val assets = json.optJSONArray("assets") ?: return@withContext null
             var apkUrl: String? = null
             for (i in 0 until assets.length()) {
                 val asset = assets.optJSONObject(i) ?: continue
-                val name = asset.optString("name")
-                if (name.endsWith(".apk", ignoreCase = true)) {
+                if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
                     apkUrl = asset.optString("browser_download_url")
                     break
                 }
             }
             val downloadUrl = apkUrl ?: return@withContext null
-
             val body = json.optString("body")
-            
             val minimumVersionCode = Regex(
                 "(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$"
             ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
 
             val currentVersionCode = currentVersionCode()
-            if (versionCode <= currentVersionCode) return@withContext null
+            val updateType = when {
+                versionCode > currentVersionCode -> UpdateType.UPDATE
+                versionCode == currentVersionCode -> UpdateType.REUPDATE
+                else -> UpdateType.DOWNGRADE
+            }
 
-            // Hardcoded Rule: Major versions (1.0.0, 2.0.0, etc.) are mandatory.
-            // Minor/Patch versions are optional.
-            val required = tagName.matches(Regex("^\\d+\\.0\\.0$"))
+            val required = updateType == UpdateType.UPDATE && tagName.matches(Regex("^\\d+\\.0\\.0$"))
             val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
-            if (!required && dismissed == versionCode) return@withContext null
+            if (updateType == UpdateType.UPDATE && !required && dismissed == versionCode) {
+                return@withContext null
+            }
 
             AppUpdateInfo(
                 versionName = tagName,
@@ -83,7 +82,9 @@ class AppUpdateManager @Inject constructor(
                 minimumVersionCode = minimumVersionCode,
                 downloadUrl = downloadUrl,
                 releaseNotes = cleanReleaseNotes(body),
-                htmlUrl = json.optString("html_url")
+                htmlUrl = json.optString("html_url"),
+                currentVersionCode = currentVersionCode,
+                updateType = updateType
             )
         } finally {
             connection.disconnect()
@@ -94,14 +95,10 @@ class AppUpdateManager @Inject constructor(
         prefs.edit().putLong(DISMISSED_VERSION_CODE, versionCode).apply()
     }
 
-    /**
-     * Downloads the release APK and hands it to Android PackageInstaller.
-     *
-     * PackageInstaller owns the actual installation flow. This avoids exposing
-     * the APK through a FileProvider and lets Android present the appropriate
-     * installation confirmation UI.
-     */
-    suspend fun downloadAndInstall(info: AppUpdateInfo): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun downloadAndInstall(
+        info: AppUpdateInfo,
+        onProgress: (percent: Int, downloadedBytes: Long, totalBytes: Long) -> Unit
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 !context.packageManager.canRequestPackageInstalls()
@@ -110,9 +107,7 @@ class AppUpdateManager @Inject constructor(
                     val settingsIntent = Intent(
                         Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:${context.packageName}")
-                    ).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
+                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
                     context.startActivity(settingsIntent)
                 }
                 error("Please allow this app to install unknown apps, then tap Update again.")
@@ -134,33 +129,53 @@ class AppUpdateManager @Inject constructor(
                 if (connection.responseCode !in 200..299) {
                     error("Download failed: HTTP ${connection.responseCode}")
                 }
-
+                val totalBytes = connection.contentLengthLong
+                var downloadedBytes = 0L
+                var lastReported = -1
                 connection.inputStream.use { input ->
-                    apkFile.outputStream().use { output -> input.copyTo(output) }
+                    apkFile.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read == -1) break
+                            output.write(buffer, 0, read)
+                            downloadedBytes += read
+                            val percent = if (totalBytes > 0) {
+                                ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
+                            } else -1
+                            if (percent != lastReported) {
+                                lastReported = percent
+                                onProgress(percent, downloadedBytes, totalBytes)
+                            }
+                        }
+                    }
                 }
+                onProgress(100, downloadedBytes, totalBytes)
             } finally {
                 connection.disconnect()
             }
 
-            installWithPackageInstaller(apkFile)
+            installWithPackageInstaller(apkFile, info)
         }
     }
 
-    private fun installWithPackageInstaller(apkFile: File) {
+    private fun installWithPackageInstaller(apkFile: File, infoForInstall: AppUpdateInfo) {
+        if (infoForInstall.updateType == UpdateType.DOWNGRADE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            error("Installing an older version requires Android 10 or newer.")
+        }
         val packageInstaller = context.packageManager.packageInstaller
-
-        val params = PackageInstaller.SessionParams(
-            PackageInstaller.SessionParams.MODE_FULL_INSTALL
-        ).apply {
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(context.packageName)
-            if (apkFile.length() > 0) {
-                setSize(apkFile.length())
+            if (apkFile.length() > 0) setSize(apkFile.length())
+            if (infoForInstall.updateType == UpdateType.DOWNGRADE && Build.VERSION.SDK_INT >= 34) {
+                try {
+                    val method = this::class.java.getMethod("setRequestDowngrade", Boolean::class.javaPrimitiveType)
+                    method.invoke(this, true)
+                } catch (_: Exception) { }
             }
         }
-
         val sessionId = packageInstaller.createSession(params)
         val session = packageInstaller.openSession(sessionId)
-
         try {
             apkFile.inputStream().use { input ->
                 session.openWrite("base.apk", 0, apkFile.length()).use { output ->
@@ -168,36 +183,20 @@ class AppUpdateManager @Inject constructor(
                     session.fsync(output)
                 }
             }
-
             val callbackIntent = Intent(context, AppUpdateInstallReceiver::class.java).apply {
                 action = AppUpdateInstallReceiver.ACTION_INSTALL_STATUS
                 putExtra(AppUpdateInstallReceiver.EXTRA_SESSION_ID, sessionId)
             }
-
-            val pendingIntentFlags =
-                PendingIntent.FLAG_UPDATE_CURRENT or
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        PendingIntent.FLAG_IMMUTABLE
-                    } else {
-                        0
-                    }
-
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                sessionId,
-                callbackIntent,
-                pendingIntentFlags
-            )
-
+            val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            val pendingIntent = PendingIntent.getBroadcast(context, sessionId, callbackIntent, pendingIntentFlags)
             session.commit(pendingIntent.intentSender)
         } catch (t: Throwable) {
             session.abandon()
             throw t
         } finally {
             session.close()
-            if (apkFile.exists()) {
-                apkFile.delete()
-            }
+            if (apkFile.exists()) apkFile.delete()
         }
     }
 
@@ -214,7 +213,6 @@ class AppUpdateManager @Inject constructor(
             "(?im)^\\s*version-code\\s*:\\s*(\\d+)\\s*$"
         ).find(json.optString("body"))?.groupValues?.getOrNull(1)?.toLongOrNull()
         if (bodyVersion != null) return bodyVersion
-
         val parts = tagName.split(".")
         if (parts.size >= 2 && parts.take(3).all { it.toIntOrNull() != null }) {
             val major = parts.getOrNull(0)?.toIntOrNull() ?: return null
@@ -225,15 +223,12 @@ class AppUpdateManager @Inject constructor(
         return null
     }
 
-    private fun cleanReleaseNotes(body: String): String {
-        val withoutControlLines = body.lines()
-            .filterNot {
-                val t = it.trim()
-                t.startsWith("version-code:", ignoreCase = true) ||
-                    t.startsWith("update-type:", ignoreCase = true) ||
-                    t.startsWith("minimum-version-code:", ignoreCase = true)
-            }
-        return withoutControlLines.joinToString("\n").trim()
-            .ifBlank { "Bug fixes and improvements." }
-    }
+    private fun cleanReleaseNotes(body: String): String = body.lines()
+        .filterNot {
+            val t = it.trim()
+            t.startsWith("version-code:", ignoreCase = true) ||
+                t.startsWith("update-type:", ignoreCase = true) ||
+                t.startsWith("minimum-version-code:", ignoreCase = true)
+        }
+        .joinToString("\n").trim().ifBlank { "Bug fixes and improvements." }
 }

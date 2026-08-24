@@ -168,7 +168,10 @@ fun AppNavigation(
         }
 
         composable(Routes.SYNC) {
-            SyncScreen(onBack = { navController.popBackStack() })
+            SyncScreen(
+                onBack = { navController.popBackStack() },
+                isAdmin = userRole == UserRole.admin
+            )
         }
 
         composable(Routes.AUDIT_LOGS) {
@@ -333,7 +336,9 @@ fun AppNavigation(
         }
 
         composable(Routes.STATISTICS) {
+            val hasStatisticsAccess = userRole == UserRole.admin || userRole == UserRole.doctor
             StatisticsScreen(
+                hasAccess = hasStatisticsAccess,
                 onBack = { navController.popBackStack() },
                 onMonthClick = { monthKey ->
                     navController.navigate("monthly_finance_details/$monthKey")
