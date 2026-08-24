@@ -13,5 +13,7 @@ data class Vaccine(
     val expiryDate: String = "",
     val mrp: Double = 0.0,
     val netRate: Double = 0.0,
-    val isLowStock: Boolean = false
+    val isLowStock: Boolean = false,
+    val createdBy: String? = null,
+    val updatedBy: String? = null
 )

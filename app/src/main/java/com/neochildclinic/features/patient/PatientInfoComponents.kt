@@ -389,7 +389,7 @@ fun DocumentCard(doc: FileObject, onView: () -> Unit, onDelete: () -> Unit) {
 fun ClinicalNoteCard(note: PatientNotesEntity) {
     val dateDisplay = remember(note.timestamp) { 
         val date = com.neochildclinic.core.utils.PatientUtils.parseDate(note.timestamp) ?: Date(0)
-        SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(date)
+        SimpleDateFormat("dd MMM yyyy, hh:mm:ss a", Locale.ENGLISH).format(date)
     }
     Card(
         modifier = Modifier.fillMaxWidth(),

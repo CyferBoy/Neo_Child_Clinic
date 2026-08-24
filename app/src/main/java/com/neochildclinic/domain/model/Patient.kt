@@ -15,5 +15,7 @@ data class Patient(
     val address: String? = null,
     @SerialName("registration_date") val registrationDate: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    val attachments: String? = null
+    val attachments: String? = null,
+    @SerialName("created_by") val createdBy: String? = null,
+    @SerialName("updated_by") val updatedBy: String? = null
 )

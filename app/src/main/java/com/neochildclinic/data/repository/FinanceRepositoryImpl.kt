@@ -24,7 +24,8 @@ class FinanceRepositoryImpl @Inject constructor(
     private val financeDao: FinanceDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
-    private val auditLogger: AuditLogger
+    private val auditLogger: AuditLogger,
+    private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : FinanceRepository {
 
     override fun getAllTransactions(): Flow<List<FinanceEntity>> {
@@ -52,6 +53,7 @@ class FinanceRepositoryImpl @Inject constructor(
         transactionGroupId: String?
     ) {
         database.withTransaction {
+            val userName = sessionManager.getCurrentUserName()
             val transaction = FinanceEntity(
                 type = "INCOME",
                 category = category,
@@ -67,8 +69,10 @@ class FinanceRepositoryImpl @Inject constructor(
                 patientId = patientId,
                 visitId = visitId,
                 remarks = remarks ?: "Consultation",
-                recordedBy = recordedBy,
-                isSynced = false
+                recordedBy = userName,
+                isSynced = false,
+                createdBy = userName,
+                updatedBy = userName
             )
             financeDao.insertTransaction(transaction)
             syncRepository.enqueue(
@@ -99,14 +103,17 @@ class FinanceRepositoryImpl @Inject constructor(
         recordedBy: String
     ) {
         database.withTransaction {
+            val userName = sessionManager.getCurrentUserName()
             val transaction = FinanceEntity(
                 type = "EXPENSE",
                 category = category,
                 amount = amount,
                 paymentMethod = "CASH",
                 remarks = remarks,
-                recordedBy = recordedBy,
-                isSynced = false
+                recordedBy = userName,
+                isSynced = false,
+                createdBy = userName,
+                updatedBy = userName
             )
             financeDao.insertTransaction(transaction)
             syncRepository.enqueue(
@@ -204,14 +211,17 @@ class FinanceRepositoryImpl @Inject constructor(
                 "$baseRemarks $marker"
             }
 
+            val userName = sessionManager.getCurrentUserName()
             val updated = existing.copy(
                 amount = amount,
                 cashAmount = cashAmount,
                 onlineAmount = onlineAmount,
                 paymentMethod = paymentMethod,
                 remarks = preservedRemarks,
-                recordedBy = recordedBy,
-                isSynced = false
+                recordedBy = userName,
+                isSynced = false,
+                createdBy = existing.createdBy ?: userName,
+                updatedBy = userName
             )
             financeDao.insertTransaction(updated)
             syncRepository.enqueue(
@@ -252,6 +262,7 @@ class FinanceRepositoryImpl @Inject constructor(
             // vaccine COGS remains reportable. Never delete historical finance rows here.
 
             val existing = transactions.maxByOrNull { it.timestamp }
+            val userName = sessionManager.getCurrentUserName()
             if (existing == null) {
                 val transaction = FinanceEntity(
                     type = "INCOME",
@@ -268,8 +279,10 @@ class FinanceRepositoryImpl @Inject constructor(
                     patientId = null,
                     visitId = visitId,
                     remarks = remarks,
-                    recordedBy = recordedBy,
-                    isSynced = false
+                    recordedBy = userName,
+                    isSynced = false,
+                    createdBy = userName,
+                    updatedBy = userName
                 )
                 financeDao.insertTransaction(transaction)
                 syncRepository.enqueue(entityName = "FINANCE", entityId = transaction.id, operation = SyncOperation.CREATE, priority = SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
@@ -295,8 +308,10 @@ class FinanceRepositoryImpl @Inject constructor(
                 patientId = existing.patientId,
                 visitId = visitId,
                 remarks = updatedRemarks,
-                recordedBy = recordedBy,
-                isSynced = false
+                recordedBy = userName,
+                isSynced = false,
+                createdBy = existing.createdBy ?: userName,
+                updatedBy = userName
             )
 
             financeDao.insertTransaction(updated)

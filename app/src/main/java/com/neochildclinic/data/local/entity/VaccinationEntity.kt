@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -61,7 +62,9 @@ data class VisitEntity(
     
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = true
+    @SerialName("is_synced") val isSynced: Boolean = true,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 // Map legacy VaccinationEntity name to VisitEntity for easier refactoring
@@ -85,7 +88,9 @@ fun VisitEntity.toVaccination() = Vaccination(
     rawVaccineNames = vaccineNames,
     receiptNumber = receiptNumber,
     withFees = withFees,
-    doctorsAcc = doctorsAcc
+    doctorsAcc = doctorsAcc,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun Vaccination.toEntity(isSynced: Boolean = true) = run {
@@ -117,6 +122,8 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = run {
     createdAt = timestamp,
     updatedAt = timestamp,
     isSynced = isSynced,
+    createdBy = createdBy,
+    updatedBy = updatedBy,
     // Next vaccination is stored only in reminders; do not duplicate it in patient_visits.
     nxtVaccineNames = "",
     nextDueDate = ""
@@ -127,7 +134,9 @@ fun VaccinationItem.toEntity() = VaccinationItemEntity(
     id = if (id.isBlank()) java.util.UUID.randomUUID().toString() else id,
     vaccinationId = vaccinationId,
     vaccineId = vaccineId,
+    vaccineName = vaccineName,
     batchId = batchId,
+    batchNumber = batchNumber,
     quantity = quantity,
     mrp = mrp,
     netRate = netRate,

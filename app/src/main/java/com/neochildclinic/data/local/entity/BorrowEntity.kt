@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -37,5 +38,7 @@ data class BorrowEntity(
     @SerialName("returned_date") val returnedDate: String? = null,
     val type: String = "BY", // BY (Borrowed By us from someone), TO (Borrowed from us By someone)
     val notes: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = false
+    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )

@@ -1,6 +1,7 @@
 package com.neochildclinic.core.logger
 
 import android.os.Build
+import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
 import com.neochildclinic.domain.repository.SyncRepository
@@ -16,7 +17,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AuditLogger @Inject constructor(
-    private val auth: Auth,
+    private val sessionManager: SessionManager,
     private val auditLogDao: AuditLogDao,
     private val syncRepository: SyncRepository
 ) {
@@ -55,14 +56,13 @@ class AuditLogger @Inject constructor(
         remarks: String? = null,
         transactionGroupId: String? = null
     ) {
-        val user = auth.currentSessionOrNull()?.user
-        val userEmail = user?.email ?: "Unknown"
+        val userLabel = sessionManager.getCurrentUserName()
         val timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         val device = "${Build.MANUFACTURER} ${Build.MODEL}"
 
         val logEntity = AuditLogEntity(
             timestamp = timestamp,
-            user = userEmail,
+            user = userLabel,
             module = module,
             entityType = entityType,
             entityId = entityId,

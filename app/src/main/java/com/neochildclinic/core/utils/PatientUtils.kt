@@ -92,15 +92,23 @@ object PatientUtils {
      */
     fun parseDate(dateStr: String): Date? {
         if (dateStr.isBlank()) return null
+        // Order matters: SimpleDateFormat.parse() happily matches just a leading prefix
+        // of the string and silently ignores unparsed trailing text (even with
+        // isLenient = false). A bare date pattern like "yyyy-MM-dd" will therefore
+        // "successfully" match a full timestamp string (e.g. Postgres's
+        // "2026-08-22 03:48:08.105121+00"), parsing only the date and silently
+        // dropping the time - which is exactly why timestamps were displaying as
+        // the right date at 00:00. Every datetime pattern must be tried before any
+        // date-only pattern so the more complete match wins first.
         val formats = listOf(
-            Constants.DATE_FORMAT, 
-            "d/M/yyyy", 
-            "dd/MM/yyyy", 
-            "yyyy-MM-dd", 
-            "yyyy-MM-dd HH:mm:ss",
             "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
             "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
-            "yyyy-MM-dd'T'HH:mm:ssXXX"
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd HH:mm:ss",
+            Constants.DATE_FORMAT,
+            "d/M/yyyy",
+            "dd/MM/yyyy",
+            "yyyy-MM-dd"
         )
         for (format in formats) {
             try {
@@ -118,7 +126,7 @@ object PatientUtils {
     fun formatDateTimeForDisplay(isoString: String): String {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
-        return SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(date)
+        return SimpleDateFormat("MMM d, yyyy HH:mm:ss", Locale.getDefault()).format(date)
     }
 
     /**
@@ -132,7 +140,7 @@ object PatientUtils {
      * Formats a timestamp to date and time.
      */
     fun formatDateTime(date: Date): String {
-        return SimpleDateFormat("${Constants.DATE_FORMAT}, hh:mm a", Locale.ENGLISH).format(date)
+        return SimpleDateFormat("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH).format(date)
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.neochildclinic.data.repository
 
+import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.PatientDao
 import com.neochildclinic.data.local.dao.DueReminderDao
@@ -52,6 +53,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val idGenerator: PatientIdGenerator,
     private val preferenceManager: PreferenceManager,
     private val memoryCache: MemoryCache,
+    private val sessionManager: SessionManager,
     @ApplicationContext private val context: Context
 ) : PatientRepository {
 
@@ -159,7 +161,12 @@ class PatientRepositoryImpl @Inject constructor(
                 patient.patientClinicId
             }
 
-            val entity = patient.copy(patientClinicId = finalClinicId).toEntity(isSynced = false)
+            val userName = sessionManager.getCurrentUserName()
+            val entity = patient.copy(
+                patientClinicId = finalClinicId,
+                createdBy = if (isUpdate) patient.createdBy else userName,
+                updatedBy = userName
+            ).toEntity(isSynced = false)
             patientDao.insertPatient(entity)
             memoryCache.putPatient(patient.copy(patientClinicId = finalClinicId))
             
@@ -235,10 +242,13 @@ class PatientRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addNote(patientId: String, content: String, author: String) {
+        val userName = sessionManager.getCurrentUserName()
         val note = PatientNotesEntity(
             patientId = patientId,
             content = content,
-            author = author
+            author = author,
+            createdBy = userName,
+            updatedBy = userName
         )
         notesDao.insertNote(note)
         syncRepository.enqueue("PATIENT_NOTE", note.id, SyncOperation.CREATE, SyncPriority.LOW)

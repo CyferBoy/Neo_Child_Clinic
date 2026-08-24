@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -23,7 +24,9 @@ data class ProfileEntity(
     val fcmToken: String? = null,
     val createdAt: String = "",
     val updatedAt: String = "",
-    val lastLogin: String? = null
+    val lastLogin: String? = null,
+    @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun ProfileEntity.toDomain() = Profile(
@@ -37,7 +40,9 @@ fun ProfileEntity.toDomain() = Profile(
     fcmToken = fcmToken,
     createdAt = createdAt,
     updatedAt = updatedAt,
-    lastLogin = lastLogin
+    lastLogin = lastLogin,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun Profile.toEntity() = ProfileEntity(
@@ -51,5 +56,7 @@ fun Profile.toEntity() = ProfileEntity(
     fcmToken = fcmToken,
     createdAt = createdAt,
     updatedAt = updatedAt,
-    lastLogin = lastLogin
+    lastLogin = lastLogin,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )

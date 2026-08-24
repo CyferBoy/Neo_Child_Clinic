@@ -86,6 +86,17 @@ fun SyncScreen(
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
                             }
                         } else {
+                            if (failedItems.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.retryAllFailed() }) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Retry All Failed")
+                                }
+                                IconButton(onClick = {
+                                    isDeleteAll = true
+                                    showDeleteConfirm = true
+                                }) {
+                                    Icon(Icons.Default.DeleteForever, contentDescription = "Delete All Failed")
+                                }
+                            }
                             IconButton(
                                 onClick = { viewModel.forceRefreshFromCloud() },
                                 enabled = !isRefreshing
@@ -124,31 +135,11 @@ fun SyncScreen(
 
                     if (failedItems.isNotEmpty()) {
                         item {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Failed Sync Tasks", 
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Row {
-                                    TextButton(onClick = { viewModel.retryAllFailed() }) {
-                                        Text("Retry All")
-                                    }
-                                    TextButton(
-                                        onClick = { 
-                                            isDeleteAll = true
-                                            showDeleteConfirm = true 
-                                        },
-                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) {
-                                        Text("Delete All")
-                                    }
-                                }
-                            }
+                            Text(
+                                "Failed Sync Tasks",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
 
                         items(failedItems, key = { "failed_${it.id}" }) { item ->
@@ -304,6 +295,6 @@ fun getStatusColor(status: SyncStatus): Color = when (status) {
 }
 
 private fun formatDateForDisplay(date: Date): String {
-    val sdf = java.text.SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
+    val sdf = java.text.SimpleDateFormat("dd MMM, HH:mm:ss", Locale.getDefault())
     return sdf.format(date)
 }

@@ -42,6 +42,7 @@ class ReminderRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val reminderScheduler: ReminderScheduler,
     private val auditLogger: AuditLogger,
+    private val sessionManager: com.neochildclinic.core.session.SessionManager,
     @ApplicationContext private val context: Context
 ) : ReminderRepository {
 
@@ -248,6 +249,7 @@ class ReminderRepositoryImpl @Inject constructor(
                     patientId, originalVisitId, dueDate, groupedNames, type
                 )
                 val now = PatientUtils.getCurrentIsoTimestamp()
+                val userName = sessionManager.getCurrentUserName()
                 val reminder = if (existing != null) {
                     existing.copy(
                         dueDate = dueDate,
@@ -259,7 +261,9 @@ class ReminderRepositoryImpl @Inject constructor(
                         nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
                         notes = notes,
                         updatedAt = now,
-                        isSynced = false
+                        isSynced = false,
+                        createdBy = existing.createdBy ?: userName,
+                        updatedBy = userName
                     )
                 } else {
                     ReminderEntity(
@@ -278,7 +282,9 @@ class ReminderRepositoryImpl @Inject constructor(
                         notes = notes,
                         createdAt = now,
                         updatedAt = now,
-                        isSynced = false
+                        isSynced = false,
+                        createdBy = userName,
+                        updatedBy = userName
                     )
                 }
                 dueReminderDao.insertReminder(reminder)
@@ -287,7 +293,7 @@ class ReminderRepositoryImpl @Inject constructor(
                 logReminderUndoableChange(
                     reminder = reminder,
                     action = "SCHEDULED",
-                    remarks = "Next Vaccination ($displayLabel) scheduled by $performedBy",
+                    remarks = "Next Vaccination ($displayLabel) scheduled by $userName",
                     newValue = dueDate
                 )
 
@@ -302,8 +308,9 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
-                logReminderUndoableChange(existing, "COMPLETED", "Reminder marked done by $performedBy", transactionGroupId = transactionGroupId)
-                dueReminderDao.moveDueToCompleted(existing, performedBy, "Reminder completed")
+                val userName = sessionManager.getCurrentUserName()
+                logReminderUndoableChange(existing, "COMPLETED", "Reminder marked done by $userName", transactionGroupId = transactionGroupId)
+                dueReminderDao.moveDueToCompleted(existing.copy(updatedBy = userName), userName, "Reminder completed")
                 enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
 
             }
@@ -315,14 +322,16 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                val userName = sessionManager.getCurrentUserName()
                 val updated = existing.copy(
                     dueDate = newDate,
                     status = "ACTIVE",
                     updatedAt = PatientUtils.getCurrentIsoTimestamp(),
-                    isSynced = false
+                    isSynced = false,
+                    updatedBy = userName
                 )
                 dueReminderDao.insertReminder(updated)
-                logReminderUndoableChange(updated, "RESCHEDULED", "Rescheduled: $reason", newValue = newDate)
+                logReminderUndoableChange(updated, "RESCHEDULED", "Rescheduled: $reason by $userName", newValue = newDate)
                 enqueueReminderSync("REMINDERS", updated.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             }
             triggerImmediateCheck()
@@ -334,8 +343,9 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
-                logReminderUndoableChange(existing, "DISMISSED", "Dismissed: $reason")
-                dueReminderDao.moveDueToDismissed(existing, performedBy, reason)
+                val userName = sessionManager.getCurrentUserName()
+                logReminderUndoableChange(existing, "DISMISSED", "Dismissed: $reason by $userName")
+                dueReminderDao.moveDueToDismissed(existing.copy(updatedBy = userName), userName, reason)
                 enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
 
             }
@@ -347,13 +357,15 @@ class ReminderRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                val userName = sessionManager.getCurrentUserName()
                 val restored = existing.copy(
                     status = "ACTIVE",
                     reminderEnabled = true,
                     updatedAt = PatientUtils.getCurrentIsoTimestamp(),
-                    isSynced = false
+                    isSynced = false,
+                    updatedBy = userName
                 )
-                logReminderUndoableChange(existing, "RESTORED", "Restored by $performedBy")
+                logReminderUndoableChange(existing, "RESTORED", "Restored by $userName")
                 dueReminderDao.insertReminder(restored)
                 enqueueReminderSync("REMINDERS", restored.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             }
@@ -366,18 +378,21 @@ class ReminderRepositoryImpl @Inject constructor(
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
                 val now = PatientUtils.getCurrentIsoTimestamp()
+                val userName = sessionManager.getCurrentUserName()
                 val updated = reminder.copy(
                     id = existing.id,
                     createdAt = existing.createdAt,
                     updatedAt = now,
                     performedBy = existing.performedBy,
-                    isSynced = false
+                    isSynced = false,
+                    createdBy = existing.createdBy ?: reminder.createdBy ?: userName,
+                    updatedBy = userName
                 )
                 dueReminderDao.updateReminder(updated)
                 logReminderUndoableChange(
                     reminder = updated,
                     action = "UPDATED",
-                    remarks = "Next Vaccination reminder updated by $performedBy",
+                    remarks = "Next Vaccination reminder updated by $userName",
                     newValue = "dueDate=${updated.dueDate}; type=${updated.type}; vaccines=${updated.vaccineName}",
                     transactionGroupId = transactionGroupId
                 )

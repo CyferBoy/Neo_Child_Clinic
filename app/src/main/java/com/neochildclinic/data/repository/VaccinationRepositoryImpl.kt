@@ -23,7 +23,7 @@ import com.neochildclinic.data.cache.MemoryCache
 class VaccinationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val auth: Auth,
+    private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val syncRepository: SyncRepository,
     private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val inventoryRepository: InventoryRepository,
@@ -37,6 +37,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val patientDao = database.patientDao()
     private val vaccineDao = database.vaccineDao()
     private val dueReminderDao = database.dueReminderDao()
+    private val receiptNumberGenerator = com.neochildclinic.core.utils.ReceiptNumberGenerator(vaccinationDao)
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override val allVaccinations: Flow<List<Vaccination>> = 
@@ -192,7 +193,22 @@ class VaccinationRepositoryImpl @Inject constructor(
     override suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String?) {
         database.withTransaction {
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
-            vaccinationDao.insertVaccination(vaccination.toEntity(isSynced = false))
+
+            // Auto-generate a receipt number for a genuinely new record that doesn't
+            // already have one (e.g. carried over from an edit). Never overwrite an
+            // existing receipt number - it may already be printed/handed to the patient.
+            val vaccination = if (existing == null && vaccination.receiptNumber.isBlank()) {
+                vaccination.copy(receiptNumber = receiptNumberGenerator.generateUniqueReceiptNumber())
+            } else {
+                vaccination
+            }
+
+            val userName = sessionManager.getCurrentUserName()
+            val entity = vaccination.copy(
+                createdBy = if (existing == null) userName else (existing.createdBy ?: vaccination.createdBy ?: userName),
+                updatedBy = userName
+            ).toEntity(isSynced = false)
+            vaccinationDao.insertVaccination(entity)
 
             // Reconcile item identity instead of deleting/recreating every row. This keeps
             // unchanged item IDs stable and queues explicit DELETE operations for removed rows.
@@ -284,7 +300,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             // Financial transactions are historical records and must remain after a clinical record is soft-deleted.
             // 1. Identify batches used in this vaccination
             val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
-            val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+            val user = sessionManager.getCurrentUserName()
 
             // 2. Replenish inventory atomically
             for (batchId in batchIds) {
@@ -349,7 +365,12 @@ class VaccinationRepositoryImpl @Inject constructor(
         database.withTransaction {
             val current = vaccinationDao.getActiveVaccinationById(id)
             if (current != null) {
-                val updated = current.copy(status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED, isSynced = false)
+                val userName = sessionManager.getCurrentUserName()
+                val updated = current.copy(
+                    status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED, 
+                    isSynced = false,
+                    updatedBy = userName
+                )
                 vaccinationDao.insertVaccination(updated)
                 
                 syncRepository.enqueue(

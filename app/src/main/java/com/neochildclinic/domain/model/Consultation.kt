@@ -17,5 +17,7 @@ data class Consultation(
     val notes: String = "",
     val nextFollowUpDate: String = "",
     val createdAt: String = "",
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val createdBy: String? = null,
+    val updatedBy: String? = null
 )

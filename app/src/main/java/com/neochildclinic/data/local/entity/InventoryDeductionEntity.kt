@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,5 +14,7 @@ data class InventoryDeductionEntity(
     val quantity: Int,
     val status: String,        // "COMPLETED" or "FAILED"
     val errorMessage: String?,
-    val resolvedAt: Long       // System.currentTimeMillis()
+    val resolvedAt: Long,       // System.currentTimeMillis()
+    @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )

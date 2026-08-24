@@ -17,6 +17,12 @@ interface VaccinationDao {
     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId")
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
 
+    @Query("SELECT receiptNumber FROM patient_visits WHERE receiptNumber LIKE 'RCT-%' ORDER BY CAST(SUBSTR(receiptNumber, 5) AS INTEGER) DESC LIMIT 1")
+    suspend fun getMaxReceiptNumber(): String?
+
+    @Query("SELECT * FROM patient_visits WHERE receiptNumber = :receiptNumber LIMIT 1")
+    suspend fun getVaccinationByReceiptNumber(receiptNumber: String): VisitEntity?
+
     @Query("SELECT * FROM patient_visits WHERE id = :id")
     suspend fun getActiveVaccinationById(id: String): VisitEntity?
 

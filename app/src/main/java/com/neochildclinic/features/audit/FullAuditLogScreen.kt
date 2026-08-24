@@ -103,7 +103,7 @@ fun AuditLogItem(log: AuditLogEntity) {
                     )
                 }
                 Text(
-                    text = PatientUtils.formatDate(PatientUtils.parseDate(log.timestamp) ?: Date(0)),
+                    text = PatientUtils.formatDateTimeForDisplay(log.timestamp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

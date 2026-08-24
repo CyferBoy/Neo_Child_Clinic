@@ -1,9 +1,10 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.WasteRecord
-
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -19,7 +20,9 @@ data class WasteEntity(
     val reason: String,
     val quantity: Int,
     val updatedAt: String = "",
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun WasteEntity.toDomain() = WasteRecord(
@@ -33,7 +36,9 @@ fun WasteEntity.toDomain() = WasteRecord(
     reason = reason,
     quantity = quantity,
     updatedAt = updatedAt,
-    isSynced = isSynced
+    isSynced = isSynced,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
@@ -47,5 +52,7 @@ fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
     reason = reason,
     quantity = quantity,
     updatedAt = if (updatedAt.isEmpty()) com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() else updatedAt,
-    isSynced = this.isSynced || isSynced
+    isSynced = this.isSynced || isSynced,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )

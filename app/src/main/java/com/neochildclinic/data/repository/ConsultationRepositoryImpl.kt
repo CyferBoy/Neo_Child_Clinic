@@ -24,7 +24,8 @@ class ConsultationRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
-    private val auditLogger: AuditLogger
+    private val auditLogger: AuditLogger,
+    private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : ConsultationRepository {
 
     private val consultationDao = database.consultationDao()
@@ -38,7 +39,11 @@ class ConsultationRepositoryImpl @Inject constructor(
         consultationDao.getConsultationById(id)?.toDomain()
 
     override suspend fun addConsultation(consultation: Consultation, transactionGroupId: String?) {
-        val entity = consultation.toEntity(isSynced = false)
+        val userName = sessionManager.getCurrentUserName()
+        val entity = consultation.copy(
+            createdBy = userName,
+            updatedBy = userName
+        ).toEntity(isSynced = false)
         consultationDao.insertConsultation(entity)
         
         syncRepository.enqueue(
@@ -66,13 +71,16 @@ class ConsultationRepositoryImpl @Inject constructor(
                 ?: throw IllegalArgumentException("Consultation not found")
 
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            val userName = sessionManager.getCurrentUserName()
             val visitId = if (consultation.visitId.isBlank()) existing.visitId else consultation.visitId
             val updatedEntity = consultation.copy(
                 visitId = visitId,
                 // Creation time belongs to the original persisted record and must never
                 // be replaced by the edit request.
                 createdAt = existing.createdAt ?: consultation.createdAt,
-                updatedAt = now
+                updatedAt = now,
+                createdBy = existing.createdBy ?: consultation.createdBy ?: userName,
+                updatedBy = userName
             ).toEntity(isSynced = false)
 
             consultationDao.insertConsultation(updatedEntity)

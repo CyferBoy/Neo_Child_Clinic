@@ -67,7 +67,9 @@ data class ReminderEntity(
     
     val createdAt: String = "",
     val updatedAt: String = "",
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 /**
@@ -96,7 +98,9 @@ data class RemoteReminder(
     @SerialName("dismissal_reason") val dismissalReason: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = true
+    @SerialName("is_synced") val isSynced: Boolean = true,
+    @SerialName("created_by") val createdBy: String? = null,
+    @SerialName("updated_by") val updatedBy: String? = null
 )
 
 fun ReminderEntity.toRemote() = RemoteReminder(
@@ -118,7 +122,9 @@ fun ReminderEntity.toRemote() = RemoteReminder(
     dismissalReason = dismissalReason,
     createdAt = if (createdAt.isEmpty()) null else createdAt,
     updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
-    isSynced = true
+    isSynced = true,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun RemoteReminder.toLocal(localId: String? = null) = ReminderEntity(
@@ -141,5 +147,7 @@ fun RemoteReminder.toLocal(localId: String? = null) = ReminderEntity(
     dismissalReason = dismissalReason,
     createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: "",
-    isSynced = true
+    isSynced = true,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )

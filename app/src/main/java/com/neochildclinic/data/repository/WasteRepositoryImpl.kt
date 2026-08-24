@@ -25,7 +25,8 @@ class WasteRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val inventoryRepository: InventoryRepository,
     private val syncRepository: SyncRepository,
-    private val auditLogger: com.neochildclinic.core.logger.AuditLogger
+    private val auditLogger: com.neochildclinic.core.logger.AuditLogger,
+    private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : WasteRepository {
 
     private val wasteDao = database.wasteDao()
@@ -39,14 +40,18 @@ class WasteRepositoryImpl @Inject constructor(
 
     override suspend fun recordWaste(record: WasteRecord, user: String) {
         database.withTransaction {
+            val userName = sessionManager.getCurrentUserName()
             // 1. Save Locally
-            wasteDao.insertWaste(record.toEntity(isSynced = false))
+            wasteDao.insertWaste(record.copy(
+                createdBy = userName,
+                updatedBy = userName
+            ).toEntity(isSynced = false))
 
             // 2. Deduct Inventory from the specific batch
             inventoryRepository.deductStockFromBatch(
                 batchId = record.batchId,
                 quantity = record.quantity,
-                user = user,
+                user = userName,
                 transactionType = mapReasonToTransactionType(record.reason),
                 notes = "Waste Record: ${record.id}"
             )
@@ -71,11 +76,12 @@ class WasteRepositoryImpl @Inject constructor(
 
     override suspend fun updateWaste(oldRecord: WasteRecord, newRecord: WasteRecord, user: String) {
         database.withTransaction {
+            val userName = sessionManager.getCurrentUserName()
             // 1. Restore old stock
             inventoryRepository.addStockToBatch(
                 batchId = oldRecord.batchId,
                 quantity = oldRecord.quantity,
-                user = user,
+                user = userName,
                 transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT,
                 notes = "Reversing waste for update: ${oldRecord.id}"
             )
@@ -84,13 +90,16 @@ class WasteRepositoryImpl @Inject constructor(
             inventoryRepository.deductStockFromBatch(
                 batchId = newRecord.batchId,
                 quantity = newRecord.quantity,
-                user = user,
+                user = userName,
                 transactionType = mapReasonToTransactionType(newRecord.reason),
                 notes = "Waste update: ${newRecord.id}"
             )
 
             // 3. Update Waste Record
-            wasteDao.insertWaste(newRecord.toEntity(isSynced = false))
+            wasteDao.insertWaste(newRecord.copy(
+                createdBy = oldRecord.createdBy ?: userName,
+                updatedBy = userName
+            ).toEntity(isSynced = false))
 
             auditLogger.log(
                 module = "INVENTORY",
@@ -113,12 +122,13 @@ class WasteRepositoryImpl @Inject constructor(
     override suspend fun deleteWaste(id: String, user: String) {
         database.withTransaction {
             val record = wasteDao.getWasteById(id)?.toDomain() ?: return@withTransaction
+            val userName = sessionManager.getCurrentUserName()
 
             // 1. Restore stock
             inventoryRepository.addStockToBatch(
                 batchId = record.batchId,
                 quantity = record.quantity,
-                user = user,
+                user = userName,
                 transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT,
                 notes = "Restored from deleted waste: ${record.id}"
             )

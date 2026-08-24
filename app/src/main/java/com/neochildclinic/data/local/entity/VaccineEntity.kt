@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -25,7 +26,9 @@ data class VaccineEntity(
     val mrp: Double = 0.0,
     @SerialName("net_rate") val netRate: Double = 0.0,
     
-    @SerialName("last_updated") val lastUpdated: String = ""
+    @SerialName("last_updated") val lastUpdated: String = "",
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 @Serializable
@@ -61,7 +64,9 @@ data class VaccineBatchEntity(
     @SerialName("purchase_cost") val purchaseCost: Double,
     @SerialName("selling_price") val sellingPrice: Double,
     val status: String = BatchStatus.ACTIVE.name,
-    @SerialName("updated_at") val updatedAt: String = ""
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 @Serializable
@@ -88,7 +93,9 @@ data class InventoryTransactionEntity(
     @kotlinx.serialization.Transient @SerialName("failure_reason") val failureReason: String? = null,
     @kotlinx.serialization.Transient @SerialName("processed_at") val processedAt: String? = null,
     @kotlinx.serialization.Transient @SerialName("processed_by") val processedBy: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = false
+    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 // Mappers for compatibility

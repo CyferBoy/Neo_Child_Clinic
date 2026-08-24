@@ -31,7 +31,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationEntity::class,
         VaccinationItemEntity::class
     ], 
-    version = 16,
+    version = 18,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -91,6 +91,21 @@ abstract class AppDatabase : RoomDatabase() {
                 }
 
                 val factory = SupportOpenHelperFactory(passphrase)
+
+                val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
+                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        val tables = listOf(
+                            "patients", "patient_visits", "consultations", "vaccines",
+                            "vaccine_batches", "borrow_records", "waste_records", "reminders",
+                            "finance_transactions", "patient_notes", "inventory_deductions",
+                            "inventory_transactions", "profiles"
+                        )
+                        tables.forEach { table ->
+                            database.execSQL("ALTER TABLE `$table` ADD COLUMN `created_by` TEXT")
+                            database.execSQL("ALTER TABLE `$table` ADD COLUMN `updated_by` TEXT")
+                        }
+                    }
+                }
                 
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
@@ -99,6 +114,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
+                .addMigrations(MIGRATION_17_18)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

@@ -130,7 +130,7 @@ object ReceiptFormatter {
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         canvas.drawText("Date: ${PatientUtils.formatDateForDisplay(consultation.date)}", pageWidth - MARGIN, 87f, paint)
         
-        val timeStr = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+        val timeStr = SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
         canvas.drawText("Time: $timeStr", pageWidth - MARGIN, 99f, paint)
         
         paint.textAlign = Paint.Align.LEFT
@@ -229,7 +229,7 @@ object ReceiptFormatter {
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         canvas.drawText("Date: ${vaccination.dateGiven}", pageWidth - MARGIN, 87f, paint)
         
-        val timeStr = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+        val timeStr = SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
         canvas.drawText("Time: $timeStr", pageWidth - MARGIN, 99f, paint)
         
         paint.textAlign = Paint.Align.LEFT

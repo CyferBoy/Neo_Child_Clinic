@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -26,5 +27,7 @@ data class FinanceEntity(
     @SerialName("reference_number") val referenceNumber: String? = null, // Receipt number
     val remarks: String? = null,
     @SerialName("recorded_by") val recordedBy: String,
-    @SerialName("is_synced") val isSynced: Boolean = false
+    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )

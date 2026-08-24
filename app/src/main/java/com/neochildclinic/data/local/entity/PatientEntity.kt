@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -31,7 +32,9 @@ data class PatientEntity(
     val attachments: String? = null, // JSON path or metadata
 
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = true
+    @SerialName("is_synced") val isSynced: Boolean = true,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun PatientEntity.toPatient() = Patient(
@@ -45,7 +48,9 @@ fun PatientEntity.toPatient() = Patient(
     address = address,
     registrationDate = registrationDate,
     updatedAt = updatedAt,
-    attachments = attachments
+    attachments = attachments,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun Patient.toEntity(isSynced: Boolean = true) = PatientEntity(
@@ -60,5 +65,7 @@ fun Patient.toEntity(isSynced: Boolean = true) = PatientEntity(
     registrationDate = registrationDate,
     updatedAt = if (updatedAt.isNullOrEmpty()) com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() else updatedAt,
     isSynced = isSynced,
-    attachments = attachments
+    attachments = attachments,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )

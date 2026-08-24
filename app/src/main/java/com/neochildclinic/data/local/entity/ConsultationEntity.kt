@@ -1,5 +1,6 @@
 package com.neochildclinic.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -42,7 +43,9 @@ data class ConsultationEntity(
     @SerialName("next_follow_up_date") val nextFollowUpDate: String = "",
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = true
+    @SerialName("is_synced") val isSynced: Boolean = true,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun ConsultationEntity.toDomain() = Consultation(
@@ -59,7 +62,9 @@ fun ConsultationEntity.toDomain() = Consultation(
     notes = notes,
     nextFollowUpDate = nextFollowUpDate,
     createdAt = createdAt ?: "",
-    updatedAt = updatedAt ?: ""
+    updatedAt = updatedAt ?: "",
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun Consultation.toEntity(isSynced: Boolean = true) = ConsultationEntity(
@@ -77,5 +82,7 @@ fun Consultation.toEntity(isSynced: Boolean = true) = ConsultationEntity(
     nextFollowUpDate = nextFollowUpDate,
     createdAt = if (createdAt.isEmpty()) null else createdAt,
     updatedAt = if (updatedAt.isEmpty()) null else updatedAt,
-    isSynced = isSynced
+    isSynced = isSynced,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )

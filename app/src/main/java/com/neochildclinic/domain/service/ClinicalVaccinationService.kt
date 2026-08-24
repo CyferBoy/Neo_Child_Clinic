@@ -10,6 +10,9 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.model.InventoryStatus
+import com.neochildclinic.domain.model.InventoryTransactionType
+import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.features.statistics.FinanceCalculator
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -26,7 +29,8 @@ class ClinicalVaccinationService @Inject constructor(
     private val consultationRepository: ConsultationRepository,
     private val financeRepository: FinanceRepository,
     private val reminderRepository: ReminderRepository,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository
 ) {
     suspend fun recordVaccination(
         vaccination: Vaccination,
@@ -77,7 +81,74 @@ class ClinicalVaccinationService @Inject constructor(
             // reminder rows for this visit/vaccine directly. No legacy requirement object or
             // automatic reminder-engine calculation is involved.
             if (isNew) satisfyRelatedReminders(vaccination, user)
+
+            // 4. Inventory Domain - deduct stock for a newly administered vaccination.
+            // Editing an existing record already deducts/reverses stock via
+            // VaccinationEditEngine's inventoryDiff; this covers the creation path, which
+            // previously had no inventory logic at all - a new vaccination never actually
+            // touched stock or wrote an inventory_deductions audit row. Deduction failures
+            // (e.g. insufficient stock) are recorded, not thrown - the clinical record of a
+            // vaccination that already happened must still be saved; inventory gets flagged
+            // FAILED/PARTIAL for staff to reconcile manually rather than blocking the visit.
+            if (isNew) deductInventoryForNewVaccination(vaccination, user)
         }
+    }
+
+    private suspend fun deductInventoryForNewVaccination(vaccination: Vaccination, user: String) {
+        if (vaccination.items.isEmpty()) return
+
+        var completedCount = 0
+        for (item in vaccination.items) {
+            try {
+                inventoryRepository.deductStockFromBatch(
+                    batchId = item.batchId,
+                    quantity = item.quantity,
+                    user = user,
+                    transactionType = InventoryTransactionType.VACCINATION,
+                    visitId = vaccination.id,
+                    patientId = vaccination.patientId
+                )
+                database.inventoryDeductionDao().insert(InventoryDeductionEntity(
+                    vaccinationId = vaccination.id,
+                    vaccineId = item.vaccineId,
+                    vaccineName = item.vaccineName,
+                    batchId = item.batchId,
+                    quantity = item.quantity,
+                    status = "COMPLETED",
+                    errorMessage = null,
+                    resolvedAt = System.currentTimeMillis()
+                ))
+                completedCount++
+            } catch (e: Exception) {
+                database.inventoryDeductionDao().insert(InventoryDeductionEntity(
+                    vaccinationId = vaccination.id,
+                    vaccineId = item.vaccineId,
+                    vaccineName = item.vaccineName,
+                    batchId = item.batchId,
+                    quantity = item.quantity,
+                    status = "FAILED",
+                    errorMessage = e.message,
+                    resolvedAt = System.currentTimeMillis()
+                ))
+            }
+        }
+
+        val finalStatus = when {
+            completedCount == vaccination.items.size -> InventoryStatus.COMPLETED
+            completedCount > 0 -> InventoryStatus.PARTIAL
+            else -> InventoryStatus.FAILED
+        }
+        database.vaccinationDao().updateInventoryStatus(vaccination.id, finalStatus.name)
+
+        // Without this, the status change stays local-only until this visit's next
+        // unrelated edit - other devices pulling this visit down in the meantime would
+        // still see it as PENDING and could attempt to reconcile/deduct it again.
+        syncRepository.enqueue(
+            entityName = "VACCINATION",
+            entityId = vaccination.id,
+            operation = com.neochildclinic.core.model.SyncOperation.UPDATE,
+            priority = com.neochildclinic.core.model.SyncPriority.LOW
+        )
     }
 
     suspend fun recordConsultation(
