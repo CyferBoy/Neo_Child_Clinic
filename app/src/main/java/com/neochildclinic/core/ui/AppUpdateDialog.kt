@@ -20,15 +20,12 @@ fun AppUpdateDialog(
     onLater: () -> Unit
 ) {
     val isDowngrade = info.updateType == UpdateType.DOWNGRADE
-    val title = when (info.updateType) {
-        UpdateType.UPDATE -> if (info.mandatory) "Update Required" else "New Update Available"
-        UpdateType.REUPDATE -> "Re-update Available"
-        UpdateType.DOWNGRADE -> "Older Version Available"
+    val title = if (isDowngrade) "Older Version Available" else {
+        if (info.mandatory) "Update Required" else "New Update Available"
     }
     val actionText = when {
         installing -> "Downloading…"
         info.updateType == UpdateType.UPDATE -> "Update Now"
-        info.updateType == UpdateType.REUPDATE -> "Re-update"
         else -> "Install Older Version"
     }
 
@@ -37,31 +34,44 @@ fun AppUpdateDialog(
         title = { Text(title) },
         text = {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                Modifier.fillMaxWidth().heightIn(max = 400.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Vaccine Manager ${info.versionName} is available.")
-                if (isDowngrade) {
-                    Text(
-                        "You currently have a newer version installed. Installing this release may remove newer features or fixes."
-                    )
-                }
-                Text(info.releaseNotes)
-                if (info.mandatory) Text("This update is required to continue using the application.")
                 if (installing) {
                     if (progress.percent >= 0) {
                         LinearProgressIndicator(
                             progress = { progress.percent / 100f },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Text("${progress.percent}%")
+                        Text("${progress.percent}%", style = MaterialTheme.typography.bodySmall)
                     } else {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text("Downloading update…")
+                        Text("Downloading update…", style = MaterialTheme.typography.bodySmall)
                     }
                     if (progress.totalBytes > 0) {
-                        Text(formatBytes(progress.downloadedBytes) + " / " + formatBytes(progress.totalBytes))
+                        Text(
+                            formatBytes(progress.downloadedBytes) + " / " + formatBytes(progress.totalBytes),
+                            style = MaterialTheme.typography.labelSmall
+                        )
                     }
+                    Spacer(Modifier.height(4.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Vaccine Manager ${info.versionName} is available.")
+                    if (isDowngrade) {
+                        Text(
+                            "You currently have a newer version installed. Installing this release may remove newer features or fixes.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Text(info.releaseNotes)
+                    if (info.mandatory) Text("This update is required to continue using the application.")
                 }
             }
         },

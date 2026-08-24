@@ -6,4 +6,5 @@
     android:initialLayout="@layout/glance_default_loading_layout"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
     android:configure="com.neochildclinic.features.widget.VaccineWidgetConfigurationActivity" />

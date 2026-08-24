@@ -63,12 +63,12 @@ class AppUpdateManager @Inject constructor(
             ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
 
             val currentVersionCode = currentVersionCode()
-            val updateType = when {
-                versionCode > currentVersionCode -> UpdateType.UPDATE
-                versionCode == currentVersionCode -> UpdateType.REUPDATE
-                else -> UpdateType.DOWNGRADE
-            }
+            if (versionCode == currentVersionCode) return@withContext null
 
+            val updateType = if (versionCode > currentVersionCode) UpdateType.UPDATE else UpdateType.DOWNGRADE
+
+            // Hardcoded Rule: Major versions (1.0.0, 2.0.0, etc.) are mandatory.
+            // Minor/Patch versions are optional.
             val required = updateType == UpdateType.UPDATE && tagName.matches(Regex("^\\d+\\.0\\.0$"))
             val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
             if (updateType == UpdateType.UPDATE && !required && dismissed == versionCode) {
