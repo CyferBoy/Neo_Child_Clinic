@@ -86,16 +86,11 @@ fun SyncScreen(
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
                             }
                         } else {
-                            if (failedItems.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.retryAllFailed() }) {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Retry All Failed")
-                                }
-                                IconButton(onClick = {
-                                    isDeleteAll = true
-                                    showDeleteConfirm = true
-                                }) {
-                                    Icon(Icons.Default.DeleteForever, contentDescription = "Delete All Failed")
-                                }
+                            IconButton(onClick = { viewModel.processSync() }) {
+                                Icon(Icons.Default.CloudSync, contentDescription = "Sync Now")
+                            }
+                            IconButton(onClick = { viewModel.clearSynced() }) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = "Clear Synced")
                             }
                             IconButton(
                                 onClick = { viewModel.forceRefreshFromCloud() },
@@ -103,11 +98,16 @@ fun SyncScreen(
                             ) {
                                 Icon(Icons.Default.CloudDownload, contentDescription = "Force Import from Cloud")
                             }
-                            IconButton(onClick = { viewModel.clearSynced() }) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = "Clear Synced")
-                            }
-                            IconButton(onClick = { viewModel.processSync() }) {
-                                Icon(Icons.Default.CloudSync, contentDescription = "Sync Now")
+                            if (failedItems.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    isDeleteAll = true
+                                    showDeleteConfirm = true
+                                }) {
+                                    Icon(Icons.Default.DeleteForever, contentDescription = "Delete All Failed")
+                                }
+                                IconButton(onClick = { viewModel.retryAllFailed() }) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Retry All Failed")
+                                }
                             }
                         }
                     },

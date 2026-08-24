@@ -160,6 +160,10 @@ class ClinicalVaccinationService @Inject constructor(
             val visitId = if (consultation.visitId.isBlank()) UUID.randomUUID().toString() else consultation.visitId
             
             // 1. Create Visit Header
+            // createdAt must be set here (not left null): patient_visits.created_at is
+            // NOT NULL, and an explicit null in the upsert payload overrides the column's
+            // DB-side default, so Supabase rejects the CREATE with a not-null violation.
+            val consultationTimestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             val visit = VisitEntity(
                 id = visitId,
                 patientId = consultation.patientId,
@@ -171,7 +175,8 @@ class ClinicalVaccinationService @Inject constructor(
                 cashAmount = consultation.cashAmount,
                 onlineAmount = consultation.onlineAmount,
                 totalPaid = consultation.amount,
-                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+                createdAt = consultationTimestamp,
+                updatedAt = consultationTimestamp,
                 isSynced = false
             )
             database.vaccinationDao().insertVaccination(visit)

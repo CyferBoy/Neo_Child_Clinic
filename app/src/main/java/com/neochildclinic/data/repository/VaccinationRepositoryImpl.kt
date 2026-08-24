@@ -37,7 +37,6 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val patientDao = database.patientDao()
     private val vaccineDao = database.vaccineDao()
     private val dueReminderDao = database.dueReminderDao()
-    private val receiptNumberGenerator = com.neochildclinic.core.utils.ReceiptNumberGenerator(vaccinationDao)
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override val allVaccinations: Flow<List<Vaccination>> = 
@@ -194,15 +193,11 @@ class VaccinationRepositoryImpl @Inject constructor(
         database.withTransaction {
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
 
-            // Auto-generate a receipt number for a genuinely new record that doesn't
-            // already have one (e.g. carried over from an edit). Never overwrite an
-            // existing receipt number - it may already be printed/handed to the patient.
-            val vaccination = if (existing == null && vaccination.receiptNumber.isBlank()) {
-                vaccination.copy(receiptNumber = receiptNumberGenerator.generateUniqueReceiptNumber())
-            } else {
-                vaccination
-            }
-
+            // Receipt numbers are assigned by the database (patient_visits trigger), never
+            // here. A brand-new record is saved with a blank receiptNumber and picks up its
+            // real "NEO-YY/YY-NNNNNN" number once this visit is pushed to Supabase; see
+            // SyncRepositoryImpl's post-upsert read-back. Editing must never touch it, so an
+            // already-issued number carried on `vaccination` is passed through untouched.
             val userName = sessionManager.getCurrentUserName()
             val entity = vaccination.copy(
                 createdBy = if (existing == null) userName else (existing.createdBy ?: vaccination.createdBy ?: userName),

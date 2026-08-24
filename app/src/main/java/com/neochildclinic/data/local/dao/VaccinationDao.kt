@@ -17,11 +17,17 @@ interface VaccinationDao {
     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId")
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
 
-    @Query("SELECT receiptNumber FROM patient_visits WHERE receiptNumber LIKE 'RCT-%' ORDER BY CAST(SUBSTR(receiptNumber, 5) AS INTEGER) DESC LIMIT 1")
-    suspend fun getMaxReceiptNumber(): String?
-
     @Query("SELECT * FROM patient_visits WHERE receiptNumber = :receiptNumber LIMIT 1")
     suspend fun getVaccinationByReceiptNumber(receiptNumber: String): VisitEntity?
+
+    @Query("SELECT receiptNumber FROM patient_visits WHERE receiptNumber LIKE 'RCT-%' ORDER BY receiptNumber DESC LIMIT 1")
+    suspend fun getMaxReceiptNumber(): String?
+
+    // Applied after a CREATE sync so the locally held row picks up the number the
+    // patient_visits DB trigger assigned (see 20260824_receipt_numbering.sql). Never
+    // called to invent a number locally - only to mirror what the server generated.
+    @Query("UPDATE patient_visits SET receiptNumber = :receiptNumber WHERE id = :id")
+    suspend fun updateReceiptNumber(id: String, receiptNumber: String)
 
     @Query("SELECT * FROM patient_visits WHERE id = :id")
     suspend fun getActiveVaccinationById(id: String): VisitEntity?

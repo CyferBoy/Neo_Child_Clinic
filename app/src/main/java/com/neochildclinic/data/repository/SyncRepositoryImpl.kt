@@ -238,7 +238,7 @@ class SyncRepositoryImpl @Inject constructor(
             // to find the correct serializer. Passing 'Any' will fail.
             when (localData) {
                 is PatientEntity -> postgrest.from(table).upsert(localData)
-                is VisitEntity -> postgrest.from(table).upsert(localData)
+                is VisitEntity -> uploadVisit(table, localData)
                 is VaccinationItemEntity -> postgrest.from(table).upsert(localData)
                 is WasteEntity -> postgrest.from(table).upsert(localData)
                 is ReminderEntity -> postgrest.from(table).upsert(localData.toRemote())
@@ -252,6 +252,36 @@ class SyncRepositoryImpl @Inject constructor(
                 is BorrowEntity -> postgrest.from(table).upsert(localData)
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
             }
+        }
+    }
+
+    // patient_visits.receipt_number is assigned by a database trigger (never by this app -
+    // see 20260824_receipt_numbering.sql), so a freshly created visit is upserted with a
+    // blank receiptNumber. Asking Postgrest to return the row lets us copy the
+    // server-generated "NEO-YY/YY-NNNNNN" number back into Room right away, instead of
+    // waiting for a later download to fill it in.
+    private suspend fun uploadVisit(table: String, localData: VisitEntity) {
+        if (localData.receiptNumber.isNotBlank()) {
+            // Already has its number (normal edit path) - a plain upsert is enough.
+            postgrest.from(table).upsert(localData)
+            return
+        }
+
+        // Let a genuine upsert failure (network, RLS, etc.) propagate normally so the queue
+        // item is retried/marked failed like any other entity - only the read-back below is
+        // best-effort.
+        val result = postgrest.from(table).upsert(localData) { select() }
+        try {
+            val savedRow = result.decodeSingleOrNull<VisitEntity>()
+            if (savedRow != null && savedRow.receiptNumber.isNotBlank()) {
+                database.vaccinationDao().updateReceiptNumber(localData.id, savedRow.receiptNumber)
+            }
+        } catch (e: Exception) {
+            // The upsert itself already succeeded at this point; decoding the returned row
+            // is only used to mirror the DB-assigned number locally right away, so don't fail
+            // the sync item over it. The number will still be picked up on the next
+            // download/refresh.
+            android.util.Log.e("SyncRepository", "Could not read back receipt number for ${localData.id}", e)
         }
     }
 
