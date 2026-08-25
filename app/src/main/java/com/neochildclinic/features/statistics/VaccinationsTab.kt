@@ -3,6 +3,7 @@ package com.neochildclinic.features.statistics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,12 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.utils.PatientUtils
 import java.util.*
 
 @Composable
-fun VaccinationsTab(vaccinations: List<Vaccination>) {
+fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<ReminderEntity> = emptyList()) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
@@ -39,6 +41,7 @@ fun VaccinationsTab(vaccinations: List<Vaccination>) {
     VaccinationsContent(
         vaccinations = filteredVaccinations,
         stats = vaccineStats,
+        vaccinationReminders = vaccinationReminders,
         filterMode = filterMode,
         fyQuarter = fyQuarter,
         selectedMonth = selectedMonth,
@@ -63,6 +66,7 @@ fun VaccinationsTab(vaccinations: List<Vaccination>) {
 private fun VaccinationsContent(
     vaccinations: List<Vaccination>,
     stats: List<Pair<String, Int>>,
+    vaccinationReminders: List<ReminderEntity>,
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
@@ -71,6 +75,7 @@ private fun VaccinationsContent(
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit
 ) {
+    var selectedSection by rememberSaveable { mutableIntStateOf(0) }
     val mainOptions = remember(availableYears) { listOf("Overall") + availableYears.reversed().map { "FY $it" } }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -95,9 +100,20 @@ private fun VaccinationsContent(
 
         SummaryCards(vaccinations = vaccinations, filterMode = filterMode, fyQuarter = fyQuarter, selectedMonth = selectedMonth)
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        VaccineStatsSection(stats = stats)
+        VaccinationSectionSelector(
+            selected = selectedSection,
+            onSelected = { selectedSection = it }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (selectedSection == 0) {
+            VaccineStatsSection(stats = stats)
+        } else {
+            UpcomingVaccineNeedSection(reminders = vaccinationReminders)
+        }
     }
 }
 
@@ -226,6 +242,154 @@ private fun VaccineStatsSection(stats: List<Pair<String, Int>>) {
     }
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VaccinationSectionSelector(
+    selected: Int,
+    onSelected: (Int) -> Unit
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        SegmentedButton(
+            selected = selected == 0,
+            onClick = { onSelected(0) },
+            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+            label = { Text("Administered") }
+        )
+        SegmentedButton(
+            selected = selected == 1,
+            onClick = { onSelected(1) },
+            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+            label = { Text("Upcoming") }
+        )
+    }
+}
+
+private data class UpcomingVaccineTypeStat(
+    val type: String,
+    val count: Int,
+    val brands: List<Pair<String, Int>>
+)
+
+@Composable
+private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>) {
+    val stats = remember(reminders) {
+        calculateUpcomingVaccineNeeds(reminders)
+    }
+    var expandedType by rememberSaveable { mutableStateOf<String?>(null) }
+
+    Text(
+        "Upcoming Vaccine Need",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+
+    if (stats.isEmpty()) {
+        Text(
+            "No upcoming vaccine needs found.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+
+    stats.forEach { stat ->
+        val expanded = expandedType == stat.type
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .clickable {
+                    expandedType = if (expanded) null else stat.type
+                }
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        stat.type,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stat.count.toString(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (expanded) "Collapse" else "Expand"
+                        )
+                    }
+                }
+
+                if (expanded) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    stat.brands.forEach { (brand, count) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                brand,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                count.toString(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun calculateUpcomingVaccineNeeds(
+    reminders: List<ReminderEntity>
+): List<UpcomingVaccineTypeStat> {
+    val active = reminders.filter {
+        it.status == "ACTIVE" &&
+            it.reminderEnabled &&
+            it.category.equals("VACCINATION", ignoreCase = true)
+    }
+
+    return active
+        .groupBy { it.type.trim().ifBlank { "Other" } }
+        .map { (type, typeReminders) ->
+            val brandCounts = mutableMapOf<String, Int>()
+            typeReminders.forEach { reminder ->
+                reminder.vaccineName
+                    .split(",")
+                    .map { PatientUtils.cleanVaccineName(it.trim()) }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .forEach { brand ->
+                        brandCounts[brand] = (brandCounts[brand] ?: 0) + 1
+                    }
+            }
+
+            UpcomingVaccineTypeStat(
+                type = type,
+                count = typeReminders.size,
+                brands = brandCounts.toList().sortedByDescending { it.second }
+            )
+        }
+        .sortedByDescending { it.count }
+}
+
 private fun calculateVaccineStats(vaccinations: List<Vaccination>): List<Pair<String, Int>> {
     val vaccineCounts = mutableMapOf<String, Int>()
     vaccinations.forEach { v ->
@@ -244,6 +408,7 @@ private fun VaccinationsTabPreview() {
         VaccinationsContent(
             vaccinations = emptyList(),
             stats = listOf("BCG" to 10, "HepB" to 8),
+            vaccinationReminders = emptyList(),
             filterMode = "Overall",
             fyQuarter = 0,
             selectedMonth = -1,

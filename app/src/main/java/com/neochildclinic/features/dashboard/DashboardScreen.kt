@@ -150,6 +150,10 @@ fun DashboardScreen(
                             uiState = uiState,
                             onPatientList = onPatientList,
                             onAddPatient = onAddPatient,
+                            dashboardAddConsultation = dashboardViewModel::addConsultation,
+                            dashboardAddVaccination = dashboardViewModel::addVaccination,
+                            dashboardDeleteConsultation = dashboardViewModel::deleteConsultation,
+                            dashboardDeleteVaccination = dashboardViewModel::deleteVaccination,
                             onInventory = onAddVaccine,
                             onStatistics = onStatistics
                         )

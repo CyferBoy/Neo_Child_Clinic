@@ -16,6 +16,7 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppPullToRefresh
 import kotlinx.coroutines.launch
@@ -176,6 +177,7 @@ private fun StatisticsContent(
                         vaccinations = uiState.vaccinations,
                         inventory = uiState.inventory,
                         financeTransactions = uiState.financeTransactions,
+                        vaccinationReminders = uiState.vaccinationReminders,
                         onMonthClick = onMonthClick
                     )
                 }
@@ -244,12 +246,13 @@ private fun StatisticsTabContent(
     vaccinations: List<Vaccination>,
     inventory: List<InventoryItem>,
     financeTransactions: List<FinanceEntity>,
+    vaccinationReminders: List<ReminderEntity>,
     onMonthClick: (String) -> Unit
 ) {
     when (selectedTab) {
         0 -> OverviewTab(patients, vaccinations, financeTransactions)
         1 -> PatientsTab(patients)
-        2 -> VaccinationsTab(vaccinations)
+        2 -> VaccinationsTab(vaccinations, vaccinationReminders)
         3 -> FinanceTab(vaccinations, financeTransactions, onMonthClick)
     }
 }

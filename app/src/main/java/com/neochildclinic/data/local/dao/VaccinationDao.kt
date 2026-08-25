@@ -20,9 +20,6 @@ interface VaccinationDao {
     @Query("SELECT * FROM patient_visits WHERE receiptNumber = :receiptNumber LIMIT 1")
     suspend fun getVaccinationByReceiptNumber(receiptNumber: String): VisitEntity?
 
-    @Query("SELECT receiptNumber FROM patient_visits WHERE receiptNumber LIKE 'RCT-%' ORDER BY receiptNumber DESC LIMIT 1")
-    suspend fun getMaxReceiptNumber(): String?
-
     // Applied after a CREATE sync so the locally held row picks up the number the
     // patient_visits DB trigger assigned (see 20260824_receipt_numbering.sql). Never
     // called to invent a number locally - only to mirror what the server generated.

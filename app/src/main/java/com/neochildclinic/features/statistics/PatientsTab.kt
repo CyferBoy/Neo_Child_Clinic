@@ -78,6 +78,10 @@ private fun PatientsContent(patients: List<Patient>, totalPatients: Int, stats: 
         Spacer(modifier = Modifier.height(24.dp))
 
         AgeDistributionSection(ageGroups = stats.ageGroups, totalPatients = patients.size)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        UpcomingAgeMilestonesSection(patients = patients)
     }
 }
 
@@ -114,6 +118,57 @@ private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: I
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                 color = MaterialTheme.colorScheme.primary
             )
+        }
+    }
+}
+
+
+@Composable
+private fun UpcomingAgeMilestonesSection(patients: List<Patient>) {
+    val today = Calendar.getInstance()
+    val windowEnd = Calendar.getInstance().apply { add(Calendar.MONTH, 2) }
+    val milestoneOrder = listOf(
+        "6 Weeks", "10 Weeks", "14 Weeks", "6 Months", "7 Months",
+        "9 Months", "12 Months", "13 Months", "15 Months", "16–17 Months", "18 Months"
+    )
+    val grouped = remember(patients, today.get(Calendar.YEAR), today.get(Calendar.DAY_OF_YEAR)) {
+        patients.mapNotNull { patient ->
+            val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
+            val age = PatientUtils.calculateExactAge(patient.dob, today) ?: return@mapNotNull null
+            Triple(milestone, patient.name, age)
+        }.groupBy { it.first.label }
+    }
+
+    if (grouped.isEmpty()) return
+
+    Text("Upcoming Age Milestones", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Spacer(modifier = Modifier.height(12.dp))
+
+    milestoneOrder.forEach { label ->
+        val entries = grouped[label].orEmpty().sortedBy { it.first.date.timeInMillis }
+        if (entries.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    entries.forEachIndexed { index, (_, name, age) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Text(age, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (index < entries.lastIndex) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -214,7 +214,7 @@ class SyncRepositoryImpl @Inject constructor(
         return when (entityName) {
             "PATIENT", "VACCINE" -> 1
             "VACCINATION", "VISIT", "BATCH" -> 2
-            "VACCINATION_ITEM", "CONSULTATION", "WASTE", "BORROW" -> 3
+            "VACCINATION_ITEM", "CONSULTATION", "CONSULTATION_TODO", "VACCINATION_TODO", "WASTE", "BORROW" -> 3
             "INVENTORY_TRANSACTION", "FINANCE" -> 4
             "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG" -> 5
             else -> 100
@@ -242,6 +242,8 @@ class SyncRepositoryImpl @Inject constructor(
             "BORROW" -> "borrow_records"
             "AUDIT_LOG" -> "audit_logs"
             "CONSULTATION" -> "consultations"
+            "CONSULTATION_TODO" -> "consultation_todos"
+            "VACCINATION_TODO" -> "vaccination_todos"
             else -> throw IllegalArgumentException("Unknown entity: ${item.entityName}")
         }
 
@@ -328,6 +330,8 @@ class SyncRepositoryImpl @Inject constructor(
                 is AuditLogEntity -> postgrest.from(table).upsert(localData)
                 is ProfileEntity -> postgrest.from(table).upsert(localData)
                 is ConsultationEntity -> postgrest.from(table).upsert(localData)
+                is ConsultationTodoEntity -> postgrest.from(table).upsert(localData)
+                is VaccinationTodoEntity -> postgrest.from(table).upsert(localData)
                 is BorrowEntity -> postgrest.from(table).upsert(localData)
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
             }
@@ -418,6 +422,14 @@ class SyncRepositoryImpl @Inject constructor(
                 val entity = json.decodeFromJsonElement<ConsultationEntity>(element)
                 database.consultationDao().insertConsultation(entity.copy(isSynced = true))
             }
+            "CONSULTATION_TODO" -> {
+                val entity = json.decodeFromJsonElement<ConsultationTodoEntity>(element)
+                database.patientTodoDao().insertConsultation(entity.copy(isSynced = true))
+            }
+            "VACCINATION_TODO" -> {
+                val entity = json.decodeFromJsonElement<VaccinationTodoEntity>(element)
+                database.patientTodoDao().insertVaccination(entity.copy(isSynced = true))
+            }
             "BORROW" -> {
                 val entity = json.decodeFromJsonElement<BorrowEntity>(element)
                 database.borrowDao().insertRecord(entity.copy(isSynced = true))
@@ -435,6 +447,8 @@ class SyncRepositoryImpl @Inject constructor(
             is VisitEntity -> data.updatedAt ?: ""
             is WasteEntity -> data.updatedAt
             is ConsultationEntity -> data.updatedAt ?: ""
+            is ConsultationTodoEntity -> data.updatedAt
+            is VaccinationTodoEntity -> data.updatedAt
             is ReminderEntity -> data.updatedAt
             is VaccineEntity -> data.lastUpdated
             is VaccineBatchEntity -> data.updatedAt
@@ -471,6 +485,8 @@ class SyncRepositoryImpl @Inject constructor(
                 "AUDIT_LOG" -> database.auditLogDao().getLogById(entityId)
                 "PROFILE", "STAFF" -> database.profileDao().getProfileById(entityId)
                 "CONSULTATION" -> database.consultationDao().getConsultationById(entityId)
+                "CONSULTATION_TODO" -> database.patientTodoDao().getConsultationTodoById(entityId)
+                "VACCINATION_TODO" -> database.patientTodoDao().getVaccinationTodoById(entityId)
                 "BORROW" -> database.borrowDao().getRecordById(entityId)
                 "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId)
                 else -> null

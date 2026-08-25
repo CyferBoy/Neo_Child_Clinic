@@ -7,6 +7,99 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 object PatientUtils {
+
+    /**
+     * Returns an exact calendar age in the form "X years Y months Z days".
+     * Date arithmetic is calendar based rather than an approximation from milliseconds.
+     */
+    fun calculateExactAge(dob: String, onDate: Calendar = Calendar.getInstance()): String? {
+        val birthDate = parseDate(dob) ?: return null
+        val birth = Calendar.getInstance().apply {
+            time = birthDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val today = (onDate.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (birth.after(today)) return null
+
+        var years = today.get(Calendar.YEAR) - birth.get(Calendar.YEAR)
+        var months = today.get(Calendar.MONTH) - birth.get(Calendar.MONTH)
+        var days = today.get(Calendar.DAY_OF_MONTH) - birth.get(Calendar.DAY_OF_MONTH)
+
+        if (days < 0) {
+            months--
+            val previousMonth = (today.clone() as Calendar).apply {
+                add(Calendar.MONTH, -1)
+            }
+            days += previousMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
+        }
+        if (months < 0) {
+            years--
+            months += 12
+        }
+        return "$years years $months months $days days"
+    }
+
+    /**
+     * Calculates the next requested age milestone within the supplied calendar window.
+     * Each patient receives only their earliest upcoming milestone.
+     */
+    fun getNextAgeMilestone(
+        dob: String,
+        fromDate: Calendar = Calendar.getInstance(),
+        windowEnd: Calendar = (Calendar.getInstance()).apply { add(Calendar.MONTH, 2) }
+    ): AgeMilestone? {
+        val birthDate = parseDate(dob) ?: return null
+        val birth = Calendar.getInstance().apply {
+            time = birthDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = (fromDate.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val end = (windowEnd.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        if (birth.after(start)) return null
+
+        val definitions = listOf(
+            "6 Weeks" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 42) } },
+            "10 Weeks" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 70) } },
+            "14 Weeks" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 98) } },
+            "6 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 6) } },
+            "7 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 7) } },
+            "9 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 9) } },
+            "12 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 12) } },
+            "13 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 13) } },
+            "15 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 15) } },
+            "16–17 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 16) } },
+            "16–17 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 17) } },
+            "18 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 18) } }
+        )
+
+        return definitions.mapNotNull { (label, calculator) ->
+            val date = calculator(birth)
+            if (date.after(start) && !date.after(end)) AgeMilestone(label, date) else null
+        }.minByOrNull { it.date.timeInMillis }
+    }
+
+    data class AgeMilestone(val label: String, val date: Calendar)
     
     /**
      * Returns a user-friendly age string (e.g., "5 Years", "2 Months", "3 Weeks").

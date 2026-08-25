@@ -28,8 +28,8 @@ fun AppUpdateDialog(
     val actionText = when {
         installing -> "Downloading…"
         info.updateType == UpdateType.UPDATE -> "Update Now"
-        info.updateType == UpdateType.REUPDATE -> "Re-update"
-        else -> "Install Older Version"
+        info.updateType == UpdateType.REUPDATE -> "Reinstall"
+        else -> "Downgrade"
     }
 
     AlertDialog(

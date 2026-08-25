@@ -29,9 +29,11 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         FinanceEntity::class,
         BorrowEntity::class,
         ConsultationEntity::class,
-        VaccinationItemEntity::class
+        VaccinationItemEntity::class,
+        ConsultationTodoEntity::class,
+        VaccinationTodoEntity::class
     ], 
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -54,6 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun inventoryDeductionDao(): InventoryDeductionDao
     abstract fun consultationDao(): ConsultationDao
     abstract fun vaccinationItemDao(): VaccinationItemDao
+    abstract fun patientTodoDao(): PatientTodoDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -107,6 +110,19 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
                 
+                val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
+                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        database.execSQL("""CREATE TABLE IF NOT EXISTS consultation_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, address TEXT NOT NULL, todoDate TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_todoDate ON consultation_todos(todoDate)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_status ON consultation_todos(status)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_patientId ON consultation_todos(patient_id)""")
+                        database.execSQL("""CREATE TABLE IF NOT EXISTS vaccination_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, vaccineNames TEXT NOT NULL, address TEXT NOT NULL, todoDate TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_todoDate ON vaccination_todos(todoDate)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_status ON vaccination_todos(status)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_patientId ON vaccination_todos(patient_id)""")
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -114,7 +130,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_17_18)
+                .addMigrations(MIGRATION_17_18, MIGRATION_18_19)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

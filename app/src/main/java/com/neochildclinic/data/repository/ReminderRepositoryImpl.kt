@@ -424,6 +424,8 @@ class ReminderRepositoryImpl @Inject constructor(
     }
 
 
+    override fun getAllReminders(): Flow<List<ReminderEntity>> = dueReminderDao.getAllReminders()
+
     override suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
         return dueReminderDao.getRemindersByVisitId(visitId)
     }

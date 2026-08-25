@@ -1,7 +1,10 @@
 package com.neochildclinic.features.dashboard
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -9,8 +12,46 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.*
+
+@Composable
+private fun DashboardPatientCard(
+    modifier: Modifier,
+    count: Int,
+    onPatientList: () -> Unit,
+    onAddPatient: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val container = if (isDark) DarkBlueContainer else Color(0xFFE3F2FD)
+    val content = if (isDark) DarkOnBlueContainer else Color(0xFF004977)
+    Card(
+        onClick = onPatientList,
+        modifier = modifier.height(190.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(40.dp), tint = content)
+                Spacer(Modifier.height(10.dp))
+                Text("Patients", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = content)
+                Text(count.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = content)
+            }
+            FilledIconButton(
+                onClick = onAddPatient,
+                modifier = Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(12.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = content, contentColor = MaterialTheme.colorScheme.surface)
+            ) { Icon(Icons.Default.Add, contentDescription = "Add patient") }
+        }
+    }
+}
 
 @Composable
 fun DashboardMainGrid(
@@ -18,6 +59,10 @@ fun DashboardMainGrid(
     uiState: DashboardUiState,
     onPatientList: () -> Unit,
     onAddPatient: () -> Unit,
+    dashboardAddConsultation: (com.neochildclinic.domain.model.Patient) -> Unit,
+    dashboardAddVaccination: (com.neochildclinic.domain.model.Patient, String) -> Unit,
+    dashboardDeleteConsultation: (String) -> Unit,
+    dashboardDeleteVaccination: (String) -> Unit,
     onInventory: () -> Unit,
     onStatistics: () -> Unit
 ) {
@@ -27,24 +72,20 @@ fun DashboardMainGrid(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DashboardCard(
-                    title = "Patient List",
-                    icon = Icons.AutoMirrored.Filled.List,
-                    containerColor = if (isSystemInDarkTheme()) DarkBlueContainer else Color(0xFFE3F2FD),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnBlueContainer else Color(0xFF004977),
-                    badge = uiState.patientCount.toString(),
-                    height = 160.dp,
-                    modifier = Modifier.weight(1f),
-                    onClick = onPatientList
+                DashboardPatientCard(
+                    modifier = Modifier.weight(1f), count = uiState.patientCount,
+                    onPatientList = onPatientList, onAddPatient = onAddPatient
                 )
-                DashboardCard(
-                    title = "Add Patient",
-                    icon = Icons.Default.Add,
-                    containerColor = if (isSystemInDarkTheme()) DarkGreenContainer else Color(0xFFE8F5E9),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnGreenContainer else Color(0xFF1B5E20),
-                    height = 160.dp,
+                TodayPatientsCard(
                     modifier = Modifier.weight(1f),
-                    onClick = onAddPatient
+                    consultations = uiState.todayConsultations,
+                    vaccinations = uiState.todayVaccinations,
+                    patients = uiState.patients,
+                    onAddConsultation = dashboardAddConsultation,
+                    onAddVaccination = dashboardAddVaccination,
+                    onDeleteConsultation = dashboardDeleteConsultation,
+                    onDeleteVaccination = dashboardDeleteVaccination,
+                    isDark = isSystemInDarkTheme()
                 )
             }
             Row(
@@ -81,14 +122,9 @@ fun DashboardMainGrid(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DashboardCard(
-                    title = "Patient List",
-                    icon = Icons.AutoMirrored.Filled.List,
-                    containerColor = if (isSystemInDarkTheme()) DarkBlueContainer else Color(0xFFE3F2FD),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnBlueContainer else Color(0xFF004977),
-                    badge = uiState.patientCount.toString(),
-                    height = 200.dp,
-                    onClick = onPatientList
+                DashboardPatientCard(
+                    modifier = Modifier.fillMaxWidth(), count = uiState.patientCount,
+                    onPatientList = onPatientList, onAddPatient = onAddPatient
                 )
                 DashboardCard(
                     title = "Statistics",
@@ -104,13 +140,16 @@ fun DashboardMainGrid(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DashboardCard(
-                    title = "Add Patient",
-                    icon = Icons.Default.Add,
-                    containerColor = if (isSystemInDarkTheme()) DarkGreenContainer else Color(0xFFE8F5E9),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnGreenContainer else Color(0xFF1B5E20),
-                    height = 140.dp,
-                    onClick = onAddPatient
+                TodayPatientsCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    consultations = uiState.todayConsultations,
+                    vaccinations = uiState.todayVaccinations,
+                    patients = uiState.patients,
+                    onAddConsultation = dashboardAddConsultation,
+                    onAddVaccination = dashboardAddVaccination,
+                    onDeleteConsultation = dashboardDeleteConsultation,
+                    onDeleteVaccination = dashboardDeleteVaccination,
+                    isDark = isSystemInDarkTheme()
                 )
                 DashboardCard(
                     title = "Inventory",

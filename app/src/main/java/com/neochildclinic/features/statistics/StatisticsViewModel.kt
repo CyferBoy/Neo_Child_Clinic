@@ -11,6 +11,8 @@ import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.domain.repository.ReminderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -21,6 +23,7 @@ data class StatisticsUiState(
     val vaccinations: List<Vaccination> = emptyList(),
     val inventory: List<InventoryItem> = emptyList(),
     val financeTransactions: List<FinanceEntity> = emptyList(),
+    val vaccinationReminders: List<ReminderEntity> = emptyList(),
     val isLoading: Boolean = false,
     val selectedTab: Int = 0,
     val isRefreshing: Boolean = false,
@@ -33,6 +36,7 @@ class StatisticsViewModel @Inject constructor(
     private val getVaccinationsUseCase: GetVaccinationsUseCase,
     private val inventoryRepository: InventoryRepository,
     private val financeRepository: FinanceRepository,
+    private val reminderRepository: ReminderRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -48,6 +52,7 @@ class StatisticsViewModel @Inject constructor(
             getVaccinationsUseCase(),
             inventoryRepository.getInventoryItems(),
             financeRepository.getAllTransactions(),
+            reminderRepository.getAllReminders(),
             _selectedTab,
             _isRefreshing,
             _refreshError
@@ -57,10 +62,11 @@ class StatisticsViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST") val vaccinations = values[1] as List<Vaccination>
         @Suppress("UNCHECKED_CAST") val inventory = values[2] as List<InventoryItem>
         @Suppress("UNCHECKED_CAST") val financeTransactions = values[3] as List<FinanceEntity>
-        val tab = values[4] as Int
-        val refreshing = values[5] as Boolean
-        val refreshError = values[6] as String?
-        StatisticsUiState(patients, vaccinations, inventory, financeTransactions, false, tab, refreshing, refreshError)
+        @Suppress("UNCHECKED_CAST") val vaccinationReminders = values[4] as List<ReminderEntity>
+        val tab = values[5] as Int
+        val refreshing = values[6] as Boolean
+        val refreshError = values[7] as String?
+        StatisticsUiState(patients, vaccinations, inventory, financeTransactions, vaccinationReminders, false, tab, refreshing, refreshError)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(isLoading = true))
 
     fun updateTab(tab: Int) {

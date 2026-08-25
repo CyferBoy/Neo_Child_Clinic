@@ -43,6 +43,7 @@ interface ReminderRepository {
     // Audit Trail & Management
     fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>>
     fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>>
+    fun getAllReminders(): Flow<List<ReminderEntity>>
     suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity>
     suspend fun getReminderById(id: String): ReminderEntity?
 
