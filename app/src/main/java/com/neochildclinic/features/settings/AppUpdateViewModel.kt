@@ -40,13 +40,19 @@ class AppUpdateViewModel @Inject constructor(
             _message.value = null
             runCatching { updateManager.checkForUpdate() }
                 .onSuccess { info ->
-                    if (info?.updateType == UpdateType.REUPDATE && !isManual) {
-                        // Silent on startup if already latest
+                    if (info == null || info.updateType == UpdateType.REUPDATE) {
+                        // Already on the latest published version - REUPDATE means "same
+                        // version code as the latest release", which isn't actionable and
+                        // must never surface as a dialog (silently on an automatic check,
+                        // and as a plain "up to date" message on a manual one). Previously
+                        // this only suppressed REUPDATE on automatic checks, so a manual
+                        // "Check Again" tap on an up-to-date device would show a confusing
+                        // "Re-update" dialog instead of just saying so.
                         _updateInfo.value = null
+                        if (isManual) _message.value = "Your application is up to date."
                     } else {
                         _updateInfo.value = info
                     }
-                    if (isManual && info == null) _message.value = "Your application is up to date."
                 }
                 .onFailure { _message.value = it.message ?: "Unable to check for updates." }
             _checking.value = false

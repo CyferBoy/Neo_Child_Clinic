@@ -142,7 +142,7 @@ class SyncRepositoryImpl @Inject constructor(
             val response = invokeGetter(throwable, "getResponse")
             if (response != null) {
                 val request = invokeGetter(response, "getRequest")
-                val url = invokeGetter(request, "getUrl")?.toString()
+                val url = sanitizeUrl(invokeGetter(request, "getUrl")?.toString())
                 val requestHeaders = extractSafeHeaders(invokeGetter(request, "getHeaders"))
                     .mapKeys { "Request-${it.key}" }
                 val responseHeaders = extractSafeHeaders(invokeGetter(response, "getHeaders"))
@@ -171,9 +171,14 @@ class SyncRepositoryImpl @Inject constructor(
     private fun extractSafeHeaders(headersObject: Any?): Map<String, String> {
         if (headersObject == null) return emptyMap()
 
-        val sensitiveNames = setOf(
-            "authorization", "proxy-authorization", "apikey", "api-key",
-            "cookie", "set-cookie", "x-api-key", "x-auth-token", "access-token"
+        // Fail-closed allowlist: only header names known to be non-sensitive are ever
+        // stored. A denylist would silently start leaking anything new the HTTP client
+        // adds in a future version (e.g. a new auth-adjacent header) until someone
+        // remembers to block it by name - an allowlist can't make that mistake.
+        val safeNames = setOf(
+            "content-type", "content-length", "date", "server", "connection",
+            "cache-control", "vary", "transfer-encoding", "x-client-info",
+            "x-request-id", "retry-after", "accept", "accept-encoding"
         )
 
         val entries = runCatching {
@@ -187,7 +192,7 @@ class SyncRepositoryImpl @Inject constructor(
             entries.forEach { entry ->
                 val pair = entry as? Pair<*, *>
                 val name = pair?.first?.toString() ?: return@forEach
-                if (name.lowercase() in sensitiveNames) return@forEach
+                if (name.lowercase() !in safeNames) return@forEach
                 val value = when (val raw = pair.second) {
                     is Iterable<*> -> raw.joinToString(",")
                     else -> raw?.toString().orEmpty()
@@ -195,6 +200,14 @@ class SyncRepositoryImpl @Inject constructor(
                 put(name, value)
             }
         }
+    }
+
+    // Query strings can carry secrets (e.g. a Storage signed URL's token=...), so only
+    // the scheme/host/path is ever kept - never the query string.
+    private fun sanitizeUrl(rawUrl: String?): String? {
+        if (rawUrl == null) return null
+        val queryIndex = rawUrl.indexOf('?')
+        return if (queryIndex >= 0) rawUrl.substring(0, queryIndex) else rawUrl
     }
 
     private fun getEntityPriority(entityName: String): Int {

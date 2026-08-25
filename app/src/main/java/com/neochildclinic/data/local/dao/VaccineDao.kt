@@ -18,8 +18,6 @@ interface VaccineDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVaccine(vaccine: VaccineEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertVaccines(vaccines: List<VaccineEntity>)
 
     @Update
     suspend fun updateVaccine(vaccine: VaccineEntity)
@@ -55,8 +53,6 @@ interface VaccineDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBatch(batch: VaccineBatchEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBatches(batches: List<VaccineBatchEntity>)
 
     @Update
     suspend fun updateBatch(batch: VaccineBatchEntity)

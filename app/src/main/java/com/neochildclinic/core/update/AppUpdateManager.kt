@@ -58,6 +58,9 @@ class AppUpdateManager @Inject constructor(
             }
             val downloadUrl = apkUrl ?: return@withContext null
             val body = json.optString("body")
+            val explicitlyMandatory = Regex(
+                "(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$"
+            ).containsMatchIn(body)
             val minimumVersionCode = Regex(
                 "(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$"
             ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
@@ -69,9 +72,14 @@ class AppUpdateManager @Inject constructor(
                 else -> UpdateType.DOWNGRADE
             }
 
-            // Hardcoded Rule: Major versions (1.0.0, 2.0.0, etc.) are mandatory.
-            // Minor/Patch versions are optional.
-            val required = updateType == UpdateType.UPDATE && tagName.matches(Regex("^\\d+\\.0\\.0$"))
+            // Mandatory if ANY of: the release notes explicitly say so, the device is
+            // below a floor the release declares, or it's a major-version tag
+            // (X.0.0). A quick security hotfix can still force an update without
+            // needing to be tagged as a new major version.
+            val belowMinimumVersion = minimumVersionCode != null && currentVersionCode < minimumVersionCode
+            val isMajorVersionTag = tagName.matches(Regex("^\\d+\\.0\\.0$"))
+            val required = updateType == UpdateType.UPDATE &&
+                (explicitlyMandatory || belowMinimumVersion || isMajorVersionTag)
             val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
             if (updateType == UpdateType.UPDATE && !required && dismissed == versionCode) {
                 return@withContext null
@@ -152,11 +160,26 @@ class AppUpdateManager @Inject constructor(
                         }
                     }
                 }
+
+                // The read loop above only proves the stream ended - not that it ended
+                // where it should have. Without this, a connection dropped mid-transfer
+                // (no exception, just a short read) would silently hand a truncated/empty
+                // APK to PackageInstaller instead of failing here with a clear reason.
+                if (downloadedBytes <= 0L) {
+                    error("Download produced an empty file. Please try again.")
+                }
+                if (totalBytes > 0 && downloadedBytes != totalBytes) {
+                    error("Download incomplete ($downloadedBytes of $totalBytes bytes). Please try again.")
+                }
+
                 onProgress(100, downloadedBytes, totalBytes)
             } finally {
                 connection.disconnect()
             }
 
+            // Only reachable once the block above completes without throwing, i.e. the
+            // APK is fully downloaded and verified complete - always move straight on to
+            // handing it to PackageInstaller rather than requiring a separate step/tap.
             installWithPackageInstaller(apkFile, info)
         }
     }

@@ -7,14 +7,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VaccinationDao {
-    @Query("SELECT * FROM patient_visits")
+    @Query("SELECT * FROM patient_visits ORDER BY dateGiven DESC")
     fun getAllVaccinations(): Flow<List<VisitEntity>>
 
-    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId")
+    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
     fun getVaccinationsForPatient(patientId: String): Flow<List<VisitEntity>>
 
     @Transaction
-    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId")
+    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
 
     @Query("SELECT * FROM patient_visits WHERE receiptNumber = :receiptNumber LIMIT 1")
@@ -41,14 +41,13 @@ interface VaccinationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVaccinations(vaccinations: List<VisitEntity>)
 
+
     @Query("DELETE FROM patient_visits WHERE id = :id")
     suspend fun deleteVaccination(id: String)
 
     @Query("DELETE FROM patient_visits WHERE patientId = :patientId")
     suspend fun deleteVaccinationsForPatient(patientId: String)
 
-    @Query("SELECT * FROM patient_visits WHERE isSynced = 0")
-    suspend fun getUnsyncedVaccinations(): List<VisitEntity>
 
     @Query("UPDATE patient_visits SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)

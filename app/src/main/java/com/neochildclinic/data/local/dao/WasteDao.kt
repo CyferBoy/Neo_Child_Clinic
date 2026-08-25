@@ -15,14 +15,10 @@ interface WasteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWaste(waste: WasteEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertWasteRecords(waste: List<WasteEntity>)
 
     @Query("DELETE FROM waste_records WHERE id = :id")
     suspend fun deleteWaste(id: String)
 
-    @Query("SELECT * FROM waste_records WHERE isSynced = 0")
-    suspend fun getUnsyncedWaste(): List<WasteEntity>
 
     @Query("UPDATE waste_records SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)

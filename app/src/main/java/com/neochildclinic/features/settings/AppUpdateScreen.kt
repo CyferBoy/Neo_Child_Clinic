@@ -5,30 +5,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.AppUpdateDialog
 
 @Composable
-fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel = hiltViewModel()) {
-    val info by viewModel.updateInfo.collectAsState()
+fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
     val checking by viewModel.checking.collectAsState()
     val installing by viewModel.installing.collectAsState()
-    val progress by viewModel.downloadProgress.collectAsState()
     val message by viewModel.message.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.checkForUpdates(isManual = true) }
 
-    info?.let {
-        AppUpdateDialog(
-            info = it,
-            installing = installing,
-            progress = progress,
-            onUpdate = { viewModel.installUpdate() },
-            onLater = { viewModel.dismissUpdate() }
-        )
-    }
-
+    // No AppUpdateDialog here: this screen shares the same AppUpdateViewModel
+    // instance MainActivity uses for its app-wide dialog, so rendering a second
+    // one here would just duplicate it on top of itself. Only the manual-check
+    // result message ("up to date" / error) is specific to this screen.
     message?.let {
         AlertDialog(
             onDismissRequest = { viewModel.clearMessage() },

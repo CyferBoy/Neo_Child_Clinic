@@ -102,7 +102,7 @@ class MainActivity : FragmentActivity() {
                 val downloadProgress by appUpdateViewModel.downloadProgress.collectAsState()
                 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation(navController = navController)
+                    AppNavigation(navController = navController, appUpdateViewModel = appUpdateViewModel)
                     
                     if (isLocked) {
                         LockScreen(onAuthenticate = { authenticateWithBiometrics() }, onPasswordAuthenticate = { authenticateWithAccountPassword(it) })

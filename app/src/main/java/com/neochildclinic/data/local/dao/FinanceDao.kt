@@ -30,8 +30,6 @@ interface FinanceDao {
     @Query("DELETE FROM finance_transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: String)
 
-    @Query("SELECT * FROM finance_transactions WHERE isSynced = 0")
-    suspend fun getUnsyncedTransactions(): List<FinanceEntity>
 
     @Query("UPDATE finance_transactions SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)

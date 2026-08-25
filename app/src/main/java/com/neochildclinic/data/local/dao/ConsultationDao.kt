@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ConsultationDao {
-    @Query("SELECT * FROM consultations")
+    @Query("SELECT * FROM consultations ORDER BY date DESC")
     fun getAllConsultations(): Flow<List<ConsultationEntity>>
 
     @Query("SELECT * FROM consultations WHERE patientId = :patientId ORDER BY date DESC")
@@ -21,8 +21,6 @@ interface ConsultationDao {
     @Query("DELETE FROM consultations WHERE id = :id")
     suspend fun deleteConsultation(id: String)
 
-    @Query("SELECT * FROM consultations WHERE isSynced = 0")
-    suspend fun getUnsyncedConsultations(): List<ConsultationEntity>
 
     @Query("UPDATE consultations SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)

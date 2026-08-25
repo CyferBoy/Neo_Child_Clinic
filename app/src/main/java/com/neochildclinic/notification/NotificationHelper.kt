@@ -169,6 +169,31 @@ class NotificationHelper @Inject constructor(
         NotificationManagerCompat.from(context).notify(APP_UPDATE_ID, builder.build())
     }
 
+    fun showUpdateInstallFailed(reason: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("CHECK_APP_UPDATE", true)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            APP_UPDATE_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_APP_UPDATES)
+            .setSmallIcon(R.drawable.app_logo)
+            .setContentTitle("Update installation failed")
+            .setContentText(reason)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(reason))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+
+        NotificationManagerCompat.from(context).notify(APP_UPDATE_ID, builder.build())
+    }
+
     fun cancelSummaryNotification() {
         notificationManager.cancel(SUMMARY_ID)
     }

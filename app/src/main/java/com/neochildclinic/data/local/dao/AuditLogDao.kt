@@ -26,8 +26,6 @@ interface AuditLogDao {
     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 200")
     fun getAllLogs(): Flow<List<AuditLogEntity>>
 
-    @Query("SELECT * FROM audit_logs WHERE isSynced = 0")
-    suspend fun getUnsyncedLogs(): List<AuditLogEntity>
 
     @Query("UPDATE audit_logs SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)

@@ -30,10 +30,3 @@ fun FilterTabRow(
         }
     }
 }
-
-@Composable
-fun EmptyDueState(selectedFilter: String) {
-    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-        Text("No vaccinations found for $selectedFilter", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

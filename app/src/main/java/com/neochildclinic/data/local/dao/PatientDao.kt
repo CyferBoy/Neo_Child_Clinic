@@ -18,14 +18,10 @@ interface PatientDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPatient(patient: PatientEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPatients(patients: List<PatientEntity>)
 
     @Query("DELETE FROM patients WHERE id = :id")
     suspend fun deletePatient(id: String)
 
-    @Query("SELECT * FROM patients WHERE isSynced = 0")
-    suspend fun getUnsyncedPatients(): List<PatientEntity>
 
     @Query("UPDATE patients SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)

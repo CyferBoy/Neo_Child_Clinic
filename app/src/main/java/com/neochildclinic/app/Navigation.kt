@@ -17,7 +17,6 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.features.dashboard.AuthViewModel
-import com.neochildclinic.features.dashboard.DashboardViewModel
 import com.neochildclinic.features.dashboard.LoginScreen
 import com.neochildclinic.features.dashboard.ManageStaffScreen
 import com.neochildclinic.features.dashboard.StaffDetailsScreen
@@ -54,11 +53,10 @@ import com.neochildclinic.features.reminder.CompletedDismissedScreen
 
 @Composable
 fun AppNavigation(
-    navController: androidx.navigation.NavHostController = rememberNavController()
+    navController: androidx.navigation.NavHostController = rememberNavController(),
+    appUpdateViewModel: com.neochildclinic.features.settings.AppUpdateViewModel = hiltViewModel()
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
-    val dashboardViewModel: DashboardViewModel = hiltViewModel()
-    val dashboardUiState by dashboardViewModel.uiState.collectAsState()
     val authProfile by authViewModel.profile.collectAsState()
     val userRole = authProfile?.role ?: UserRole.nurse
     
@@ -82,12 +80,14 @@ fun AppNavigation(
                     navController.navigate(Routes.DASHBOARD) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
-                }
+                },
+                viewModel = authViewModel
             )
         }
 
         composable(Routes.DASHBOARD) {
             DashboardScreen(
+                authViewModel = authViewModel,
                 onAddPatient = { navController.navigate(Routes.ADD_PATIENT) },
                 onPatientList = { navController.navigate(Routes.PATIENT_LIST) },
                 onAddVaccine = { navController.navigate(Routes.VACCINE_INVENTORY) },
@@ -152,7 +152,7 @@ fun AppNavigation(
         }
 
         composable(Routes.APP_UPDATE) {
-            AppUpdateScreen(onBack = { navController.popBackStack() })
+            AppUpdateScreen(onBack = { navController.popBackStack() }, viewModel = appUpdateViewModel)
         }
 
         composable(Routes.PROFILE) {

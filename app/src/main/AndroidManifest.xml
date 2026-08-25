@@ -77,6 +77,18 @@
             android:name=".core.update.AppUpdateInstallReceiver"
             android:exported="false" />
 
+        <!-- Without this, Android never routes FCM messages/token-refresh events
+             to NeoChildFirebaseMessagingService: push-triggered update alerts
+             (notify-update) never arrive, and a rotated FCM token never gets
+             re-registered until the user happens to log out and back in. -->
+        <service
+            android:name=".notification.NeoChildFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

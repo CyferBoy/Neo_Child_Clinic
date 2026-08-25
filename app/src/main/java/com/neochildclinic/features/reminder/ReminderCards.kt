@@ -92,33 +92,6 @@ fun CompletedDismissedSummaryCard(
     }
 }
 
-@Composable
-fun OverdueSummaryCard(overdueCount: Int) {
-    Card(
-        modifier = Modifier.fillMaxWidth(), 
-        colors = CardDefaults.cardColors(
-            containerColor = if (overdueCount > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) 
-                             else MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.Error, 
-                contentDescription = null, 
-                tint = if (overdueCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, 
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text("Overdue Vaccinations", fontWeight = FontWeight.Bold, color = if (overdueCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("$overdueCount patients currently overdue", style = MaterialTheme.typography.bodySmall)
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Text(overdueCount.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = if (overdueCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DuePatientCard(

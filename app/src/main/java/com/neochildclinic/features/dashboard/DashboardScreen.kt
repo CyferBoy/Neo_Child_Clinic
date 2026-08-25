@@ -44,7 +44,7 @@ fun DashboardScreen(
     onAuditLogs: () -> Unit = {},
     onProfile: () -> Unit = {},
     onSearch: () -> Unit = {},
-    authViewModel: AuthViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel,
     dashboardViewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by dashboardViewModel.uiState.collectAsState()
