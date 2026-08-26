@@ -25,6 +25,7 @@ import com.neochildclinic.domain.repository.SyncState
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.features.dashboard.components.AppDrawer
 import com.neochildclinic.app.Routes
+import com.neochildclinic.core.designsystem.BgOffWhite
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +38,7 @@ fun DashboardScreen(
     onBorrowed: () -> Unit = {},
     onDue: () -> Unit = {},
     onWaste: () -> Unit = {},
+    onTodayPatients: () -> Unit = {},
     onManageStaff: () -> Unit = {},
     onLogout: () -> Unit = {},
     onSettings: () -> Unit = {},
@@ -115,7 +117,10 @@ fun DashboardScreen(
             )
         }
     ) {
-        AppBackground { 
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = BgOffWhite
+        ) { 
             Scaffold(
                 containerColor = Color.Transparent,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -129,7 +134,7 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = 16.dp)
                 ) {
                     val isWideScreen = maxWidth > 600.dp
                     
@@ -138,22 +143,20 @@ fun DashboardScreen(
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        Spacer(modifier = Modifier.height(10.dp))
                         ClinicLogo(isWideScreen)
                         
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         DashboardMainGrid(
                             isWideScreen = isWideScreen,
                             uiState = uiState,
                             onPatientList = onPatientList,
                             onAddPatient = onAddPatient,
+                            onTodayPatients = onTodayPatients,
                             dashboardAddConsultation = dashboardViewModel::addConsultation,
                             dashboardAddVaccination = dashboardViewModel::addVaccination,
-                            dashboardDeleteConsultation = dashboardViewModel::deleteConsultation,
-                            dashboardDeleteVaccination = dashboardViewModel::deleteVaccination,
                             onInventory = onAddVaccine,
                             onStatistics = onStatistics
                         )
@@ -167,7 +170,7 @@ fun DashboardScreen(
                             onWaste = onWaste
                         )
                         
-                        Spacer(modifier = Modifier.height(40.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }

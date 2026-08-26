@@ -1,5 +1,7 @@
 package com.neochildclinic.features.dashboard
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -10,7 +12,10 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,32 +28,33 @@ private fun DashboardPatientCard(
     onPatientList: () -> Unit,
     onAddPatient: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val container = if (isDark) DarkBlueContainer else Color(0xFFE3F2FD)
-    val content = if (isDark) DarkOnBlueContainer else Color(0xFF004977)
-    Card(
-        onClick = onPatientList,
-        modifier = modifier.height(190.dp),
-        colors = CardDefaults.cardColors(containerColor = container),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    Box(
+        modifier = modifier
     ) {
-        Box(Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-            ) {
-                Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(40.dp), tint = content)
-                Spacer(Modifier.height(10.dp))
-                Text("Patients", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = content)
-                Text(count.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = content)
-            }
-            FilledIconButton(
-                onClick = onAddPatient,
-                modifier = Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(12.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(containerColor = content, contentColor = MaterialTheme.colorScheme.surface)
-            ) { Icon(Icons.Default.Add, contentDescription = "Add patient") }
+        DashboardCard(
+            title = "Patient List",
+            subtitle = "Total Patient: $count",
+            icon = Icons.AutoMirrored.Filled.List,
+            containerColor = SoftBlue,
+            contentColor = TextBlue,
+            modifier = Modifier.fillMaxSize(),
+            onClick = onPatientList
+        )
+        // Bottom-right docked '+' action button
+        Box(
+            modifier = Modifier
+                .size(55.dp)
+                .align(Alignment.BottomEnd)
+                .clip(RoundedCornerShape(topStart = 16.dp, bottomEnd = 24.dp))
+                .background(Color(0xFF03A9F4))
+                .clickable { onAddPatient() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Patient",
+                tint = Color.White
+            )
         }
     }
 }
@@ -59,108 +65,62 @@ fun DashboardMainGrid(
     uiState: DashboardUiState,
     onPatientList: () -> Unit,
     onAddPatient: () -> Unit,
+    onTodayPatients: () -> Unit,
     dashboardAddConsultation: (com.neochildclinic.domain.model.Patient) -> Unit,
     dashboardAddVaccination: (com.neochildclinic.domain.model.Patient, String) -> Unit,
-    dashboardDeleteConsultation: (String) -> Unit,
-    dashboardDeleteVaccination: (String) -> Unit,
     onInventory: () -> Unit,
     onStatistics: () -> Unit
 ) {
-    if (isWideScreen) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                DashboardPatientCard(
-                    modifier = Modifier.weight(1f), count = uiState.patientCount,
-                    onPatientList = onPatientList, onAddPatient = onAddPatient
-                )
-                TodayPatientsCard(
-                    modifier = Modifier.weight(1f),
-                    consultations = uiState.todayConsultations,
-                    vaccinations = uiState.todayVaccinations,
-                    patients = uiState.patients,
-                    onAddConsultation = dashboardAddConsultation,
-                    onAddVaccination = dashboardAddVaccination,
-                    onDeleteConsultation = dashboardDeleteConsultation,
-                    onDeleteVaccination = dashboardDeleteVaccination,
-                    isDark = isSystemInDarkTheme()
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                DashboardCard(
-                    title = "Inventory",
-                    icon = Icons.Default.ShoppingCart,
-                    containerColor = if (isSystemInDarkTheme()) DarkOrangeContainer else Color(0xFFFFF3E0),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnOrangeContainer else Color(0xFFE65100),
-                    badge = if (uiState.lowStockCount > 0) "${uiState.lowStockCount} Low" else null,
-                    height = 160.dp,
-                    modifier = Modifier.weight(1f),
-                    onClick = onInventory
-                )
-                DashboardCard(
-                    title = "Statistics",
-                    icon = Icons.AutoMirrored.Filled.TrendingUp,
-                    containerColor = if (isSystemInDarkTheme()) DarkPurpleContainer else Color(0xFFF3E5F5),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnPurpleContainer else Color(0xFF4A148C),
-                    height = 160.dp,
-                    modifier = Modifier.weight(1f),
-                    onClick = onStatistics
-                )
-            }
-        }
-    } else {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Column 1: Patient List (Larger) and Statistics (Smaller)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                DashboardPatientCard(
-                    modifier = Modifier.fillMaxWidth(), count = uiState.patientCount,
-                    onPatientList = onPatientList, onAddPatient = onAddPatient
-                )
-                DashboardCard(
-                    title = "Statistics",
-                    icon = Icons.AutoMirrored.Filled.TrendingUp,
-                    containerColor = if (isSystemInDarkTheme()) DarkPurpleContainer else Color(0xFFF3E5F5),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnPurpleContainer else Color(0xFF4A148C),
-                    height = 140.dp,
-                    onClick = onStatistics
-                )
-            }
+            DashboardPatientCard(
+                modifier = Modifier.fillMaxWidth().height(210.dp),
+                count = uiState.patientCount,
+                onPatientList = onPatientList,
+                onAddPatient = onAddPatient
+            )
+            DashboardCard(
+                title = "Statistics",
+                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                containerColor = SoftPurple,
+                contentColor = TextPurple,
+                height = 150.dp, // Slightly smaller height
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onStatistics
+            )
+        }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                TodayPatientsCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    consultations = uiState.todayConsultations,
-                    vaccinations = uiState.todayVaccinations,
-                    patients = uiState.patients,
-                    onAddConsultation = dashboardAddConsultation,
-                    onAddVaccination = dashboardAddVaccination,
-                    onDeleteConsultation = dashboardDeleteConsultation,
-                    onDeleteVaccination = dashboardDeleteVaccination,
-                    isDark = isSystemInDarkTheme()
-                )
-                DashboardCard(
-                    title = "Inventory",
-                    icon = Icons.Default.ShoppingCart,
-                    containerColor = if (isSystemInDarkTheme()) DarkOrangeContainer else Color(0xFFFFF3E0),
-                    contentColor = if (isSystemInDarkTheme()) DarkOnOrangeContainer else Color(0xFFE65100),
-                    badge = if (uiState.lowStockCount > 0) "${uiState.lowStockCount} Low" else null,
-                    height = 200.dp,
-                    onClick = onInventory
-                )
-            }
+        // Column 2: Today's Patient (Smaller) and Inventory (Larger)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            TodayPatientsCard(
+                modifier = Modifier.fillMaxWidth().height(150.dp), // Slightly smaller height
+                consultations = uiState.todayConsultations,
+                vaccinations = uiState.todayVaccinations,
+                patients = uiState.patients,
+                onTodayPatients = onTodayPatients,
+                onAddConsultation = dashboardAddConsultation,
+                onAddVaccination = dashboardAddVaccination
+            )
+            DashboardCard(
+                title = "Inventory",
+                icon = Icons.Default.ShoppingCart,
+                containerColor = SoftOrange,
+                contentColor = TextOrange,
+                badge = if (uiState.lowStockCount > 0) "${uiState.lowStockCount} Low" else null,
+                height = 210.dp, // Maintain larger height
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onInventory
+            )
         }
     }
 }
@@ -179,27 +139,26 @@ fun DashboardSmallActionsRow(
         DashboardCardSmall(
             title = "Borrowed",
             icon = Icons.Default.SwapHoriz,
-            containerColor = if (isSystemInDarkTheme()) Color(0xFF004D40) else Color(0xFFE0F2F1),
-            contentColor = if (isSystemInDarkTheme()) Color(0xFF80CBC4) else Color(0xFF00695C),
+            containerColor = SoftCyan,
+            contentColor = TextCyan,
             badge = if (uiState.borrowedCount > 0) uiState.borrowedCount.toString() else null,
             modifier = Modifier.weight(1f),
             onClick = onBorrowed
         )
-        @Suppress("DEPRECATION")
         DashboardCardSmall(
             title = "Due",
-            icon = Icons.Default.EventNote,
-            containerColor = if (isSystemInDarkTheme()) DarkBrownContainer else Color(0xFFEFEBE9),
-            contentColor = if (isSystemInDarkTheme()) DarkOnBrownContainer else Color(0xFF3E2723),
+            icon = Icons.Default.CalendarToday,
+            containerColor = SoftGrey,
+            contentColor = TextGrey,
             badge = if (uiState.dueTodayCount > 0) uiState.dueTodayCount.toString() else null,
             modifier = Modifier.weight(1f),
             onClick = onDue
         )
         DashboardCardSmall(
             title = "Waste",
-            icon = Icons.Default.DeleteSweep,
-            containerColor = if (isSystemInDarkTheme()) DarkRedContainer else Color(0xFFFBE9E7),
-            contentColor = if (isSystemInDarkTheme()) DarkOnRedContainer else Color(0xFFBF360C),
+            icon = Icons.Default.Delete,
+            containerColor = SoftPink,
+            contentColor = TextPink,
             badge = if (uiState.wasteCount > 0) uiState.wasteCount.toString() else null,
             modifier = Modifier.weight(1f),
             onClick = onWaste

@@ -112,14 +112,14 @@ abstract class AppDatabase : RoomDatabase() {
                 
                 val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
                     override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        database.execSQL("""CREATE TABLE IF NOT EXISTS consultation_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, address TEXT NOT NULL, todoDate TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_todoDate ON consultation_todos(todoDate)""")
+                        database.execSQL("""CREATE TABLE IF NOT EXISTS consultation_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, address TEXT NOT NULL, todo_date TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_todo_date ON consultation_todos(todo_date)""")
                         database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_status ON consultation_todos(status)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_patientId ON consultation_todos(patient_id)""")
-                        database.execSQL("""CREATE TABLE IF NOT EXISTS vaccination_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, vaccineNames TEXT NOT NULL, address TEXT NOT NULL, todoDate TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_todoDate ON vaccination_todos(todoDate)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_patient_id ON consultation_todos(patient_id)""")
+                        database.execSQL("""CREATE TABLE IF NOT EXISTS vaccination_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, vaccine_names TEXT NOT NULL, address TEXT NOT NULL, todo_date TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_todo_date ON vaccination_todos(todo_date)""")
                         database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_status ON vaccination_todos(status)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_patientId ON vaccination_todos(patient_id)""")
+                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_patient_id ON vaccination_todos(patient_id)""")
                     }
                 }
 

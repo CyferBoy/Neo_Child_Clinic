@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.Add
@@ -33,6 +34,7 @@ import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.AuditLogDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.ActionDropdownMenu
+import com.neochildclinic.core.ui.FoldedCornerShape
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.utils.PatientUtils.calculateAgeLabel
 
@@ -261,60 +263,75 @@ private fun PatientCard(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
+    val cardShape = remember { FoldedCornerShape(cornerRadius = 20.dp, notchSize = 40.dp, notchCornerRadius = 14.dp) }
+    val accentColor = MaterialTheme.colorScheme.primary
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        // Blue folded-corner accent, sitting in the notch cut from the card shape below.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(6.dp)
+                .size(28.dp)
+                .background(accentColor, RoundedCornerShape(10.dp))
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                ),
+            shape = cardShape,
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                               else MaterialTheme.colorScheme.onSurfaceVariant
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                           else MaterialTheme.colorScheme.onSurfaceVariant
-        ),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
         ) {
-            if (isMergeMode) {
-                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            
-            PatientAvatar(name = patient.name, isSelected = isSelected)
+            Row(
+                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isMergeMode) {
+                    Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
 
-            Spacer(modifier = Modifier.width(16.dp))
+                PatientAvatar(name = patient.name, isSelected = isSelected)
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = patient.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                val clinicIdDisplay = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
-                Text(text = "ID: $clinicIdDisplay", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                PatientInfoSubtitle(dob = patient.dob, gender = patient.gender)
-            }
+                Spacer(modifier = Modifier.width(16.dp))
 
-            if (hasMissingPrice && !isMergeMode) {
-                Box(modifier = Modifier.size(8.dp).background(Color.Red, CircleShape))
-                Spacer(modifier = Modifier.width(8.dp))
-            }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = patient.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    val clinicIdDisplay = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
+                    Text(text = "ID: $clinicIdDisplay", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    PatientInfoSubtitle(dob = patient.dob, gender = patient.gender)
+                }
 
-            if (!isMergeMode) {
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Actions")
+                if (hasMissingPrice && !isMergeMode) {
+                    Box(modifier = Modifier.size(8.dp).background(Color.Red, CircleShape))
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                if (!isMergeMode) {
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Actions")
+                        }
+                        ActionDropdownMenu(
+                            expanded = menuExpanded,
+                            onDismiss = { menuExpanded = false },
+                            onEdit = onEdit,
+                            onDelete = onDelete,
+                            onMerge = onLongClick,
+                            isAdmin = canEditOrDelete,
+                            onAuditLog = if (isAdmin) onViewAuditLog else null
+                        )
                     }
-                    ActionDropdownMenu(
-                        expanded = menuExpanded,
-                        onDismiss = { menuExpanded = false },
-                        onEdit = onEdit,
-                        onDelete = onDelete,
-                        onMerge = onLongClick,
-                        isAdmin = canEditOrDelete,
-                        onAuditLog = if (isAdmin) onViewAuditLog else null
-                    )
                 }
             }
         }

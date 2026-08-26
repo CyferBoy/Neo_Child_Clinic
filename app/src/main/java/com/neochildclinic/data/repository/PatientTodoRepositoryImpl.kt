@@ -38,6 +38,20 @@ class PatientTodoRepositoryImpl @Inject constructor(
     override fun getTodayConsultations(date: String): Flow<List<ConsultationTodoEntity>> = dao.getTodayConsultations(date)
     override fun getTodayVaccinations(date: String): Flow<List<VaccinationTodoEntity>> = dao.getTodayVaccinations(date)
 
+    override fun getConsultationsByDateAndStatus(date: String, status: String): Flow<List<ConsultationTodoEntity>> = dao.getConsultationsByDateAndStatus(date, status)
+    override fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodoEntity>> = dao.getVaccinationsByDateAndStatus(date, status)
+    override fun getDatesWithData(start: String, end: String): Flow<List<String>> = dao.getDatesWithData(start, end)
+
+    override suspend fun updateStatus(type: String, id: String, status: String) {
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+        if (type == "CONSULTATION_TODO") {
+            dao.updateConsultationStatus(id, status, now)
+        } else {
+            dao.updateVaccinationStatus(id, status, now)
+        }
+        syncRepository.enqueue(type, id, com.neochildclinic.core.model.SyncOperation.UPDATE, com.neochildclinic.core.model.SyncPriority.MEDIUM)
+    }
+
     override suspend fun addConsultation(todo: ConsultationTodoEntity) {
         dao.insertConsultation(todo)
         syncRepository.enqueue("CONSULTATION_TODO", todo.id, SyncOperation.CREATE, SyncPriority.MEDIUM)

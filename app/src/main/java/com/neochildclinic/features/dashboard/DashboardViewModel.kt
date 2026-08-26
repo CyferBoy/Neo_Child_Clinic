@@ -30,6 +30,9 @@ data class DashboardUiState(
     val errorMessage: String? = null,
     val todayConsultations: List<ConsultationTodoEntity> = emptyList(),
     val todayVaccinations: List<VaccinationTodoEntity> = emptyList(),
+    val visitedConsultations: List<ConsultationTodoEntity> = emptyList(),
+    val visitedVaccinations: List<VaccinationTodoEntity> = emptyList(),
+    val datesWithData: Set<String> = emptySet(),
     val patients: List<Patient> = emptyList()
 )
 
@@ -44,7 +47,9 @@ class DashboardViewModel @Inject constructor(
     private val patientTodoRepository: PatientTodoRepository,
 ) : ViewModel() {
 
-    private val today = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+    private val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+    private val _selectedDate = MutableStateFlow(todayStr)
+    val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
     init {
         viewModelScope.launch { runCatching { patientTodoRepository.refresh() } }
@@ -61,10 +66,28 @@ class DashboardViewModel @Inject constructor(
             listOf(p, low, borrowed, due, waste)
         },
         syncRepository.syncState,
-        patientTodoRepository.getTodayConsultations(today),
-        patientTodoRepository.getTodayVaccinations(today),
+        _selectedDate.flatMapLatest { date ->
+            combine(
+                patientTodoRepository.getConsultationsByDateAndStatus(date, "PENDING"),
+                patientTodoRepository.getVaccinationsByDateAndStatus(date, "PENDING"),
+                patientTodoRepository.getConsultationsByDateAndStatus(date, "COMPLETED"),
+                patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED")
+            ) { pCons, pVacc, cCons, cVacc ->
+                listOf(pCons, pVacc, cCons, cVacc)
+            }
+        },
+        _selectedDate.flatMapLatest { date ->
+            val calendar = java.util.Calendar.getInstance()
+            calendar.time = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(date) ?: Date()
+            calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+            val start = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(calendar.time)
+            calendar.add(java.util.Calendar.MONTH, 1)
+            calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
+            val end = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(calendar.time)
+            patientTodoRepository.getDatesWithData(start, end).map { it.toSet() }
+        },
         patientRepository.allPatients
-    ) { stats, sync, consultations, vaccinations, patients ->
+    ) { stats, sync, todos, dates, patients ->
         DashboardUiState(
             patientCount = stats[0] as Int,
             lowStockCount = stats[1] as Int,
@@ -72,33 +95,94 @@ class DashboardViewModel @Inject constructor(
             dueTodayCount = stats[3] as Int,
             wasteCount = stats[4] as Int,
             syncState = sync,
-            todayConsultations = consultations,
-            todayVaccinations = vaccinations,
+            todayConsultations = todos[0] as List<ConsultationTodoEntity>,
+            todayVaccinations = todos[1] as List<VaccinationTodoEntity>,
+            visitedConsultations = todos[2] as List<ConsultationTodoEntity>,
+            visitedVaccinations = todos[3] as List<VaccinationTodoEntity>,
+            datesWithData = dates,
             patients = patients
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState(isLoading = true))
 
+    fun setSelectedDate(date: String) {
+        _selectedDate.value = date
+    }
+
+    fun toggleTodoStatus(item: Any) {
+        viewModelScope.launch {
+            when (item) {
+                is ConsultationTodoEntity -> {
+                    val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
+                    patientTodoRepository.updateStatus("CONSULTATION_TODO", item.id, newStatus)
+                }
+                is VaccinationTodoEntity -> {
+                    val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
+                    patientTodoRepository.updateStatus("VACCINATION_TODO", item.id, newStatus)
+                }
+            }
+        }
+    }
+
     fun addConsultation(patient: Patient) {
+        addConsultationDirect(
+            patientId = patient.id,
+            name = patient.name,
+            mobile = patient.phone,
+            address = patient.address.orEmpty()
+        )
+    }
+
+    fun addConsultationDirect(
+        patientId: String? = null,
+        name: String,
+        mobile: String,
+        address: String
+    ) {
         viewModelScope.launch {
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             patientTodoRepository.addConsultation(
                 ConsultationTodoEntity(
-                    patientId = patient.id, name = patient.name, mobile = patient.phone,
-                    address = patient.address.orEmpty(), todoDate = today,
-                    createdAt = now, updatedAt = now
+                    patientId = patientId,
+                    name = name,
+                    mobile = mobile,
+                    address = address,
+                    todoDate = _selectedDate.value,
+                    createdAt = now,
+                    updatedAt = now
                 )
             )
         }
     }
 
     fun addVaccination(patient: Patient, vaccineNames: String) {
+        addVaccinationDirect(
+            patientId = patient.id,
+            name = patient.name,
+            mobile = patient.phone,
+            address = patient.address.orEmpty(),
+            vaccineNames = vaccineNames
+        )
+    }
+
+    fun addVaccinationDirect(
+        patientId: String? = null,
+        name: String,
+        mobile: String,
+        address: String,
+        vaccineNames: String
+    ) {
         viewModelScope.launch {
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             patientTodoRepository.addVaccination(
                 VaccinationTodoEntity(
-                    patientId = patient.id, name = patient.name, mobile = patient.phone,
-                    vaccineNames = vaccineNames, address = patient.address.orEmpty(), todoDate = today,
-                    createdAt = now, updatedAt = now
+                    patientId = patientId,
+                    name = name,
+                    mobile = mobile,
+                    vaccineNames = vaccineNames,
+                    address = address,
+                    todoDate = _selectedDate.value,
+                    createdAt = now,
+                    updatedAt = now
                 )
             )
         }

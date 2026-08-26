@@ -23,6 +23,7 @@ import com.neochildclinic.features.dashboard.StaffDetailsScreen
 import com.neochildclinic.features.dashboard.AddStaffScreen
 import com.neochildclinic.features.dashboard.EditStaffScreen
 import com.neochildclinic.features.dashboard.DashboardScreen
+import com.neochildclinic.features.dashboard.TodayPatientsScreen
 import com.neochildclinic.features.patient.AddPatientScreen
 import com.neochildclinic.features.patient.AddConsultationScreen
 import com.neochildclinic.features.patient.PatientDetailsScreen
@@ -95,6 +96,7 @@ fun AppNavigation(
                 onBorrowed = { navController.navigate(Routes.BORROWED) },
                 onDue = { navController.navigate(Routes.DUE) },
                 onWaste = { navController.navigate(Routes.WASTE) },
+                onTodayPatients = { navController.navigate(Routes.TODAY_PATIENTS) },
                 onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onSync = { navController.navigate(Routes.SYNC) },
@@ -434,6 +436,14 @@ fun AppNavigation(
 
         composable(Routes.WASTE) {
             WasteScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.TODAY_PATIENTS) {
+            val dashboardViewModel: com.neochildclinic.features.dashboard.DashboardViewModel = hiltViewModel()
+            TodayPatientsScreen(
+                viewModel = dashboardViewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(

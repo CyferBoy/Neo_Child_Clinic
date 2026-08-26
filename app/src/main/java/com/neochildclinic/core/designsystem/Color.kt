@@ -13,6 +13,24 @@ val Pink40 = Color(0xFF7D5260)
 val ClinicBlue = Color(0xFF007BFF) // A strong clinic blue
 val ClinicLightBlue = Color(0xFFE3F2FD)
 
+// Modern Dashboard Palette
+val BgOffWhite = Color(0xFFFBF8F5)
+val SoftBlue = Color(0xFFD6E4F0)
+val SoftGreen = Color(0xFFDCF0E2)
+val SoftOrange = Color(0xFFFFE8D1)
+val SoftPurple = Color(0xFFF2E4F6)
+val SoftCyan = Color(0xFFD9F2F0)
+val SoftGrey = Color(0xFFEBEBEB)
+val SoftPink = Color(0xFFFCE4E4)
+
+val TextBlue = Color(0xFF1E3A5F)
+val TextGreen = Color(0xFF1B5E20)
+val TextOrange = Color(0xFF9C4D04)
+val TextPurple = Color(0xFF4A148C)
+val TextCyan = Color(0xFF00695C)
+val TextGrey = Color(0xFF424242)
+val TextPink = Color(0xFFB71C1C)
+
 // Dark Mode Palette
 val DarkPrimary = Color(0xFF92CCFF)
 val DarkSecondary = Color(0xFFB0CCC0)
