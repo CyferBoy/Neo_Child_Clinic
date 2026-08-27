@@ -76,4 +76,38 @@ object StatisticsUtils {
         if (m !in quarterMonths) return false
         return selectedMonth == -1 || m == selectedMonth
     }
+
+    fun getPreviousPeriodFilter(filterMode: String, fyQuarter: Int, selectedMonth: Int): Triple<String, Int, Int> {
+        if (filterMode == "Overall") return Triple("Overall", 0, -1)
+        
+        val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: return Triple("Overall", 0, -1)
+        
+        return when {
+            selectedMonth != -1 -> {
+                // Previous Month
+                val prevMonth = if (selectedMonth == 0) 11 else selectedMonth - 1
+                val prevYearShort = if (selectedMonth == 0) startYearShort - 1 else startYearShort
+                val prevFY = "${prevYearShort % 100}-${(prevYearShort + 1) % 100}"
+                Triple("FY $prevFY", if (prevMonth in 0..2) 4 else if (prevMonth in 3..5) 1 else if (prevMonth in 6..8) 2 else 3, prevMonth)
+            }
+            fyQuarter != 0 -> {
+                // Previous Quarter
+                val prevQuarter = if (fyQuarter == 1) 4 else fyQuarter - 1
+                val prevYearShort = if (fyQuarter == 1) startYearShort - 1 else startYearShort
+                val prevFY = "${prevYearShort % 100}-${(prevYearShort + 1) % 100}"
+                Triple("FY $prevFY", prevQuarter, -1)
+            }
+            else -> {
+                // Previous FY
+                val prevYearShort = startYearShort - 1
+                val prevFY = "${prevYearShort % 100}-${(prevYearShort + 1) % 100}"
+                Triple("FY $prevFY", 0, -1)
+            }
+        }
+    }
+
+    fun calculateGrowth(current: Double, previous: Double): Double? {
+        if (previous == 0.0) return null
+        return ((current - previous) / previous) * 100.0
+    }
 }

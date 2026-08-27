@@ -1,16 +1,22 @@
 package com.neochildclinic.features.search
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.domain.model.Patient
@@ -23,8 +29,12 @@ fun SearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val query by viewModel.query.collectAsState()
+    val customColors = LocalCustomColors.current
 
-    AppBackground {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = customColors.bgOffWhite
+    ) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -76,19 +86,25 @@ private fun SearchResultItem(
     patient: Patient,
     onClick: () -> Unit
 ) {
-    Card(
+    val customColors = LocalCustomColors.current
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f)
+            )
+            .clip(RoundedCornerShape(24.dp))
+            .background(customColors.softBlue)
+            .clickable(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = patient.name,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontWeight = FontWeight.Bold,
+                color = customColors.textBlue
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -98,12 +114,12 @@ private fun SearchResultItem(
                 Text(
                     text = "ID: $clinicIdDisplay",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = customColors.textBlue.copy(alpha = 0.7f)
                 )
                 Text(
                     text = patient.phone,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = customColors.textBlue.copy(alpha = 0.7f)
                 )
             }
         }

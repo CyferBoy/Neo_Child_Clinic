@@ -33,6 +33,7 @@ class VaccineInventoryViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     private val _filter = MutableStateFlow(InventoryFilter.ALL)
     private val _sort = MutableStateFlow(InventorySort.ALPHABETICAL)
     private val _isRefreshing = MutableStateFlow(false)

@@ -7,6 +7,7 @@ import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.data.cache.MemoryCache
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.user.UserInfo
@@ -16,6 +17,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,6 +31,15 @@ class AuthViewModel @Inject constructor(
 ) : ViewModel() {
 
     val currentUser: UserInfo? get() = auth.currentSessionOrNull()?.user
+
+    // The SDK resolves any session saved to disk asynchronously (autoLoadFromStorage).
+    // Callers that need to know "is there really a session" on cold start should wait
+    // for this to leave Initializing rather than reading currentUser synchronously,
+    // which races the storage load and returns null before it's had a chance to finish.
+    val sessionStatus: StateFlow<SessionStatus> = auth.sessionStatus
+
+    suspend fun awaitResolvedSessionStatus(): SessionStatus =
+        sessionStatus.first { it !is SessionStatus.Initializing }
 
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading

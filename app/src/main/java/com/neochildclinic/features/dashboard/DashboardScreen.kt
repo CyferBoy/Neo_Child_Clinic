@@ -25,7 +25,7 @@ import com.neochildclinic.domain.repository.SyncState
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.features.dashboard.components.AppDrawer
 import com.neochildclinic.app.Routes
-import com.neochildclinic.core.designsystem.BgOffWhite
+import com.neochildclinic.core.designsystem.LocalCustomColors
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,9 +117,10 @@ fun DashboardScreen(
             )
         }
     ) {
+        val customColors = LocalCustomColors.current
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = BgOffWhite
+            color = customColors.bgOffWhite
         ) { 
             Scaffold(
                 containerColor = Color.Transparent,

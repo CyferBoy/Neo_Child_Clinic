@@ -31,6 +31,14 @@ val TextCyan = Color(0xFF00695C)
 val TextGrey = Color(0xFF424242)
 val TextPink = Color(0xFFB71C1C)
 
+// Chart and Growth Colors
+val SuccessGreen = Color(0xFF4CAF50)
+val ErrorRed = Color(0xFFF44336)
+val ChartPatients = Color(0xFF2196F3)
+val ChartConsultations = Color(0xFF9C27B0)
+val ChartVaccinations = Color(0xFF009688)
+val ChartRevenue = Color(0xFFFF9800)
+
 // Dark Mode Palette
 val DarkPrimary = Color(0xFF92CCFF)
 val DarkSecondary = Color(0xFFB0CCC0)

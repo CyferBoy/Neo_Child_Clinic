@@ -170,13 +170,15 @@ fun HistorySegmentedButton(
             selected = selectedSegment == 0,
             onClick = { onSegmentSelected(0) },
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            icon = { SegmentedButtonDefaults.Icon(active = selectedSegment == 0) }
+            icon = { SegmentedButtonDefaults.Icon(active = selectedSegment == 0) },
+            modifier = Modifier.weight(1f)
         ) { Text("Vaccination") }
         SegmentedButton(
             selected = selectedSegment == 1,
             onClick = { onSegmentSelected(1) },
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            icon = { SegmentedButtonDefaults.Icon(active = selectedSegment == 1) }
+            icon = { SegmentedButtonDefaults.Icon(active = selectedSegment == 1) },
+            modifier = Modifier.weight(1f)
         ) { Text("Consultation") }
     }
 }

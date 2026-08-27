@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
@@ -39,13 +40,14 @@ fun TodayPatientsCard(
     var selectedTab by rememberSaveable { mutableStateOf(TodoTab.CONSULTATION) }
     var showAdd by remember { mutableStateOf(false) }
 
+    val customColors = LocalCustomColors.current
     Box(modifier = modifier) {
         DashboardCard(
             title = "Today's Patient",
             subtitle = "Consultation: ${consultations.size}\nVaccination: ${vaccinations.size}",
             icon = Icons.Default.EventAvailable,
-            containerColor = SoftGreen,
-            contentColor = TextGreen,
+            containerColor = customColors.softGreen,
+            contentColor = customColors.textGreen,
             modifier = Modifier.fillMaxSize(),
             onClick = onTodayPatients
         )

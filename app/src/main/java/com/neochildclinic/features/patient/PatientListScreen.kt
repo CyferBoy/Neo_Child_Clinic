@@ -1,7 +1,6 @@
 package com.neochildclinic.features.patient
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -19,11 +18,14 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.UserRole
@@ -34,8 +36,7 @@ import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.AuditLogDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.ActionDropdownMenu
-import com.neochildclinic.core.ui.FoldedCornerShape
-import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.utils.PatientUtils.calculateAgeLabel
 
 @Composable
@@ -47,6 +48,7 @@ fun PatientListScreen(
     viewModel: PatientListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val staff by viewModel.currentStaff.collectAsState()
     val isAdmin = staff?.role == UserRole.admin
     val canEditOrDelete = isAdmin || staff?.role == UserRole.doctor
@@ -98,6 +100,7 @@ fun PatientListScreen(
 
     PatientListContent(
         uiState = uiState,
+        searchQuery = searchQuery,
         isAdmin = isAdmin,
         canEditOrDelete = canEditOrDelete,
         onBack = {
@@ -126,6 +129,7 @@ fun PatientListScreen(
 @Composable
 private fun PatientListContent(
     uiState: PatientListUiState,
+    searchQuery: String,
     isAdmin: Boolean,
     canEditOrDelete: Boolean,
     onBack: () -> Unit,
@@ -140,12 +144,17 @@ private fun PatientListContent(
     onToggleSelection: (Patient) -> Unit,
     onViewAuditLog: (Patient) -> Unit
 ) {
-    AppBackground {
+    val customColors = LocalCustomColors.current
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = customColors.bgOffWhite
+    ) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 PatientListTopBar(
                     uiState = uiState,
+                    searchQuery = searchQuery,
                     onSearchQueryChange = onSearchQueryChange,
                     onBack = onBack,
                     onMergeClick = onMergeClick
@@ -221,6 +230,7 @@ private fun PatientListContent(
 @Composable
 private fun PatientListTopBar(
     uiState: PatientListUiState,
+    searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onBack: () -> Unit,
     onMergeClick: () -> Unit
@@ -229,7 +239,7 @@ private fun PatientListTopBar(
 
     SearchTopAppBar(
         title = if (uiState.isMergeSelectionMode) "${uiState.selectedPatients.size} Selected" else "Patients",
-        searchQuery = uiState.searchQuery,
+        searchQuery = searchQuery,
         onSearchQueryChange = onSearchQueryChange,
         isSearchActive = isSearchActive,
         onSearchActiveChange = { isSearchActive = it },
@@ -262,76 +272,75 @@ private fun PatientCard(
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val customColors = LocalCustomColors.current
 
-    val cardShape = remember { FoldedCornerShape(cornerRadius = 20.dp, notchSize = 40.dp, notchCornerRadius = 14.dp) }
-    val accentColor = MaterialTheme.colorScheme.primary
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        // Blue folded-corner accent, sitting in the notch cut from the card shape below.
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(6.dp)
-                .size(28.dp)
-                .background(accentColor, RoundedCornerShape(10.dp))
-        )
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                ),
-            shape = cardShape,
-            colors = CardDefaults.cardColors(
-                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                               else MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f)
+            )
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (isSelected) customColors.softBlue.copy(alpha = 0.6f) else customColors.softBlue)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .then(
+                if (isSelected) Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                else Modifier
             ),
-            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (isMergeMode) {
-                    Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
+            if (isMergeMode) {
+                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
+                Spacer(modifier = Modifier.width(8.dp))
+            }
 
-                PatientAvatar(name = patient.name, isSelected = isSelected)
+            PatientAvatar(name = patient.name, isSelected = isSelected)
 
-                Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = patient.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    val clinicIdDisplay = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
-                    Text(text = "ID: $clinicIdDisplay", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    PatientInfoSubtitle(dob = patient.dob, gender = patient.gender)
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = patient.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = customColors.textBlue
+                )
+                val clinicIdDisplay = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
+                Text(
+                    text = "ID: $clinicIdDisplay",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = customColors.textBlue.copy(alpha = 0.7f)
+                )
+                PatientInfoSubtitle(dob = patient.dob, gender = patient.gender)
+            }
 
-                if (hasMissingPrice && !isMergeMode) {
-                    Box(modifier = Modifier.size(8.dp).background(Color.Red, CircleShape))
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
+            if (hasMissingPrice && !isMergeMode) {
+                Box(modifier = Modifier.size(8.dp).background(Color.Red, CircleShape))
+                Spacer(modifier = Modifier.width(8.dp))
+            }
 
-                if (!isMergeMode) {
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Actions")
-                        }
-                        ActionDropdownMenu(
-                            expanded = menuExpanded,
-                            onDismiss = { menuExpanded = false },
-                            onEdit = onEdit,
-                            onDelete = onDelete,
-                            onMerge = onLongClick,
-                            isAdmin = canEditOrDelete,
-                            onAuditLog = if (isAdmin) onViewAuditLog else null
-                        )
+            if (!isMergeMode) {
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = customColors.textBlue)
                     }
+                    ActionDropdownMenu(
+                        expanded = menuExpanded,
+                        onDismiss = { menuExpanded = false },
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                        onMerge = onLongClick,
+                        isAdmin = canEditOrDelete,
+                        onAuditLog = if (isAdmin) onViewAuditLog else null
+                    )
                 }
             }
         }
@@ -340,17 +349,19 @@ private fun PatientCard(
 
 @Composable
 private fun PatientAvatar(name: String, isSelected: Boolean) {
+    val customColors = LocalCustomColors.current
     Surface(
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(52.dp),
         shape = CircleShape,
-        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer
+        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+        shadowElevation = 1.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = name.firstOrNull()?.uppercase() ?: "?",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer
+                color = if (isSelected) Color.White else customColors.textBlue
             )
         }
     }
@@ -358,13 +369,18 @@ private fun PatientAvatar(name: String, isSelected: Boolean) {
 
 @Composable
 private fun PatientInfoSubtitle(dob: String, gender: String) {
+    val customColors = LocalCustomColors.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         val ageLabel = remember(dob) { if (dob.isNotBlank()) calculateAgeLabel(dob) else null }
         if (ageLabel != null) {
-            Text(text = ageLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-            Text(text = " • ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+            Text(text = ageLabel, style = MaterialTheme.typography.bodySmall, color = customColors.textBlue.copy(alpha = 0.6f))
+            Text(text = " • ", style = MaterialTheme.typography.bodySmall, color = customColors.textBlue.copy(alpha = 0.4f))
         }
-        Text(text = gender.ifEmpty { "Unknown" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = gender.ifEmpty { "Unknown" },
+            style = MaterialTheme.typography.bodySmall,
+            color = customColors.textBlue.copy(alpha = 0.6f)
+        )
     }
 }
 
@@ -424,6 +440,7 @@ private fun PatientListPreview() {
                     Patient("2", "Jane Smith", "0987654321", "", "2021-05-15", "Female", "", "2024-02-10")
                 )
             ),
+            searchQuery = "",
             isAdmin = true,
             canEditOrDelete = true,
             onBack = {},

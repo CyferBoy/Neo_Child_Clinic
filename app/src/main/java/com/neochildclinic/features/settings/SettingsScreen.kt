@@ -1,12 +1,13 @@
 package com.neochildclinic.features.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,8 +24,11 @@ fun SettingsScreen(
     onHelpSupport: () -> Unit,
     onPrivacyPolicy: () -> Unit,
     onTermsOfService: () -> Unit,
-    onCheckForUpdates: () -> Unit
+    onCheckForUpdates: () -> Unit,
+    viewModel: SettingsViewModel
 ) {
+    val themeMode by viewModel.themeMode.collectAsState()
+
     AppBackground {
         Scaffold(
             containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -44,6 +48,15 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(top = 10.dp, bottom = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                item {
+                    SettingsSection("Theme") {
+                        ThemeOption("Light", themeMode == "light") { viewModel.setThemeMode("light") }
+                        SettingsDivider()
+                        ThemeOption("Dark", themeMode == "dark") { viewModel.setThemeMode("dark") }
+                        SettingsDivider()
+                        ThemeOption("System Default", themeMode == "system") { viewModel.setThemeMode("system") }
+                    }
+                }
                 item {
                     SettingsSection("App") {
                         SettingsRow(Icons.Default.Notifications, "Notifications", onNotifications)
@@ -89,5 +102,27 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ThemeOption(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        RadioButton(selected = selected, onClick = onClick)
     }
 }

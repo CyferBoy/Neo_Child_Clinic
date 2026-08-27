@@ -1,15 +1,13 @@
 package com.neochildclinic.features.statistics
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,8 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.PatientUtils
 import java.text.SimpleDateFormat
@@ -33,43 +32,87 @@ fun PatientsTab(patients: List<Patient>) {
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
     val availableYears = remember(patients) { StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" }) }
+    
+    // Current period
     val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
         patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", filterMode, fyQuarter, selectedMonth) }
     }
-    val patientStats = remember(filteredPatients, patients) { calculatePatientStats(filteredPatients, patients) }
+    
+    // Previous period
+    val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
+        StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
+    }
+    val prevPatients = remember(patients, prevFilter, prevQuarter, prevMonth) {
+        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", prevFilter, prevQuarter, prevMonth) }
+    }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        PatientsHeader(
+    val patientStats = remember(filteredPatients, patients) { calculatePatientStats(filteredPatients, patients) }
+    val prevPatientStats = remember(prevPatients, patients) { calculatePatientStats(prevPatients, patients) }
+
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(16.dp)) {
+        FilterSection(
+            availableYears = availableYears.reversed().map { "20$it" },
             filterMode = filterMode,
             fyQuarter = fyQuarter,
             selectedMonth = selectedMonth,
-            availableYears = availableYears,
-            onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
+            onFilterModeChange = { filterMode = "FY ${it.takeLast(5)}"; fyQuarter = 0; selectedMonth = -1 },
             onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
             onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it }
         )
-        PatientsContent(patients = filteredPatients, totalPatients = patients.size, stats = patientStats)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        PatientsContent(
+            patients = filteredPatients,
+            totalPatientsCount = patients.size,
+            stats = patientStats,
+            prevStats = prevPatientStats
+        )
     }
 }
 
 @Composable
-private fun PatientsContent(patients: List<Patient>, totalPatients: Int, stats: PatientAnalyticsData) {
+private fun PatientsContent(
+    patients: List<Patient>,
+    totalPatientsCount: Int,
+    stats: PatientAnalyticsData,
+    prevStats: PatientAnalyticsData
+) {
+    val customColors = LocalCustomColors.current
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Patient Analytics", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(modifier = Modifier.fillMaxWidth()) {
-            StatCardSmall(Modifier.weight(1f), "Total Patients", totalPatients.toString(), Icons.Default.People, Color(0xFF2196F3))
-            Spacer(modifier = Modifier.width(12.dp))
-            StatCardSmall(Modifier.weight(1f), "Registered in Period", stats.newPatientsThisMonth.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "Total Patients",
+                value = totalPatientsCount.toString(),
+                icon = Icons.Default.People,
+                iconColor = customColors.textBlue,
+                iconBackground = customColors.softBlue
+            )
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "In Period",
+                value = stats.newPatientsInPeriod.toString(),
+                icon = Icons.Default.PersonAdd,
+                iconColor = customColors.textGreen,
+                iconBackground = customColors.softGreen,
+                growthPercentage = StatisticsUtils.calculateGrowth(stats.newPatientsInPeriod.toDouble(), prevStats.newPatientsInPeriod.toDouble())
+            )
         }
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        Row(modifier = Modifier.fillMaxWidth()) {
-            StatCardSmall(Modifier.weight(1f), "Registered Today", stats.newPatientsToday.toString(), Icons.Default.Today, Color(0xFF9C27B0))
-            Spacer(modifier = Modifier.weight(1f))
-        }
+        SummaryCard(
+            modifier = Modifier.fillMaxWidth(),
+            title = "Registered Today",
+            value = stats.newPatientsToday.toString(),
+            icon = Icons.Default.Today,
+            iconColor = customColors.textPurple,
+            iconBackground = customColors.softPurple
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -87,36 +130,68 @@ private fun PatientsContent(patients: List<Patient>, totalPatients: Int, stats: 
 
 @Composable
 private fun GenderDistributionCard(stats: PatientAnalyticsData) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Gender Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            SimplePieChart(
-                data = listOf(stats.maleCount.toFloat(), stats.femaleCount.toFloat(), stats.otherCount.toFloat(), stats.unknownCount.toFloat()),
-                colors = listOf(Color(0xFF2196F3), Color(0xFFE91E63), Color(0xFF9E9E9E), Color(0xFF757575)),
-                labels = listOf("Male", "Female", "Other", "Unknown")
-            )
+            Spacer(modifier = Modifier.height(24.dp))
+            SimpleGenderChart(stats = stats)
         }
+    }
+}
+
+@Composable
+private fun SimpleGenderChart(stats: PatientAnalyticsData) {
+    val total = (stats.maleCount + stats.femaleCount + stats.otherCount + stats.unknownCount).toFloat()
+    if (total == 0f) {
+        Text("No Data", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        // Simple visualization
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            GenderLegendItem("Male", stats.maleCount, Color(0xFF2196F3), total)
+            GenderLegendItem("Female", stats.femaleCount, Color(0xFFE91E63), total)
+            GenderLegendItem("Other", stats.otherCount, Color(0xFF9E9E9E), total)
+            GenderLegendItem("Unknown", stats.unknownCount, Color(0xFF757575), total)
+        }
+    }
+}
+
+@Composable
+private fun GenderLegendItem(label: String, count: Int, color: Color, total: Float) {
+    val percentage = (count / total * 100).toInt()
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(200.dp)) {
+        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(color))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text("$percentage%", fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: Int) {
     Text("Age Group Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(16.dp))
     
     ageGroups.forEach { (label, count) ->
-        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(label, style = MaterialTheme.typography.bodyMedium)
                 Text("$count", fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             val progress = if (totalPatients == 0) 0f else count.toFloat() / totalPatients
             LinearProgressIndicator(
                 progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                color = MaterialTheme.colorScheme.primary
+                modifier = Modifier.fillMaxWidth().height(10.dp).clip(CircleShape),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             )
         }
     }
@@ -142,29 +217,31 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>) {
     if (grouped.isEmpty()) return
 
     Text("Upcoming Age Milestones", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(16.dp))
 
     milestoneOrder.forEach { label ->
         val entries = grouped[label].orEmpty().sortedBy { it.first.date.timeInMillis }
         if (entries.isNotEmpty()) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                shape = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(12.dp))
                     entries.forEachIndexed { index, (_, name, age) ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                             Text(age, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (index < entries.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
                     }
                 }
@@ -173,54 +250,96 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PatientsHeader(
+private fun FilterSection(
+    availableYears: List<String>,
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
-    availableYears: List<String>,
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit
 ) {
-    val options = listOf("Overall") + availableYears.reversed().map { "FY $it" }
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Patient Analytics", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    when {
-                        filterMode == "Overall" -> "All Time"
-                        selectedMonth != -1 -> "${StatisticsUtils.monthNames[selectedMonth]} Statistics"
-                        fyQuarter != 0 -> "Quarter $fyQuarter Statistics"
-                        else -> "Annual Statistics ($filterMode)"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            var expanded by remember { mutableStateOf(false) }
-            Box {
-                AssistChip(onClick = { expanded = true }, label = { Text(filterMode) }, trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) })
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    options.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onFilterModeChange(option); expanded = false }) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Financial Year Dropdown
+        var yearExpanded by remember { mutableStateOf(false) }
+        val currentFY = filterMode.substringAfter("FY ").let { "20$it" }
+        ExposedDropdownMenuBox(
+            expanded = yearExpanded,
+            onExpandedChange = { yearExpanded = it },
+            modifier = Modifier.weight(1.3f)
+        ) {
+            OutlinedTextField(
+                value = "Financial Year  $currentFY",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+            ExposedDropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
+                availableYears.forEach { year ->
+                    DropdownMenuItem(
+                        text = { Text(year) },
+                        onClick = { onFilterModeChange(year); yearExpanded = false }
+                    )
                 }
             }
         }
-        if (filterMode.startsWith("FY ")) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatisticsUtils.fyQuarters.forEachIndexed { index, _ ->
-                    val q = index + 1
-                    FilterChip(selected = fyQuarter == q, onClick = { onQuarterChange(q) }, label = { Text("Q$q") }, modifier = Modifier.weight(1f))
+
+        // Quarter Dropdown
+        var qExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = qExpanded,
+            onExpandedChange = { qExpanded = it },
+            modifier = Modifier.weight(0.9f)
+        ) {
+            OutlinedTextField(
+                value = if (fyQuarter == 0) "Quarter  All" else "Quarter  Q$fyQuarter",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+            ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
+                DropdownMenuItem(text = { Text("All") }, onClick = { onQuarterChange(0); qExpanded = false })
+                (1..4).forEach { q ->
+                    DropdownMenuItem(text = { Text("Q$q") }, onClick = { onQuarterChange(q); qExpanded = false })
                 }
             }
-            if (fyQuarter > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    StatisticsUtils.fyQuarters[fyQuarter - 1].second.forEach { month ->
-                        FilterChip(selected = selectedMonth == month, onClick = { onMonthChange(month) }, label = { Text(StatisticsUtils.monthNames[month]) })
-                    }
+        }
+
+        // Month Dropdown
+        var mExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = mExpanded,
+            onExpandedChange = { mExpanded = it },
+            modifier = Modifier.weight(0.8f)
+        ) {
+            OutlinedTextField(
+                value = if (selectedMonth == -1) "Month  All" else "Month  ${StatisticsUtils.monthNames[selectedMonth]}",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+            ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
+                DropdownMenuItem(text = { Text("All") }, onClick = { onMonthChange(-1); mExpanded = false })
+                val months = if (fyQuarter == 0) (0..11).toList() else StatisticsUtils.fyQuarters[fyQuarter - 1].second
+                months.forEach { mIdx ->
+                    DropdownMenuItem(text = { Text(StatisticsUtils.monthNames[mIdx]) }, onClick = { onMonthChange(mIdx); mExpanded = false })
                 }
             }
         }
@@ -229,7 +348,7 @@ private fun PatientsHeader(
 
 private data class PatientAnalyticsData(
     val newPatientsToday: Int,
-    val newPatientsThisMonth: Int,
+    val newPatientsInPeriod: Int,
     val maleCount: Int,
     val femaleCount: Int,
     val otherCount: Int,
@@ -285,21 +404,7 @@ private fun calculatePatientStats(patients: List<Patient>, allPatients: List<Pat
     }
 
     val newTodayAll = allPatients.count { it.registrationDate == todayStr }
-    // "Registered in Period" is exactly the filtered patient population; date validity
-    // has already been enforced by StatisticsUtils.isDateInFilter().
-    val registeredInPeriod = patients.size
+    val inPeriod = patients.size
 
-    return PatientAnalyticsData(newTodayAll, registeredInPeriod, male, female, other, unknown, ageMap)
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PatientsTabPreview() {
-    NeoChildTheme {
-        PatientsContent(
-            patients = emptyList(),
-            totalPatients = 0,
-            stats = PatientAnalyticsData(1, 5, 10, 10, 0, 0, mapOf("0-6 Weeks" to 5))
-        )
-    }
+    return PatientAnalyticsData(newTodayAll, inPeriod, male, female, other, unknown, ageMap)
 }

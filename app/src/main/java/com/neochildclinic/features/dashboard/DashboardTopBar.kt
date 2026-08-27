@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.R
+import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.SyncState
 
@@ -25,6 +26,7 @@ import com.neochildclinic.domain.repository.SyncState
 fun DashboardTopBar(
     onMenuClick: () -> Unit
 ) {
+    val customColors = LocalCustomColors.current
     TopAppBar(
         title = {
             Text(
@@ -38,14 +40,14 @@ fun DashboardTopBar(
                 Icon(
                     Icons.Default.Menu,
                     contentDescription = "Menu",
-                    tint = Color(0xFF2C2C2C)
+                    tint = customColors.iconColor
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
-            titleContentColor = Color(0xFF2C2C2C),
-            navigationIconContentColor = Color(0xFF2C2C2C)
+            titleContentColor = customColors.iconColor,
+            navigationIconContentColor = customColors.iconColor
         )
     )
 }

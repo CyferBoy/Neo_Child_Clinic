@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -60,8 +61,29 @@ fun AppNavigation(
     val authViewModel: AuthViewModel = hiltViewModel()
     val authProfile by authViewModel.profile.collectAsState()
     val userRole = authProfile?.role ?: UserRole.nurse
-    
-    val startDest = if (authViewModel.currentUser != null) Routes.DASHBOARD else Routes.LOGIN
+
+    // The Supabase SDK resolves any session saved to disk asynchronously. Reading
+    // currentUser synchronously here would race that resolution and randomly send
+    // an already-logged-in user back to the Login screen (or vice versa). Wait for
+    // a definitive answer first.
+    var resolvedStartDest by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val status = authViewModel.awaitResolvedSessionStatus()
+        resolvedStartDest = if (status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) {
+            Routes.DASHBOARD
+        } else {
+            Routes.LOGIN
+        }
+    }
+
+    val startDest = resolvedStartDest
+    if (startDest == null) {
+        // Session status still resolving - avoid flashing Login or Dashboard incorrectly.
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.CircularProgressIndicator()
+        }
+        return
+    }
 
     androidx.compose.runtime.LaunchedEffect(authProfile) {
         if (authProfile == null && authViewModel.currentUser == null) {
@@ -112,7 +134,9 @@ fun AppNavigation(
         }
 
         composable(Routes.SETTINGS) {
+            val settingsViewModel: com.neochildclinic.features.settings.SettingsViewModel = hiltViewModel()
             SettingsScreen(
+                viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() },
                 onNotifications = { navController.navigate(Routes.NOTIFICATION_SETTINGS) },
                 onInventory = { navController.navigate(Routes.INVENTORY_SETTINGS) },

@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.core.designsystem.*
 
 @Composable
@@ -28,6 +29,7 @@ private fun DashboardPatientCard(
     onPatientList: () -> Unit,
     onAddPatient: () -> Unit
 ) {
+    val customColors = LocalCustomColors.current
     Box(
         modifier = modifier
     ) {
@@ -35,8 +37,8 @@ private fun DashboardPatientCard(
             title = "Patient List",
             subtitle = "Total Patient: $count",
             icon = Icons.AutoMirrored.Filled.List,
-            containerColor = SoftBlue,
-            contentColor = TextBlue,
+            containerColor = customColors.softBlue,
+            contentColor = customColors.textBlue,
             modifier = Modifier.fillMaxSize(),
             onClick = onPatientList
         )
@@ -71,6 +73,7 @@ fun DashboardMainGrid(
     onInventory: () -> Unit,
     onStatistics: () -> Unit
 ) {
+    val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -89,8 +92,8 @@ fun DashboardMainGrid(
             DashboardCard(
                 title = "Statistics",
                 icon = Icons.AutoMirrored.Filled.TrendingUp,
-                containerColor = SoftPurple,
-                contentColor = TextPurple,
+                containerColor = customColors.softPurple,
+                contentColor = customColors.textPurple,
                 height = 150.dp, // Slightly smaller height
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onStatistics
@@ -114,8 +117,8 @@ fun DashboardMainGrid(
             DashboardCard(
                 title = "Inventory",
                 icon = Icons.Default.ShoppingCart,
-                containerColor = SoftOrange,
-                contentColor = TextOrange,
+                containerColor = customColors.softOrange,
+                contentColor = if (uiState.lowStockCount > 0) customColors.textPink else customColors.textOrange,
                 badge = if (uiState.lowStockCount > 0) "${uiState.lowStockCount} Low" else null,
                 height = 210.dp, // Maintain larger height
                 modifier = Modifier.fillMaxWidth(),
@@ -132,6 +135,7 @@ fun DashboardSmallActionsRow(
     onDue: () -> Unit,
     onWaste: () -> Unit
 ) {
+    val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -139,8 +143,8 @@ fun DashboardSmallActionsRow(
         DashboardCardSmall(
             title = "Borrowed",
             icon = Icons.Default.SwapHoriz,
-            containerColor = SoftCyan,
-            contentColor = TextCyan,
+            containerColor = customColors.softCyan,
+            contentColor = customColors.textCyan,
             badge = if (uiState.borrowedCount > 0) uiState.borrowedCount.toString() else null,
             modifier = Modifier.weight(1f),
             onClick = onBorrowed
@@ -148,8 +152,8 @@ fun DashboardSmallActionsRow(
         DashboardCardSmall(
             title = "Due",
             icon = Icons.Default.CalendarToday,
-            containerColor = SoftGrey,
-            contentColor = TextGrey,
+            containerColor = customColors.softGrey,
+            contentColor = customColors.textGrey,
             badge = if (uiState.dueTodayCount > 0) uiState.dueTodayCount.toString() else null,
             modifier = Modifier.weight(1f),
             onClick = onDue
@@ -157,8 +161,8 @@ fun DashboardSmallActionsRow(
         DashboardCardSmall(
             title = "Waste",
             icon = Icons.Default.Delete,
-            containerColor = SoftPink,
-            contentColor = TextPink,
+            containerColor = customColors.softPink,
+            contentColor = customColors.textPink,
             badge = if (uiState.wasteCount > 0) uiState.wasteCount.toString() else null,
             modifier = Modifier.weight(1f),
             onClick = onWaste

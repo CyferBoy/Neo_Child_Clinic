@@ -49,6 +49,7 @@ fun TodayPatientsScreen(
 
     val pendingList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.todayConsultations else uiState.todayVaccinations
     val visitedList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.visitedConsultations else uiState.visitedVaccinations
+    val customColors = LocalCustomColors.current
 
     val displayMonthYear = remember(selectedDate) {
         val calendar = Calendar.getInstance()
@@ -58,7 +59,7 @@ fun TodayPatientsScreen(
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(BgOffWhite)) {
+            Column(modifier = Modifier.background(customColors.bgOffWhite)) {
                 TopAppBar(
                     title = {
                         Row(
@@ -79,9 +80,9 @@ fun TodayPatientsScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = BgOffWhite,
-                        titleContentColor = Color(0xFF2C2C2C),
-                        navigationIconContentColor = Color(0xFF2C2C2C)
+                        containerColor = customColors.bgOffWhite,
+                        titleContentColor = customColors.iconColor,
+                        navigationIconContentColor = customColors.iconColor
                     )
                 )
                 HorizontalDateSelector(
@@ -94,13 +95,13 @@ fun TodayPatientsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showSelectionDialog = true },
-                containerColor = ClinicBlue,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Patient Entry")
             }
         },
-        containerColor = BgOffWhite
+        containerColor = customColors.bgOffWhite
     ) { padding ->
         Column(
             modifier = Modifier
@@ -114,12 +115,14 @@ fun TodayPatientsScreen(
                 SegmentedButton(
                     selected = selectedTab == TodayPatientTab.CONSULTATION,
                     onClick = { selectedTab = TodayPatientTab.CONSULTATION },
-                    shape = SegmentedButtonDefaults.itemShape(0, 2)
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                    modifier = Modifier.weight(1f)
                 ) { Text("Consultation") }
                 SegmentedButton(
                     selected = selectedTab == TodayPatientTab.VACCINATION,
                     onClick = { selectedTab = TodayPatientTab.VACCINATION },
-                    shape = SegmentedButtonDefaults.itemShape(1, 2)
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                    modifier = Modifier.weight(1f)
                 ) { Text("Vaccination") }
             }
 
@@ -327,14 +330,14 @@ private fun AddTypeSelectionDialog(
                 Button(
                     onClick = { onSelect(TodayPatientTab.CONSULTATION) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftBlue, contentColor = TextBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = LocalCustomColors.current.softBlue, contentColor = LocalCustomColors.current.textBlue)
                 ) {
                     Text("Consultation")
                 }
                 Button(
                     onClick = { onSelect(TodayPatientTab.VACCINATION) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftGreen, contentColor = TextGreen)
+                    colors = ButtonDefaults.buttonColors(containerColor = LocalCustomColors.current.softGreen, contentColor = LocalCustomColors.current.textGreen)
                 ) {
                     Text("Vaccination")
                 }
@@ -516,8 +519,8 @@ private fun DateItem(
         modifier = Modifier.width(50.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) ClinicBlue else Color.White,
-            contentColor = if (isSelected) Color.White else Color.Black
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp)
     ) {
@@ -570,8 +573,9 @@ private fun TodayPatientItem(
         else -> ""
     }
 
-    val color = if (item is ConsultationTodoEntity) SoftBlue else SoftGreen
-    val textColor = if (item is ConsultationTodoEntity) TextBlue else TextGreen
+    val customColors = LocalCustomColors.current
+    val color = if (item is ConsultationTodoEntity) customColors.softBlue else customColors.softGreen
+    val textColor = if (item is ConsultationTodoEntity) customColors.textBlue else customColors.textGreen
 
     Card(
         modifier = Modifier

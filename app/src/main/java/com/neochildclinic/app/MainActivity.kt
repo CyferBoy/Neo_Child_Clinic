@@ -27,6 +27,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import com.neochildclinic.core.utils.BiometricLockManager
 import com.neochildclinic.core.utils.BiometricAuthenticator
 import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.ui.LockScreen
 import com.neochildclinic.core.ui.AppUpdateDialog
 import com.neochildclinic.features.settings.AppUpdateViewModel
@@ -74,6 +75,9 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var deviceRepository: DeviceRepository
 
+    @Inject
+    lateinit var preferenceManager: PreferenceManager
+
     private val authViewModel: AuthViewModel by viewModels()
     private val appUpdateViewModel: AppUpdateViewModel by viewModels()
 
@@ -94,7 +98,14 @@ class MainActivity : FragmentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            NeoChildTheme {
+            val themeMode by preferenceManager.themeMode.collectAsState(initial = "system")
+            val darkTheme = when (themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> androidx.compose.foundation.isSystemInDarkTheme()
+            }
+
+            NeoChildTheme(darkTheme = darkTheme) {
                 val isLocked by BiometricLockManager.isAppLocked.collectAsState()
                 val navController = rememberNavController()
                 val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
@@ -160,10 +171,10 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun checkAppLock() {
-        val currentUser = auth.currentSessionOrNull()?.user
-        if (currentUser == null) return
-
         lifecycleScope.launch {
+            val status = authViewModel.awaitResolvedSessionStatus()
+            if (status !is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) return@launch
+
             val settings = settingsManager.settingsFlow.first()
             if (!settings.biometricLockEnabled) {
                 BiometricLockManager.unlockBecauseProtectionIsDisabled()

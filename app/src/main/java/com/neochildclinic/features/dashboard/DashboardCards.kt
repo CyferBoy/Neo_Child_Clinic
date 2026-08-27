@@ -99,7 +99,7 @@ fun DashboardCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .background(
-                        color = contentColor.copy(alpha = 0.15f),
+                        color = contentColor.copy(alpha = 0.25f),
                         shape = RoundedCornerShape(12.dp)
                     )
                     .padding(horizontal = 8.dp, vertical = 2.dp)

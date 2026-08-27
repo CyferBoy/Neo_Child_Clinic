@@ -36,6 +36,7 @@ fun VaccineInventoryScreen(
     viewModel: VaccineInventoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     var batchToDelete by remember { mutableStateOf<VaccineBatchEntity?>(null) }
     var vaccineToDelete by remember { mutableStateOf<InventoryItem?>(null) }
     val context = LocalContext.current
@@ -68,6 +69,7 @@ fun VaccineInventoryScreen(
 
     VaccineInventoryContent(
         uiState = uiState,
+        searchQuery = searchQuery,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onSearchQueryChange = viewModel::onSearchQueryChange,
@@ -86,6 +88,7 @@ fun VaccineInventoryScreen(
 @Composable
 private fun VaccineInventoryContent(
     uiState: VaccineInventoryUiState,
+    searchQuery: String,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -106,7 +109,7 @@ private fun VaccineInventoryContent(
             topBar = {
                 SearchTopAppBar(
                     title = "Inventory",
-                    searchQuery = uiState.searchQuery,
+                    searchQuery = searchQuery,
                     onSearchQueryChange = onSearchQueryChange,
                     isSearchActive = isSearchActive,
                     onSearchActiveChange = { isSearchActive = it },
@@ -134,7 +137,7 @@ private fun VaccineInventoryContent(
                     }
                 } else if (uiState.inventory.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(if (uiState.searchQuery.isEmpty()) "No inventory found" else "No results found")
+                        Text(if (searchQuery.isEmpty()) "No inventory found" else "No results found")
                     }
                 } else {
                     LazyColumn(

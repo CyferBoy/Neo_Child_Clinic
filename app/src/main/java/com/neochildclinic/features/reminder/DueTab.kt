@@ -47,15 +47,6 @@ fun DueTab(
         contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp)
     ) {
         item {
-            CompletedDismissedSummaryCard(
-                completedCount = stats.completedToday,
-                dismissedCount = stats.dismissedToday,
-                onClick = onNavigateToCompletedDismissed
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        item {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = {

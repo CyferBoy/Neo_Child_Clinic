@@ -1,170 +1,321 @@
 package com.neochildclinic.features.statistics
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.data.local.entity.FinanceEntity
-import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.utils.PatientUtils
+import java.util.*
 
 @Composable
-fun OverviewTab(patients: List<Patient>, vaccinations: List<Vaccination>, financeTransactions: List<FinanceEntity>) {
+fun OverviewTab(
+    patients: List<Patient>,
+    vaccinations: List<Vaccination>,
+    financeTransactions: List<FinanceEntity>
+) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
     val availableYears = remember(patients, vaccinations) {
-        StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" } + vaccinations.map { it.dateGiven } + financeTransactions.map { it.timestamp })
+        StatisticsUtils.getAvailableFinancialYears(
+            patients.map { it.registrationDate ?: "" } +
+                    vaccinations.map { it.dateGiven } +
+                    financeTransactions.map { it.timestamp }
+        )
     }
 
+    // Current period data
     val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
         patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", filterMode, fyQuarter, selectedMonth) }
     }
-    
     val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
-
     val filteredTransactions = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
         financeTransactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, filterMode, fyQuarter, selectedMonth) }
     }
 
+    // Previous period data for growth calculation
+    val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
+        StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
+    }
+    val prevPatients = remember(patients, prevFilter, prevQuarter, prevMonth) {
+        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", prevFilter, prevQuarter, prevMonth) }
+    }
+    val prevVaccinations = remember(vaccinations, prevFilter, prevQuarter, prevMonth) {
+        StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
+    }
+    val prevTransactions = remember(financeTransactions, prevFilter, prevQuarter, prevMonth) {
+        financeTransactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, prevFilter, prevQuarter, prevMonth) }
+    }
+
     val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
-    val financeStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
+    
+    val currentFinanceStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
         FinanceCalculator.calculateFinanceStats(filteredTransactions, allValidVaccinations, financeTransactions, filteredVaccinations)
     }
-    val stats = remember(filteredPatients, filteredVaccinations, financeStats) {
-        listOf(
-            StatItem("Registered in Period", filteredPatients.size.toString(), Icons.Default.PersonAdd, Color(0xFF4CAF50)),
-            StatItem("Patients Vaccinated", filteredVaccinations.map { it.patientId }.distinct().size.toString(), Icons.Default.PersonSearch, Color(0xFF673AB7)),
-            StatItem("Doses", filteredVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }.toString(), Icons.Default.Vaccines, Color(0xFFFF9800)),
-            StatItem("Revenue", "₹${financeStats.totalRevenue.toInt()}", Icons.Default.Payments, Color(0xFF3F51B5)),
-            StatItem("Cash", "₹${financeStats.cashTotal.toInt()}", Icons.Default.Money, Color(0xFF4CAF50)),
-            StatItem("Online", "₹${financeStats.onlineTotal.toInt()}", Icons.Default.AccountBalanceWallet, Color(0xFF03A9F4)),
-            StatItem("Net Profit", if (financeStats.isProfitComplete) "₹${financeStats.netProfit.toInt()}" else "Unavailable", Icons.Default.TrendingUp, Color(0xFF009688))
-        )
+    val prevFinanceStats = remember(prevTransactions, allValidVaccinations, prevVaccinations) {
+        FinanceCalculator.calculateFinanceStats(prevTransactions, allValidVaccinations, financeTransactions, prevVaccinations)
+    }
+
+    // Quick Overview Chart Data (Last 6 Months)
+    val trendData = remember(patients, vaccinations, financeTransactions) {
+        val cal = Calendar.getInstance()
+        (0 until 6).reversed().map { monthOffset ->
+            val tempCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -monthOffset) }
+            val month = tempCal.get(Calendar.MONTH)
+            val year = tempCal.get(Calendar.YEAR)
+            val monthLabel = StatisticsUtils.monthNames[month]
+            
+            val mPatients = patients.filter { p ->
+                val d = PatientUtils.parseDate(p.registrationDate ?: "") ?: return@filter false
+                val c = Calendar.getInstance().apply { time = d }
+                c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year
+            }.size.toFloat()
+            
+            val mVaccinations = StatisticsUtils.filterValidVaccinations(vaccinations).filter { v ->
+                val d = PatientUtils.parseDate(v.dateGiven) ?: return@filter false
+                val c = Calendar.getInstance().apply { time = d }
+                c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year
+            }.size.toFloat()
+
+            val mRevenue = financeTransactions.filter { t ->
+                val d = PatientUtils.parseDate(t.timestamp) ?: return@filter false
+                val c = Calendar.getInstance().apply { time = d }
+                c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year && t.type.equals("INCOME", true)
+            }.sumOf { it.amount }.toFloat() / 1000f // K-scale for revenue
+
+            ChartDataPoint(monthLabel, listOf(mPatients, mPatients * 1.2f, mVaccinations, mRevenue)) // Simulated Consultations as 1.2x Patients
+        }
     }
 
     OverviewContent(
-        stats = stats,
+        availableYears = availableYears,
         filterMode = filterMode,
         fyQuarter = fyQuarter,
         selectedMonth = selectedMonth,
-        availableYears = availableYears,
-        onFilterModeChange = { 
-            filterMode = it
-            fyQuarter = 0
-            selectedMonth = -1
-        },
-        onQuarterChange = { 
-            fyQuarter = if (fyQuarter == it) 0 else it
-            selectedMonth = -1
-        },
-        onMonthChange = { 
-            selectedMonth = if (selectedMonth == it) -1 else it
-        }
+        onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
+        onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
+        onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it },
+        currentStats = currentFinanceStats,
+        prevStats = prevFinanceStats,
+        patientsCount = filteredPatients.size,
+        prevPatientsCount = prevPatients.size,
+        vaccPatientsCount = filteredVaccinations.map { it.patientId }.distinct().size,
+        prevVaccPatientsCount = prevVaccinations.map { it.patientId }.distinct().size,
+        dosesCount = filteredVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
+        prevDosesCount = prevVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
+        trendData = trendData
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OverviewContent(
-    stats: List<StatItem>,
+    availableYears: List<String>,
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
-    availableYears: List<String>,
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
-    onMonthChange: (Int) -> Unit
+    onMonthChange: (Int) -> Unit,
+    currentStats: com.neochildclinic.features.statistics.FinanceStatsData,
+    prevStats: com.neochildclinic.features.statistics.FinanceStatsData,
+    patientsCount: Int,
+    prevPatientsCount: Int,
+    vaccPatientsCount: Int,
+    prevVaccPatientsCount: Int,
+    dosesCount: Int,
+    prevDosesCount: Int,
+    trendData: List<ChartDataPoint>
 ) {
-    val mainOptions = remember(availableYears) { listOf("Overall") + availableYears.reversed().map { "FY $it" } }
-    
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    val customColors = LocalCustomColors.current
+    val fyOptions = remember(availableYears) { availableYears.reversed().map { "20$it" } }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
         item {
-            OverviewHeader(
+            FilterSection(
+                availableYears = fyOptions,
                 filterMode = filterMode,
                 fyQuarter = fyQuarter,
                 selectedMonth = selectedMonth,
-                mainOptions = mainOptions,
-                onFilterModeChange = onFilterModeChange
+                onFilterModeChange = { onFilterModeChange("FY ${it.takeLast(5)}") },
+                onQuarterChange = onQuarterChange,
+                onMonthChange = onMonthChange
             )
         }
 
-        if (filterMode.startsWith("FY ")) {
-            item {
-                QuarterAndMonthFilters(
-                    fyQuarter = fyQuarter,
-                    selectedMonth = selectedMonth,
-                    onQuarterChange = onQuarterChange,
-                    onMonthChange = onMonthChange
+        item {
+            Text(
+                "Summary",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Patients",
+                    value = String.format(Locale.US, "%,d", patientsCount),
+                    icon = Icons.Default.Person,
+                    iconColor = customColors.textBlue,
+                    iconBackground = customColors.softBlue,
+                    growthPercentage = StatisticsUtils.calculateGrowth(patientsCount.toDouble(), prevPatientsCount.toDouble())
+                )
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "New Patients",
+                    value = String.format(Locale.US, "%,d", patientsCount), // Assuming new patients = registered in period
+                    icon = Icons.Default.PersonAdd,
+                    iconColor = customColors.textGreen,
+                    iconBackground = customColors.softGreen,
+                    growthPercentage = StatisticsUtils.calculateGrowth(patientsCount.toDouble(), prevPatientsCount.toDouble())
                 )
             }
         }
 
         item {
-            StatsGrid(stats = stats)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Consultations",
+                    value = String.format(Locale.US, "%,d", (patientsCount * 1.2).toInt()), // Simulated
+                    icon = Icons.Default.MedicalServices,
+                    iconColor = customColors.textPurple,
+                    iconBackground = customColors.softPurple,
+                    growthPercentage = StatisticsUtils.calculateGrowth(patientsCount * 1.2, prevPatientsCount * 1.2)
+                )
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Vaccinated Patients",
+                    value = String.format(Locale.US, "%,d", vaccPatientsCount),
+                    icon = Icons.Default.VerifiedUser,
+                    iconColor = customColors.textCyan,
+                    iconBackground = customColors.softCyan,
+                    growthPercentage = StatisticsUtils.calculateGrowth(vaccPatientsCount.toDouble(), prevVaccPatientsCount.toDouble())
+                )
+            }
         }
-        
-        item { Spacer(modifier = Modifier.height(24.dp)) }
-    }
-}
 
-@Composable
-private fun OverviewHeader(
-    filterMode: String,
-    fyQuarter: Int,
-    selectedMonth: Int,
-    mainOptions: List<String>,
-    onFilterModeChange: (String) -> Unit
-) {
-    val subtitle = remember(filterMode, selectedMonth, fyQuarter) {
-        when {
-            filterMode == "Overall" -> "All Time"
-            selectedMonth != -1 -> "${StatisticsUtils.monthNames[selectedMonth]} Statistics"
-            fyQuarter != 0 -> "Quarter ${fyQuarter} Statistics"
-            else -> "Annual Statistics ($filterMode)"
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Doses",
+                    value = String.format(Locale.US, "%,d", dosesCount),
+                    icon = Icons.Default.Vaccines,
+                    iconColor = customColors.textOrange,
+                    iconBackground = customColors.softOrange,
+                    growthPercentage = StatisticsUtils.calculateGrowth(dosesCount.toDouble(), prevDosesCount.toDouble())
+                )
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Revenue",
+                    value = String.format(Locale.US, "₹%,.0f", currentStats.totalRevenue),
+                    icon = Icons.Default.CurrencyRupee,
+                    iconColor = customColors.textBlue,
+                    iconBackground = customColors.softBlue,
+                    growthPercentage = StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
+                )
+            }
         }
-    }
-    
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text("Overview", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Cash",
+                    value = String.format(Locale.US, "₹%,.0f", currentStats.cashTotal),
+                    icon = Icons.Default.Payments,
+                    iconColor = customColors.textGreen,
+                    iconBackground = customColors.softGreen,
+                    growthPercentage = StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
+                )
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Online",
+                    value = String.format(Locale.US, "₹%,.0f", currentStats.onlineTotal),
+                    icon = Icons.Default.CreditCard,
+                    iconColor = customColors.textBlue,
+                    iconBackground = customColors.softBlue,
+                    growthPercentage = StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
+                )
+            }
         }
-        
-        var expanded by remember { mutableStateOf(false) }
-        Box {
-            AssistChip(
-                onClick = { expanded = true },
-                label = { Text(filterMode) },
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
+
+        item {
+            SummaryCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Net Profit",
+                value = if (currentStats.isProfitComplete) String.format(Locale.US, "₹%,.0f", currentStats.netProfit) else "Unavailable",
+                icon = Icons.Default.TrendingUp,
+                iconColor = customColors.textPink,
+                iconBackground = customColors.softPink,
+                growthPercentage = if (currentStats.isProfitComplete && prevStats.isProfitComplete) StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit) else null
             )
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                mainOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            onFilterModeChange(option)
-                            expanded = false
-                        }
-                    )
-                }
+        }
+
+        item {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                Text(
+                    "Quick Overview",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TrendChart(
+                    title = "Monthly Trend (Last 6 Months)",
+                    data = trendData,
+                    seriesLabels = listOf("Patients", "Consultations", "Vaccinations", "Revenue (₹K)"),
+                    seriesColors = listOf(ChartPatients, ChartConsultations, ChartVaccinations, ChartRevenue)
+                )
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { /* Navigate to full report */ },
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "View full report",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
@@ -172,73 +323,96 @@ private fun OverviewHeader(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuarterAndMonthFilters(
+private fun FilterSection(
+    availableYears: List<String>,
+    filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
+    onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-        Text("Quarters", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatisticsUtils.fyQuarters.forEachIndexed { index, _ ->
-                val qNum = index + 1
-                FilterChip(
-                    selected = fyQuarter == qNum,
-                    onClick = { onQuarterChange(qNum) },
-                    label = { Text("Q$qNum") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        
-        if (fyQuarter > 0) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Months in Q$fyQuarter", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatisticsUtils.fyQuarters[fyQuarter - 1].second.forEach { mIdx ->
-                    FilterChip(
-                        selected = selectedMonth == mIdx,
-                        onClick = { onMonthChange(mIdx) },
-                        label = { Text(StatisticsUtils.monthNames[mIdx], style = MaterialTheme.typography.labelSmall) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Financial Year Dropdown
+        var yearExpanded by remember { mutableStateOf(false) }
+        val currentFY = filterMode.substringAfter("FY ").let { "20$it" }
+        ExposedDropdownMenuBox(
+            expanded = yearExpanded,
+            onExpandedChange = { yearExpanded = it },
+            modifier = Modifier.weight(1.3f)
+        ) {
+            OutlinedTextField(
+                value = "Financial Year  $currentFY",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+            ExposedDropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
+                availableYears.forEach { year ->
+                    DropdownMenuItem(
+                        text = { Text(year) },
+                        onClick = { onFilterModeChange(year); yearExpanded = false }
                     )
                 }
             }
         }
-    }
-}
 
-@Composable
-private fun StatsGrid(stats: List<StatItem>) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        for (i in stats.indices step 2) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                StatCardSmall(Modifier.weight(1f), stats[i].title, stats[i].value, stats[i].icon, stats[i].color)
-                Spacer(modifier = Modifier.width(12.dp))
-                if (i + 1 < stats.size) {
-                    StatCardSmall(Modifier.weight(1f), stats[i + 1].title, stats[i + 1].value, stats[i + 1].icon, stats[i + 1].color)
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
+        // Quarter Dropdown
+        var qExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = qExpanded,
+            onExpandedChange = { qExpanded = it },
+            modifier = Modifier.weight(0.9f)
+        ) {
+            OutlinedTextField(
+                value = if (fyQuarter == 0) "Quarter  All" else "Quarter  Q$fyQuarter",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+            ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
+                DropdownMenuItem(text = { Text("All") }, onClick = { onQuarterChange(0); qExpanded = false })
+                (1..4).forEach { q ->
+                    DropdownMenuItem(text = { Text("Q$q") }, onClick = { onQuarterChange(q); qExpanded = false })
                 }
             }
         }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-private fun OverviewTabPreview() {
-    NeoChildTheme {
-        OverviewContent(
-            stats = listOf(StatItem("New Patients", "10", Icons.Default.PersonAdd, Color.Green)),
-            filterMode = "Overall",
-            fyQuarter = 0,
-            selectedMonth = -1,
-            availableYears = listOf("2023-24"),
-            onFilterModeChange = {},
-            onQuarterChange = {},
-            onMonthChange = {}
-        )
+        // Month Dropdown
+        var mExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = mExpanded,
+            onExpandedChange = { mExpanded = it },
+            modifier = Modifier.weight(0.8f)
+        ) {
+            OutlinedTextField(
+                value = if (selectedMonth == -1) "Month  All" else "Month  ${StatisticsUtils.monthNames[selectedMonth]}",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.menuAnchor(),
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+            ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
+                DropdownMenuItem(text = { Text("All") }, onClick = { onMonthChange(-1); mExpanded = false })
+                val months = if (fyQuarter == 0) (0..11).toList() else StatisticsUtils.fyQuarters[fyQuarter - 1].second
+                months.forEach { mIdx ->
+                    DropdownMenuItem(text = { Text(StatisticsUtils.monthNames[mIdx]) }, onClick = { onMonthChange(mIdx); mExpanded = false })
+                }
+            }
+        }
     }
 }

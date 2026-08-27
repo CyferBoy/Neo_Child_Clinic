@@ -1,16 +1,25 @@
 package com.neochildclinic.features.statistics
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
@@ -37,20 +46,16 @@ fun StatisticsScreen(
 
     val viewModel: StatisticsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(uiState.refreshError) { uiState.refreshError?.let { snackbarHostState.showSnackbar(it) } }
+    
+    LaunchedEffect(uiState.refreshError) { 
+        uiState.refreshError?.let { snackbarHostState.showSnackbar(it) } 
+    }
 
     StatisticsContent(
         uiState = uiState,
-        drawerState = drawerState,
-        onTabSelected = { tab ->
-            viewModel.updateTab(tab)
-            scope.launch { drawerState.close() }
-        },
+        onTabSelected = { viewModel.updateTab(it) },
         onRefresh = viewModel::refresh,
-        onMenuClick = { scope.launch { drawerState.open() } },
         onBack = onBack,
         onMonthClick = onMonthClick,
         snackbarHostState = snackbarHostState
@@ -66,10 +71,7 @@ private fun StatisticsAccessDeniedScreen(onBack: () -> Unit) {
                 title = { Text("Statistics") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -114,130 +116,128 @@ private fun StatisticsAccessDeniedScreen(onBack: () -> Unit) {
 @Composable
 private fun StatisticsContent(
     uiState: StatisticsUiState,
-    drawerState: DrawerState,
     onTabSelected: (Int) -> Unit,
     onRefresh: () -> Unit,
-    onMenuClick: () -> Unit,
     onBack: () -> Unit,
     onMonthClick: (String) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
-    val tabs = remember { listOf("Overview", "Patients", "Vaccinations", "Finance") }
+    val tabs = listOf(
+        TabItem("Overview", Icons.Default.PieChart),
+        TabItem("Patients", Icons.Default.People),
+        TabItem("Vaccinations", Icons.Default.Vaccines),
+        TabItem("Finance", Icons.Default.BusinessCenter),
+        TabItem("Map", Icons.Default.Map)
+    )
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            StatisticsDrawerContent(
-                tabs = tabs,
-                selectedTab = uiState.selectedTab,
-                onTabSelected = onTabSelected,
-                onBack = onBack
-            )
-        }
-    ) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            topBar = {
-                TopAppBar(
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                CenterAlignedTopAppBar(
                     title = {
-                        Column {
-                            Text("Statistics", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                text = tabs[uiState.selectedTab],
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            "Statistics",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     },
                     navigationIcon = {
-                        IconButton(onClick = onMenuClick) {
-                            Icon(Icons.Default.Menu, contentDescription = "Open Menu", tint = MaterialTheme.colorScheme.onPrimary)
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 )
-            },
-        ) { paddingValues ->
-            AppPullToRefresh(
-                isRefreshing = uiState.isRefreshing,
-                onRefresh = onRefresh,
-                modifier = Modifier.padding(paddingValues)
-            ) {
-                if (uiState.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                
+                // Horizontal Tab Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        TabIndicator(
+                            modifier = Modifier.weight(1f),
+                            title = tab.title,
+                            icon = tab.icon,
+                            isSelected = uiState.selectedTab == index,
+                            onClick = { onTabSelected(index) }
+                        )
                     }
-                } else {
-                    StatisticsTabContent(
-                        selectedTab = uiState.selectedTab,
-                        patients = uiState.patients,
-                        vaccinations = uiState.vaccinations,
-                        inventory = uiState.inventory,
-                        financeTransactions = uiState.financeTransactions,
-                        vaccinationReminders = uiState.vaccinationReminders,
-                        onMonthClick = onMonthClick
-                    )
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+        },
+    ) { paddingValues ->
+        AppPullToRefresh(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                StatisticsTabContent(
+                    selectedTab = uiState.selectedTab,
+                    patients = uiState.patients,
+                    vaccinations = uiState.vaccinations,
+                    inventory = uiState.inventory,
+                    financeTransactions = uiState.financeTransactions,
+                    vaccinationReminders = uiState.vaccinationReminders,
+                    onMonthClick = onMonthClick
+                )
             }
         }
     }
 }
 
 @Composable
-private fun StatisticsDrawerContent(
-    tabs: List<String>,
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit,
-    onBack: () -> Unit
+private fun TabIndicator(
+    modifier: Modifier = Modifier,
+    title: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
 ) {
-    ModalDrawerSheet {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            "Statistics Menu",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
+    Column(
+        modifier = modifier
+            .selectable(selected = isSelected, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.size(24.dp)
         )
-        HorizontalDivider()
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 12.sp
+        )
         Spacer(modifier = Modifier.height(8.dp))
-        tabs.forEachIndexed { index, title ->
-            NavigationDrawerItem(
-                label = { Text(title) },
-                selected = selectedTab == index,
-                onClick = { onTabSelected(index) },
-                icon = {
-                    val icon = when (title) {
-                        "Overview" -> Icons.Default.Dashboard
-                        "Patients" -> Icons.Default.People
-                        "Vaccinations" -> Icons.Default.Vaccines
-                        "Finance" -> Icons.Default.Payments
-                        else -> Icons.Default.BarChart
-                    }
-                    Icon(icon, contentDescription = null)
-                },
-                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                    .background(MaterialTheme.colorScheme.primary)
             )
         }
-        Spacer(modifier = Modifier.weight(1f))
-        NavigationDrawerItem(
-            label = { Text("Back to Dashboard") },
-            selected = false,
-            onClick = onBack,
-            icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
-            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "v${com.neochildclinic.BuildConfig.VERSION_NAME}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 16.dp)
-        )
     }
 }
+
+private data class TabItem(val title: String, val icon: ImageVector)
 
 @Composable
 private fun StatisticsTabContent(
@@ -254,23 +254,8 @@ private fun StatisticsTabContent(
         1 -> PatientsTab(patients)
         2 -> VaccinationsTab(vaccinations, vaccinationReminders)
         3 -> FinanceTab(vaccinations, financeTransactions, onMonthClick)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
-@Composable
-private fun StatisticsPreview() {
-    NeoChildTheme {
-        StatisticsContent(
-            uiState = StatisticsUiState(isLoading = false, selectedTab = 0),
-            drawerState = rememberDrawerState(DrawerValue.Closed),
-            onTabSelected = {},
-            onMenuClick = {},
-            onBack = {},
-            onMonthClick = {},
-            onRefresh = {},
-            snackbarHostState = remember { SnackbarHostState() }
-        )
+        4 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Map coming soon", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
