@@ -49,7 +49,7 @@ fun AddBatchScreen(
         }
     }
 
-    LaunchedEffect(uiState.batch, uiState.defaultBatch) {
+    LaunchedEffect(uiState.batch, uiState.defaultMrp, uiState.defaultNetRate, uiState.defaultManufacturer) {
         uiState.batch?.let { b ->
             batchNumber = b.batchNumber
             quantity = b.remainingQuantity.toString()
@@ -57,10 +57,10 @@ fun AddBatchScreen(
             mrp = b.sellingPrice.toString()
             netRate = b.purchaseCost.toString()
             manufacturer = b.manufacturer
-        } ?: uiState.defaultBatch?.let { d ->
-            mrp = d.sellingPrice.toString()
-            netRate = d.purchaseCost.toString()
-            manufacturer = d.manufacturer
+        } ?: run {
+            uiState.defaultMrp?.let { mrp = it.toString() }
+            uiState.defaultNetRate?.let { netRate = it.toString() }
+            uiState.defaultManufacturer?.let { manufacturer = it }
         }
     }
 

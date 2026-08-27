@@ -19,7 +19,10 @@ data class AddBatchUiState(
     val isSaved: Boolean = false,
     val error: String? = null,
     val batch: VaccineBatchEntity? = null,
-    val defaultBatch: VaccineBatchEntity? = null
+    val defaultBatch: VaccineBatchEntity? = null,
+    val defaultMrp: Double? = null,
+    val defaultNetRate: Double? = null,
+    val defaultManufacturer: String? = null
 )
 
 @HiltViewModel
@@ -45,9 +48,19 @@ class AddBatchViewModel @Inject constructor(
 
     fun loadDefaults(vaccineId: String) {
         viewModelScope.launch {
-            inventoryRepository.getVaccineBatches(vaccineId).firstOrNull()?.let { batches ->
-                val latest = batches.maxByOrNull { it.purchaseDate } ?: batches.maxByOrNull { it.expiryDate }
-                _uiState.update { it.copy(defaultBatch = latest) }
+            // Prefer the latest existing batch's pricing/manufacturer; fall back to the
+            // vaccine's own defaults (e.g. for a vaccine's very first batch).
+            val vaccine = inventoryRepository.getVaccineById(vaccineId)
+            val latest = inventoryRepository.getVaccineBatches(vaccineId).firstOrNull()
+                ?.let { batches -> batches.maxByOrNull { it.purchaseDate } ?: batches.maxByOrNull { it.expiryDate } }
+
+            _uiState.update {
+                it.copy(
+                    defaultBatch = latest,
+                    defaultMrp = latest?.sellingPrice ?: vaccine?.mrp,
+                    defaultNetRate = latest?.purchaseCost ?: vaccine?.netRate,
+                    defaultManufacturer = latest?.manufacturer ?: vaccine?.manufacturer
+                )
             }
         }
     }
@@ -97,6 +110,17 @@ class AddBatchViewModel @Inject constructor(
                     )
                     inventoryRepository.addBatch(batch, user)
                 }
+
+                // If this batch's price differs from the vaccine's current default price,
+                // that new price becomes the vaccine's default going forward.
+                val vaccine = inventoryRepository.getVaccineById(vaccineId)
+                if (vaccine != null && (vaccine.mrp != mrp || vaccine.netRate != netRate)) {
+                    inventoryRepository.updateVaccine(
+                        vaccine.copy(mrp = mrp, netRate = netRate),
+                        user
+                    )
+                }
+
                 _uiState.update { it.copy(isSaved = true, isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }

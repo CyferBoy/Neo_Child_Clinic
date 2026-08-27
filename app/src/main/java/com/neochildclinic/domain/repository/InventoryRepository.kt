@@ -19,6 +19,7 @@ interface InventoryRepository {
     fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>>
     fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>>
     suspend fun getBatchById(batchId: String): VaccineBatchEntity?
+    suspend fun getVaccineById(vaccineId: String): VaccineEntity?
     
     suspend fun addVaccine(vaccine: VaccineEntity, user: String)
     suspend fun updateVaccine(vaccine: VaccineEntity, user: String)
@@ -70,6 +71,18 @@ interface InventoryRepository {
         user: String,
         visitId: String? = null,
         patientId: String? = null
+    )
+
+    // Returns previously borrowed stock. If returnToBatchId matches the batch the
+    // stock was originally borrowed from, that batch's borrowedQuantity is cleared.
+    // If it's returned into a different batch, the stock lands there but the
+    // original batch keeps showing the amount as still outstanding/borrowed.
+    suspend fun returnBorrowedStock(
+        originalBatchId: String,
+        returnToBatchId: String,
+        quantity: Int,
+        user: String,
+        notes: String? = null
     )
 
     suspend fun adjustStock(

@@ -4,6 +4,8 @@ enum class InventoryTransactionType {
     PURCHASE,
     VACCINATION,
     RETURN,
+    BORROWED,
+    BORROW_RETURN,
     EXPIRED,
     DAMAGED,
     COLD_CHAIN_FAILURE,

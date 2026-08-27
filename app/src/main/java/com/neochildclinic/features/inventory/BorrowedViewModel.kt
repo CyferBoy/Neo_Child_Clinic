@@ -106,7 +106,7 @@ class BorrowedViewModel @Inject constructor(
                     vaccineId = item.vaccineId,
                     quantity = item.quantity,
                     user = user,
-                    transactionType = InventoryTransactionType.OTHER
+                    transactionType = InventoryTransactionType.BORROWED
                 )
                 postgrest.from("borrow_records").insert(item.copy(id = UUID.randomUUID().toString()))
             } else {
@@ -118,14 +118,20 @@ class BorrowedViewModel @Inject constructor(
         }
     }
 
-    fun markAsReturned(record: BorrowedVaccine) {
+    fun markAsReturned(record: BorrowedVaccine, returnToBatchId: String? = null) {
         viewModelScope.launch {
             val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
             val updated = record.copy(isReturned = true, returnedDate = sdf.format(Date()))
             
-            // Returned - Restore stock
-            inventoryRepository.addStockToBatch(record.batchId, record.quantity, user, InventoryTransactionType.RETURN)
+            // Returned - Restore stock. If returnToBatchId differs from the batch it was
+            // borrowed from, the original batch keeps its borrowedQuantity as outstanding.
+            inventoryRepository.returnBorrowedStock(
+                originalBatchId = record.batchId,
+                returnToBatchId = returnToBatchId ?: record.batchId,
+                quantity = record.quantity,
+                user = user
+            )
             
             postgrest.from("borrow_records").update(updated) {
                 filter { eq("id", record.id) }
