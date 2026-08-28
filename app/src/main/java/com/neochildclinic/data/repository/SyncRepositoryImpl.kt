@@ -229,12 +229,7 @@ class SyncRepositoryImpl @Inject constructor(
             "WASTE" -> "waste_records"
             "REMINDERS" -> "reminders"
             "VACCINE" -> "vaccines"
-            "BATCH" -> {
-                if (item.operation == SyncOperation.UPDATE.name) {
-                    return 
-                }
-                "vaccine_batches"
-            }
+            "BATCH" -> "vaccine_batches"
             "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
             "PATIENT_NOTE" -> "patient_notes"
             "FINANCE" -> "finance_transactions"

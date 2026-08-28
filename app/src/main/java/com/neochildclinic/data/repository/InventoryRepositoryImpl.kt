@@ -43,7 +43,11 @@ class InventoryRepositoryImpl @Inject constructor(
     // matching used/wasted/borrowed bucket alongside remainingQuantity so those
     // counters always stay consistent with why stock left the batch.
     private fun VaccineBatchEntity.deducted(quantity: Int, transactionType: InventoryTransactionType, userName: String): VaccineBatchEntity {
-        val base = copy(remainingQuantity = remainingQuantity - quantity, updatedBy = userName)
+        val base = copy(
+            remainingQuantity = remainingQuantity - quantity,
+            updatedBy = userName,
+            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+        )
         return when (transactionType) {
             InventoryTransactionType.VACCINATION -> base.copy(usedQuantity = usedQuantity + quantity)
             InventoryTransactionType.BORROWED -> base.copy(borrowedQuantity = borrowedQuantity + quantity)
@@ -199,7 +203,8 @@ class InventoryRepositoryImpl @Inject constructor(
             val userName = sessionManager.getCurrentUserName()
             val entityWithAudit = batch.copy(
                 createdBy = userName,
-                updatedBy = userName
+                updatedBy = userName,
+                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             )
             vaccineDao.insertBatch(entityWithAudit)
             memoryCache.putBatch(entityWithAudit)
@@ -283,7 +288,13 @@ class InventoryRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
             }
-            // NO SYNC BATCH UPDATE.
+
+            syncRepository.enqueue(
+                entityName = "BATCH",
+                entityId = batch.batchId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
+            )
         }
     }
 
@@ -410,6 +421,13 @@ class InventoryRepositoryImpl @Inject constructor(
                     priority = SyncPriority.HIGH,
                     transactionGroupId = transactionGroupId
                 )
+                syncRepository.enqueue(
+                    entityName = "BATCH",
+                    entityId = batch.batchId,
+                    operation = SyncOperation.UPDATE,
+                    priority = SyncPriority.MEDIUM,
+                    transactionGroupId = transactionGroupId
+                )
                 remaining -= deduct
             }
 
@@ -471,6 +489,12 @@ class InventoryRepositoryImpl @Inject constructor(
                 operation = SyncOperation.CREATE,
                 priority = SyncPriority.HIGH
             )
+            syncRepository.enqueue(
+                entityName = "BATCH",
+                entityId = batchId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
+            )
         }
     }
 
@@ -491,12 +515,14 @@ class InventoryRepositoryImpl @Inject constructor(
                 batch.copy(
                     remainingQuantity = batch.remainingQuantity + quantity,
                     wastedQuantity = (batch.wastedQuantity - quantity).coerceAtLeast(0),
-                    updatedBy = userName
+                    updatedBy = userName,
+                    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
                 )
             } else {
                 batch.copy(
                     remainingQuantity = batch.remainingQuantity + quantity,
-                    updatedBy = userName
+                    updatedBy = userName,
+                    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
                 )
             }
             vaccineDao.updateBatch(updatedBatch)
@@ -522,6 +548,12 @@ class InventoryRepositoryImpl @Inject constructor(
                 operation = SyncOperation.CREATE,
                 priority = SyncPriority.HIGH
             )
+            syncRepository.enqueue(
+                entityName = "BATCH",
+                entityId = batchId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
+            )
         }
     }
 
@@ -538,7 +570,8 @@ class InventoryRepositoryImpl @Inject constructor(
             vaccineDao.updateBatch(batch.copy(
                 remainingQuantity = batch.remainingQuantity + quantity,
                 usedQuantity = (batch.usedQuantity - quantity).coerceAtLeast(0),
-                updatedBy = userName
+                updatedBy = userName,
+                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             ))
 
             val transaction = InventoryTransactionEntity(
@@ -562,6 +595,12 @@ class InventoryRepositoryImpl @Inject constructor(
                 entityId = transaction.transactionId,
                 operation = SyncOperation.CREATE,
                 priority = SyncPriority.HIGH
+            )
+            syncRepository.enqueue(
+                entityName = "BATCH",
+                entityId = batchId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
             )
         }
     }
@@ -599,6 +638,12 @@ class InventoryRepositoryImpl @Inject constructor(
                 operation = SyncOperation.CREATE,
                 priority = SyncPriority.MEDIUM
             )
+            syncRepository.enqueue(
+                entityName = "BATCH",
+                entityId = batchId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
+            )
         }
     }
 
@@ -622,12 +667,14 @@ class InventoryRepositoryImpl @Inject constructor(
                 targetBatch.copy(
                     remainingQuantity = targetBatch.remainingQuantity + quantity,
                     borrowedQuantity = (targetBatch.borrowedQuantity - quantity).coerceAtLeast(0),
-                    updatedBy = userName
+                    updatedBy = userName,
+                    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
                 )
             } else {
                 targetBatch.copy(
                     remainingQuantity = targetBatch.remainingQuantity + quantity,
-                    updatedBy = userName
+                    updatedBy = userName,
+                    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
                 )
             }
             vaccineDao.updateBatch(updatedBatch)
@@ -656,6 +703,12 @@ class InventoryRepositoryImpl @Inject constructor(
                 entityId = transaction.transactionId,
                 operation = SyncOperation.CREATE,
                 priority = SyncPriority.HIGH
+            )
+            syncRepository.enqueue(
+                entityName = "BATCH",
+                entityId = returnToBatchId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
             )
         }
     }

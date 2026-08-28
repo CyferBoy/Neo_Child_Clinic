@@ -59,7 +59,7 @@ class AddBatchViewModel @Inject constructor(
                     defaultBatch = latest,
                     defaultMrp = latest?.sellingPrice ?: vaccine?.mrp,
                     defaultNetRate = latest?.purchaseCost ?: vaccine?.netRate,
-                    defaultManufacturer = latest?.manufacturer ?: vaccine?.manufacturer
+                    defaultManufacturer = latest?.manufacturer ?: vaccine?.manufacturer ?: vaccine?.companyName
                 )
             }
         }
