@@ -14,6 +14,8 @@ import com.neochildclinic.domain.repository.SyncState
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -319,7 +321,7 @@ class SyncRepositoryImpl @Inject constructor(
                 is WasteEntity -> postgrest.from(table).upsert(localData)
                 is ReminderEntity -> postgrest.from(table).upsert(localData.toRemote())
                 is VaccineEntity -> postgrest.from(table).upsert(localData)
-                is VaccineBatchEntity -> postgrest.from(table).upsert(localData)
+                is VaccineBatchEntity -> uploadBatch(table, localData, item.operation == SyncOperation.CREATE.name)
                 is InventoryTransactionEntity -> postgrest.from(table).upsert(localData)
                 is FinanceEntity -> postgrest.from(table).upsert(localData)
                 is AuditLogEntity -> postgrest.from(table).upsert(localData)
@@ -331,6 +333,32 @@ class SyncRepositoryImpl @Inject constructor(
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
             }
         }
+    }
+
+    // vaccine_batches.remaining_quantity is maintained server-side by the
+    // tr_update_batch_stock trigger, which adjusts it by NEW.quantity for every
+    // inventory_transactions row this app inserts (positive for purchases/restocks,
+    // negative for deductions - see InventoryRepositoryImpl). If this upsert also sent
+    // remaining_quantity, every change would be applied twice: once directly by the app,
+    // once again by the trigger reacting to the paired transaction row. So:
+    //  - on CREATE, send remaining_quantity = 0 (satisfies any NOT NULL constraint) and
+    //    let the paired PURCHASE transaction - inserted right after, same sync group -
+    //    bring it up to purchaseQuantity via the trigger.
+    //  - on every other operation, omit remaining_quantity entirely so the column is left
+    //    untouched by this upsert; whatever accompanying transaction row was inserted for
+    //    that change is what the trigger reacts to.
+    // Room keeps computing remaining_quantity locally as before, for offline-first display.
+    private suspend fun uploadBatch(table: String, localData: VaccineBatchEntity, isCreate: Boolean) {
+        val fullJson = kotlinx.serialization.json.Json.encodeToJsonElement(
+            VaccineBatchEntity.serializer(), localData
+        ) as JsonObject
+        val fields = fullJson.toMutableMap()
+        if (isCreate) {
+            fields["remaining_quantity"] = kotlinx.serialization.json.JsonPrimitive(0)
+        } else {
+            fields.remove("remaining_quantity")
+        }
+        postgrest.from(table).upsert(JsonObject(fields))
     }
 
     // patient_visits.receipt_number is assigned by a database trigger (never by this app -
