@@ -200,16 +200,6 @@ fun PatientDetailsScreen(
                             }
                         )
                     }
-                    ListItem(
-                        headlineContent = { Text("View Audit History") },
-                        leadingContent = { Icon(Icons.Default.History, null) },
-                        modifier = Modifier.clickable {
-                            showSheet = false
-                            // Assuming we can use showAuditLog for individual records or patient
-                            // For now, mirroring the existing behavior
-                            showAuditLog = true
-                        }
-                    )
                 } else if (selectedConsultationForAction != null) {
                     if (canEditOrDelete) {
                         ListItem(
@@ -242,13 +232,13 @@ fun PatientDetailsScreen(
                     title = { Text("Patient Details") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     },
                     actions = {
                         Box {
                             IconButton(onClick = { menuExpanded = true }) {
-                                Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onPrimary)
+                                Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             DropdownMenu(
                                 expanded = menuExpanded,

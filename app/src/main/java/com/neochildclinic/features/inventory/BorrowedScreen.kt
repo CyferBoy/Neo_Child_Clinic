@@ -1,7 +1,6 @@
 package com.neochildclinic.features.inventory
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -146,70 +145,18 @@ private fun BorrowedContent(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredList, key = { it.id }) { item ->
-                        BorrowedItemCard(
+                        BorrowedRecordCard(
                             item = item,
                             onEdit = { onEditRequest(item) },
                             onReturn = { onReturnRequest(item) },
                             onDelete = { onDeleteRequest(item) },
                             modifier = Modifier.animateItem()
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun BorrowedItemCard(
-    item: BorrowedDisplayItem,
-    onEdit: () -> Unit,
-    onReturn: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = { },
-                onLongClick = { menuExpanded = true }
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (item.isReturned) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
-                             else MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Box(modifier = Modifier.padding(16.dp)) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(item.doctorName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    if (item.isReturned) {
-                        Text("RETURNED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
-                    }
-                }
-                Text("Vaccine: ${item.vaccineName}", style = MaterialTheme.typography.bodyMedium)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Date: ${formatDateForDisplay(item.borrowedDate)}", style = MaterialTheme.typography.bodySmall)
-                    Text("Batch: ${item.batchNumber}", style = MaterialTheme.typography.bodySmall)
-                }
-                Text("Expiry: ${formatDateForDisplay(item.expiryDate)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-            }
-            
-            Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(text = { Text("Edit") }, onClick = { menuExpanded = false; onEdit() })
-                    if (!item.isReturned) {
-                        DropdownMenuItem(text = { Text("Mark as Returned") }, onClick = { menuExpanded = false; onReturn() })
-                    }
-                    DropdownMenuItem(text = { Text("Delete") }, onClick = { menuExpanded = false; onDelete() })
                 }
             }
         }

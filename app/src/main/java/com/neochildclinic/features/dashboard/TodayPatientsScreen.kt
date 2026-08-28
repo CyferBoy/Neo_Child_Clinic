@@ -45,6 +45,7 @@ fun TodayPatientsScreen(
     var selectedTab by rememberSaveable { mutableStateOf(TodayPatientTab.CONSULTATION) }
     var showSelectionDialog by remember { mutableStateOf(false) }
     var showAddDialogForType by remember { mutableStateOf<TodayPatientTab?>(null) }
+    var editingTodo by remember { mutableStateOf<Any?>(null) }
     var showMonthYearPicker by remember { mutableStateOf(false) }
 
     val pendingList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.todayConsultations else uiState.todayVaccinations
@@ -94,7 +95,10 @@ fun TodayPatientsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showSelectionDialog = true },
+                onClick = { 
+                    editingTodo = null
+                    showSelectionDialog = true 
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -166,7 +170,8 @@ fun TodayPatientsScreen(
                                     is ConsultationTodoEntity -> viewModel.deleteConsultation(item.id)
                                     is VaccinationTodoEntity -> viewModel.deleteVaccination(item.id)
                                 }
-                            }
+                            },
+                            onEdit = { editingTodo = item }
                         )
                     }
 
@@ -200,7 +205,8 @@ fun TodayPatientsScreen(
                                         is ConsultationTodoEntity -> viewModel.deleteConsultation(item.id)
                                         is VaccinationTodoEntity -> viewModel.deleteVaccination(item.id)
                                     }
-                                }
+                                },
+                                onEdit = { editingTodo = item }
                             )
                         }
                     }
@@ -230,18 +236,33 @@ fun TodayPatientsScreen(
         )
     }
 
-    if (showAddDialogForType != null) {
+    if (showAddDialogForType != null || editingTodo != null) {
+        val currentType = when (editingTodo) {
+            is ConsultationTodoEntity -> TodayPatientTab.CONSULTATION
+            is VaccinationTodoEntity -> TodayPatientTab.VACCINATION
+            else -> showAddDialogForType ?: TodayPatientTab.CONSULTATION
+        }
         EnhancedAddTodoDialog(
-            type = showAddDialogForType!!,
+            type = currentType,
             patients = uiState.patients,
-            onDismiss = { showAddDialogForType = null },
+            initialItem = editingTodo,
+            onDismiss = { 
+                showAddDialogForType = null
+                editingTodo = null
+            },
             onConfirm = { name, mobile, address, vaccineNames, patientId ->
-                if (showAddDialogForType == TodayPatientTab.CONSULTATION) {
-                    viewModel.addConsultationDirect(patientId, name, mobile, address)
+                val id = when (editingTodo) {
+                    is ConsultationTodoEntity -> (editingTodo as ConsultationTodoEntity).id
+                    is VaccinationTodoEntity -> (editingTodo as VaccinationTodoEntity).id
+                    else -> null
+                }
+                if (currentType == TodayPatientTab.CONSULTATION) {
+                    viewModel.addConsultationDirect(id = id, patientId = patientId, name = name, mobile = mobile, address = address)
                 } else {
-                    viewModel.addVaccinationDirect(patientId, name, mobile, address, vaccineNames)
+                    viewModel.addVaccinationDirect(id = id, patientId = patientId, name = name, mobile = mobile, address = address, vaccineNames = vaccineNames)
                 }
                 showAddDialogForType = null
+                editingTodo = null
             }
         )
     }
@@ -354,14 +375,54 @@ private fun AddTypeSelectionDialog(
 private fun EnhancedAddTodoDialog(
     type: TodayPatientTab,
     patients: List<Patient>,
+    initialItem: Any? = null,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, String, String?) -> Unit
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var mobile by rememberSaveable { mutableStateOf("") }
-    var address by rememberSaveable { mutableStateOf("") }
-    var vaccineNames by rememberSaveable { mutableStateOf("") }
-    var selectedPatientId by remember { mutableStateOf<String?>(null) }
+    var name by rememberSaveable { 
+        mutableStateOf(
+            when (initialItem) {
+                is ConsultationTodoEntity -> initialItem.name
+                is VaccinationTodoEntity -> initialItem.name
+                else -> ""
+            }
+        )
+    }
+    var mobile by rememberSaveable { 
+        mutableStateOf(
+            when (initialItem) {
+                is ConsultationTodoEntity -> initialItem.mobile
+                is VaccinationTodoEntity -> initialItem.mobile
+                else -> ""
+            }
+        )
+    }
+    var address by rememberSaveable { 
+        mutableStateOf(
+            when (initialItem) {
+                is ConsultationTodoEntity -> initialItem.address
+                is VaccinationTodoEntity -> initialItem.address
+                else -> ""
+            }
+        )
+    }
+    var vaccineNames by rememberSaveable { 
+        mutableStateOf(
+            when (initialItem) {
+                is VaccinationTodoEntity -> initialItem.vaccineNames
+                else -> ""
+            }
+        )
+    }
+    var selectedPatientId by remember { 
+        mutableStateOf(
+            when (initialItem) {
+                is ConsultationTodoEntity -> initialItem.patientId
+                is VaccinationTodoEntity -> initialItem.patientId
+                else -> null
+            }
+        )
+    }
 
     val suggestions = remember(name, patients) {
         if (name.length >= 2) {
@@ -371,7 +432,10 @@ private fun EnhancedAddTodoDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (type == TodayPatientTab.CONSULTATION) "Add Consultation" else "Add Vaccination") },
+        title = { 
+            val prefix = if (initialItem == null) "Add" else "Edit"
+            Text(if (type == TodayPatientTab.CONSULTATION) "$prefix Consultation" else "$prefix Vaccination") 
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column {
@@ -440,7 +504,7 @@ private fun EnhancedAddTodoDialog(
                 enabled = name.isNotBlank() && mobile.isNotBlank() && (type == TodayPatientTab.CONSULTATION || vaccineNames.isNotBlank()),
                 onClick = { onConfirm(name, mobile, address, vaccineNames, selectedPatientId) }
             ) {
-                Text("Add")
+                Text(if (initialItem == null) "Add" else "Save")
             }
         },
         dismissButton = {
@@ -547,9 +611,12 @@ private fun TodayPatientItem(
     index: Int,
     item: Any,
     onStatusToggle: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
     val context = LocalContext.current
+    var menuExpanded by remember { mutableStateOf(false) }
+
     val status = when (item) {
         is ConsultationTodoEntity -> item.status
         is VaccinationTodoEntity -> item.status
@@ -582,7 +649,7 @@ private fun TodayPatientItem(
             .fillMaxWidth()
             .combinedClickable(
                 onClick = {},
-                onLongClick = onDelete
+                onLongClick = { menuExpanded = true }
             ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -632,6 +699,28 @@ private fun TodayPatientItem(
                     imageVector = if (isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                     contentDescription = if (isCompleted) "Mark Pending" else "Mark Completed",
                     tint = if (isCompleted) Color(0xFF4CAF50) else textColor
+                )
+            }
+            
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                    onClick = {
+                        menuExpanded = false
+                        onEdit()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    }
                 )
             }
         }

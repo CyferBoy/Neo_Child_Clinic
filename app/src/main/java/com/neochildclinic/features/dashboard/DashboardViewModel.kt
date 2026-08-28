@@ -133,6 +133,7 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun addConsultationDirect(
+        id: String? = null,
         patientId: String? = null,
         name: String,
         mobile: String,
@@ -140,7 +141,17 @@ class DashboardViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            patientTodoRepository.addConsultation(
+            val todo = if (id != null) {
+                ConsultationTodoEntity(
+                    id = id,
+                    patientId = patientId,
+                    name = name,
+                    mobile = mobile,
+                    address = address,
+                    todoDate = _selectedDate.value,
+                    updatedAt = now
+                )
+            } else {
                 ConsultationTodoEntity(
                     patientId = patientId,
                     name = name,
@@ -150,7 +161,8 @@ class DashboardViewModel @Inject constructor(
                     createdAt = now,
                     updatedAt = now
                 )
-            )
+            }
+            patientTodoRepository.addConsultation(todo)
         }
     }
 
@@ -165,6 +177,7 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun addVaccinationDirect(
+        id: String? = null,
         patientId: String? = null,
         name: String,
         mobile: String,
@@ -173,7 +186,18 @@ class DashboardViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            patientTodoRepository.addVaccination(
+            val todo = if (id != null) {
+                VaccinationTodoEntity(
+                    id = id,
+                    patientId = patientId,
+                    name = name,
+                    mobile = mobile,
+                    vaccineNames = vaccineNames,
+                    address = address,
+                    todoDate = _selectedDate.value,
+                    updatedAt = now
+                )
+            } else {
                 VaccinationTodoEntity(
                     patientId = patientId,
                     name = name,
@@ -184,7 +208,8 @@ class DashboardViewModel @Inject constructor(
                     createdAt = now,
                     updatedAt = now
                 )
-            )
+            }
+            patientTodoRepository.addVaccination(todo)
         }
     }
 
