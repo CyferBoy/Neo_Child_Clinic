@@ -43,6 +43,7 @@ import com.neochildclinic.features.settings.NotificationSettingsScreen
 import com.neochildclinic.features.profile.ProfileScreen
 import com.neochildclinic.features.reminder.DueScreen
 import com.neochildclinic.features.statistics.MonthlyFinanceDetailsScreen
+import com.neochildclinic.features.statistics.MilestonePatientsScreen
 import com.neochildclinic.features.statistics.StatisticsScreen
 import com.neochildclinic.features.inventory.AddVaccineScreen
 import com.neochildclinic.features.inventory.AddBatchScreen
@@ -368,6 +369,9 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onMonthClick = { monthKey ->
                     navController.navigate("monthly_finance_details/$monthKey")
+                },
+                onMilestoneClick = { milestoneKey ->
+                    navController.navigate("milestone_patients/$milestoneKey")
                 }
             )
         }
@@ -380,6 +384,20 @@ fun AppNavigation(
             MonthlyFinanceDetailsScreen(
                 monthKey = monthKey,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.MILESTONE_PATIENTS,
+            arguments = listOf(navArgument("milestoneKey") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val milestoneKey = backStackEntry.arguments?.getString("milestoneKey") ?: ""
+            MilestonePatientsScreen(
+                milestoneKey = milestoneKey,
+                onBack = { navController.popBackStack() },
+                onPatientClick = { patientId ->
+                    navController.navigate("patient_details/$patientId")
+                }
             )
         }
 

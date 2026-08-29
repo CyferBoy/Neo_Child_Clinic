@@ -100,6 +100,31 @@ object PatientUtils {
     }
 
     data class AgeMilestone(val label: String, val date: Calendar)
+
+    /**
+     * Whether a patient has already reached (or passed) a given age in whole months, as of
+     * onDate. Used for the "Older" milestone bucket - patients past the last defined
+     * milestone (18 Months) who getNextAgeMilestone() correctly returns null for, since it
+     * only looks ahead within its 2-month window.
+     */
+    fun isOlderThanMonths(dob: String, months: Int, onDate: Calendar = Calendar.getInstance()): Boolean {
+        val birthDate = parseDate(dob) ?: return false
+        val birth = Calendar.getInstance().apply {
+            time = birthDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val threshold = (birth.clone() as Calendar).apply { add(Calendar.MONTH, months) }
+        val today = (onDate.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return !threshold.after(today)
+    }
     
     /**
      * Returns a user-friendly age string (e.g., "5 Years", "2 Months", "3 Weeks").

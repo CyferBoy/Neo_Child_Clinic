@@ -204,8 +204,16 @@ fun DateDropdownPicker(
             // Month Dropdown
             Box(modifier = Modifier.weight(1.5f)) {
                 val months = SimpleDateFormat("MMM", Locale.ENGLISH).let { fmt ->
-                    (0..11).map { m -> 
-                        val cal = Calendar.getInstance().apply { set(Calendar.MONTH, m) }
+                    (0..11).map { m ->
+                        // Set DAY_OF_MONTH to 1 before setting MONTH - otherwise today's
+                        // day-of-month (e.g. 29-31) can overflow into the next month for any
+                        // target month with fewer days (e.g. Feb 29 in a non-leap year rolls
+                        // over to Mar 1), making that month's label render wrong (e.g. "Feb"
+                        // showing as "Mar").
+                        val cal = Calendar.getInstance().apply {
+                            set(Calendar.DAY_OF_MONTH, 1)
+                            set(Calendar.MONTH, m)
+                        }
                         fmt.format(cal.time)
                     }
                 }
@@ -242,6 +250,17 @@ fun DateDropdownPicker(
                 DropdownMenu(expanded = expandedMonth, onDismissRequest = { expandedMonth = false }) {
                     months.forEachIndexed { index, m ->
                         DropdownMenuItem(text = { Text(m) }, onClick = {
+                            // Clamp the day first - otherwise a day that doesn't exist in the
+                            // target month (e.g. the 31st, or the 29th of Feb in a non-leap
+                            // year) silently rolls the date over into the *following* month
+                            // instead of landing on the month the user actually tapped.
+                            val probe = Calendar.getInstance().apply {
+                                time = calendar.time
+                                set(Calendar.DAY_OF_MONTH, 1)
+                                set(Calendar.MONTH, index)
+                            }
+                            val maxDay = probe.getActualMaximum(Calendar.DAY_OF_MONTH)
+                            calendar[Calendar.DAY_OF_MONTH] = minOf(calendar[Calendar.DAY_OF_MONTH], maxDay)
                             calendar[Calendar.MONTH] = index
                             onDateSelected(SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(calendar.time))
                             expandedMonth = false
@@ -292,6 +311,15 @@ fun DateDropdownPicker(
                     // We reverse the order so the most relevant (current) years are at the TOP.
                     ((currentYear + 10) downTo (currentYear - 100)).forEach { y ->
                         DropdownMenuItem(text = { Text(y.toString()) }, onClick = {
+                            // Same day-overflow guard as the month picker - e.g. Feb 29
+                            // rolling into March when the chosen year isn't a leap year.
+                            val probe = Calendar.getInstance().apply {
+                                time = calendar.time
+                                set(Calendar.DAY_OF_MONTH, 1)
+                                set(Calendar.YEAR, y)
+                            }
+                            val maxDay = probe.getActualMaximum(Calendar.DAY_OF_MONTH)
+                            calendar[Calendar.DAY_OF_MONTH] = minOf(calendar[Calendar.DAY_OF_MONTH], maxDay)
                             calendar[Calendar.YEAR] = y
                             onDateSelected(SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(calendar.time))
                             expandedYear = false

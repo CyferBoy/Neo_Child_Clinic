@@ -21,40 +21,58 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.utils.PatientUtils
 import java.util.*
 
+// A single administered dose, sourced from vaccination_items (never gated on the parent
+// visit's status - see StatisticsUtils rules for the Administered segment). dateGiven is
+// carried over from the parent vaccination purely to filter/group by period; it is not a
+// vaccination_items column.
+private data class AdministeredDose(val vaccineName: String, val quantity: Int, val dateGiven: String)
+
+private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: Set<String>): List<AdministeredDose> =
+    vaccinations.flatMap { v ->
+        v.items
+            .filter { it.vaccineName.isNotBlank() && it.vaccineId in validVaccineIds }
+            .map { AdministeredDose(PatientUtils.cleanVaccineName(it.vaccineName), it.quantity.coerceAtLeast(0), v.dateGiven) }
+    }
+
 @Composable
-fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<ReminderEntity> = emptyList()) {
+fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<ReminderEntity> = emptyList(), vaccines: List<InventoryItem> = emptyList()) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
-    val validVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
-    val availableYears = remember(validVaccinations) { StatisticsUtils.getAvailableFinancialYears(validVaccinations.map { it.dateGiven }) }
+    val validVaccineIds = remember(vaccines) { vaccines.map { it.id }.toSet() }
+    // All administered doses, independent of visit status - the Administered segment's
+    // source of truth is vaccination_items itself, not the parent visit's completion state.
+    val allDoses = remember(vaccinations, validVaccineIds) { administeredDoses(vaccinations, validVaccineIds) }
+    val availableYears = remember(allDoses) { StatisticsUtils.getAvailableFinancialYears(allDoses.map { it.dateGiven }) }
 
     // Current period
-    val filteredVaccinations = remember(validVaccinations, filterMode, fyQuarter, selectedMonth) {
-        validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
+    val filteredDoses = remember(allDoses, filterMode, fyQuarter, selectedMonth) {
+        allDoses.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
-    
+
     // Previous period
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
     }
-    val prevVaccinations = remember(validVaccinations, prevFilter, prevQuarter, prevMonth) {
-        validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
+    val prevDoses = remember(allDoses, prevFilter, prevQuarter, prevMonth) {
+        allDoses.filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
     }
 
-    val vaccineStats = remember(filteredVaccinations) { calculateVaccineStats(filteredVaccinations) }
+    val vaccineStats = remember(filteredDoses) { calculateVaccineStats(filteredDoses) }
 
     VaccinationsContent(
-        vaccinations = filteredVaccinations,
-        prevVaccinations = prevVaccinations,
+        doses = filteredDoses,
+        prevDoses = prevDoses,
         stats = vaccineStats,
         vaccinationReminders = vaccinationReminders,
+        validVaccineIds = validVaccineIds,
         filterMode = filterMode,
         fyQuarter = fyQuarter,
         selectedMonth = selectedMonth,
@@ -68,10 +86,11 @@ fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VaccinationsContent(
-    vaccinations: List<Vaccination>,
-    prevVaccinations: List<Vaccination>,
+    doses: List<AdministeredDose>,
+    prevDoses: List<AdministeredDose>,
     stats: List<Pair<String, Int>>,
     vaccinationReminders: List<ReminderEntity>,
+    validVaccineIds: Set<String>,
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
@@ -99,8 +118,8 @@ private fun VaccinationsContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         SummaryCards(
-            vaccinations = vaccinations,
-            prevVaccinations = prevVaccinations,
+            doses = doses,
+            prevDoses = prevDoses,
             filterMode = filterMode,
             fyQuarter = fyQuarter,
             selectedMonth = selectedMonth
@@ -118,27 +137,32 @@ private fun VaccinationsContent(
         if (selectedSection == 0) {
             VaccineStatsSection(stats = stats)
         } else {
-            UpcomingVaccineNeedSection(reminders = vaccinationReminders)
+            UpcomingVaccineNeedSection(reminders = vaccinationReminders, validVaccineIds = validVaccineIds)
         }
     }
 }
 
 @Composable
 private fun SummaryCards(
-    vaccinations: List<Vaccination>,
-    prevVaccinations: List<Vaccination>,
+    doses: List<AdministeredDose>,
+    prevDoses: List<AdministeredDose>,
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int
 ) {
     val customColors = LocalCustomColors.current
-    val totalDoses = vaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }
-    val prevTotalDoses = prevVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }
-    
-    val monthCount = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
-        StatisticsUtils.monthCountForFilter(vaccinations.map { it.dateGiven }, filterMode, fyQuarter, selectedMonth)
+    val totalDoses = doses.sumOf { it.quantity }
+    val prevTotalDoses = prevDoses.sumOf { it.quantity }
+
+    val monthCount = remember(doses, filterMode, fyQuarter, selectedMonth) {
+        StatisticsUtils.monthCountForFilter(doses.map { it.dateGiven }, filterMode, fyQuarter, selectedMonth)
     }
     val avg = if (monthCount == 0) 0.0 else totalDoses.toDouble() / monthCount
+
+    // "Overall" has no meaningful previous period to compare against (its own previous
+    // period resolves back to itself), so any growth% would be artificial - omit it rather
+    // than show a misleading 0%.
+    val growth = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(totalDoses.toDouble(), prevTotalDoses.toDouble())
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         SummaryCard(
@@ -148,7 +172,7 @@ private fun SummaryCards(
             icon = Icons.Default.FactCheck,
             iconColor = customColors.textGreen,
             iconBackground = customColors.softGreen,
-            growthPercentage = StatisticsUtils.calculateGrowth(totalDoses.toDouble(), prevTotalDoses.toDouble())
+            growthPercentage = growth
         )
         SummaryCard(
             modifier = Modifier.weight(1f),
@@ -215,9 +239,9 @@ private fun VaccinationSectionSelector(
 }
 
 @Composable
-private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>) {
-    val stats = remember(reminders) {
-        calculateUpcomingVaccineNeeds(reminders)
+private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVaccineIds: Set<String>) {
+    val stats = remember(reminders, validVaccineIds) {
+        calculateUpcomingVaccineNeeds(reminders, validVaccineIds)
     }
     var expandedType by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -323,7 +347,7 @@ private fun FilterSection(
     ) {
         // Financial Year Dropdown
         var yearExpanded by remember { mutableStateOf(false) }
-        val currentFY = filterMode.substringAfter("FY ").let { "20$it" }
+        val currentFY = if (filterMode == "Overall") "Overall" else filterMode.substringAfter("FY ").let { "20$it" }
         ExposedDropdownMenuBox(
             expanded = yearExpanded,
             onExpandedChange = { yearExpanded = it },
@@ -409,7 +433,8 @@ private data class UpcomingVaccineTypeStat(
 )
 
 private fun calculateUpcomingVaccineNeeds(
-    reminders: List<ReminderEntity>
+    reminders: List<ReminderEntity>,
+    validVaccineIds: Set<String>
 ): List<UpcomingVaccineTypeStat> {
     val active = reminders.filter {
         it.status == "ACTIVE" &&
@@ -422,9 +447,20 @@ private fun calculateUpcomingVaccineNeeds(
         .map { (type, typeReminders) ->
             val brandCounts = mutableMapOf<String, Int>()
             typeReminders.forEach { reminder ->
-                reminder.vaccineName
-                    .split(",")
-                    .map { PatientUtils.cleanVaccineName(it.trim()) }
+                val names = reminder.vaccineName.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                val ids = reminder.nxtVaccineId
+                // Where IDs were recorded alongside the names (index-aligned, per the same
+                // distinct-list convention used when saving these reminders - see
+                // ReminderRepositoryImpl.saveNextVaccination), only count a name whose
+                // nxt_vaccine_id is verified against the vaccine table. Legacy rows with no
+                // IDs recorded at all fall back to the names as-is.
+                val verifiedNames = if (ids.isNullOrEmpty()) {
+                    names
+                } else {
+                    names.filterIndexed { index, _ -> ids.getOrNull(index) in validVaccineIds }
+                }
+                verifiedNames
+                    .map { PatientUtils.cleanVaccineName(it) }
                     .filter { it.isNotBlank() }
                     .distinct()
                     .forEach { brand ->
@@ -441,13 +477,10 @@ private fun calculateUpcomingVaccineNeeds(
         .sortedByDescending { it.count }
 }
 
-private fun calculateVaccineStats(vaccinations: List<Vaccination>): List<Pair<String, Int>> {
+private fun calculateVaccineStats(doses: List<AdministeredDose>): List<Pair<String, Int>> {
     val vaccineCounts = mutableMapOf<String, Int>()
-    vaccinations.forEach { v ->
-        v.items.forEachIndexed { index, item ->
-            val cleanName = PatientUtils.cleanVaccineName(StatisticsUtils.vaccineName(v, index))
-            if (cleanName.isNotBlank()) vaccineCounts[cleanName] = (vaccineCounts[cleanName] ?: 0) + item.quantity.coerceAtLeast(0)
-        }
+    doses.forEach { dose ->
+        vaccineCounts[dose.vaccineName] = (vaccineCounts[dose.vaccineName] ?: 0) + dose.quantity
     }
     return vaccineCounts.toList().sortedByDescending { it.second }
 }

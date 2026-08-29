@@ -452,12 +452,21 @@ class InventoryRepositoryImpl @Inject constructor(
         visitId: String?,
         patientId: String?,
         notes: String?,
-        allowExpired: Boolean
+        allowExpired: Boolean,
+        givenDate: String?
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
-            if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired && InventoryUtils.isExpired(batch.expiryDate)) {
-                throw IllegalStateException("Cannot deduct stock from an expired batch.")
+            if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired) {
+                // Validity is judged against the vaccination's given date, not today - a
+                // batch that has since expired by today is still valid for a historical
+                // record whose given date fell on or before the batch's expiry.
+                val expired = if (givenDate != null) {
+                    InventoryUtils.isExpiredAsOf(batch.expiryDate, givenDate)
+                } else {
+                    InventoryUtils.isExpired(batch.expiryDate)
+                }
+                if (expired) throw IllegalStateException("Cannot deduct stock from a batch that had already expired on the vaccination date.")
             }
             if (batch.remainingQuantity < quantity) {
                 throw IllegalStateException("Insufficient stock in Batch ${batch.batchNumber}. Available: ${batch.remainingQuantity}")

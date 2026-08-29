@@ -115,7 +115,8 @@ class VaccinationEditEngine @Inject constructor(
                     transactionType = InventoryTransactionType.VACCINATION,
                     visitId = new.id,
                     patientId = new.patientId,
-                    allowExpired = batchAlreadyUsed
+                    allowExpired = batchAlreadyUsed,
+                    givenDate = new.dateGiven
                 )
             } else {
                 inventoryRepository.reverseDeduction(

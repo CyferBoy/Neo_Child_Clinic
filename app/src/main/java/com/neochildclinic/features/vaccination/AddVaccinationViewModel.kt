@@ -246,7 +246,23 @@ class AddVaccinationViewModel @Inject constructor(
     }
 
     fun updateGivenDate(date: String) {
-        _uiState.update { it.copy(givenDate = date) }
+        _uiState.update { state ->
+            // Re-validate every row's current batch selection against the new given date -
+            // a batch that's still in stock but expires before the new date is no longer a
+            // valid selection and must be swapped for the next valid batch (or cleared).
+            val revalidated = state.vaccinesGiven.map { row ->
+                val batch = row.selectedBatch
+                if (batch == null || !InventoryUtils.isExpiredAsOf(batch.expiryDate, date)) {
+                    row
+                } else {
+                    val replacement = row.selectedVaccine?.batches
+                        ?.filter { it.remainingQuantity > 0 && !InventoryUtils.isExpiredAsOf(it.expiryDate, date) }
+                        ?.minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
+                    row.copy(selectedBatch = replacement)
+                }
+            }
+            state.copy(givenDate = date, vaccinesGiven = revalidated)
+        }
     }
 
     fun addVaccineRow() {
@@ -260,8 +276,9 @@ class AddVaccinationViewModel @Inject constructor(
     }
 
     fun selectVaccine(rowId: String, vaccine: InventoryItem) {
+        val givenDate = _uiState.value.givenDate
         val bestBatch = vaccine.batches
-            .filter { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
+            .filter { it.remainingQuantity > 0 && !InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate) }
             .minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
 
         _uiState.update { state ->
@@ -440,7 +457,14 @@ class AddVaccinationViewModel @Inject constructor(
                     doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                     performedBy = state.selectedDoctor.displayName,
                     items = items,
-                    nextVaccinations = emptyList()
+                    nextVaccinations = emptyList(),
+                    // Every record saved through this screen represents a dose that was
+                    // actually administered - status must be COMPLETED for it to count in
+                    // statistics (StatisticsUtils.isCountedVaccination) and appear under
+                    // Completed (CompletedDismissedScreen). Without this it silently keeps
+                    // the domain model's ACTIVE default, which also means editing an
+                    // existing COMPLETED record would revert it back to ACTIVE.
+                    status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED
                 )
 
                 if (isEdit && existingVaccination != null) {

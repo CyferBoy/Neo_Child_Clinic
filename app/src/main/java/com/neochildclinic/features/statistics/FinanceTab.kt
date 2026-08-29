@@ -220,7 +220,7 @@ private fun FilterSection(
     ) {
         // Financial Year Dropdown
         var yearExpanded by remember { mutableStateOf(false) }
-        val currentFY = filterMode.substringAfter("FY ").let { "20$it" }
+        val currentFY = if (filterMode == "Overall") "Overall" else filterMode.substringAfter("FY ").let { "20$it" }
         ExposedDropdownMenuBox(
             expanded = yearExpanded,
             onExpandedChange = { yearExpanded = it },

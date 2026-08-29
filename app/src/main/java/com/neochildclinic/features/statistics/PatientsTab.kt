@@ -1,6 +1,7 @@
 package com.neochildclinic.features.statistics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,7 +28,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun PatientsTab(patients: List<Patient>) {
+fun PatientsTab(patients: List<Patient>, onMilestoneClick: (String) -> Unit = {}) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
@@ -63,9 +64,11 @@ fun PatientsTab(patients: List<Patient>) {
         Spacer(modifier = Modifier.height(16.dp))
         PatientsContent(
             patients = filteredPatients,
+            allPatients = patients,
             totalPatientsCount = patients.size,
             stats = patientStats,
-            prevStats = prevPatientStats
+            prevStats = prevPatientStats,
+            onMilestoneClick = onMilestoneClick
         )
     }
 }
@@ -73,9 +76,11 @@ fun PatientsTab(patients: List<Patient>) {
 @Composable
 private fun PatientsContent(
     patients: List<Patient>,
+    allPatients: List<Patient>,
     totalPatientsCount: Int,
     stats: PatientAnalyticsData,
-    prevStats: PatientAnalyticsData
+    prevStats: PatientAnalyticsData,
+    onMilestoneClick: (String) -> Unit
 ) {
     val customColors = LocalCustomColors.current
 
@@ -124,7 +129,7 @@ private fun PatientsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        UpcomingAgeMilestonesSection(patients = patients)
+        UpcomingAgeMilestonesSection(patients = allPatients, onMilestoneClick = onMilestoneClick)
     }
 }
 
@@ -199,53 +204,73 @@ private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: I
 
 
 @Composable
-private fun UpcomingAgeMilestonesSection(patients: List<Patient>) {
-    val today = Calendar.getInstance()
-    val windowEnd = Calendar.getInstance().apply { add(Calendar.MONTH, 2) }
-    val milestoneOrder = listOf(
-        "6 Weeks", "10 Weeks", "14 Weeks", "6 Months", "7 Months",
-        "9 Months", "12 Months", "13 Months", "15 Months", "16–17 Months", "18 Months"
-    )
-    val grouped = remember(patients, today.get(Calendar.YEAR), today.get(Calendar.DAY_OF_YEAR)) {
-        patients.mapNotNull { patient ->
-            val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
-            val age = PatientUtils.calculateExactAge(patient.dob, today) ?: return@mapNotNull null
-            Triple(milestone, patient.name, age)
-        }.groupBy { it.first.label }
-    }
+private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneClick: (String) -> Unit) {
+    val today = remember { Calendar.getInstance() }
+    val windowEnd = remember { Calendar.getInstance().apply { add(Calendar.MONTH, 2) } }
 
-    if (grouped.isEmpty()) return
+    // Every patient contributes to at most one card. Patients with an upcoming milestone in
+    // the 2-month window get their single next milestone via PatientUtils.getNextAgeMilestone()
+    // (so "16-17 Months" naturally stays one combined bucket). getNextAgeMilestone() only
+    // looks ahead, so it correctly returns null for patients already past the last defined
+    // milestone (18 Months) too - those patients fall into the separate "Older" bucket
+    // instead, using the 19-month threshold to avoid double-counting anyone still within
+    // the 18-month window.
+    val counts = remember(patients) {
+        val map = mutableMapOf<String, Int>()
+        patients.forEach { patient ->
+            val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd)
+            if (milestone != null) {
+                map[milestone.label] = (map[milestone.label] ?: 0) + 1
+            } else if (PatientUtils.isOlderThanMonths(patient.dob, 19, today)) {
+                map["Older"] = (map["Older"] ?: 0) + 1
+            }
+        }
+        map
+    }
 
     Text("Upcoming Age Milestones", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(16.dp))
 
-    milestoneOrder.forEach { label ->
-        val entries = grouped[label].orEmpty().sortedBy { it.first.date.timeInMillis }
-        if (entries.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    entries.forEachIndexed { index, (_, name, age) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                            Text(age, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (index < entries.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                        }
-                    }
-                }
+    StatisticsUtils.ageMilestones.chunked(3).forEach { row ->
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            row.forEach { (key, label) ->
+                MilestoneCard(
+                    modifier = Modifier.weight(1f),
+                    label = label,
+                    count = counts[label] ?: 0,
+                    onClick = { onMilestoneClick(key) }
+                )
             }
+            // Keep card widths consistent on the final, shorter row.
+            repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun MilestoneCard(modifier: Modifier = Modifier, label: String, count: Int, onClick: () -> Unit) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 14.dp, horizontal = 8.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("$count", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("patients", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -267,7 +292,7 @@ private fun FilterSection(
     ) {
         // Financial Year Dropdown
         var yearExpanded by remember { mutableStateOf(false) }
-        val currentFY = filterMode.substringAfter("FY ").let { "20$it" }
+        val currentFY = if (filterMode == "Overall") "Overall" else filterMode.substringAfter("FY ").let { "20$it" }
         ExposedDropdownMenuBox(
             expanded = yearExpanded,
             onExpandedChange = { yearExpanded = it },

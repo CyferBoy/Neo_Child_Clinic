@@ -106,7 +106,8 @@ class ClinicalVaccinationService @Inject constructor(
                     user = user,
                     transactionType = InventoryTransactionType.VACCINATION,
                     visitId = vaccination.id,
-                    patientId = vaccination.patientId
+                    patientId = vaccination.patientId,
+                    givenDate = vaccination.dateGiven
                 )
                 database.inventoryDeductionDao().insert(InventoryDeductionEntity(
                     vaccinationId = vaccination.id,

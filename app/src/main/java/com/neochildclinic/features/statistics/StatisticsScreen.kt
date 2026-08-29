@@ -37,7 +37,8 @@ import androidx.compose.material3.SnackbarHostState
 fun StatisticsScreen(
     hasAccess: Boolean = false,
     onBack: () -> Unit = {},
-    onMonthClick: (String) -> Unit = {}
+    onMonthClick: (String) -> Unit = {},
+    onMilestoneClick: (String) -> Unit = {}
 ) {
     if (!hasAccess) {
         StatisticsAccessDeniedScreen(onBack = onBack)
@@ -58,6 +59,7 @@ fun StatisticsScreen(
         onRefresh = viewModel::refresh,
         onBack = onBack,
         onMonthClick = onMonthClick,
+        onMilestoneClick = onMilestoneClick,
         snackbarHostState = snackbarHostState
     )
 }
@@ -120,6 +122,7 @@ private fun StatisticsContent(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     onMonthClick: (String) -> Unit,
+    onMilestoneClick: (String) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
     val tabs = listOf(
@@ -190,7 +193,8 @@ private fun StatisticsContent(
                     inventory = uiState.inventory,
                     financeTransactions = uiState.financeTransactions,
                     vaccinationReminders = uiState.vaccinationReminders,
-                    onMonthClick = onMonthClick
+                    onMonthClick = onMonthClick,
+                    onMilestoneClick = onMilestoneClick
                 )
             }
         }
@@ -247,12 +251,13 @@ private fun StatisticsTabContent(
     inventory: List<InventoryItem>,
     financeTransactions: List<FinanceEntity>,
     vaccinationReminders: List<ReminderEntity>,
-    onMonthClick: (String) -> Unit
+    onMonthClick: (String) -> Unit,
+    onMilestoneClick: (String) -> Unit
 ) {
     when (selectedTab) {
         0 -> OverviewTab(patients, vaccinations, financeTransactions)
-        1 -> PatientsTab(patients)
-        2 -> VaccinationsTab(vaccinations, vaccinationReminders)
+        1 -> PatientsTab(patients, onMilestoneClick)
+        2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory)
         3 -> FinanceTab(vaccinations, financeTransactions, onMonthClick)
         4 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Map coming soon", color = MaterialTheme.colorScheme.onSurfaceVariant)

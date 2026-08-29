@@ -194,6 +194,7 @@ fun AddVaccinationScreen(
                         VaccineRow(
                             state = row,
                             inventory = uiState.inventory,
+                            givenDate = uiState.givenDate,
                             onVaccineSelected = { viewModel.selectVaccine(row.id, it) },
                             onBatchSelected = { viewModel.selectBatch(row.id, it) },
                             onQuantityChange = { viewModel.updateQuantity(row.id, it) },
@@ -338,6 +339,7 @@ private fun PatientSummaryCard(patient: Patient) {
 private fun VaccineRow(
     state: VaccineSelectionState,
     inventory: List<InventoryItem>,
+    givenDate: String,
     onVaccineSelected: (InventoryItem) -> Unit,
     onBatchSelected: (com.neochildclinic.data.local.entity.VaccineBatchEntity) -> Unit,
     onQuantityChange: (String) -> Unit,
@@ -386,7 +388,9 @@ private fun VaccineRow(
                 ReadOnlyValue("Vaccine: ${state.selectedVaccine?.brandName ?: "Not selected"}")
             }
 
-            val batches = state.selectedVaccine?.batches?.filter { it.remainingQuantity > 0 } ?: emptyList()
+            val batches = state.selectedVaccine?.batches?.filter {
+                it.remainingQuantity > 0 && !com.neochildclinic.core.utils.InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate)
+            } ?: emptyList()
             if (allowVaccineBatchEdit) {
                 ExposedDropdownMenuBox(
                     expanded = batchExpanded,
@@ -425,7 +429,7 @@ private fun VaccineRow(
                 Text(
                     "Expiry: ${state.selectedBatch.expiryDate}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (com.neochildclinic.core.utils.InventoryUtils.isExpired(state.selectedBatch.expiryDate)) Color.Red else Color.Gray
+                    color = if (com.neochildclinic.core.utils.InventoryUtils.isExpiredAsOf(state.selectedBatch.expiryDate, givenDate)) Color.Red else Color.Gray
                 )
             }
 

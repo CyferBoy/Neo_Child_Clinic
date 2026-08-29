@@ -54,7 +54,12 @@ interface InventoryRepository {
         // Skip the expiry guard for a batch that was already recorded against this visit
         // before it expired (e.g. bumping quantity on an edit). New batch selections should
         // still be blocked once expired.
-        allowExpired: Boolean = false
+        allowExpired: Boolean = false,
+        // The vaccination's given date. A VACCINATION-type deduction is validated against
+        // this date, not today's date - a batch is valid as long as expiryDate >= givenDate,
+        // even if it has since expired by today. Null falls back to today-based validation
+        // (only relevant to non-vaccination transaction types, which don't use this check).
+        givenDate: String? = null
     )
 
     suspend fun addStockToBatch(

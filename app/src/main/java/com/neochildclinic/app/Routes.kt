@@ -11,6 +11,7 @@ object Routes {
     const val VACCINE_INVENTORY = "vaccine_inventory"
     const val STATISTICS = "statistics"
     const val MONTHLY_FINANCE_DETAILS = "monthly_finance_details/{monthKey}"
+    const val MILESTONE_PATIENTS = "milestone_patients/{milestoneKey}"
     const val BORROWED = "borrowed"
     const val DUE = "due"
     const val WASTE = "waste"
