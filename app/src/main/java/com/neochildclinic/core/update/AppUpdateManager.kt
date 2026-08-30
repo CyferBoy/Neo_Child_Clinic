@@ -22,8 +22,9 @@ class AppUpdateManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private const val GITHUB_LATEST_URL =
-            "https://api.github.com/repos/CyferBoy/Neo_Child_Clinic/releases/latest"
+        private const val GITHUB_REPO_URL =
+            "https://api.github.com/repos/CyferBoy/Neo_Child_Clinic"
+        private const val GITHUB_LATEST_URL = "$GITHUB_REPO_URL/releases/latest"
         private const val PREFS = "app_update"
         private const val DISMISSED_VERSION_CODE = "dismissed_version_code"
         private const val APK_FILE = "neo-child-clinic-update.apk"
@@ -31,8 +32,8 @@ class AppUpdateManager @Inject constructor(
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    suspend fun checkForUpdate(): AppUpdateInfo? = withContext(Dispatchers.IO) {
-        val connection = (URL(GITHUB_LATEST_URL).openConnection() as HttpURLConnection).apply {
+    private fun openGetConnection(url: String): HttpURLConnection =
+        (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 10_000
             readTimeout = 15_000
@@ -41,64 +42,110 @@ class AppUpdateManager @Inject constructor(
             setRequestProperty("User-Agent", "Neo-Child-Clinic-Android")
         }
 
-        try {
-            if (connection.responseCode !in 200..299) return@withContext null
-
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            val tagName = json.optString("tag_name").removePrefix("v").trim()
-            val versionCode = extractVersionCode(json, tagName) ?: return@withContext null
-            val assets = json.optJSONArray("assets") ?: return@withContext null
-            var apkUrl: String? = null
-            for (i in 0 until assets.length()) {
-                val asset = assets.optJSONObject(i) ?: continue
-                if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
-                    apkUrl = asset.optString("browser_download_url")
-                    break
-                }
-            }
-            val downloadUrl = apkUrl ?: return@withContext null
-            val body = json.optString("body")
-            val explicitlyMandatory = Regex(
-                "(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$"
-            ).containsMatchIn(body)
-            val minimumVersionCode = Regex(
-                "(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$"
-            ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
-
-            val currentVersionCode = currentVersionCode()
-            val updateType = when {
-                versionCode > currentVersionCode -> UpdateType.UPDATE
-                versionCode == currentVersionCode -> UpdateType.REUPDATE
-                else -> UpdateType.DOWNGRADE
-            }
-
-            // Mandatory if ANY of: the release notes explicitly say so, the device is
-            // below a floor the release declares, or it's a major-version tag
-            // (X.0.0). A quick security hotfix can still force an update without
-            // needing to be tagged as a new major version.
-            val belowMinimumVersion = minimumVersionCode != null && currentVersionCode < minimumVersionCode
-            val isMajorVersionTag = tagName.matches(Regex("^\\d+\\.0\\.0$"))
-            val required = updateType == UpdateType.UPDATE &&
-                (explicitlyMandatory || belowMinimumVersion || isMajorVersionTag)
-            val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
-            if (updateType == UpdateType.UPDATE && !required && dismissed == versionCode) {
-                return@withContext null
-            }
-
-            AppUpdateInfo(
-                versionName = tagName,
-                versionCode = versionCode,
-                mandatory = required,
-                minimumVersionCode = minimumVersionCode,
-                downloadUrl = downloadUrl,
-                releaseNotes = cleanReleaseNotes(body),
-                htmlUrl = json.optString("html_url"),
-                currentVersionCode = currentVersionCode,
-                updateType = updateType
-            )
+    private fun fetchJsonObject(url: String): JSONObject? {
+        val connection = openGetConnection(url)
+        return try {
+            if (connection.responseCode !in 200..299) null
+            else JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun fetchJsonArray(url: String): org.json.JSONArray? {
+        val connection = openGetConnection(url)
+        return try {
+            if (connection.responseCode !in 200..299) null
+            else org.json.JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    // Shared release-JSON -> AppUpdateInfo parser, used by the "latest" check, the
+    // re-update check (a specific tag), and the downgrade list (every release) - so all
+    // three read release data, the APK asset, and the version/updateType the same way,
+    // rather than three separate parsing implementations.
+    private fun parseRelease(json: JSONObject, currentVersionCode: Long): AppUpdateInfo? {
+        val tagName = json.optString("tag_name").removePrefix("v").trim()
+        val versionCode = extractVersionCode(json, tagName) ?: return null
+        val assets = json.optJSONArray("assets") ?: return null
+        var apkUrl: String? = null
+        for (i in 0 until assets.length()) {
+            val asset = assets.optJSONObject(i) ?: continue
+            if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
+                apkUrl = asset.optString("browser_download_url")
+                break
+            }
+        }
+        val downloadUrl = apkUrl ?: return null
+        val body = json.optString("body")
+        val explicitlyMandatory = Regex(
+            "(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$"
+        ).containsMatchIn(body)
+        val minimumVersionCode = Regex(
+            "(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$"
+        ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
+
+        // Semantic (major*1_000_000 + minor*1_000 + patch) comparison via versionCode, not
+        // string comparison - correctly orders e.g. 0.4.10 above 0.4.9.
+        val updateType = when {
+            versionCode > currentVersionCode -> UpdateType.UPDATE
+            versionCode == currentVersionCode -> UpdateType.REUPDATE
+            else -> UpdateType.DOWNGRADE
+        }
+
+        val belowMinimumVersion = minimumVersionCode != null && currentVersionCode < minimumVersionCode
+        val isMajorVersionTag = tagName.matches(Regex("^\\d+\\.0\\.0$"))
+        val required = updateType == UpdateType.UPDATE &&
+            (explicitlyMandatory || belowMinimumVersion || isMajorVersionTag)
+
+        return AppUpdateInfo(
+            versionName = tagName,
+            versionCode = versionCode,
+            mandatory = required,
+            minimumVersionCode = minimumVersionCode,
+            downloadUrl = downloadUrl,
+            releaseNotes = cleanReleaseNotes(body),
+            htmlUrl = json.optString("html_url"),
+            currentVersionCode = currentVersionCode,
+            updateType = updateType,
+            publishedAt = json.optString("published_at").ifBlank { null }
+        )
+    }
+
+    suspend fun checkForUpdate(): AppUpdateInfo? = withContext(Dispatchers.IO) {
+        val json = fetchJsonObject(GITHUB_LATEST_URL) ?: return@withContext null
+        val info = parseRelease(json, currentVersionCode()) ?: return@withContext null
+
+        val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
+        if (info.updateType == UpdateType.UPDATE && !info.mandatory && dismissed == info.versionCode) {
+            return@withContext null
+        }
+        info
+    }
+
+    /**
+     * Fresh check for the release matching the currently installed version (Re-update).
+     * Returns null if no release exists for the installed version, or it exists but has no
+     * downloadable APK asset (e.g. removed from GitHub since it was installed).
+     */
+    suspend fun checkForReupdate(): AppUpdateInfo? = withContext(Dispatchers.IO) {
+        val json = fetchJsonObject("$GITHUB_REPO_URL/releases/tags/v${currentVersionName()}") ?: return@withContext null
+        parseRelease(json, currentVersionCode())?.takeIf { it.updateType == UpdateType.REUPDATE }
+    }
+
+    /**
+     * All releases older than the currently installed version, newest-first, that have a
+     * downloadable APK asset - i.e. the valid downgrade candidates.
+     */
+    suspend fun listDowngradeVersions(): List<AppUpdateInfo> = withContext(Dispatchers.IO) {
+        val currentVersionCode = currentVersionCode()
+        val array = fetchJsonArray("$GITHUB_REPO_URL/releases?per_page=100") ?: return@withContext emptyList()
+        (0 until array.length())
+            .mapNotNull { i -> array.optJSONObject(i)?.let { parseRelease(it, currentVersionCode) } }
+            .filter { it.updateType == UpdateType.DOWNGRADE }
+            .sortedByDescending { it.versionCode }
     }
 
     fun dismiss(versionCode: Long) {
@@ -235,6 +282,9 @@ class AppUpdateManager @Inject constructor(
             @Suppress("DEPRECATION")
             context.packageManager.getPackageInfo(context.packageName, 0).versionCode.toLong()
         }
+
+    private fun currentVersionName(): String =
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
 
     private fun extractVersionCode(json: JSONObject, tagName: String): Long? {
         val bodyVersion = Regex(

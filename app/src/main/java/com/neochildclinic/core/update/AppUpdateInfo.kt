@@ -15,7 +15,8 @@ data class AppUpdateInfo(
     val releaseNotes: String,
     val htmlUrl: String,
     val currentVersionCode: Long,
-    val updateType: UpdateType
+    val updateType: UpdateType,
+    val publishedAt: String? = null
 ) {
     fun isRequired(): Boolean = mandatory
 }

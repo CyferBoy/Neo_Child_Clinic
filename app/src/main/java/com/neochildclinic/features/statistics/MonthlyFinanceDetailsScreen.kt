@@ -31,13 +31,15 @@ fun MonthlyFinanceDetailsScreen(
 ) {
     val allTransactions by viewModel.transactions.collectAsState()
     val allVaccinations by viewModel.vaccinations.collectAsState()
-    val filtered = remember(allTransactions, monthKey) {
+    // Raw (status-unfiltered) visit dates - see FinanceCalculator.resolveReportingDate.
+    val visitDatesById = remember(allVaccinations) { allVaccinations.associate { it.id to it.dateGiven } }
+    val filtered = remember(allTransactions, visitDatesById, monthKey) {
         allTransactions.filter { tx ->
-            val date = PatientUtils.parseDate(tx.timestamp) ?: return@filter false
+            val date = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(tx, visitDatesById)) ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
             val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
             key == monthKey
-        }.sortedByDescending { PatientUtils.parseDate(it.timestamp) }
+        }.sortedByDescending { PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(it, visitDatesById)) }
     }
     val title = remember(monthKey) {
         val names = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
@@ -111,7 +113,7 @@ fun MonthlyFinanceDetailsScreen(
                             }
                         }
                     }
-                    items(filtered, key = { it.id }) { FinanceTransactionCard(it) }
+                    items(filtered, key = { it.id }) { FinanceTransactionCard(it, visitDatesById) }
                 }
             }
         }
@@ -123,16 +125,16 @@ private fun FinanceDetailSummary(revenue: Double, expenses: Double, cogs: Double
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DetailCard("Revenue", revenue, Modifier.weight(1f))
-            DetailCard("Net", netProfit, Modifier.weight(1f), profitAvailable)
+            DetailCard("Net Profit", netProfit, Modifier.weight(1f), profitAvailable)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DetailCard("Cash", cash, Modifier.weight(1f))
             DetailCard("Online", online, Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DetailCard("Expenses", expenses, Modifier.weight(1f))
-            DetailCard("COGS", cogs, Modifier.weight(1f))
-        }
+        // Underlying COGS/expense values (cogs, expenses) stay available to this composable
+        // and to callers - only the displayed card combines them, per the Financial
+        // Statistics card requirement (Revenue / COGS + Expense / Net Profit).
+        DetailCard("COGS + Expense", cogs + expenses, Modifier.fillMaxWidth(), profitAvailable)
     }
 }
 
@@ -147,7 +149,7 @@ private fun DetailCard(label: String, amount: Double, modifier: Modifier, valueA
 }
 
 @Composable
-private fun FinanceTransactionCard(transaction: FinanceEntity) {
+private fun FinanceTransactionCard(transaction: FinanceEntity, visitDatesById: Map<String, String>) {
     val amountText = if (transaction.type == "EXPENSE") "-₹${transaction.amount.toInt()}" else "₹${transaction.amount.toInt()}"
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -159,7 +161,11 @@ private fun FinanceTransactionCard(transaction: FinanceEntity) {
             Text(transaction.type, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             transaction.remarks?.substringBefore("[COGS_SNAPSHOT:")?.trim()?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             Spacer(Modifier.height(4.dp))
-            Text(PatientUtils.formatDateForDisplay(transaction.timestamp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                PatientUtils.formatDateForDisplay(FinanceCalculator.resolveReportingDate(transaction, visitDatesById)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             if (transaction.paymentMethod.isNotBlank()) {
                 Text("Payment: ${transaction.paymentMethod}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

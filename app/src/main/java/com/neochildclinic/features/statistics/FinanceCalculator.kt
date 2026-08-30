@@ -42,6 +42,24 @@ object FinanceCalculator {
     private const val VACCINATION = "VACCINATION"
     private const val COGS_MARKER = "[COGS_SNAPSHOT:"
 
+    /**
+     * The date Financial Statistics must report a transaction under - "when did this
+     * revenue actually happen", not "when was this record entered". A transaction linked
+     * to a visit (vaccination OR consultation - both live in patient_visits, keyed by the
+     * same visitId) is reported under that visit's actual dateGiven. Everything else
+     * (expenses, or a transaction with no matching visit) falls back to the technical
+     * finance_transactions.timestamp, which is left untouched in the database either way -
+     * this only changes what date Statistics groups/filters by.
+     */
+    fun resolveReportingDate(transaction: FinanceEntity, visitDatesById: Map<String, String>): String {
+        val visitId = transaction.visitId
+        if (!visitId.isNullOrBlank()) {
+            val visitDate = visitDatesById[visitId]
+            if (!visitDate.isNullOrBlank()) return visitDate
+        }
+        return transaction.timestamp
+    }
+
     fun calculateFinanceStats(
         transactions: List<FinanceEntity>,
         vaccinationsForCogs: List<Vaccination>,
@@ -122,8 +140,12 @@ object FinanceCalculator {
         selectedMonth: Int = -1
     ): List<FinanceSummaryItem> {
         val vaccinationById = StatisticsUtils.filterValidVaccinations(vaccinations).associateBy { it.id }
+        // Raw (status-unfiltered) map for date resolution: a linked visit's actual date is
+        // valid for reporting purposes regardless of that visit's clinical/admin status -
+        // e.g. a CONSULTATION visit's status has no bearing on whether its date is trustworthy.
+        val visitDatesById = vaccinations.associate { it.id to it.dateGiven }
         val parsed = transactions.mapNotNull { transaction ->
-            val date = PatientUtils.parseDate(transaction.timestamp) ?: return@mapNotNull null
+            val date = PatientUtils.parseDate(resolveReportingDate(transaction, visitDatesById)) ?: return@mapNotNull null
             transaction to date
         }
         if (parsed.isEmpty()) return emptyList()

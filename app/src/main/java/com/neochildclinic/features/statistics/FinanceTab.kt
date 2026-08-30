@@ -33,15 +33,20 @@ fun FinanceTab(
     val validVaccinations = remember(vaccinations) {
         StatisticsUtils.filterValidVaccinations(vaccinations)
     }
-    val availableYears = remember(transactions, validVaccinations) {
+    // Raw (status-unfiltered) visit dates - Financial Statistics must resolve a linked
+    // transaction's reporting date from the actual visit (vaccination or consultation)
+    // regardless of that visit's clinical/administered status, which is an orthogonal
+    // concept. See FinanceCalculator.resolveReportingDate.
+    val visitDatesById = remember(vaccinations) { vaccinations.associate { it.id to it.dateGiven } }
+    val availableYears = remember(transactions, vaccinations, visitDatesById) {
         StatisticsUtils.getAvailableFinancialYears(
-            transactions.map { it.timestamp } + validVaccinations.map { it.dateGiven }
+            transactions.map { FinanceCalculator.resolveReportingDate(it, visitDatesById) } + vaccinations.map { it.dateGiven }
         )
     }
     
     // Current period
-    val filteredTransactions = remember(transactions, filterMode, fyQuarter, selectedMonth) {
-        transactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, filterMode, fyQuarter, selectedMonth) }
+    val filteredTransactions = remember(transactions, visitDatesById, filterMode, fyQuarter, selectedMonth) {
+        transactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), filterMode, fyQuarter, selectedMonth) }
     }
     val filteredVaccinations = remember(validVaccinations, filterMode, fyQuarter, selectedMonth) {
         validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
@@ -51,8 +56,8 @@ fun FinanceTab(
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
     }
-    val prevTransactions = remember(transactions, prevFilter, prevQuarter, prevMonth) {
-        transactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, prevFilter, prevQuarter, prevMonth) }
+    val prevTransactions = remember(transactions, visitDatesById, prevFilter, prevQuarter, prevMonth) {
+        transactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), prevFilter, prevQuarter, prevMonth) }
     }
     val prevVaccinations = remember(validVaccinations, prevFilter, prevQuarter, prevMonth) {
         validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
@@ -78,7 +83,7 @@ fun FinanceTab(
         onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
         onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it },
         onMonthClick = onMonthClick,
-        vaccinations = validVaccinations
+        vaccinations = vaccinations
     )
 }
 
@@ -123,7 +128,7 @@ private fun FinanceContent(
             icon = Icons.Default.CurrencyRupee,
             iconColor = customColors.textBlue,
             iconBackground = customColors.softBlue,
-            growthPercentage = StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
+            growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -136,7 +141,7 @@ private fun FinanceContent(
                 icon = Icons.Default.Payments,
                 iconColor = customColors.textGreen,
                 iconBackground = customColors.softGreen,
-                growthPercentage = StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
+                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
             )
             SummaryCard(
                 modifier = Modifier.weight(1f),
@@ -145,7 +150,7 @@ private fun FinanceContent(
                 icon = Icons.Default.CreditCard,
                 iconColor = customColors.textBlue,
                 iconBackground = customColors.softBlue,
-                growthPercentage = StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
+                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
             )
         }
 
@@ -154,12 +159,12 @@ private fun FinanceContent(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
-                title = "Expenses",
-                value = String.format(Locale.US, "₹%,.0f", currentStats.totalExpenses),
+                title = "COGS + Expense",
+                value = String.format(Locale.US, "₹%,.0f", currentStats.vaccineCost + currentStats.totalExpenses),
                 icon = Icons.Default.RemoveCircle,
                 iconColor = customColors.textPink,
                 iconBackground = customColors.softPink,
-                growthPercentage = StatisticsUtils.calculateGrowth(currentStats.totalExpenses, prevStats.totalExpenses)
+                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.vaccineCost + currentStats.totalExpenses, prevStats.vaccineCost + prevStats.totalExpenses)
             )
             SummaryCard(
                 modifier = Modifier.weight(1f),
@@ -168,7 +173,7 @@ private fun FinanceContent(
                 icon = Icons.Default.TrendingUp,
                 iconColor = customColors.textCyan,
                 iconBackground = customColors.softCyan,
-                growthPercentage = if (currentStats.isProfitComplete && prevStats.isProfitComplete) StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit) else null
+                growthPercentage = if (filterMode == "Overall" || !currentStats.isProfitComplete || !prevStats.isProfitComplete) null else StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit)
             )
         }
 
@@ -220,7 +225,7 @@ private fun FilterSection(
     ) {
         // Financial Year Dropdown
         var yearExpanded by remember { mutableStateOf(false) }
-        val currentFY = if (filterMode == "Overall") "Overall" else filterMode.substringAfter("FY ").let { "20$it" }
+        val currentFY = StatisticsUtils.displayFilterMode(filterMode)
         ExposedDropdownMenuBox(
             expanded = yearExpanded,
             onExpandedChange = { yearExpanded = it },

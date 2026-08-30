@@ -35,11 +35,17 @@ fun OverviewTab(
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
-    val availableYears = remember(patients, vaccinations) {
+    // Raw (status-unfiltered) visit dates - Financial Statistics must resolve a linked
+    // transaction's reporting date from the actual visit (vaccination or consultation)
+    // regardless of that visit's clinical/administered status, an orthogonal concept.
+    // See FinanceCalculator.resolveReportingDate.
+    val visitDatesById = remember(vaccinations) { vaccinations.associate { it.id to it.dateGiven } }
+
+    val availableYears = remember(patients, vaccinations, financeTransactions, visitDatesById) {
         StatisticsUtils.getAvailableFinancialYears(
             patients.map { it.registrationDate ?: "" } +
                     vaccinations.map { it.dateGiven } +
-                    financeTransactions.map { it.timestamp }
+                    financeTransactions.map { FinanceCalculator.resolveReportingDate(it, visitDatesById) }
         )
     }
 
@@ -50,8 +56,8 @@ fun OverviewTab(
     val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
-    val filteredTransactions = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
-        financeTransactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, filterMode, fyQuarter, selectedMonth) }
+    val filteredTransactions = remember(financeTransactions, visitDatesById, filterMode, fyQuarter, selectedMonth) {
+        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), filterMode, fyQuarter, selectedMonth) }
     }
 
     // Previous period data for growth calculation
@@ -64,8 +70,8 @@ fun OverviewTab(
     val prevVaccinations = remember(vaccinations, prevFilter, prevQuarter, prevMonth) {
         StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
     }
-    val prevTransactions = remember(financeTransactions, prevFilter, prevQuarter, prevMonth) {
-        financeTransactions.filter { StatisticsUtils.isDateInFilter(it.timestamp, prevFilter, prevQuarter, prevMonth) }
+    val prevTransactions = remember(financeTransactions, visitDatesById, prevFilter, prevQuarter, prevMonth) {
+        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), prevFilter, prevQuarter, prevMonth) }
     }
 
     val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
@@ -99,7 +105,7 @@ fun OverviewTab(
             }.size.toFloat()
 
             val mRevenue = financeTransactions.filter { t ->
-                val d = PatientUtils.parseDate(t.timestamp) ?: return@filter false
+                val d = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(t, visitDatesById)) ?: return@filter false
                 val c = Calendar.getInstance().apply { time = d }
                 c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year && t.type.equals("INCOME", true)
             }.sumOf { it.amount }.toFloat() / 1000f // K-scale for revenue
@@ -241,7 +247,7 @@ private fun OverviewContent(
                     icon = Icons.Default.CurrencyRupee,
                     iconColor = customColors.textBlue,
                     iconBackground = customColors.softBlue,
-                    growthPercentage = StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
+                    growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
                 )
             }
         }
@@ -255,7 +261,7 @@ private fun OverviewContent(
                     icon = Icons.Default.Payments,
                     iconColor = customColors.textGreen,
                     iconBackground = customColors.softGreen,
-                    growthPercentage = StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
+                    growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
                 )
                 SummaryCard(
                     modifier = Modifier.weight(1f),
@@ -264,7 +270,7 @@ private fun OverviewContent(
                     icon = Icons.Default.CreditCard,
                     iconColor = customColors.textBlue,
                     iconBackground = customColors.softBlue,
-                    growthPercentage = StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
+                    growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
                 )
             }
         }
@@ -277,7 +283,7 @@ private fun OverviewContent(
                 icon = Icons.Default.TrendingUp,
                 iconColor = customColors.textPink,
                 iconBackground = customColors.softPink,
-                growthPercentage = if (currentStats.isProfitComplete && prevStats.isProfitComplete) StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit) else null
+                growthPercentage = if (filterMode == "Overall" || !currentStats.isProfitComplete || !prevStats.isProfitComplete) null else StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit)
             )
         }
 
@@ -338,7 +344,7 @@ private fun FilterSection(
     ) {
         // Financial Year Dropdown
         var yearExpanded by remember { mutableStateOf(false) }
-        val currentFY = if (filterMode == "Overall") "Overall" else filterMode.substringAfter("FY ").let { "20$it" }
+        val currentFY = StatisticsUtils.displayFilterMode(filterMode)
         ExposedDropdownMenuBox(
             expanded = yearExpanded,
             onExpandedChange = { yearExpanded = it },

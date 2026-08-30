@@ -36,6 +36,16 @@ object StatisticsUtils {
 
     fun milestoneLabelForKey(key: String): String? = ageMilestones.firstOrNull { it.first == key }?.second
 
+    /**
+     * Formats a filterMode value ("Overall" or "FY YY-YY") for display. Centralized here so
+     * every Statistics tab shows the same thing for the same value, instead of each screen
+     * reimplementing "20$it" inline - which is exactly what previously produced "20Overall"
+     * wherever a screen's copy of that logic forgot to special-case "Overall" first.
+     * "Overall" -> "Overall"; "FY 25-26" -> "2025-26".
+     */
+    fun displayFilterMode(filterMode: String): String =
+        if (filterMode == "Overall") "Overall" else "20" + filterMode.substringAfter("FY ")
+
     /** A visit is statistically valid only after it has been administered/completed.
      * Legacy EXTERNAL records are also accepted through the source field.
      */
