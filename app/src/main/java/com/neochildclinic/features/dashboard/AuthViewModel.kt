@@ -128,7 +128,9 @@ class AuthViewModel @Inject constructor(
                 
                 auth.currentSessionOrNull()?.user?.id?.let {
                     fetchProfile(it)
-                    deviceRepository.registerCurrentDevice()
+                    // Device registration is best-effort and must not delay or block
+                    // the initial application data sync if Supabase/user_devices times out.
+                    launch { deviceRepository.registerCurrentDevice() }
                 }
 
                 _isLoading.value = false

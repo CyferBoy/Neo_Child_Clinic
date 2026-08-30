@@ -43,7 +43,8 @@ class VaccinationEditEngine @Inject constructor(
         original: Vaccination,
         updated: Vaccination,
         user: String,
-        reminderSpecs: List<ReminderSpec>
+        reminderSpecs: List<ReminderSpec>,
+        excludedReminderIds: Set<String> = emptySet()
     ) {
         require(original.id == updated.id) { "Vaccination edit requires the same vaccination ID." }
 
@@ -76,7 +77,7 @@ class VaccinationEditEngine @Inject constructor(
                 applyInventoryDiff(original, updated, user)
             }
 
-            reconcileReminders(original.patientId, original.id, reminderSpecs, user)
+            reconcileReminders(original.patientId, original.id, reminderSpecs, user, excludedReminderIds)
         }
     }
 
@@ -134,43 +135,103 @@ class VaccinationEditEngine @Inject constructor(
         patientId: String,
         visitId: String,
         desired: List<ReminderSpec>,
-        user: String
+        user: String,
+        excludedReminderIds: Set<String> = emptySet()
     ) {
         val existing = reminderRepository.getRemindersByVisitId(visitId)
+            .filter { it.id !in excludedReminderIds }
+            .toMutableList()
 
-        fun baseKey(type: String, vaccineNames: List<String>): String = buildString {
-            append(type.trim().lowercase())
-            append('|')
-            append(vaccineNames.map { PatientUtils.cleanVaccineName(it).lowercase().trim() }.sorted().joinToString(","))
+        // Each desired vaccine is now one reminder row. A type-only desired entry
+        // is represented by an empty vaccine key.
+        data class DesiredRow(
+            val type: String,
+            val vaccineName: String,
+            val vaccineId: String?,
+            val dueDate: String,
+            val notes: String
+        )
+
+        val desiredRows = desired.flatMap { spec ->
+            val names = spec.vaccineNames
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+            val ids = spec.vaccineIds
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+
+            if (names.isEmpty()) {
+                listOf(
+                    DesiredRow(
+                        type = spec.type,
+                        vaccineName = "",
+                        vaccineId = null,
+                        dueDate = spec.dueDate,
+                        notes = spec.notes
+                    )
+                )
+            } else {
+                names.mapIndexedNotNull { index, name ->
+                    val id = ids.getOrNull(index)
+                    DesiredRow(
+                        type = spec.type,
+                        vaccineName = name,
+                        vaccineId = id,
+                        dueDate = spec.dueDate,
+                        notes = spec.notes
+                    )
+                }
+            }
         }
+
+        fun normalizedName(name: String): String =
+            PatientUtils.cleanVaccineName(name).trim().lowercase()
+
+        fun rowKey(type: String, vaccineName: String, vaccineId: String?): String =
+            buildString {
+                append(type.trim().lowercase())
+                append('|')
+                append((vaccineId ?: "").trim().lowercase())
+                append('|')
+                append(normalizedName(vaccineName))
+            }
 
         val unused = existing.toMutableList()
 
-        for (spec in desired) {
-            val key = baseKey(spec.type, spec.vaccineNames)
-            val match = unused.firstOrNull {
-                baseKey(
-                    it.type,
-                    it.vaccineName.split(", ").filter { n -> n.isNotBlank() }
-                ) == key
+        desiredRows.forEach { row ->
+            // Prefer an exact vaccine-ID match; fall back to vaccine name for
+            // legacy reminders that do not have an ID.
+            val match = unused.firstOrNull { reminder ->
+                val existingId = reminder.nxtVaccineId?.firstOrNull()?.trim()
+                if (!row.vaccineId.isNullOrBlank() && !existingId.isNullOrBlank()) {
+                    rowKey(reminder.type, reminder.vaccineName, existingId) ==
+                        rowKey(row.type, row.vaccineName, row.vaccineId)
+                } else {
+                    reminder.type.trim().equals(row.type.trim(), ignoreCase = true) &&
+                        normalizedName(reminder.vaccineName) == normalizedName(row.vaccineName)
+                }
             }
 
             if (match != null) {
                 unused.remove(match)
-                val changed = match.dueDate != spec.dueDate ||
-                    match.type != spec.type ||
-                    match.vaccineName != spec.vaccineNames.distinct().joinToString(", ") ||
-                    match.nxtVaccineId?.sorted() != spec.vaccineIds.distinct().sorted() ||
-                    (match.notes ?: "") != spec.notes
+                val desiredIds = row.vaccineId?.let { listOf(it) }
+                val changed =
+                    match.dueDate != row.dueDate ||
+                    match.type != row.type ||
+                    normalizedName(match.vaccineName) != normalizedName(row.vaccineName) ||
+                    match.nxtVaccineId?.firstOrNull() != desiredIds?.firstOrNull() ||
+                    (match.notes ?: "") != row.notes ||
+                    match.status != "ACTIVE" ||
+                    !match.reminderEnabled
 
                 if (changed) {
                     reminderRepository.updateReminderForEdit(
                         match.copy(
-                            type = spec.type,
-                            vaccineName = spec.vaccineNames.distinct().joinToString(", "),
-                            nxtVaccineId = spec.vaccineIds.distinct().ifEmpty { null },
-                            dueDate = spec.dueDate,
-                            notes = spec.notes,
+                            type = row.type,
+                            vaccineName = row.vaccineName,
+                            nxtVaccineId = desiredIds,
+                            dueDate = row.dueDate,
+                            notes = row.notes,
                             status = "ACTIVE",
                             reminderEnabled = true
                         ),
@@ -181,19 +242,21 @@ class VaccinationEditEngine @Inject constructor(
                 reminderRepository.saveNextVaccination(
                     patientId = patientId,
                     originalVisitId = visitId,
-                    type = spec.type,
-                    vaccineNames = spec.vaccineNames,
-                    nxtVaccineId = spec.vaccineIds,
-                    dueDate = spec.dueDate,
-                    notes = spec.notes,
+                    type = row.type,
+                    vaccineNames = if (row.vaccineName.isBlank()) emptyList() else listOf(row.vaccineName),
+                    nxtVaccineId = row.vaccineId?.let { listOf(it) } ?: emptyList(),
+                    dueDate = row.dueDate,
+                    notes = row.notes,
                     performedBy = user
                 )
             }
         }
 
-        // Anything left was removed by the user, so delete only those reminders.
+        // Anything left was removed by the user. Cancel/delete only those rows,
+        // without affecting the other vaccine rows for the same next visit.
         unused.forEach { reminder ->
             reminderRepository.deleteReminder(reminder, user)
         }
     }
+
 }

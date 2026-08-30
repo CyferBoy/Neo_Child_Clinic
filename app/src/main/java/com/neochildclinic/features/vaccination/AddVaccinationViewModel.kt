@@ -30,6 +30,7 @@ data class VaccineSelectionState(
 )
 
 data class NextVaccinationState(
+    val reminderId: String? = null,
     val type: String = "",
     val nextVaccines: List<InventoryItem> = emptyList(),
     val dueDate: String = "",
@@ -51,6 +52,8 @@ data class AddVaccinationUiState(
     val cashAmount: String = "0",
     val onlineAmount: String = "0",
     val totalAmount: Double = 0.0,
+    val withFees: Boolean = false,
+    val doctorsAcc: Boolean = false,
     val existingVaccinationId: String? = null,
     val saveSuccess: Boolean = false,
     val errorMessage: String? = null
@@ -74,6 +77,7 @@ class AddVaccinationViewModel @Inject constructor(
     // Snapshot of the persisted vaccination items used by Edit mode.
     // This prevents validation/save from depending solely on transient Compose selection state.
     private var originalVaccinationItems: List<VaccinationItem> = emptyList()
+    private val cancelledNextReminderIds = mutableSetOf<String>()
 
     // The doctorId recorded on the vaccination being edited (if any). Kept separate from
     // selectedDoctor so the doctor list can include this doctor even if they're now inactive.
@@ -94,6 +98,7 @@ class AddVaccinationViewModel @Inject constructor(
 
     fun loadVaccination(vaccinationId: String?) {
         if (vaccinationId.isNullOrBlank()) return
+        cancelledNextReminderIds.clear()
         viewModelScope.launch {
             _uiState.update { it.copy(isVaccinationLoading = true) }
             val vaccination = vaccinationRepository.getVaccinationById(vaccinationId) ?: run {
@@ -159,10 +164,11 @@ class AddVaccinationViewModel @Inject constructor(
 
             // Load existing Next Vaccination entries directly from reminders.
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
-            val nextStates = reminders.map { reminder ->
+            val nextStates = reminders.filter { it.status == "ACTIVE" && it.reminderEnabled }.map { reminder ->
                 val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
                 val nextVaccines = nextVaccineIds.mapNotNull { id -> inventory.find { it.id == id } }
                 NextVaccinationState(
+                    reminderId = reminder.id,
                     type = reminder.type,
                     dueDate = reminder.dueDate,
                     nextVaccines = nextVaccines
@@ -182,6 +188,8 @@ class AddVaccinationViewModel @Inject constructor(
                 cashAmount = vaccination.cashAmount.toInt().toString(),
                 onlineAmount = vaccination.onlineAmount.toInt().toString(),
                 totalAmount = vaccination.totalPaid,
+                withFees = vaccination.withFees,
+                doctorsAcc = vaccination.doctorsAcc,
                 isVaccinationLoading = false
             ) }
         }
@@ -321,6 +329,14 @@ class AddVaccinationViewModel @Inject constructor(
         _uiState.update { it.copy(onlineAmount = amount, totalAmount = cash + online) }
     }
 
+    fun updateWithFees(enabled: Boolean) {
+        _uiState.update { it.copy(withFees = enabled) }
+    }
+
+    fun updateDoctorsAccount(enabled: Boolean) {
+        _uiState.update { it.copy(doctorsAcc = enabled) }
+    }
+
     fun addNextVaccination() {
         _uiState.update { it.copy(nextVaccinations = it.nextVaccinations + NextVaccinationState()) }
     }
@@ -329,6 +345,65 @@ class AddVaccinationViewModel @Inject constructor(
         _uiState.update { state ->
             if (index !in state.nextVaccinations.indices) state
             else state.copy(nextVaccinations = state.nextVaccinations.toMutableList().also { it.removeAt(index) })
+        }
+    }
+
+    fun cancelNextVaccination(index: Int) {
+        val state = _uiState.value
+        val row = state.nextVaccinations.getOrNull(index) ?: return
+        val reminderId = row.reminderId
+        if (reminderId.isNullOrBlank()) {
+            removeNextVaccination(index)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val reminder = reminderRepository.getReminderById(reminderId) ?: return@launch
+                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                reminderRepository.dismissReminder(reminder, "Cancelled from Next Vaccination", user)
+                cancelledNextReminderIds += reminderId
+                _uiState.update { current ->
+                    current.copy(nextVaccinations = current.nextVaccinations.toMutableList().also {
+                        if (index in it.indices) it.removeAt(index)
+                    })
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel next vaccination") }
+            }
+        }
+    }
+
+    fun cancelNextVaccinationVaccine(index: Int, vaccine: InventoryItem) {
+        val state = _uiState.value
+        val row = state.nextVaccinations.getOrNull(index) ?: return
+        val reminderId = row.reminderId
+        if (reminderId.isNullOrBlank()) {
+            toggleNextVaccinationVaccine(index, vaccine)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val reminder = reminderRepository.getReminderById(reminderId) ?: return@launch
+                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                reminderRepository.cancelNextVaccinationVaccine(
+                    reminder = reminder,
+                    vaccineId = vaccine.id,
+                    reason = "Cancelled from Next Vaccination",
+                    performedBy = user
+                )
+                val remaining = row.nextVaccines.filter { it.id != vaccine.id }
+                if (remaining.isEmpty()) cancelledNextReminderIds += reminderId
+                _uiState.update { current ->
+                    val rows = current.nextVaccinations.toMutableList()
+                    if (index in rows.indices) {
+                        if (remaining.isEmpty()) rows.removeAt(index)
+                        else rows[index] = rows[index].copy(nextVaccines = remaining)
+                    }
+                    current.copy(nextVaccinations = rows)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel vaccine") }
+            }
         }
     }
 
@@ -454,6 +529,8 @@ class AddVaccinationViewModel @Inject constructor(
                     cashAmount = state.cashAmount.toDoubleOrNull() ?: 0.0,
                     onlineAmount = state.onlineAmount.toDoubleOrNull() ?: 0.0,
                     totalPaid = state.totalAmount,
+                    withFees = state.withFees,
+                    doctorsAcc = state.doctorsAcc,
                     doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                     performedBy = state.selectedDoctor.displayName,
                     items = items,
@@ -484,7 +561,8 @@ class AddVaccinationViewModel @Inject constructor(
                         original = existingVaccination,
                         updated = vaccination,
                         user = user,
-                        reminderSpecs = reminderSpecs
+                        reminderSpecs = reminderSpecs,
+                        excludedReminderIds = cancelledNextReminderIds
                     )
                 } else {
                     // New vaccination keeps the existing creation workflow.

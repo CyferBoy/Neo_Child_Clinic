@@ -111,29 +111,66 @@ fun VaccineSelectionSection(
 
 @Composable
 fun PaymentSection(
-    cash: String, online: String, total: Double, cost: String, withFees: Boolean, doctorsAcc: Boolean,
-    onCashChange: (String) -> Unit, onOnlineChange: (String) -> Unit, onCostChange: (String) -> Unit,
-    onFeesToggle: (Boolean) -> Unit, onAccToggle: (Boolean) -> Unit
+    cash: String,
+    online: String,
+    total: Double,
+    cost: String,
+    withFees: Boolean,
+    doctorsAcc: Boolean,
+    onCashChange: (String) -> Unit,
+    onOnlineChange: (String) -> Unit,
+    onCostChange: (String) -> Unit,
+    onFeesToggle: (Boolean) -> Unit,
+    onAccToggle: (Boolean) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Payment & Cost", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text("Payment", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StandardTextField(value = cash, onValueChange = onCashChange, label = "Cash", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-            StandardTextField(value = online, onValueChange = onOnlineChange, label = "Online", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+            StandardTextField(
+                value = cash,
+                onValueChange = onCashChange,
+                label = "Cash",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f)
+            )
+            StandardTextField(
+                value = online,
+                onValueChange = onOnlineChange,
+                label = "Online",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f)
+            )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val totalPaidDisplay = remember(total) { if (total % 1.0 == 0.0) total.toInt().toString() else total.toString() }
-            StandardTextField(value = totalPaidDisplay, onValueChange = {}, label = "Total Paid", readOnly = true, modifier = Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Checkbox(checked = withFees, onCheckedChange = onFeesToggle)
-                Text("With Fees", style = MaterialTheme.typography.labelSmall)
+
+        val totalPaidDisplay = if (total % 1.0 == 0.0) total.toInt().toString() else total.toString()
+        StandardTextField(
+            value = totalPaidDisplay,
+            onValueChange = {},
+            label = "Total",
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = withFees,
+                    onCheckedChange = onFeesToggle
+                )
+                Text("With Fees")
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StandardTextField(value = cost, onValueChange = onCostChange, label = "Actual Cost", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Checkbox(checked = doctorsAcc, onCheckedChange = onAccToggle)
-                Text("Dr. Acc", style = MaterialTheme.typography.labelSmall)
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = doctorsAcc,
+                    onCheckedChange = onAccToggle
+                )
+                Text("Doctor's Account")
             }
         }
     }

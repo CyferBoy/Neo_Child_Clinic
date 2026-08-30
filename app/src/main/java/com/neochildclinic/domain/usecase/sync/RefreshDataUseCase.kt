@@ -29,6 +29,11 @@ class RefreshDataUseCase @Inject constructor(
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
         patientRepository.refreshPatients()
         vaccinationRepository.refreshVaccinations()
+        // Finance transactions must be pulled down before the COGS migration below, since
+        // that migration patches missing COGS snapshots onto the LOCAL finance rows - if
+        // this is skipped (e.g. after the app's local data was cleared), Financial
+        // Statistics has nothing to read and shows zero everywhere until this runs.
+        financeRepository.refreshTransactions()
         // Remote vaccination records may arrive after the application-startup migration.
         // Re-run the idempotent COGS snapshot migration after refresh so legacy finance rows
         // are upgraded as soon as their linked vaccinations are available locally.

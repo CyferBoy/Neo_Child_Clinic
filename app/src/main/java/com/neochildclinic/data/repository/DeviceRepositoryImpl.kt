@@ -74,28 +74,40 @@ class DeviceRepositoryImpl @Inject constructor(
 
     override suspend fun deactivateCurrentDevice() {
         val token = getFcmToken() ?: return
-        
-        userDevicesTable.update(
-            mapOf("is_active" to false)
-        ) {
-            filter {
-                eq("fcm_token", token)
+
+        try {
+            userDevicesTable.update(
+                mapOf("is_active" to false)
+            ) {
+                filter {
+                    eq("fcm_token", token)
+                }
             }
+        } catch (e: Exception) {
+            // Device registration is best-effort. A network/Supabase failure must
+            // never prevent logout from completing.
+            Log.w("DeviceRepository", "Could not deactivate device", e)
         }
     }
 
     override suspend fun updateActivity() {
         val token = getFcmToken() ?: return
-        
-        userDevicesTable.update(
-            mapOf(
-                "last_seen_at" to java.time.Instant.now().toString(),
-                "app_version" to getAppVersion()
-            )
-        ) {
-            filter {
-                eq("fcm_token", token)
+
+        try {
+            userDevicesTable.update(
+                mapOf(
+                    "last_seen_at" to java.time.Instant.now().toString(),
+                    "app_version" to getAppVersion()
+                )
+            ) {
+                filter {
+                    eq("fcm_token", token)
+                }
             }
+        } catch (e: Exception) {
+            // Device heartbeat is non-critical. In particular, a timeout here must
+            // not abort MainActivity.onResume() before the normal data sync is queued.
+            Log.w("DeviceRepository", "Could not update device activity; continuing", e)
         }
     }
 

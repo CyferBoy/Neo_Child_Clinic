@@ -5,13 +5,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.update.AppUpdateInfo
 import com.neochildclinic.core.update.UpdateType
+import com.neochildclinic.BuildConfig
 import com.neochildclinic.features.settings.DownloadProgress
 
 @Composable
@@ -24,68 +28,184 @@ fun AppUpdateDialog(
 ) {
     val isDowngrade = info.updateType == UpdateType.DOWNGRADE
     val title = when (info.updateType) {
-        UpdateType.UPDATE -> if (info.mandatory) "Update Required" else "New Update Available"
+        UpdateType.UPDATE -> "Update Available"
         UpdateType.REUPDATE -> "Re-update Available"
-        UpdateType.DOWNGRADE -> "Older Version Available"
-    }
-    val actionText = when {
-        installing -> "Downloading…"
-        info.updateType == UpdateType.UPDATE -> "Update Now"
-        info.updateType == UpdateType.REUPDATE -> "Reinstall"
-        else -> "Downgrade"
+        UpdateType.DOWNGRADE -> "Downgrade Available"
     }
 
     AlertDialog(
         onDismissRequest = { if (!info.mandatory && !installing) onLater() },
-        title = { Text(title) },
+        shape = MaterialTheme.shapes.extraLarge,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(
+                        Icons.Default.SystemUpdate,
+                        contentDescription = null,
+                        modifier = Modifier.padding(14.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Column {
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                    if (!installing) {
+                        Text(
+                            if (isDowngrade) "An older version is available"
+                            else "A new version is ready",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
         text = {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 440.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                if (installing) {
-                    if (progress.percent >= 0) {
-                        LinearProgressIndicator(
-                            progress = { progress.percent / 100f },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text("${progress.percent}%", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text("Downloading update…", style = MaterialTheme.typography.bodySmall)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Current", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "v${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text("→", style = MaterialTheme.typography.headlineMedium)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "New",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                "v${info.versionName}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
-                    if (progress.totalBytes > 0) {
-                        Text(
-                            formatBytes(progress.downloadedBytes) + " / " + formatBytes(progress.totalBytes),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(4.dp))
                 }
 
-                Column(
-                    modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("Vaccine Manager ${info.versionName} is available.")
-                    if (isDowngrade) {
-                        Text(
-                            "You currently have a newer version installed. Installing this release may remove newer features or fixes.",
-                            color = MaterialTheme.colorScheme.error
-                        )
+                if (installing) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 1.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 3.dp)
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    "Downloading…",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            if (progress.percent >= 0) {
+                                LinearProgressIndicator(
+                                    progress = { progress.percent / 100f },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        if (progress.totalBytes > 0)
+                                            "${formatBytes(progress.downloadedBytes)} / ${formatBytes(progress.totalBytes)}"
+                                        else
+                                            formatBytes(progress.downloadedBytes),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Text(
+                                        "${progress.percent}%",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            } else {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                Text(
+                                    "Preparing download…",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
                     }
-                    Text(info.releaseNotes)
-                    if (info.mandatory) Text("This update is required to continue using the application.")
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Vaccine Manager ${info.versionName} is available.")
+                        if (isDowngrade) {
+                            Text(
+                                "You currently have a newer version installed. Installing this release may remove newer features or fixes.",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Text(info.releaseNotes)
+                        if (info.mandatory) {
+                            Text(
+                                "This update is required to continue using the application.",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = onUpdate, enabled = !installing) { Text(actionText) }
+            Button(
+                onClick = onUpdate,
+                enabled = !installing
+            ) {
+                Text(
+                    when {
+                        installing -> "Downloading…"
+                        info.updateType == UpdateType.REUPDATE -> "Reinstall"
+                        info.updateType == UpdateType.DOWNGRADE -> "Downgrade"
+                        else -> "Update"
+                    }
+                )
+            }
         },
         dismissButton = if (!info.mandatory) {
-            { TextButton(onClick = onLater, enabled = !installing) { Text("Later") } }
+            {
+                TextButton(
+                    onClick = onLater,
+                    enabled = !installing
+                ) {
+                    Text(if (installing) "Cancel" else "Later")
+                }
+            }
         } else null
     )
 }

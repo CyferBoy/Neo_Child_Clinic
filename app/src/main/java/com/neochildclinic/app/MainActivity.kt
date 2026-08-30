@@ -161,6 +161,8 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             authViewModel.refreshSessionStatus()
             checkAppLock()
+            // Device heartbeat is non-critical; DeviceRepository handles failures so
+            // a user_devices timeout can never prevent the main data sync from being queued.
             deviceRepository.updateActivity()
             settingsManager.updateLastOpenTimestamp()
             syncManager.scheduleSync()

@@ -34,6 +34,7 @@ interface ReminderRepository {
     suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? = null, transactionGroupId: String? = null)
     suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String)
     suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String)
+    suspend fun cancelNextVaccinationVaccine(reminder: ReminderEntity, vaccineId: String, reason: String, performedBy: String)
     suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String)
     suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) // Admin only check usually in VM
     suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String? = null)

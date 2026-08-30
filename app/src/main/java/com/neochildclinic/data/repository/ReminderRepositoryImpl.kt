@@ -37,6 +37,7 @@ class ReminderRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val dueReminderDao: DueReminderDao,
     private val vaccinationDao: VaccinationDao,
+    private val vaccineDao: VaccineDao,
     private val patientDao: PatientDao,
     private val auditLogDao: AuditLogDao,
     private val syncRepository: SyncRepository,
@@ -239,67 +240,115 @@ class ReminderRepositoryImpl @Inject constructor(
         reminderEnabled: Boolean,
         performedBy: String
     ) {
-        // Type is mandatory for a Next Vaccination entry; vaccine selection is optional.
+        // A Next Vaccination may be type-only, or may contain one/many vaccines.
+        // Each selected vaccine is persisted as its own reminder row.
         if (type.isBlank() || dueDate.isBlank()) return
-        
+
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                val groupedNames = vaccineNames.distinct().joinToString(", ")
-                val existing = dueReminderDao.getReminderByUniqueEvent(
-                    patientId, originalVisitId, dueDate, groupedNames, type
-                )
                 val now = PatientUtils.getCurrentIsoTimestamp()
                 val userName = sessionManager.getCurrentUserName()
-                val reminder = if (existing != null) {
-                    existing.copy(
-                        dueDate = dueDate,
-                        status = "ACTIVE",
-                        priority = priority,
-                        reminderEnabled = reminderEnabled,
-                        category = "VACCINATION",
-                        type = type,
-                        nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
-                        notes = notes,
-                        updatedAt = now,
-                        isSynced = false,
-                        createdBy = existing.createdBy ?: userName,
-                        updatedBy = userName
-                    )
+
+                // Pair each selected vaccine name with its corresponding vaccines.id.
+                // The UI is populated from the vaccines table; we additionally verify the
+                // ID here so reminders never persist a fabricated/unrelated vaccine ID.
+                val vaccinePairs = vaccineNames.mapIndexedNotNull { index, rawName ->
+                    val vaccineId = nxtVaccineId.getOrNull(index)?.trim().orEmpty()
+                    if (rawName.isBlank() || vaccineId.isBlank()) return@mapIndexedNotNull null
+
+                    val catalogVaccine = vaccineDao.getVaccineById(vaccineId) ?: return@mapIndexedNotNull null
+                    val catalogName = catalogVaccine.brandName.trim()
+                    if (catalogName.isBlank()) return@mapIndexedNotNull null
+
+                    catalogName to vaccineId
+                }.distinctBy { it.second }
+
+                // If no vaccine is selected, still persist the type-only reminder.
+                // If vaccine names were supplied but none could be verified, do not create
+                // an invalid vaccine reminder; preserve the valid type-only use case.
+                val rows = if (vaccinePairs.isEmpty()) {
+                    listOf(null)
                 } else {
-                    ReminderEntity(
-                        id = UUID.randomUUID().toString(),
-                        serverId = null,
-                        patientId = patientId,
-                        originalVisitId = originalVisitId,
-                        vaccineName = groupedNames,
-                        dueDate = dueDate,
-                        status = "ACTIVE",
-                        priority = priority,
-                        reminderEnabled = reminderEnabled,
-                        category = "VACCINATION",
-                        type = type,
-                        nxtVaccineId = nxtVaccineId.distinct().ifEmpty { null },
-                        notes = notes,
-                        createdAt = now,
-                        updatedAt = now,
-                        isSynced = false,
-                        createdBy = userName,
-                        updatedBy = userName
+                    vaccinePairs
+                }
+
+                rows.forEach { pair ->
+                    val vaccineName = pair?.first.orEmpty()
+                    val vaccineId = pair?.second
+
+                    val existing = dueReminderDao.getReminderByUniqueEvent(
+                        patientId,
+                        originalVisitId,
+                        dueDate,
+                        vaccineName,
+                        type
+                    )
+
+                    val reminder = if (existing != null) {
+                        existing.copy(
+                            patientId = patientId,
+                            originalVisitId = originalVisitId,
+                            vaccineName = vaccineName,
+                            dueDate = dueDate,
+                            status = "ACTIVE",
+                            priority = priority,
+                            reminderEnabled = reminderEnabled,
+                            category = "VACCINATION",
+                            type = type,
+                            nxtVaccineId = vaccineId?.let { listOf(it) },
+                            notes = notes,
+                            updatedAt = now,
+                            isSynced = false,
+                            createdBy = existing.createdBy ?: userName,
+                            updatedBy = userName
+                        )
+                    } else {
+                        ReminderEntity(
+                            id = UUID.randomUUID().toString(),
+                            serverId = null,
+                            patientId = patientId,
+                            originalVisitId = originalVisitId,
+                            vaccineName = vaccineName,
+                            dueDate = dueDate,
+                            status = "ACTIVE",
+                            priority = priority,
+                            reminderEnabled = reminderEnabled,
+                            category = "VACCINATION",
+                            type = type,
+                            nxtVaccineId = vaccineId?.let { listOf(it) },
+                            notes = notes,
+                            createdAt = now,
+                            updatedAt = now,
+                            isSynced = false,
+                            createdBy = userName,
+                            updatedBy = userName
+                        )
+                    }
+
+                    dueReminderDao.insertReminder(reminder)
+
+                    val displayLabel = if (vaccineName.isBlank()) type else vaccineName
+                    logReminderUndoableChange(
+                        reminder = reminder,
+                        action = if (existing == null) "SCHEDULED" else "UPDATED",
+                        remarks = "Next Vaccination ($displayLabel) scheduled by $userName",
+                        newValue = dueDate
+                    )
+
+                    val operation = if (existing == null) {
+                        SyncOperation.CREATE
+                    } else {
+                        SyncOperation.UPDATE
+                    }
+                    enqueueReminderSync(
+                        "REMINDERS",
+                        reminder.id,
+                        operation,
+                        SyncPriority.MEDIUM
                     )
                 }
-                dueReminderDao.insertReminder(reminder)
-
-                val displayLabel = if (groupedNames.isBlank()) type else groupedNames
-                logReminderUndoableChange(
-                    reminder = reminder,
-                    action = "SCHEDULED",
-                    remarks = "Next Vaccination ($displayLabel) scheduled by $userName",
-                    newValue = dueDate
-                )
-
-                val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
-                enqueueReminderSync("REMINDERS", reminder.id, operation, SyncPriority.MEDIUM)
             }
+
             if (reminderEnabled) triggerImmediateCheck()
         }
     }
@@ -338,6 +387,47 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
+
+    override suspend fun cancelNextVaccinationVaccine(
+        reminder: ReminderEntity,
+        vaccineId: String,
+        reason: String,
+        performedBy: String
+    ) {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+                val ids = existing.nxtVaccineId.orEmpty().toMutableList()
+                val names = existing.vaccineName.split(",").map(String::trim).filter(String::isNotBlank).toMutableList()
+                val index = ids.indexOf(vaccineId)
+                if (index < 0) return@withTransaction
+
+                ids.removeAt(index)
+                if (index < names.size) names.removeAt(index)
+
+                val userName = sessionManager.getCurrentUserName()
+                if (ids.isEmpty()) {
+                    logReminderUndoableChange(existing, "DISMISSED", "Next Vaccination cancelled: $reason by $userName")
+                    dueReminderDao.moveDueToDismissed(existing, userName, reason)
+                    enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                } else {
+                    val updated = existing.copy(
+                        vaccineName = names.joinToString(", "),
+                        nxtVaccineId = ids.ifEmpty { null },
+                        status = "ACTIVE",
+                        reminderEnabled = true,
+                        updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                        updatedBy = userName,
+                        isSynced = false
+                    )
+                    dueReminderDao.updateReminder(updated)
+                    logReminderUndoableChange(updated, "VACCINE_CANCELLED", "Cancelled vaccine $vaccineId: $reason by $userName")
+                    enqueueReminderSync("REMINDERS", updated.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                }
+            }
+            triggerImmediateCheck()
+        }
+    }
 
     override suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {

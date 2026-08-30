@@ -228,8 +228,14 @@ fun AddVaccinationScreen(
                             cash = uiState.cashAmount,
                             online = uiState.onlineAmount,
                             total = uiState.totalAmount,
+                            cost = "",
+                            withFees = uiState.withFees,
+                            doctorsAcc = uiState.doctorsAcc,
                             onCashChange = { viewModel.updateCash(it) },
-                            onOnlineChange = { viewModel.updateOnline(it) }
+                            onOnlineChange = { viewModel.updateOnline(it) },
+                            onCostChange = {},
+                            onFeesToggle = { viewModel.updateWithFees(it) },
+                            onAccToggle = { viewModel.updateDoctorsAccount(it) }
                         )
                     } else {
                         ReadOnlyValue("Cash: ₹${uiState.cashAmount} | Online: ₹${uiState.onlineAmount}\nTotal: ₹${uiState.totalAmount}")
@@ -262,7 +268,9 @@ fun AddVaccinationScreen(
                             onTypeSelected = { viewModel.updateNextVaccinationType(index, it) },
                             onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(index, it) },
                             onDueDateSelected = { viewModel.updateNextVaccinationDueDate(index, it) },
-                            onRemove = { viewModel.removeNextVaccination(index) }
+                            onRemove = { viewModel.removeNextVaccination(index) },
+                            onCancel = { viewModel.cancelNextVaccination(index) },
+                            onVaccineCancel = { viewModel.cancelNextVaccinationVaccine(index, it) }
                         )
                     }
                     item {
@@ -497,10 +505,14 @@ private fun NextVaccinationSection(
     onTypeSelected: (String) -> Unit,
     onVaccineToggled: (InventoryItem) -> Unit,
     onDueDateSelected: (String) -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onCancel: () -> Unit,
+    onVaccineCancel: (InventoryItem) -> Unit
 ) {
     var vaccineSearch by remember(state.type) { mutableStateOf("") }
     var vaccineExpanded by remember { mutableStateOf(false) }
+    var showCancelDialog by remember(state.reminderId) { mutableStateOf(false) }
+    var vaccineToCancel by remember { mutableStateOf<InventoryItem?>(null) }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -509,7 +521,11 @@ private fun NextVaccinationSection(
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Next Vaccination ${index + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                if (canRemove) {
+                if (state.reminderId != null) {
+                    TextButton(onClick = { showCancelDialog = true }) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.error)
+                    }
+                } else if (canRemove) {
                     IconButton(onClick = onRemove) {
                         Icon(Icons.Default.DeleteOutline, contentDescription = "Remove next vaccination")
                     }
@@ -561,9 +577,22 @@ private fun NextVaccinationSection(
                     state.nextVaccines.forEach { vaccine ->
                         InputChip(
                             selected = true,
-                            onClick = { onVaccineToggled(vaccine) },
+                            onClick = {
+                                if (state.reminderId != null) vaccineToCancel = vaccine
+                                else onVaccineToggled(vaccine)
+                            },
                             label = { Text(vaccine.brandName) },
-                            trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp)) }
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = {
+                                        if (state.reminderId != null) vaccineToCancel = vaccine
+                                        else onVaccineToggled(vaccine)
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = if (state.reminderId != null) "Cancel ${vaccine.brandName}" else "Remove", modifier = Modifier.size(16.dp))
+                                }
+                            }
                         )
                     }
                 }
@@ -575,6 +604,38 @@ private fun NextVaccinationSection(
                 onDateSelected = onDueDateSelected
             )
         }
+    }
+
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Next Vaccination") },
+            text = { Text("Cancel this entire next vaccination visit and all its vaccines?") },
+            confirmButton = {
+                TextButton(onClick = { showCancelDialog = false; onCancel() }) {
+                    Text("Cancel Vaccination", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) { Text("Keep") }
+            }
+        )
+    }
+
+    vaccineToCancel?.let { vaccine ->
+        AlertDialog(
+            onDismissRequest = { vaccineToCancel = null },
+            title = { Text("Cancel Vaccine") },
+            text = { Text("Cancel ${vaccine.brandName} from this next vaccination? Other vaccines in this visit will remain active.") },
+            confirmButton = {
+                TextButton(onClick = { vaccineToCancel = null; onVaccineCancel(vaccine) }) {
+                    Text("Cancel Vaccine", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vaccineToCancel = null }) { Text("Keep") }
+            }
+        )
     }
 }
 
