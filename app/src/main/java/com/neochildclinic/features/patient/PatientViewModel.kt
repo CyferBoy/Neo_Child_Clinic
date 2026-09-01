@@ -268,6 +268,9 @@ class PatientViewModel @Inject constructor(
 
     fun getPatientConsultations(patientId: String): Flow<List<Consultation>> {
         return consultationRepository.getConsultationsForPatient(patientId)
+            .map { consultations ->
+                consultations.sortedByDescending { PatientUtils.parseDate(it.date)?.time ?: 0L }
+            }
     }
 
     fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {
@@ -288,6 +291,7 @@ class PatientViewModel @Inject constructor(
             .map { snapshots ->
                 snapshots
                     .filter { it.visit.visitType == "VACCINATION" }
+                    .sortedByDescending { PatientUtils.parseDate(it.visit.dateGiven)?.time ?: 0L }
                     .map { snapshot ->
                         PatientVaccinationCardData(
                             vaccination = snapshot.visit.toVaccination().copy(

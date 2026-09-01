@@ -228,12 +228,10 @@ fun AddVaccinationScreen(
                             cash = uiState.cashAmount,
                             online = uiState.onlineAmount,
                             total = uiState.totalAmount,
-                            cost = "",
                             withFees = uiState.withFees,
                             doctorsAcc = uiState.doctorsAcc,
                             onCashChange = { viewModel.updateCash(it) },
                             onOnlineChange = { viewModel.updateOnline(it) },
-                            onCostChange = {},
                             onFeesToggle = { viewModel.updateWithFees(it) },
                             onAccToggle = { viewModel.updateDoctorsAccount(it) }
                         )
@@ -264,7 +262,7 @@ fun AddVaccinationScreen(
                             state = uiState.nextVaccinations[index],
                             inventory = uiState.inventory,
                             availableTypes = uiState.availableDueTypes,
-                            canRemove = uiState.nextVaccinations.size > 1,
+                            canRemove = true,
                             onTypeSelected = { viewModel.updateNextVaccinationType(index, it) },
                             onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(index, it) },
                             onDueDateSelected = { viewModel.updateNextVaccinationDueDate(index, it) },
@@ -457,8 +455,12 @@ private fun PaymentSection(
     cash: String,
     online: String,
     total: Double,
+    withFees: Boolean,
+    doctorsAcc: Boolean,
     onCashChange: (String) -> Unit,
-    onOnlineChange: (String) -> Unit
+    onOnlineChange: (String) -> Unit,
+    onFeesToggle: (Boolean) -> Unit,
+    onAccToggle: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -488,7 +490,33 @@ private fun PaymentSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Total Amount", style = MaterialTheme.typography.titleMedium)
-                Text("₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "₹$total",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = withFees,
+                        onCheckedChange = onFeesToggle
+                    )
+                    Text("With Fees")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = doctorsAcc,
+                        onCheckedChange = onAccToggle
+                    )
+                    Text("Doctor's Account")
+                }
             }
         }
     }

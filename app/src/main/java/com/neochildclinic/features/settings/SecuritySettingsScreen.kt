@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.utils.BiometricAuthenticator
+import com.neochildclinic.core.utils.BiometricLockManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 
@@ -34,6 +35,7 @@ fun SecuritySettingsScreen(onBack: () -> Unit, viewModel: NotificationSettingsVi
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 SettingSwitch("Biometric Lock", "Enable fingerprint/face ID", s.biometricLockEnabled) { requested ->
                                     if (requested) {
+                                        BiometricLockManager.setProtectionEnabled(true)
                                         viewModel.updateSettings(s.copy(biometricLockEnabled = true))
                                     } else if (activity != null) {
                                         BiometricAuthenticator.authenticate(
@@ -41,7 +43,8 @@ fun SecuritySettingsScreen(onBack: () -> Unit, viewModel: NotificationSettingsVi
                                             title = "Disable Biometric Lock",
                                             subtitle = "Authenticate to change security settings"
                                         ) {
-                                            viewModel.updateSettings(s.copy(biometricLockEnabled = false))
+                                            BiometricLockManager.setProtectionEnabled(false)
+                                             viewModel.updateSettings(s.copy(biometricLockEnabled = false))
                                         }
                                     }
                                 }

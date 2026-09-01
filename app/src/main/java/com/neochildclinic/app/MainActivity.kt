@@ -178,6 +178,7 @@ class MainActivity : FragmentActivity() {
             if (status !is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) return@launch
 
             val settings = settingsManager.settingsFlow.first()
+            BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)
             if (!settings.biometricLockEnabled) {
                 BiometricLockManager.unlockBecauseProtectionIsDisabled()
                 return@launch

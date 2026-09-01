@@ -9,18 +9,37 @@ object BiometricLockManager {
     val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
     private var screenWasOff = false
+    private var protectionEnabled = true
     private var lastActiveTime: Long = System.currentTimeMillis()
     private const val INACTIVITY_TIMEOUT = 5 * 60 * 1000L
 
     fun onScreenOff() {
-        screenWasOff = true
+        if (protectionEnabled) {
+            screenWasOff = true
+        }
     }
 
     fun onAppResume() {
+        if (!protectionEnabled) {
+            _isAppLocked.value = false
+            screenWasOff = false
+            onUserActive()
+            return
+        }
+
         val currentTime = System.currentTimeMillis()
         val inactiveTooLong = (currentTime - lastActiveTime) > INACTIVITY_TIMEOUT
         if (screenWasOff || inactiveTooLong) _isAppLocked.value = true
         screenWasOff = false
+    }
+
+    fun setProtectionEnabled(enabled: Boolean) {
+        protectionEnabled = enabled
+        if (!enabled) {
+            _isAppLocked.value = false
+            screenWasOff = false
+            onUserActive()
+        }
     }
 
     fun onUserActive() {
