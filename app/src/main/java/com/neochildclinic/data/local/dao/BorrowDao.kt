@@ -18,6 +18,12 @@ interface BorrowDao {
     @Query("SELECT * FROM borrow_records WHERE isReturned = 0")
     fun getActiveBorrows(): Flow<List<BorrowEntity>>
 
+    @Query("SELECT * FROM borrow_records WHERE isReturned = 1")
+    fun getReturnedBorrows(): Flow<List<BorrowEntity>>
+
     @Query("UPDATE borrow_records SET isReturned = 1, returnedDate = :date, isSynced = 0 WHERE id = :id")
     suspend fun markReturned(id: String, date: String)
+
+    @Query("DELETE FROM borrow_records WHERE id = :id")
+    suspend fun deleteById(id: String)
 }

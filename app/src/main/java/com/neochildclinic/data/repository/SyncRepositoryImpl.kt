@@ -218,7 +218,7 @@ class SyncRepositoryImpl @Inject constructor(
             "VACCINATION", "VISIT", "BATCH" -> 2
             "VACCINATION_ITEM", "CONSULTATION", "CONSULTATION_TODO", "VACCINATION_TODO", "WASTE", "BORROW" -> 3
             "INVENTORY_TRANSACTION", "FINANCE" -> 4
-            "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG" -> 5
+            "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG", "PERSONAL_REMINDER" -> 5
             else -> 100
         }
     }
@@ -237,10 +237,12 @@ class SyncRepositoryImpl @Inject constructor(
             "FINANCE" -> "finance_transactions"
             "PROFILE", "STAFF" -> "profiles"
             "BORROW" -> "borrow_records"
+            "BORROW_RETURN" -> "borrow_returns"
             "AUDIT_LOG" -> "audit_logs"
             "CONSULTATION" -> "consultations"
             "CONSULTATION_TODO" -> "consultation_todos"
             "VACCINATION_TODO" -> "vaccination_todos"
+            "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
             else -> throw IllegalArgumentException("Unknown entity: ${item.entityName}")
         }
 
@@ -330,7 +332,9 @@ class SyncRepositoryImpl @Inject constructor(
                 is ConsultationTodoEntity -> postgrest.from(table).upsert(localData)
                 is VaccinationTodoEntity -> postgrest.from(table).upsert(localData)
                 is BorrowEntity -> postgrest.from(table).upsert(localData)
+                is BorrowReturnEntity -> postgrest.from(table).upsert(localData)
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
+                is PersonalReminderEntity -> postgrest.from(table).upsert(localData)
             }
         }
     }
@@ -457,9 +461,17 @@ class SyncRepositoryImpl @Inject constructor(
                 val entity = json.decodeFromJsonElement<BorrowEntity>(element)
                 database.borrowDao().insertRecord(entity.copy(isSynced = true))
             }
+            "BORROW_RETURN" -> {
+                val entity = json.decodeFromJsonElement<BorrowReturnEntity>(element)
+                database.borrowReturnDao().insert(entity.copy(isSynced = true))
+            }
             "WASTE" -> {
                 val entity = json.decodeFromJsonElement<WasteEntity>(element)
                 database.wasteDao().insertWaste(entity.copy(isSynced = true))
+            }
+            "PERSONAL_REMINDER" -> {
+                val entity = json.decodeFromJsonElement<PersonalReminderEntity>(element)
+                database.personalReminderDao().insert(entity.copy(isSynced = true))
             }
         }
     }
@@ -479,6 +491,8 @@ class SyncRepositoryImpl @Inject constructor(
             is PatientNotesEntity -> data.timestamp
             is InventoryTransactionEntity -> data.timestamp
             is BorrowEntity -> data.borrowedDate
+            is BorrowReturnEntity -> data.returnedDate
+            is PersonalReminderEntity -> data.updatedAt
             else -> ""
         }
     }
@@ -511,7 +525,9 @@ class SyncRepositoryImpl @Inject constructor(
                 "CONSULTATION_TODO" -> database.patientTodoDao().getConsultationTodoById(entityId)
                 "VACCINATION_TODO" -> database.patientTodoDao().getVaccinationTodoById(entityId)
                 "BORROW" -> database.borrowDao().getRecordById(entityId)
+                "BORROW_RETURN" -> database.borrowReturnDao().getById(entityId)
                 "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId)
+                "PERSONAL_REMINDER" -> database.personalReminderDao().getById(entityId)
                 else -> null
             }
         } catch (e: Exception) {

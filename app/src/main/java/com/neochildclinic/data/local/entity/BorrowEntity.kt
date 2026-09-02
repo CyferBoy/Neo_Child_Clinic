@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.core.model.BorrowedVaccine
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -41,4 +42,32 @@ data class BorrowEntity(
     @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+)
+
+fun BorrowEntity.toDomain() = BorrowedVaccine(
+    id = id,
+    doctorName = doctorName,
+    vaccineId = vaccineId,
+    batchId = batchId,
+    borrowedDate = borrowedDate,
+    quantity = quantity,
+    isReturned = isReturned,
+    returnedDate = returnedDate,
+    type = type,
+    notes = notes,
+    isSynced = isSynced
+)
+
+fun BorrowedVaccine.toEntity(isSynced: Boolean = false) = BorrowEntity(
+    id = id,
+    doctorName = doctorName,
+    vaccineId = vaccineId,
+    batchId = batchId,
+    borrowedDate = borrowedDate,
+    quantity = quantity,
+    isReturned = isReturned,
+    returnedDate = returnedDate,
+    type = type,
+    notes = notes,
+    isSynced = isSynced
 )

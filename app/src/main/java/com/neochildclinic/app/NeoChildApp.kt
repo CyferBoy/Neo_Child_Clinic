@@ -85,6 +85,13 @@ class NeoChildApp : Application(), Configuration.Provider {
     }
 
     private fun installSecurityProvider() {
+        val availability = GoogleApiAvailability.getInstance()
+        val result = availability.isGooglePlayServicesAvailable(applicationContext)
+        if (result != com.google.android.gms.common.ConnectionResult.SUCCESS) {
+            Log.w(TAG, "Google Play Services not available: ${availability.getErrorString(result)}")
+            return
+        }
+
         ProviderInstaller.installIfNeededAsync(applicationContext, object : ProviderInstaller.ProviderInstallListener {
             override fun onProviderInstalled() {
                 Log.d(TAG, "Security provider installed successfully")

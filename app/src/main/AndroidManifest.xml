@@ -18,6 +18,9 @@
         <intent>
             <action android:name="com.google.android.gms.common.api.BIND_SERVICE" />
         </intent>
+        <intent>
+            <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+        </intent>
     </queries>
 
     <application
@@ -30,6 +33,10 @@
         android:roundIcon="@drawable/app_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.NeoChild">
+
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
         <activity
             android:name=".app.MainActivity"
             android:exported="true"

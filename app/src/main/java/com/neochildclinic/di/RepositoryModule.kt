@@ -69,4 +69,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindPatientTodoRepository(impl: PatientTodoRepositoryImpl): PatientTodoRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPersonalReminderRepository(impl: PersonalReminderRepositoryImpl): PersonalReminderRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBorrowRepository(impl: BorrowRepositoryImpl): BorrowRepository
 }

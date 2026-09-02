@@ -48,7 +48,12 @@ fun SecuritySettingsScreen(onBack: () -> Unit, viewModel: NotificationSettingsVi
                                         }
                                     }
                                 }
-                                SettingSwitch("Always Authenticate", "Auth on every app open", s.authOnEveryOpen) { requested ->
+                                SettingSwitch(
+                                    label = "Always Authenticate",
+                                    supportingText = "Auth on every app open",
+                                    checked = s.authOnEveryOpen,
+                                    enabled = s.biometricLockEnabled
+                                ) { requested ->
                                     if (!s.authOnEveryOpen || activity == null) {
                                         viewModel.updateSettings(s.copy(authOnEveryOpen = requested))
                                     } else if (!requested) {
@@ -61,7 +66,13 @@ fun SecuritySettingsScreen(onBack: () -> Unit, viewModel: NotificationSettingsVi
                                         }
                                     }
                                 }
-                                SettingSlider("Inactivity Days", s.inactivityDaysThreshold.toFloat(), 1f..30f, 29) { requested ->
+                                SettingSlider(
+                                    label = "Inactivity Days",
+                                    value = s.inactivityDaysThreshold.toFloat(),
+                                    range = 1f..30f,
+                                    steps = 29,
+                                    enabled = s.biometricLockEnabled
+                                ) { requested ->
                                     if (requested.toInt() <= s.inactivityDaysThreshold || activity == null) {
                                         viewModel.updateSettings(s.copy(inactivityDaysThreshold = requested.toInt()))
                                     } else {

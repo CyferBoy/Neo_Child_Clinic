@@ -1,6 +1,5 @@
 package com.neochildclinic.features.inventory
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,11 +18,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.model.BorrowedVaccine
+import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
-import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,26 +34,47 @@ fun BorrowedScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
+    var historyItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
+    var returningItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
 
-    val filteredList = remember(uiState.borrowedList, uiState.selectedTab) {
-        val type = if (uiState.selectedTab == 0) "BY" else "FROM"
-        uiState.borrowedList.filter { it.type == type }
+    // Outer Borrowed/Returned split, then the By/From type filter, then sort so
+    // records needing attention (partially returned) surface first while still
+    // reading latest-date-first overall - never plain alphabetical.
+    val filteredList = remember(uiState.borrowedList, uiState.mainTab, uiState.selectedTab) {
+        val byMainTab = uiState.borrowedList.filter { item ->
+            when (uiState.mainTab) {
+                BorrowMainTab.BORROWED -> item.status != BorrowStatus.RETURNED
+                BorrowMainTab.RETURNED -> item.status == BorrowStatus.RETURNED
+            }
+        }
+        val typeValue = if (uiState.selectedTab == 0) "BY" else "FROM"
+        val byType = byMainTab.filter { it.type.equals(typeValue, ignoreCase = true) }
+
+        when (uiState.mainTab) {
+            BorrowMainTab.BORROWED -> byType.sortedWith(
+                compareByDescending<BorrowedDisplayItem> { it.status == BorrowStatus.PARTIALLY_RETURNED }
+                    .thenByDescending { PatientUtils.parseDate(it.latestDate)?.time ?: 0L }
+            )
+            BorrowMainTab.RETURNED -> byType.sortedByDescending { PatientUtils.parseDate(it.latestDate)?.time ?: 0L }
+        }
     }
 
     BorrowedContent(
         uiState = uiState,
         filteredList = filteredList,
         onBack = onBack,
-        onTabSelected = viewModel::updateTab,
+        onMainTabSelected = viewModel::selectMainTab,
+        onTypeTabSelected = viewModel::updateTab,
         onAddClick = {
             editingItem = null
             showAddDialog = true
         },
+        onItemClick = { historyItem = it },
         onEditRequest = { item ->
             editingItem = item
             showAddDialog = true
         },
-        onReturnRequest = { viewModel.markAsReturned(it.record) },
+        onReturnRequest = { returningItem = it },
         onDeleteRequest = { viewModel.deleteBorrowedItem(it.id) }
     )
 
@@ -70,6 +90,32 @@ fun BorrowedScreen(
             }
         )
     }
+
+    historyItem?.let { item ->
+        // Keep the sheet showing the latest state of the item it's open for.
+        val latest = uiState.borrowedList.find { it.id == item.id } ?: item
+        BorrowHistorySheet(
+            item = latest,
+            onDismiss = { historyItem = null },
+            onMarkAsReturned = {
+                historyItem = null
+                returningItem = latest
+            }
+        )
+    }
+
+    returningItem?.let { item ->
+        val latest = uiState.borrowedList.find { it.id == item.id } ?: item
+        ReturnVaccineDialog(
+            item = latest,
+            inventory = uiState.inventory,
+            onDismiss = { returningItem = null },
+            onConfirm = { quantity, batchId, notes, newBatchInfo ->
+                viewModel.submitReturn(latest, quantity, batchId, notes, newBatchInfo)
+                returningItem = null
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,13 +124,16 @@ private fun BorrowedContent(
     uiState: BorrowedUiState,
     filteredList: List<BorrowedDisplayItem>,
     onBack: () -> Unit,
-    onTabSelected: (Int) -> Unit,
+    onMainTabSelected: (BorrowMainTab) -> Unit,
+    onTypeTabSelected: (Int) -> Unit,
     onAddClick: () -> Unit,
+    onItemClick: (BorrowedDisplayItem) -> Unit,
     onEditRequest: (BorrowedDisplayItem) -> Unit,
     onReturnRequest: (BorrowedDisplayItem) -> Unit,
     onDeleteRequest: (BorrowedDisplayItem) -> Unit
 ) {
-    val tabs = remember { listOf("By", "From") }
+    val mainTabs = remember { listOf(BorrowMainTab.BORROWED to "Borrowed", BorrowMainTab.RETURNED to "Returned") }
+    val mainTabIndex = mainTabs.indexOfFirst { it.first == uiState.mainTab }.coerceAtLeast(0)
 
     Scaffold(
         topBar = {
@@ -103,21 +152,28 @@ private fun BorrowedContent(
                     )
                 )
                 TabRow(
-                    selectedTabIndex = uiState.selectedTab,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    selectedTabIndex = mainTabIndex,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
-                            color = MaterialTheme.colorScheme.onPrimary
+                            Modifier.tabIndicatorOffset(tabPositions[mainTabIndex]),
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 ) {
-                    tabs.forEachIndexed { index, title ->
+                    mainTabs.forEachIndexed { index, (tab, title) ->
                         Tab(
-                            selected = uiState.selectedTab == index,
-                            onClick = { onTabSelected(index) },
-                            text = { Text(title, fontWeight = FontWeight.Bold) }
+                            selected = mainTabIndex == index,
+                            onClick = { onMainTabSelected(tab) },
+                            text = { 
+                                Text(
+                                    text = title, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (mainTabIndex == index) MaterialTheme.colorScheme.primary 
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                ) 
+                            }
                         )
                     }
                 }
@@ -133,29 +189,47 @@ private fun BorrowedContent(
             }
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (filteredList.isEmpty()) {
-                Text(
-                    text = "No records found.", 
-                    modifier = Modifier.align(Alignment.Center), 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(filteredList, key = { it.id }) { item ->
-                        BorrowedRecordCard(
-                            item = item,
-                            onEdit = { onEditRequest(item) },
-                            onReturn = { onReturnRequest(item) },
-                            onDelete = { onDeleteRequest(item) },
-                            modifier = Modifier.animateItem()
-                        )
+        Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = uiState.selectedTab == 0,
+                        onClick = { onTypeTabSelected(0) },
+                        shape = SegmentedButtonDefaults.itemShape(0, 2)
+                    ) { Text("By") }
+                    SegmentedButton(
+                        selected = uiState.selectedTab == 1,
+                        onClick = { onTypeTabSelected(1) },
+                        shape = SegmentedButtonDefaults.itemShape(1, 2)
+                    ) { Text("From") }
+                }
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (filteredList.isEmpty()) {
+                    Text(
+                        text = if (uiState.mainTab == BorrowMainTab.RETURNED) "No fully returned records yet." else "No records found.",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp, top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredList, key = { it.id }) { item ->
+                            BorrowedRecordCard(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onEdit = { onEditRequest(item) },
+                                onReturn = { onReturnRequest(item) },
+                                onDelete = { onDeleteRequest(item) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }
@@ -177,9 +251,9 @@ fun BorrowedEditDialog(
     var batchId by rememberSaveable { mutableStateOf(item?.record?.batchId ?: "") }
     var batchNumber by rememberSaveable { mutableStateOf(item?.batchNumber ?: "") }
     var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
-    var quantity by rememberSaveable { mutableStateOf(item?.quantity ?: 1) }
+    var quantity by rememberSaveable { mutableStateOf(item?.borrowedQuantity ?: 1) }
     var type by rememberSaveable { mutableStateOf(item?.type ?: defaultType) }
-    
+
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     AlertDialog(
@@ -206,19 +280,19 @@ fun BorrowedEditDialog(
                 }
 
                 StandardTextField(
-                    value = doctorName, 
-                    onValueChange = { doctorName = it }, 
-                    label = if (type == "BY") "Doctor Name" else "Source/Doctor Name", 
+                    value = doctorName,
+                    onValueChange = { doctorName = it },
+                    label = if (type == "BY") "Doctor Name" else "Source/Doctor Name",
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 val suggestions = remember(vaccineSearch, inventory) {
                     inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) || it.type.contains(vaccineSearch, ignoreCase = true) }
                 }
-                
+
                 StandardAutoCompleteField(
                     value = vaccineSearch,
-                    onValueChange = { newValue -> 
+                    onValueChange = { newValue ->
                         vaccineSearch = newValue
                         expanded = true
                     },
@@ -244,17 +318,34 @@ fun BorrowedEditDialog(
                 )
 
                 StandardTextField(value = borrowedDate, onValueChange = { borrowedDate = it }, label = "Date (yyyy-MM-dd)", modifier = Modifier.fillMaxWidth())
-                
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StandardTextField(value = batchNumber, onValueChange = { batchNumber = it }, label = "Batch Number", modifier = Modifier.weight(1f), enabled = false)
-                    StandardTextField(value = quantity.toString(), onValueChange = { quantity = it.toIntOrNull() ?: 1 }, label = "Qty", modifier = Modifier.weight(0.5f))
+                    StandardTextField(
+                        value = quantity.toString(),
+                        onValueChange = { quantity = it.toIntOrNull() ?: 1 },
+                        label = "Qty",
+                        modifier = Modifier.weight(0.5f),
+                        // Once any return has been recorded against this borrow, the
+                        // borrowed quantity is locked - lowering it below what's already
+                        // been returned would corrupt the returned/remaining math and
+                        // violate "never overwrite the original borrowed quantity".
+                        enabled = (item?.returnedQuantity ?: 0) == 0
+                    )
+                }
+                if ((item?.returnedQuantity ?: 0) > 0) {
+                    Text(
+                        "Quantity is locked because ${item?.returnedQuantity} unit(s) have already been returned against this record.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         },
         confirmButton = {
             StandardButton(onClick = {
                 if (vaccineId.isEmpty() || batchId.isEmpty()) return@StandardButton
-                
+
                 onSave(BorrowedVaccine(
                     id = item?.id ?: "",
                     doctorName = doctorName,

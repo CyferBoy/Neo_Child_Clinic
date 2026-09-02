@@ -31,9 +31,11 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationEntity::class,
         VaccinationItemEntity::class,
         ConsultationTodoEntity::class,
-        VaccinationTodoEntity::class
+        VaccinationTodoEntity::class,
+        PersonalReminderEntity::class,
+        BorrowReturnEntity::class
     ], 
-    version = 19,
+    version = 1,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -57,6 +59,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun consultationDao(): ConsultationDao
     abstract fun vaccinationItemDao(): VaccinationItemDao
     abstract fun patientTodoDao(): PatientTodoDao
+    abstract fun personalReminderDao(): PersonalReminderDao
+    abstract fun borrowReturnDao(): BorrowReturnDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -123,6 +127,61 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                val MIGRATION_19_20 = object : androidx.room.migration.Migration(19, 20) {
+                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        database.execSQL(
+                            """CREATE TABLE IF NOT EXISTS personal_vaccine_reminders (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                patient_id TEXT NOT NULL,
+                                vaccine_id TEXT,
+                                vaccine_label TEXT,
+                                note TEXT,
+                                advance_received INTEGER NOT NULL,
+                                advance_amount REAL,
+                                advance_date TEXT,
+                                reminder_date TEXT NOT NULL,
+                                status TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                updated_at TEXT NOT NULL,
+                                completed_at TEXT,
+                                cancelled_at TEXT,
+                                is_synced INTEGER NOT NULL,
+                                created_by TEXT,
+                                updated_by TEXT,
+                                FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+                                FOREIGN KEY(vaccine_id) REFERENCES vaccines(id) ON DELETE SET NULL
+                            )"""
+                        )
+                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_patient_id ON personal_vaccine_reminders(patient_id)")
+                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_vaccine_id ON personal_vaccine_reminders(vaccine_id)")
+                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_status ON personal_vaccine_reminders(status)")
+                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_reminder_date ON personal_vaccine_reminders(reminder_date)")
+                    }
+                }
+
+                val MIGRATION_20_21 = object : androidx.room.migration.Migration(20, 21) {
+                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        database.execSQL(
+                            """CREATE TABLE IF NOT EXISTS borrow_returns (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                borrow_record_id TEXT NOT NULL,
+                                batch_id TEXT NOT NULL,
+                                quantity INTEGER NOT NULL,
+                                returned_date TEXT NOT NULL,
+                                notes TEXT,
+                                created_at TEXT NOT NULL,
+                                is_synced INTEGER NOT NULL,
+                                created_by TEXT,
+                                updated_by TEXT,
+                                FOREIGN KEY(borrow_record_id) REFERENCES borrow_records(id) ON DELETE CASCADE,
+                                FOREIGN KEY(batch_id) REFERENCES vaccine_batches(batchId) ON DELETE CASCADE
+                            )"""
+                        )
+                        database.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_returns_borrow_record_id ON borrow_returns(borrow_record_id)")
+                        database.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_returns_batch_id ON borrow_returns(batch_id)")
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -130,7 +189,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_17_18, MIGRATION_18_19)
+                .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

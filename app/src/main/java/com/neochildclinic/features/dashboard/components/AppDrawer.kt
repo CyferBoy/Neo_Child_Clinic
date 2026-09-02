@@ -102,6 +102,14 @@ fun AppDrawer(
                 onClick = { onNavigate("dashboard") }
             )
 
+            // Personal Vaccine Reminders
+            DrawerMenuItem(
+                label = "Personal Reminders",
+                icon = Icons.Default.NotificationImportant,
+                isSelected = currentRoute == "personal_reminders",
+                onClick = { onNavigate("personal_reminders") }
+            )
+
             // Manage Staff
             if (userRole == UserRole.admin) {
                 DrawerMenuItem(

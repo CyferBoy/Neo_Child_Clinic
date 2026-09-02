@@ -120,6 +120,7 @@ fun AppNavigation(
                 onDue = { navController.navigate(Routes.DUE) },
                 onWaste = { navController.navigate(Routes.WASTE) },
                 onTodayPatients = { navController.navigate(Routes.TODAY_PATIENTS) },
+                onPersonalReminders = { navController.navigate(Routes.PERSONAL_REMINDERS) },
                 onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onSync = { navController.navigate(Routes.SYNC) },
@@ -478,6 +479,45 @@ fun AppNavigation(
 
         composable(Routes.WASTE) {
             WasteScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PERSONAL_REMINDERS) {
+            com.neochildclinic.features.personalreminder.PersonalReminderScreen(
+                onBack = { navController.popBackStack() },
+                onAddReminder = { navController.navigate("add_personal_reminder") },
+                onEditReminder = { reminderId ->
+                    navController.navigate("edit_personal_reminder/$reminderId")
+                },
+                onPatientClick = { patientId ->
+                    navController.navigate("patient_details/$patientId")
+                }
+            )
+        }
+
+        composable(
+            route = Routes.ADD_PERSONAL_REMINDER,
+            arguments = listOf(navArgument("patientId") { type = NavType.StringType; nullable = true })
+        ) { backStackEntry ->
+            val patientId = backStackEntry.arguments?.getString("patientId")
+            com.neochildclinic.features.personalreminder.AddEditPersonalReminderScreen(
+                reminderId = null,
+                prefillPatientId = patientId,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_PERSONAL_REMINDER,
+            arguments = listOf(navArgument("reminderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val reminderId = backStackEntry.arguments?.getString("reminderId") ?: ""
+            com.neochildclinic.features.personalreminder.AddEditPersonalReminderScreen(
+                reminderId = reminderId,
+                prefillPatientId = null,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
         }
 
         composable(Routes.TODAY_PATIENTS) {

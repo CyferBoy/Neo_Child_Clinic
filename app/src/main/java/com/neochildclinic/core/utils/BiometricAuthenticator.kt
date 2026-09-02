@@ -14,6 +14,8 @@ import android.security.keystore.KeyProperties
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
+import android.security.keystore.KeyPermanentlyInvalidatedException
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -135,13 +137,27 @@ object BiometricAuthenticator {
     private fun createCipherForAuthentication(context: Context): Cipher {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val iv = prefs.getString(IV_KEY, null)
+        val ciphertext = prefs.getString(CIPHERTEXT_KEY, null)
+        val hash = prefs.getString(SECRET_HASH_KEY, null)
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        if (iv == null) {
-            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+        // Only attempt decryption if all necessary components are present
+        if (iv != null && ciphertext != null && hash != null) {
+            try {
+                val ivBytes = Base64.decode(iv, Base64.NO_WRAP)
+                cipher.init(Cipher.DECRYPT_MODE, getOrCreateSecretKey(), GCMParameterSpec(128, ivBytes))
+            } catch (e: Exception) {
+                when (e) {
+                    is KeyPermanentlyInvalidatedException -> {
+                        Log.w(TAG, "Key invalidated, resetting biometric state", e)
+                        resetBiometricState(context)
+                        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+                    }
+                    else -> throw e
+                }
+            }
         } else {
-            val ivBytes = Base64.decode(iv, Base64.NO_WRAP)
-            cipher.init(Cipher.DECRYPT_MODE, getOrCreateSecretKey(), GCMParameterSpec(128, ivBytes))
+            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
         }
         return cipher
     }
@@ -168,13 +184,40 @@ object BiometricAuthenticator {
             return
         }
 
-        val plaintext = authenticatedCipher.doFinal(
-            Base64.decode(existingCiphertext, Base64.NO_WRAP)
-        )
-        val actualHash = MessageDigest.getInstance("SHA-256").digest(plaintext)
-        val expectedHash = Base64.decode(existingHash, Base64.NO_WRAP)
-        if (!MessageDigest.isEqual(actualHash, expectedHash)) {
-            throw SecurityException("Protected biometric secret verification failed")
+        try {
+            val plaintext = authenticatedCipher.doFinal(
+                Base64.decode(existingCiphertext, Base64.NO_WRAP)
+            )
+            val actualHash = MessageDigest.getInstance("SHA-256").digest(plaintext)
+            val expectedHash = Base64.decode(existingHash, Base64.NO_WRAP)
+            if (!MessageDigest.isEqual(actualHash, expectedHash)) {
+                throw SecurityException("Protected biometric secret verification failed")
+            }
+        } catch (e: Exception) {
+            when (e) {
+                is AEADBadTagException, is KeyPermanentlyInvalidatedException -> {
+                    Log.e(TAG, "Fatal Keystore error during verification, resetting state", e)
+                    resetBiometricState(context)
+                    throw SecurityException("Secure verification failed and state was reset. Please try again.", e)
+                }
+                else -> throw e
+            }
         }
+    }
+
+    /**
+     * Clears all biometric-protected secrets and deletes the Keystore key.
+     * Use this when the key is invalidated or decryption fails due to corruption.
+     */
+    fun resetBiometricState(context: Context) {
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            keyStore.deleteEntry(KEY_ALIAS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete Keystore entry", e)
+        }
+
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        Log.i(TAG, "Biometric state and keys have been reset")
     }
 }

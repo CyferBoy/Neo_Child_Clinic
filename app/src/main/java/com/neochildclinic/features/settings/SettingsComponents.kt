@@ -83,6 +83,7 @@ fun SettingSwitch(
     label: String,
     supportingText: String? = null,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
@@ -90,17 +91,18 @@ fun SettingSwitch(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val alpha = if (enabled) 1f else 0.38f
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
             if (supportingText != null) {
                 Text(
                     supportingText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
                 )
             }
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -124,13 +126,19 @@ fun SettingSlider(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     steps: Int,
+    enabled: Boolean = true,
     onValueChange: (Float) -> Unit
 ) {
+    val alpha = if (enabled) 1f else 0.38f
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
-            Text(value.toInt().toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
+            Text(
+                value.toInt().toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+            )
         }
-        Slider(value = value, onValueChange = onValueChange, valueRange = range, steps = steps)
+        Slider(value = value, onValueChange = onValueChange, valueRange = range, steps = steps, enabled = enabled)
     }
 }

@@ -113,6 +113,7 @@ dependencies {
     
     // Utilities
     implementation(libs.play.services.base)
+    implementation(libs.play.services.basement)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
 
