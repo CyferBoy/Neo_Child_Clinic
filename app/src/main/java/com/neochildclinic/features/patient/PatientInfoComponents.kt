@@ -31,7 +31,6 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import io.github.jan.supabase.storage.FileObject
-import com.neochildclinic.core.utils.PatientUtils.calculateAgeLabel
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -216,15 +215,21 @@ fun PatientInfoSection(patient: Patient) {
 
             HorizontalDivider(modifier = Modifier.alpha(0.3f))
 
-            val ageLabel = calculateAgeLabel(patient.dob)
             InfoGridRow(
-                Pair(Icons.Default.Cake, "${formatDateForDisplay(patient.dob)} ($ageLabel)"),
+                Pair(Icons.Default.Cake, formatDateForDisplay(patient.dob)),
                 Pair(if (patient.gender == "Male") Icons.Default.Male else Icons.Default.Female, patient.gender)
             )
 
             InfoGridRow(
                 Pair(Icons.Default.Phone, patient.phone),
-                Pair(Icons.Default.CalendarToday, "Reg: ${formatDateForDisplay(patient.registrationDate ?: "")}")
+                Pair(Icons.Default.CalendarToday, "Reg: ${formatDateForDisplay(patient.registrationDate ?: "")}"),
+                leftClickable = patient.phone.isNotBlank(),
+                onLeftClick = {
+                    val phoneNumber = patient.phone.trim()
+                    if (phoneNumber.isNotBlank()) {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phoneNumber)}")))
+                    }
+                }
             )
 
             if (patient.address?.isNotBlank() == true) {
@@ -235,12 +240,25 @@ fun PatientInfoSection(patient: Patient) {
 }
 
 @Composable
-private fun InfoGridRow(left: Pair<androidx.compose.ui.graphics.vector.ImageVector, String>, right: Pair<androidx.compose.ui.graphics.vector.ImageVector, String>) {
+private fun InfoGridRow(
+    left: Pair<androidx.compose.ui.graphics.vector.ImageVector, String>,
+    right: Pair<androidx.compose.ui.graphics.vector.ImageVector, String>,
+    leftClickable: Boolean = false,
+    onLeftClick: () -> Unit = {}
+) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .then(if (leftClickable) Modifier.clickable(onClick = onLeftClick) else Modifier)
+        ) {
             InfoRow(left.first, left.second)
         }
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 6.dp)
+        ) {
             InfoRow(right.first, right.second)
         }
     }

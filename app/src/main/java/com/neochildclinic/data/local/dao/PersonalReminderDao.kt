@@ -9,7 +9,7 @@ interface PersonalReminderDao {
 
     // Active = still needs attention (Pending or Ready, regardless of date).
     // Overdue/Today/Upcoming grouping is derived in the UI layer from reminder_date.
-    @Query("SELECT * FROM personal_vaccine_reminders WHERE status IN ('PENDING', 'READY') ORDER BY reminder_date ASC")
+    @Query("SELECT * FROM personal_vaccine_reminders WHERE status IN ('PENDING', 'READY') ORDER BY CASE WHEN reminder_date IS NULL OR reminder_date = '' THEN 1 ELSE 0 END, reminder_date ASC")
     fun getActiveReminders(): Flow<List<PersonalReminderEntity>>
 
     @Query("SELECT * FROM personal_vaccine_reminders WHERE status = 'COMPLETED' ORDER BY completed_at DESC")

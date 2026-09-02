@@ -93,7 +93,7 @@ fun PersonalReminderScreen(
                             items(items = list, key = { it.id }) { reminder ->
                                 PersonalReminderCard(
                                     reminder = reminder,
-                                    patient = uiState.patientsById[reminder.patientId],
+                                    patient = reminder.patientId?.let { uiState.patientsById[it] },
                                     onClick = { selectedReminder = reminder }
                                 )
                             }

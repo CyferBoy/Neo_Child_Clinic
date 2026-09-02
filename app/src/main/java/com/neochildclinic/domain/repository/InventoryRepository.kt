@@ -23,7 +23,11 @@ interface InventoryRepository {
     
     suspend fun addVaccine(vaccine: VaccineEntity, user: String)
     suspend fun updateVaccine(vaccine: VaccineEntity, user: String)
-    suspend fun addBatch(batch: VaccineBatchEntity, user: String)
+    suspend fun addBatch(
+        batch: VaccineBatchEntity,
+        user: String,
+        transactionGroupId: String? = null
+    )
     
     suspend fun updateBatch(
         batch: VaccineBatchEntity,
@@ -87,7 +91,8 @@ interface InventoryRepository {
         returnToBatchId: String,
         quantity: Int,
         user: String,
-        notes: String? = null
+        notes: String? = null,
+        transactionGroupId: String? = null
     )
 
     suspend fun adjustStock(

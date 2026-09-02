@@ -25,11 +25,13 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_LOW_STOCK = "low_stock_alerts"
         const val CHANNEL_SYNC_BACKUP = "sync_backup_alerts"
         const val CHANNEL_APP_UPDATES = "app_updates"
+        const val CHANNEL_PERSONAL_REMINDERS = "personal_vaccine_reminders"
         
         const val SUMMARY_ID = 1001
         const val LOW_STOCK_ID = 1002
         const val SYNC_ALERT_ID = 1003
         const val APP_UPDATE_ID = 1004
+        const val PERSONAL_REMINDER_BASE_ID = 2000
     }
 
     init {
@@ -66,6 +68,13 @@ class NotificationHelper @Inject constructor(
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Notifications about new Vaccine Manager releases"
+                },
+                NotificationChannel(
+                    CHANNEL_PERSONAL_REMINDERS,
+                    "Personal Vaccine Reminders",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Daily and scheduled personal vaccine follow-up reminders"
                 }
             )
             notificationManager.createNotificationChannels(channels)
@@ -136,6 +145,31 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
 
         NotificationManagerCompat.from(context).notify(SYNC_ALERT_ID, builder.build())
+    }
+
+
+    fun showPersonalReminderNotification(id: String, patientName: String, vaccineName: String, phone: String, overdueDays: Int? = null, undated: Boolean = false) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, id.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val dateText = when {
+            undated -> "Daily follow-up reminder"
+            overdueDays != null -> "Overdue by $overdueDays day${if (overdueDays == 1) "" else "s"}"
+            else -> "Today's follow-up reminder"
+        }
+        val contact = if (phone.isNotBlank()) " • $phone" else ""
+        val builder = NotificationCompat.Builder(context, CHANNEL_PERSONAL_REMINDERS)
+            .setSmallIcon(R.drawable.app_logo)
+            .setContentTitle("Personal Vaccine Reminder")
+            .setContentText("$vaccineName — $patientName$contact")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$dateText\n$vaccineName — $patientName$contact"))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+        NotificationManagerCompat.from(context).notify(PERSONAL_REMINDER_BASE_ID + (id.hashCode() and 0x7fffffff) % 100000, builder.build())
     }
 
     fun showUpdateNotification(versionName: String, mandatory: Boolean) {

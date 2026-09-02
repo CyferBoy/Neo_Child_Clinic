@@ -31,7 +31,8 @@ private fun statusColor(status: PersonalReminderStatus): Color = when (status) {
  * "Today" / "Upcoming" behave identically to the Next Vaccination due list.
  */
 @Composable
-private fun reminderDateBadge(reminderDate: String): Pair<String, Color> {
+private fun reminderDateBadge(reminderDate: String?): Pair<String, Color> {
+    if (reminderDate.isNullOrBlank()) return "No date set" to MaterialTheme.colorScheme.primary
     return when (val category = DateClassifier.classify(reminderDate)) {
         is DateCategory.Overdue -> "Overdue by ${category.days} day${if (category.days == 1) "" else "s"}" to MaterialTheme.colorScheme.error
         is DateCategory.Today -> "Today" to Color(0xFFFBC02D)
@@ -49,8 +50,9 @@ fun PersonalReminderCard(
 ) {
     val status = PersonalReminderStatus.fromRaw(reminder.status)
     val isActive = status == PersonalReminderStatus.PENDING || status == PersonalReminderStatus.READY
-    val (dateText, dateColor) = if (isActive) reminderDateBadge(reminder.reminderDate) else
-        DateClassifier.formatDisplay(reminder.reminderDate) to MaterialTheme.colorScheme.onSurfaceVariant
+    val dateStr = reminder.reminderDate ?: ""
+    val (dateText, dateColor) = if (isActive) reminderDateBadge(dateStr) else
+        DateClassifier.formatDisplay(dateStr) to MaterialTheme.colorScheme.onSurfaceVariant
 
     Card(
         onClick = onClick,
@@ -80,10 +82,15 @@ fun PersonalReminderCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Patient: ${patient?.name ?: "Unknown"}",
+                text = "Patient: ${patient?.name?.takeIf { it.isNotBlank() } ?: reminder.patientName}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (reminder.patientPhone.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("Phone: ${reminder.patientPhone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
 
             if (reminder.advanceReceived && reminder.advanceAmount != null) {
                 Spacer(modifier = Modifier.height(2.dp))
@@ -109,7 +116,7 @@ fun PersonalReminderCard(
                     Icon(
                         imageVector = when {
                             !isActive -> Icons.Default.EventAvailable
-                            DateClassifier.classify(reminder.reminderDate) is DateCategory.Overdue -> Icons.Default.Error
+                            dateStr.isNotBlank() && DateClassifier.classify(dateStr) is DateCategory.Overdue -> Icons.Default.Error
                             else -> Icons.Default.Schedule
                         },
                         contentDescription = null,

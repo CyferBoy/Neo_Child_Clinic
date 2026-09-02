@@ -18,6 +18,7 @@ class ReminderScheduler @Inject constructor(
 ) {
     companion object {
         private const val SUMMARY_WORK_NAME = "com.neochildclinic.DAILY_SUMMARY"
+        private const val PERSONAL_REMINDER_WORK_NAME = "com.neochildclinic.PERSONAL_REMINDERS"
     }
 
     suspend fun scheduleDailySummary() {
@@ -63,6 +64,25 @@ class ReminderScheduler @Inject constructor(
             ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
+    }
+
+
+    suspend fun schedulePersonalReminderNotifications() {
+        val settings = settingsManager.settingsFlow.first()
+        val timeParts = settings.reminderTime.split(":")
+        val hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 8
+        val minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (calendar.timeInMillis <= System.currentTimeMillis()) calendar.add(Calendar.DAY_OF_YEAR, 1)
+        val request = PeriodicWorkRequestBuilder<com.neochildclinic.worker.PersonalReminderNotificationWorker>(24, TimeUnit.HOURS)
+            .setInitialDelay(calendar.timeInMillis - System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERSONAL_REMINDER_WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
     fun runNow() {

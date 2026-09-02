@@ -29,6 +29,9 @@ data class AddEditPersonalReminderUiState(
     val patientQuery: String = "",
     val patientResults: List<Patient> = emptyList(),
     val selectedPatient: Patient? = null,
+    val isNonSavedPatient: Boolean = false,
+    val patientName: String = "",
+    val patientPhone: String = "",
 
     val vaccines: List<VaccineEntity> = emptyList(),
     val selectedVaccineId: String? = null, // null = nothing chosen yet; OTHER_VACCINE_SENTINEL = "Other"
@@ -99,17 +102,20 @@ class AddEditPersonalReminderViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = "Reminder not found.") }
                 return@launch
             }
-            val patient = patientRepository.getPatientById(reminder.patientId)
+            val patient = reminder.patientId?.let { patientRepository.getPatientById(it) }
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     selectedPatient = patient,
+                    isNonSavedPatient = false,
+                    patientName = reminder.patientName,
+                    patientPhone = reminder.patientPhone,
                     selectedVaccineId = reminder.vaccineId ?: if (reminder.vaccineLabel != null) OTHER_VACCINE_SENTINEL else null,
                     note = reminder.note ?: "",
                     advanceReceived = reminder.advanceReceived,
                     advanceAmount = reminder.advanceAmount?.let { amt -> if (amt == amt.toLong().toDouble()) amt.toLong().toString() else amt.toString() } ?: "",
                     advanceDate = reminder.advanceDate ?: "",
-                    reminderDate = reminder.reminderDate
+                    reminderDate = reminder.reminderDate ?: ""
                 )
             }
         }
@@ -121,7 +127,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
     fun preselectPatient(patientId: String) {
         viewModelScope.launch {
             val patient = patientRepository.getPatientById(patientId) ?: return@launch
-            _uiState.update { it.copy(selectedPatient = patient, patientQuery = "") }
+            _uiState.update { it.copy(selectedPatient = patient, isNonSavedPatient = false, patientName = patient.name, patientPhone = patient.phone, patientQuery = "") }
         }
     }
 
@@ -132,12 +138,24 @@ class AddEditPersonalReminderViewModel @Inject constructor(
 
     fun selectPatient(patient: Patient) {
         _uiState.update {
-            it.copy(selectedPatient = patient, patientQuery = "", patientResults = emptyList(), patientError = false)
+            it.copy(selectedPatient = patient, isNonSavedPatient = false, patientName = patient.name, patientPhone = patient.phone, patientQuery = "", patientResults = emptyList(), patientError = false)
         }
     }
 
     fun clearSelectedPatient() {
-        _uiState.update { it.copy(selectedPatient = null) }
+        _uiState.update { it.copy(selectedPatient = null, isNonSavedPatient = false, patientName = "", patientPhone = "") }
+    }
+
+    fun useNonSavedPatient() {
+        _uiState.update { it.copy(selectedPatient = null, isNonSavedPatient = true, patientError = false, patientName = "", patientPhone = "", patientQuery = "", patientResults = emptyList()) }
+    }
+
+    fun onPatientNameChange(name: String) {
+        _uiState.update { it.copy(patientName = name, patientError = false) }
+    }
+
+    fun onPatientPhoneChange(phone: String) {
+        _uiState.update { it.copy(patientPhone = phone) }
     }
 
     fun selectVaccine(vaccineId: String) {
@@ -177,11 +195,13 @@ class AddEditPersonalReminderViewModel @Inject constructor(
         val state = _uiState.value
 
         val patient = state.selectedPatient
+        val patientName = state.patientName.trim()
+        val patientPhone = state.patientPhone.trim()
         val amount = state.advanceAmount.toDoubleOrNull()
 
-        val patientError = patient == null
+        val patientError = if (state.isNonSavedPatient) patientName.isBlank() else patient == null
         val vaccineError = state.selectedVaccineId == null
-        val reminderDateError = state.reminderDate.isBlank()
+        val reminderDateError = false
         val advanceAmountError = state.advanceReceived && (amount == null || amount < 0.0)
         val advanceDateError = state.advanceReceived && state.advanceDate.isBlank()
 
@@ -209,7 +229,9 @@ class AddEditPersonalReminderViewModel @Inject constructor(
                 val existing = editingReminderId?.let { repository.getById(it) }
                 val entity = PersonalReminderEntity(
                     id = existing?.id ?: java.util.UUID.randomUUID().toString(),
-                    patientId = patient!!.id,
+                    patientId = patient?.id,
+                    patientName = patientName.ifBlank { patient?.name.orEmpty() },
+                    patientPhone = patientPhone.ifBlank { patient?.phone.orEmpty() },
                     vaccineId = vaccineId,
                     vaccineLabel = vaccineLabel,
                     note = state.note.trim().ifBlank { null },

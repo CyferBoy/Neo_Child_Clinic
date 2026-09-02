@@ -73,6 +73,7 @@ class NeoChildApp : Application(), Configuration.Provider {
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
         scope.launch {
             reminderScheduler.scheduleDailySummary()
+            reminderScheduler.schedulePersonalReminderNotifications()
         }
         scope.launch {
             try {

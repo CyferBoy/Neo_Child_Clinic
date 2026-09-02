@@ -120,15 +120,6 @@ fun VaccinationRecordCard(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    if (vaccination.inventoryStatus == "FAILED" || vaccination.inventoryStatus == "PARTIAL" || vaccination.inventoryStatus == "PENDING") {
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Inventory,
-                            contentDescription = "Inventory Issue",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp).clickable { onShowInventoryIssues(vaccination.id) }
-                        )
-                    }
                 }
             }
 
@@ -148,19 +139,37 @@ fun VaccinationRecordCard(
                     Spacer(modifier = Modifier.weight(1f))
                 }
 
-                // Payment breakdown
+                // Payment breakdown and small payment flags beneath it.
                 val paymentInfo = buildString {
                     if (vaccination.cashAmount > 0) append("Cash: ₹${vaccination.cashAmount.toInt()}")
                     if (vaccination.cashAmount > 0 && vaccination.onlineAmount > 0) append(" | ")
                     if (vaccination.onlineAmount > 0) append("Online: ₹${vaccination.onlineAmount.toInt()}")
                 }
-                if (paymentInfo.isNotEmpty()) {
-                    Text(
-                        text = paymentInfo,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End
-                    )
+                if (paymentInfo.isNotEmpty() || vaccination.withFees || vaccination.doctorsAcc) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (paymentInfo.isNotEmpty()) {
+                            Text(
+                                text = paymentInfo,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End
+                            )
+                        }
+
+                        val paymentFlags = buildList {
+                            if (vaccination.withFees) add("With Fees")
+                            if (vaccination.doctorsAcc) add("Doctor's Account")
+                        }
+                        if (paymentFlags.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = paymentFlags.joinToString(" • "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    }
                 }
             }
 

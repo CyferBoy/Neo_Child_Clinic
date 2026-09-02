@@ -125,7 +125,7 @@ class BorrowRepositoryImpl @Inject constructor(
                     sellingPrice = newBatchInfo.sellingPrice,
                     updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
                 )
-                inventoryRepository.addBatch(newBatch, user)
+                inventoryRepository.addBatch(newBatch, user, transactionGroupId)
                 newBatch.batchId
             } else {
                 batchId
@@ -137,7 +137,8 @@ class BorrowRepositoryImpl @Inject constructor(
                 returnToBatchId = effectiveBatchId,
                 quantity = quantity,
                 user = user,
-                notes = notes
+                notes = notes,
+                transactionGroupId = transactionGroupId
             )
 
             val returnRecord = BorrowReturnRecord(

@@ -48,8 +48,15 @@ import kotlinx.serialization.Serializable
 data class PersonalReminderEntity(
     @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
 
-    @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String,
+    @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String? = null,
 
+    // Snapshot contact details for non-saved patients, and the selected patient
+    // phone/name for this reminder. Saved patients are still linked by patientId.
+    @SerialName("patient_name") @ColumnInfo(name = "patient_name") val patientName: String,
+    @SerialName("patient_phone") @ColumnInfo(name = "patient_phone") val patientPhone: String,
+
+    // Null when the request is from a non-saved patient.
+    // For saved patients this references the patient record.
     // Null when the request is for a general/unspecified ("Other") requirement
     // rather than a specific catalog vaccine.
     @SerialName("vaccine_id") @ColumnInfo(name = "vaccine_id") val vaccineId: String? = null,
@@ -67,7 +74,7 @@ data class PersonalReminderEntity(
     @SerialName("advance_amount") @ColumnInfo(name = "advance_amount") val advanceAmount: Double? = null,
     @SerialName("advance_date") @ColumnInfo(name = "advance_date") val advanceDate: String? = null,
 
-    @SerialName("reminder_date") @ColumnInfo(name = "reminder_date") val reminderDate: String,
+    @SerialName("reminder_date") @ColumnInfo(name = "reminder_date") val reminderDate: String? = null,
 
     // PersonalReminderStatus name: PENDING | READY | COMPLETED | CANCELLED
     val status: String = "PENDING",

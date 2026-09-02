@@ -51,7 +51,11 @@ fun ReturnVaccineDialog(
         else -> null
     }
 
-    val effectiveBatchId = if (sameBatch) (originalBatch?.batchId ?: "") else selectedBatchId
+    // Always use the borrow record's batch ID for "Same Batch & Expiry".
+    // The borrowed batch may have zero current stock and therefore may not be
+    // present in the inventory list supplied to this dialog. Relying on
+    // originalBatch here could produce an empty ID and make the return fail.
+    val effectiveBatchId = if (sameBatch) item.record.batchId else selectedBatchId
     val batchError = if (!sameBatch && !addNewBatch && effectiveBatchId.isBlank()) "Select a batch." else null
     val newBatchError = if (!sameBatch && addNewBatch && (newBatchNumber.isBlank() || newExpiryDate.isBlank())) "Enter batch number and expiry." else null
 

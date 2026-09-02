@@ -196,7 +196,11 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addBatch(batch: VaccineBatchEntity, user: String) {
+    override suspend fun addBatch(
+        batch: VaccineBatchEntity,
+        user: String,
+        transactionGroupId: String?
+    ) {
         database.withTransaction {
             val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
             
@@ -235,9 +239,9 @@ class InventoryRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
             }
-            val transactionGroupId = UUID.randomUUID().toString()
-            syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.CREATE, SyncPriority.MEDIUM, transactionGroupId)
-            syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM, transactionGroupId)
+            val groupId = transactionGroupId ?: UUID.randomUUID().toString()
+            syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
+            syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
         }
     }
 
@@ -661,7 +665,8 @@ class InventoryRepositoryImpl @Inject constructor(
         returnToBatchId: String,
         quantity: Int,
         user: String,
-        notes: String?
+        notes: String?,
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val targetBatch = vaccineDao.getBatchById(returnToBatchId) ?: throw IllegalStateException("Batch not found")
@@ -707,17 +712,20 @@ class InventoryRepositoryImpl @Inject constructor(
             )
             vaccineDao.insertTransaction(transaction)
 
+            val groupId = transactionGroupId ?: UUID.randomUUID().toString()
             syncRepository.enqueue(
                 entityName = "INVENTORY_TRANSACTION",
                 entityId = transaction.transactionId,
                 operation = SyncOperation.CREATE,
-                priority = SyncPriority.HIGH
+                priority = SyncPriority.HIGH,
+                transactionGroupId = groupId
             )
             syncRepository.enqueue(
                 entityName = "BATCH",
                 entityId = returnToBatchId,
                 operation = SyncOperation.UPDATE,
-                priority = SyncPriority.MEDIUM
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = groupId
             )
         }
     }

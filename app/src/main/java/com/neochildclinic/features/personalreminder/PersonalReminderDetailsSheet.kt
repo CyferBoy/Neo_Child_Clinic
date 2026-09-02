@@ -1,5 +1,7 @@
 package com.neochildclinic.features.personalreminder
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -69,12 +71,33 @@ fun PersonalReminderDetailsSheet(
 
             DetailRow(
                 label = "Patient",
-                value = patient?.name ?: "Unknown patient",
+                value = patient?.name?.takeIf { it.isNotBlank() } ?: reminder.patientName,
                 onClick = if (patient != null && onPatientClick != null) {
                     { onPatientClick(patient.id) }
                 } else null
             )
-            DetailRow(label = "Reminder Date", value = PatientUtils.formatDateForDisplay(reminder.reminderDate))
+            val phoneNumber = reminder.patientPhone.trim()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            if (phoneNumber.isNotBlank()) {
+                DetailRow(label = "Phone Number", value = phoneNumber)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:${Uri.encode(phoneNumber)}")
+                        }
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Call")
+                }
+            } else {
+                DetailRow(label = "Phone Number", value = "Not provided")
+            }
+            DetailRow(label = "Reminder Date", value = if (reminder.reminderDate.isNullOrBlank()) "Not set — daily reminder" else PatientUtils.formatDateForDisplay(reminder.reminderDate))
 
             if (!reminder.note.isNullOrBlank()) {
                 DetailRow(label = "Requirement / Note", value = reminder.note)

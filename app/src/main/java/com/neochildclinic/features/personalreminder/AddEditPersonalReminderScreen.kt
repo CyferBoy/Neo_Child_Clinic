@@ -82,8 +82,14 @@ fun AddEditPersonalReminderScreen(
                     onQueryChange = viewModel::onPatientQueryChange,
                     results = uiState.patientResults,
                     selectedPatient = uiState.selectedPatient,
+                    isNonSavedPatient = uiState.isNonSavedPatient,
+                    patientName = uiState.patientName,
+                    patientPhone = uiState.patientPhone,
                     onSelect = viewModel::selectPatient,
                     onClear = viewModel::clearSelectedPatient,
+                    onUseNonSaved = viewModel::useNonSavedPatient,
+                    onNameChange = viewModel::onPatientNameChange,
+                    onPhoneChange = viewModel::onPatientPhoneChange,
                     isError = uiState.patientError
                 )
 
@@ -110,13 +116,18 @@ fun AddEditPersonalReminderScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
                 SectionLabel("Reminder / Follow-up Date")
-                DateDropdownPicker(
-                    label = "",
-                    currentDate = uiState.reminderDate.ifBlank { AddEditPersonalReminderViewModel.todayFormatted() },
-                    onDateSelected = viewModel::onReminderDateChange
-                )
-                if (uiState.reminderDateError) {
-                    FieldError("Reminder date is required.")
+                if (uiState.reminderDate.isBlank()) {
+                    OutlinedButton(onClick = { viewModel.onReminderDateChange(AddEditPersonalReminderViewModel.todayFormatted()) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Set Reminder Date")
+                    }
+                    Text("Leave empty to receive a daily reminder.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    DateDropdownPicker(
+                        label = "",
+                        currentDate = uiState.reminderDate,
+                        onDateSelected = viewModel::onReminderDateChange
+                    )
+                    TextButton(onClick = { viewModel.onReminderDateChange("") }) { Text("Clear date") }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -210,61 +221,49 @@ private fun PatientPicker(
     onQueryChange: (String) -> Unit,
     results: List<com.neochildclinic.domain.model.Patient>,
     selectedPatient: com.neochildclinic.domain.model.Patient?,
+    isNonSavedPatient: Boolean,
+    patientName: String,
+    patientPhone: String,
     onSelect: (com.neochildclinic.domain.model.Patient) -> Unit,
     onClear: () -> Unit,
+    onUseNonSaved: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit,
     isError: Boolean
 ) {
-    if (selectedPatient != null) {
-        OutlinedCard(
-            onClick = onClear,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+    if (selectedPatient != null && !isNonSavedPatient) {
+        Card(shape = RoundedCornerShape(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(selectedPatient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                    if (selectedPatient.phone.isNotBlank()) {
-                        Text(
-                            selectedPatient.phone,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    if (selectedPatient.phone.isNotBlank()) Text(selectedPatient.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("Change", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                TextButton(onClick = onClear) { Text("Change") }
             }
+        }
+    } else if (isNonSavedPatient) {
+        Column {
+            Text("Non-saved patient", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(value = patientName, onValueChange = onNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("Patient Name") }, isError = isError, shape = RoundedCornerShape(12.dp), singleLine = true)
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = patientPhone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), label = { Text("Phone Number") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone), shape = RoundedCornerShape(12.dp), singleLine = true)
+            TextButton(onClick = onClear) { Text("Choose saved patient instead") }
+            if (isError) FieldError("Enter a patient name.")
         }
     } else {
         Column {
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search patient by name or phone...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                isError = isError,
-                shape = RoundedCornerShape(12.dp)
-            )
-            if (isError) {
-                FieldError("Please select a patient.")
-            }
+            OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search patient by name or phone...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, isError = isError, shape = RoundedCornerShape(12.dp))
+            TextButton(onClick = onUseNonSaved) { Text("Use non-saved patient") }
+            if (isError) FieldError("Select a patient or use a non-saved patient.")
             if (results.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Card(shape = RoundedCornerShape(12.dp)) {
                     Column {
                         results.take(6).forEach { patient ->
-                            ListItem(
-                                headlineContent = { Text(patient.name) },
-                                supportingContent = if (patient.phone.isNotBlank()) {
-                                    { Text(patient.phone) }
-                                } else null,
-                                modifier = Modifier.clickableSelect { onSelect(patient) }
-                            )
+                            ListItem(headlineContent = { Text(patient.name) }, supportingContent = if (patient.phone.isNotBlank()) ({ Text(patient.phone) }) else null, modifier = Modifier.clickableSelect { onSelect(patient) })
                         }
                     }
                 }
@@ -273,8 +272,7 @@ private fun PatientPicker(
     }
 }
 
-private fun Modifier.clickableSelect(onClick: () -> Unit): Modifier =
-    this.clickable(onClick = onClick)
+private fun Modifier.clickableSelect(onClick: () -> Unit): Modifier = this.clickable(onClick = onClick)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

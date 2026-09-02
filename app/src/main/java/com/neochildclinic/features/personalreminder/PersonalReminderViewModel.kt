@@ -42,7 +42,7 @@ class PersonalReminderViewModel @Inject constructor(
             list.sortedWith(
                 compareBy(
                     { reminderPriority(it.reminderDate) },
-                    { DateClassifier.getSortWeight(it.reminderDate) }
+                    { it.reminderDate?.let(DateClassifier::getSortWeight) ?: Long.MAX_VALUE }
                 )
             )
         },
@@ -75,9 +75,10 @@ class PersonalReminderViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PersonalReminderUiState())
 
     // 0 = Overdue (most attention), 1 = Today, 2 = Upcoming.
-    private fun reminderPriority(reminderDate: String): Int = when (DateClassifier.classify(reminderDate)) {
-        is DateCategory.Overdue -> 0
-        is DateCategory.Today -> 1
+    private fun reminderPriority(reminderDate: String?): Int = when {
+        reminderDate.isNullOrBlank() -> 3
+        DateClassifier.classify(reminderDate) is DateCategory.Overdue -> 0
+        DateClassifier.classify(reminderDate) is DateCategory.Today -> 1
         else -> 2
     }
 

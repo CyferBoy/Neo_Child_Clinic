@@ -56,7 +56,8 @@ data class BorrowedUiState(
     val inventory: List<InventoryItem> = emptyList(),
     val isLoading: Boolean = false,
     val mainTab: BorrowMainTab = BorrowMainTab.BORROWED,
-    val selectedTab: Int = 0 // By(0) / From(1) - kept as Int to match the existing FilterChip/Tab index convention
+    val selectedTab: Int = 0, // By(0) / From(1)
+    val actionError: String? = null
 )
 
 @HiltViewModel
@@ -184,7 +185,11 @@ class BorrowedViewModel @Inject constructor(
         if (quantity <= 0 || quantity > item.remainingQuantity || (batchId.isBlank() && newBatchInfo == null)) return
 
         viewModelScope.launch {
-            borrowRepository.submitReturn(item, quantity, batchId, notes, newBatchInfo)
+            try {
+                borrowRepository.submitReturn(item, quantity, batchId, notes, newBatchInfo)
+            } catch (e: Exception) {
+                android.util.Log.e("BorrowedViewModel", "Return failed", e)
+            }
         }
     }
 
