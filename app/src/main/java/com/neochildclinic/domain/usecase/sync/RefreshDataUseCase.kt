@@ -7,6 +7,7 @@ import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -23,7 +24,8 @@ class RefreshDataUseCase @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     private val reminderRepository: ReminderRepository,
     private val consultationRepository: ConsultationRepository,
-    private val financeRepository: FinanceRepository
+    private val financeRepository: FinanceRepository,
+    private val personalReminderRepository: PersonalReminderRepository
 ) {
     suspend operator fun invoke() = coroutineScope {
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
@@ -49,6 +51,16 @@ class RefreshDataUseCase @Inject constructor(
 
         wasteTask.await()
         inventoryTask.await()
+
+        // Personal Vaccine Reminders can reference a vaccine_id via a Room foreign key
+        // (SET NULL on delete, but still enforced on insert) - must run after inventory
+        // above has landed the vaccines table locally, or inserting a reminder that
+        // references an as-yet-unknown vaccine would violate that FK and fail silently.
+        // This is also what actually populates the feature's local cache in the first
+        // place: PersonalReminderScreen only pulls from Room, and previously nothing
+        // triggered PersonalReminderRepository.refresh() except a manual pull-to-refresh
+        // on that screen, so reminders created outside this device never showed up.
+        personalReminderRepository.refresh()
 
         // Fetch only after the catalog is locally available, then apply in the same refresh.
         // Unresolved dependencies are therefore retried by the next refresh instead of being

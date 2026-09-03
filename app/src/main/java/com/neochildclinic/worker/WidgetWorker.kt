@@ -73,22 +73,18 @@ class WidgetWorker @AssistedInject constructor(
     }
 
     private fun formatWidgetDate(value: String): String {
-        return try {
-            val date = try {
-                java.time.OffsetDateTime.parse(value).toLocalDate()
-            } catch (_: Exception) {
-                try {
-                    java.time.LocalDateTime.parse(value).toLocalDate()
-                } catch (_: Exception) {
-                    java.time.LocalDate.parse(value)
-                }
-            }
+        // The reminder's nextDueDate is stored in the app's normal date convention
+        // (Constants.DATE_FORMAT, e.g. "15 June 2026"), not ISO - java.time.*Parse
+        // never matched that, so this always silently fell through to the raw
+        // value below and the year was never actually trimmed. PatientUtils.parseDate
+        // already knows every format the app stores dates in, so reuse it here too.
+        val date = PatientUtils.parseDate(value) ?: return value
 
-            val currentYear = java.time.LocalDate.now().year
-            val pattern = if (date.year == currentYear) "dd MMM" else "dd MMM yy"
-            date.format(java.time.format.DateTimeFormatter.ofPattern(pattern))
-        } catch (_: Exception) {
-            value
-        }
+        val dateYear = java.util.Calendar.getInstance().apply { time = date }.get(java.util.Calendar.YEAR)
+        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+
+        // Same year as today -> "15 June". Different year -> "15 June 25".
+        val pattern = if (dateYear == currentYear) "d MMMM" else "d MMMM yy"
+        return java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH).format(date)
     }
 }

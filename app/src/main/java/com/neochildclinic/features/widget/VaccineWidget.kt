@@ -94,7 +94,7 @@ class VaccineWidget : GlanceAppWidget() {
                 Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "No upcoming vaccinations",
-                        style = TextStyle(fontSize = 14.sp, color = secondaryTextProvider)
+                        style = TextStyle(fontSize = 15.sp, color = secondaryTextProvider)
                     )
                 }
             } else {
@@ -124,7 +124,7 @@ class VaccineWidget : GlanceAppWidget() {
                 Text(
                     text = "${item.patientName}: ",
                     style = TextStyle(
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColorProvider
                     ),
@@ -134,9 +134,9 @@ class VaccineWidget : GlanceAppWidget() {
                 Text(
                     text = item.dueDate,
                     style = TextStyle(
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = dateColor,
-                        fontWeight = if (item.isOverdue) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = FontWeight.Normal
                     ),
                     maxLines = 1
                 )

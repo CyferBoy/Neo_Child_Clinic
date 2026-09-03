@@ -67,7 +67,8 @@ class AppUpdateManager @Inject constructor(
     // three read release data, the APK asset, and the version/updateType the same way,
     // rather than three separate parsing implementations.
     private fun parseRelease(json: JSONObject, currentVersionCode: Long): AppUpdateInfo? {
-        val tagName = json.optString("tag_name").removePrefix("v").trim()
+        val rawTag = json.optString("tag_name").trim()
+        val tagName = if (rawTag.startsWith("v", ignoreCase = true)) rawTag.substring(1).trim() else rawTag
         val versionCode = extractVersionCode(json, tagName) ?: return null
         val assets = json.optJSONArray("assets") ?: return null
         var apkUrl: String? = null

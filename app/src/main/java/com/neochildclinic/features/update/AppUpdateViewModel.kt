@@ -27,6 +27,17 @@ class AppUpdateViewModel @Inject constructor(
     private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     val updateInfo: StateFlow<AppUpdateInfo?> = _updateInfo.asStateFlow()
 
+    // Small temporary heads-up popup shown on a *silent* (isManual = false) launch/resume
+    // check when a genuine new version is found. Never populated for Re-update/Downgrade/
+    // up-to-date results, and never shown more than once per app session (see
+    // startupPopupShown below) - only ever set from checkForUpdates(isManual = false).
+    private val _startupPopup = MutableStateFlow<AppUpdateInfo?>(null)
+    val startupPopup: StateFlow<AppUpdateInfo?> = _startupPopup.asStateFlow()
+
+    // Session-scoped (survives config changes, resets on process death) - not persisted,
+    // since "same session" means this ViewModel instance's lifetime, not across app restarts.
+    private var startupPopupShown = false
+
     private val _checking = MutableStateFlow(false)
     val checking: StateFlow<Boolean> = _checking.asStateFlow()
 
@@ -69,21 +80,45 @@ class AppUpdateViewModel @Inject constructor(
             _message.value = null
             runCatching { updateManager.checkForUpdate() }
                 .onSuccess { info ->
-                    if (info?.updateType == UpdateType.REUPDATE) {
+                    if (!isManual) {
+                        // Silent launch/resume check: NEVER auto-opens the full Update
+                        // Available dialog, for any result. A genuine new version (UPDATE)
+                        // surfaces only via the small startup popup, at most once per
+                        // session. Re-update, Downgrade, and up-to-date results are not
+                        // surfaced at all here - they remain reachable only through an
+                        // explicit manual check (App Update screen / notification tap).
+                        if (info?.updateType == UpdateType.UPDATE && !startupPopupShown) {
+                            startupPopupShown = true
+                            _startupPopup.value = info
+                        }
+                    } else if (info?.updateType == UpdateType.REUPDATE) {
                         // Same version as the latest release - never auto-jump straight to
-                        // "Re-update Available", on a manual OR a silent check. The first
-                        // result of a manual check must be "up to date"; Re-update is only
-                        // reachable from there via its own explicit button/fresh check.
+                        // "Re-update Available". The first result of a manual check must be
+                        // "up to date"; Re-update is only reachable from there via its own
+                        // explicit button/fresh check.
                         _updateInfo.value = null
-                        if (isManual) _upToDate.value = true
+                        _upToDate.value = true
                     } else {
                         _updateInfo.value = info
-                        if (isManual && info == null) _upToDate.value = true
+                        if (info == null) _upToDate.value = true
                     }
                 }
                 .onFailure { _message.value = it.message ?: "Unable to check for updates." }
             _checking.value = false
         }
+    }
+
+    /** Startup popup tapped - open the existing full Update Available dialog with the same
+     * info, reusing AppUpdateDialog/_updateInfo exactly as a manual check does. */
+    fun openUpdateFromStartupPopup() {
+        val info = _startupPopup.value ?: return
+        _startupPopup.value = null
+        _updateInfo.value = info
+    }
+
+    /** Startup popup's auto-dismiss timer (or any other dismissal) elapsed without a tap. */
+    fun dismissStartupPopup() {
+        _startupPopup.value = null
     }
 
     fun dismissUpdate() {

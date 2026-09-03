@@ -47,6 +47,13 @@ fun DueTab(
         contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp)
     ) {
         item {
+            CompletedDismissedSummaryCards(
+                onClick = onNavigateToCompletedDismissed
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = {
@@ -66,15 +73,6 @@ fun DueTab(
                 filters = filters,
                 selectedFilter = initialFilter,
                 onFilterChanged = onFilterChanged
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        item {
-            CompletedDismissedSummaryCards(
-                completedCount = stats.completedToday,
-                dismissedCount = stats.dismissedToday,
-                onClick = onNavigateToCompletedDismissed
             )
             Spacer(modifier = Modifier.height(16.dp))
         }

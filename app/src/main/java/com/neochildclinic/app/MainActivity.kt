@@ -21,6 +21,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -109,6 +110,7 @@ class MainActivity : FragmentActivity() {
                 val isLocked by BiometricLockManager.isAppLocked.collectAsState()
                 val navController = rememberNavController()
                 val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
+                val startupPopup by appUpdateViewModel.startupPopup.collectAsState()
                 val installingUpdate by appUpdateViewModel.installing.collectAsState()
                 val downloadProgress by appUpdateViewModel.downloadProgress.collectAsState()
                 
@@ -117,6 +119,30 @@ class MainActivity : FragmentActivity() {
                     
                     if (isLocked) {
                         LockScreen(onAuthenticate = { authenticateWithBiometrics() }, onPasswordAuthenticate = { authenticateWithAccountPassword(it) })
+                    }
+
+                    // Small temporary heads-up popup for a silently-detected new version -
+                    // never the full dialog itself. See AppUpdateViewModel.checkForUpdates
+                    // for why this is only ever populated for a genuine UpdateType.UPDATE
+                    // result from a silent (non-manual) check, at most once per session.
+                    // lastStartupPopupInfo keeps the banner's content available while it
+                    // plays its slide/fade-out exit animation, since startupPopup itself
+                    // is already null by the time that animation starts.
+                    var lastStartupPopupInfo by remember { mutableStateOf<com.neochildclinic.features.update.AppUpdateInfo?>(null) }
+                    startupPopup?.let { lastStartupPopupInfo = it }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = startupPopup != null,
+                        enter = androidx.compose.animation.slideInVertically() + androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.slideOutVertically() + androidx.compose.animation.fadeOut(),
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    ) {
+                        lastStartupPopupInfo?.let { info ->
+                            com.neochildclinic.features.update.StartupUpdateBanner(
+                                info = info,
+                                onTap = { appUpdateViewModel.openUpdateFromStartupPopup() },
+                                onDismiss = { appUpdateViewModel.dismissStartupPopup() }
+                            )
+                        }
                     }
 
                     updateInfo?.let { info ->
@@ -242,7 +268,11 @@ class MainActivity : FragmentActivity() {
         }
         if (intent?.getBooleanExtra("CHECK_APP_UPDATE", false) == true) {
             if (auth.currentSessionOrNull() != null) {
-                appUpdateViewModel.checkForUpdates()
+                // Reached only by tapping the existing update notification (see
+                // NotificationHelper.showUpdateNotification/showUpdateInstallFailed) - that
+                // notification's own contract is "tap it -> the full dialog opens", distinct
+                // from a plain app launch/resume, so this is a manual check, not silent.
+                appUpdateViewModel.checkForUpdates(isManual = true)
             }
         }
     }
