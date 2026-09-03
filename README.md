@@ -13,6 +13,8 @@ Neo Child Clinic is a modern, production-grade Android application designed for 
 
 ## Features
 
+- **Personal Vaccine Reminders:** Dedicated module to create, track, and manage follow-up vaccine reminders for saved patients and walk-in/non-saved patients with advance payment tracking, date classifications (Overdue, Today, Tomorrow, Upcoming), and automated background notifications via WorkManager.
+- **Borrowed Vaccines & Returns Management:** Offline-first module to track borrowed and lent vaccines across doctors and clinics. Supports partial returns, returning to original or new batches (with batch number, expiry date, and pricing), and detailed multi-date return logs.
 - **Staff Accountability Tracking:** Added `created_by` and `updated_by` tracking across all major tables. Every record now saves the human-readable name (display name or email) of the staff member who created or last modified it.
 - **Supabase Backend Integration:** Fully integrated with **Supabase**. Uses Supabase Auth for identity management and PostgREST for high-performance PostgreSQL data access.
 - **Realtime Collaboration:** Uses Supabase Realtime to ensure data (patients, vaccinations, etc.) stays synchronized across all clinic devices instantly.
@@ -28,7 +30,7 @@ Neo Child Clinic is a modern, production-grade Android application designed for 
 - **Secure Offline-First Architecture:** 
     - **Encryption:** 256-bit SQLCipher encryption for the local Room database.
     - **Offline Sync:** Robust background sync with Supabase via WorkManager.
-- **Security & Privacy:** Biometric authentication and granular role-based access control (RLS).
+- **Security & Privacy:** Biometric authentication, configurable inactivity timeouts, dynamic "Always Authenticate" enforcement, and granular role-based access control (RLS).
 - **Home Screen Widgets:** Quick-access widgets for immediate visibility of today's tasks.
 
 ## Setup Instructions
