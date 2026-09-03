@@ -84,6 +84,8 @@ fun DashboardScreen(
                 userName = authProfile?.displayName ?: "User",
                 userRole = role,
                 syncState = uiState.syncState,
+                isOnline = uiState.isOnline,
+                pendingSyncCount = uiState.pendingSyncCount,
                 appVersion = com.neochildclinic.BuildConfig.VERSION_NAME,
                 onProfileClick = {
                     scope.launch { drawerState.close() }
@@ -108,8 +110,14 @@ fun DashboardScreen(
                     onLogout()
                 },
                 onSyncClick = {
-                    onSync()
-                    dashboardViewModel.refresh()
+                    // Close the drawer before navigating to Cloud Synchronization.
+                    // This ensures that returning from SyncScreen reveals the Dashboard
+                    // normally instead of reopening the drawer over it.
+                    scope.launch { drawerState.close() }
+                    if (uiState.isOnline) {
+                        onSync()
+                        dashboardViewModel.refresh()
+                    }
                 },
                 onSettingsClick = {
                     scope.launch { drawerState.close() }

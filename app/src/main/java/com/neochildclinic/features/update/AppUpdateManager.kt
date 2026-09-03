@@ -1,4 +1,4 @@
-package com.neochildclinic.core.update
+package com.neochildclinic.features.update
 
 import android.app.PendingIntent
 import android.content.Context

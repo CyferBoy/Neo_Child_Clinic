@@ -1,4 +1,4 @@
-package com.neochildclinic.core.update
+package com.neochildclinic.features.update
 
 enum class UpdateType {
     UPDATE,

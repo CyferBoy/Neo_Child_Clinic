@@ -43,7 +43,7 @@ class WidgetWorker @AssistedInject constructor(
                 val patient = patients[vacc.patientId]
                 val category = DateClassifier.classify(vacc.nextDueDate)
                 
-                // Keep the widget compact and consistent: always show the date as dd MMM yy.
+                // Show only day/month for the current running year; include the year for other years.
                 val displayDate = formatWidgetDate(vacc.nextDueDate)
 
                 WidgetDueEntity(
@@ -74,20 +74,21 @@ class WidgetWorker @AssistedInject constructor(
 
     private fun formatWidgetDate(value: String): String {
         return try {
-            val input = java.time.OffsetDateTime.parse(value)
-            input.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yy"))
-        } catch (_: Exception) {
-            try {
-                val input = java.time.LocalDateTime.parse(value)
-                input.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yy"))
+            val date = try {
+                java.time.OffsetDateTime.parse(value).toLocalDate()
             } catch (_: Exception) {
                 try {
-                    val input = java.time.LocalDate.parse(value)
-                    input.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yy"))
+                    java.time.LocalDateTime.parse(value).toLocalDate()
                 } catch (_: Exception) {
-                    value
+                    java.time.LocalDate.parse(value)
                 }
             }
+
+            val currentYear = java.time.LocalDate.now().year
+            val pattern = if (date.year == currentYear) "dd MMM" else "dd MMM yy"
+            date.format(java.time.format.DateTimeFormatter.ofPattern(pattern))
+        } catch (_: Exception) {
+            value
         }
     }
 }

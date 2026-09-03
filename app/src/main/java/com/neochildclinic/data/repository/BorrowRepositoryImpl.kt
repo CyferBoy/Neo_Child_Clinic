@@ -148,6 +148,7 @@ class BorrowRepositoryImpl @Inject constructor(
                 quantity = quantity,
                 returnedDate = today,
                 notes = notes,
+                createdAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
                 isSynced = false
             )
             val entity = returnRecord.toEntity(isSynced = false)
@@ -162,11 +163,10 @@ class BorrowRepositoryImpl @Inject constructor(
             )
 
             if (quantity >= item.remainingQuantity) {
-                val updated = item.record.copy(isReturned = true, returnedDate = today, isSynced = false)
-                borrowDao.insertRecord(updated.toEntity(isSynced = false))
+                borrowDao.markReturned(item.id, today)
                 syncRepository.enqueue(
                     entityName = "BORROW",
-                    entityId = updated.id,
+                    entityId = item.id,
                     operation = SyncOperation.UPDATE,
                     priority = SyncPriority.MEDIUM,
                     transactionGroupId = transactionGroupId

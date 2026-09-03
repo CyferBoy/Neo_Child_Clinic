@@ -32,7 +32,7 @@ import com.neochildclinic.features.patient.PatientListScreen
 import com.neochildclinic.features.sync.SyncScreen
 import com.neochildclinic.features.audit.FullAuditLogScreen
 import com.neochildclinic.features.settings.SettingsScreen
-import com.neochildclinic.features.settings.AppUpdateScreen
+import com.neochildclinic.features.update.AppUpdateScreen
 import com.neochildclinic.features.settings.TermsOfServiceScreen
 import com.neochildclinic.features.settings.PrivacyPolicyScreen
 import com.neochildclinic.features.settings.HelpSupportScreen
@@ -57,7 +57,7 @@ import com.neochildclinic.features.reminder.CompletedDismissedScreen
 @Composable
 fun AppNavigation(
     navController: androidx.navigation.NavHostController = rememberNavController(),
-    appUpdateViewModel: com.neochildclinic.features.settings.AppUpdateViewModel = hiltViewModel()
+    appUpdateViewModel: com.neochildclinic.features.update.AppUpdateViewModel = hiltViewModel()
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authProfile by authViewModel.profile.collectAsState()

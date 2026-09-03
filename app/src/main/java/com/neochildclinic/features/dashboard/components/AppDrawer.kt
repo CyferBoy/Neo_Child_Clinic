@@ -26,6 +26,8 @@ fun AppDrawer(
     userName: String,
     userRole: UserRole,
     syncState: SyncState,
+    isOnline: Boolean,
+    pendingSyncCount: Int,
     appVersion: String,
     onProfileClick: () -> Unit,
     onNavigate: (String) -> Unit,
@@ -128,8 +130,10 @@ fun AppDrawer(
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         }
+
+        // Divider above the fixed footer
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
 
         // Drawer Footer
         Column(
@@ -152,17 +156,18 @@ fun AppDrawer(
                         .clickable { onSyncClick() }
                         .padding(8.dp)
                 ) {
-                    val (icon, color) = when (syncState) {
-                        SyncState.SYNCING -> Icons.Default.Sync to MaterialTheme.colorScheme.primary
-                        SyncState.ERROR -> Icons.Default.CloudOff to MaterialTheme.colorScheme.error
-                        else -> Icons.Default.CloudDone to Color(0xFF4CAF50)
+                    val status = when {
+                        !isOnline -> Triple(Icons.Default.CloudOff, MaterialTheme.colorScheme.error, "Offline")
+                        syncState == SyncState.SYNCING -> Triple(Icons.Default.Sync, MaterialTheme.colorScheme.primary, "Syncing")
+                        pendingSyncCount > 0 -> Triple(Icons.Default.CloudUpload, MaterialTheme.colorScheme.primary, "Sync Pending")
+                        else -> Triple(Icons.Default.CloudDone, Color(0xFF4CAF50), "Online")
                     }
-                    Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+                    Icon(status.first, null, tint = status.second, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (syncState == SyncState.ERROR) "Offline" else "Online",
+                        text = status.third,
                         style = MaterialTheme.typography.labelMedium,
-                        color = color
+                        color = status.second
                     )
                 }
 

@@ -14,6 +14,7 @@ import java.util.Date
 import java.util.Locale
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
+import com.neochildclinic.core.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -26,6 +27,8 @@ data class DashboardUiState(
     val dueTodayCount: Int = 0,
     val wasteCount: Int = 0,
     val syncState: SyncState = SyncState.IDLE,
+    val isOnline: Boolean = false,
+    val pendingSyncCount: Int = 0,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val todayConsultations: List<ConsultationTodoEntity> = emptyList(),
@@ -43,6 +46,7 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val dashboardRepository: DashboardRepository,
     private val syncRepository: SyncRepository,
+    private val networkMonitor: NetworkMonitor,
     private val patientRepository: PatientRepository,
     private val patientTodoRepository: PatientTodoRepository,
 ) : ViewModel() {
@@ -65,7 +69,13 @@ class DashboardViewModel @Inject constructor(
         ) { p, low, borrowed, due, waste ->
             listOf(p, low, borrowed, due, waste)
         },
-        syncRepository.syncState,
+        combine(
+            syncRepository.syncState,
+            syncRepository.getPendingCount(),
+            networkMonitor.isOnline
+        ) { syncState, pendingCount, isOnline ->
+            Triple(syncState, pendingCount, isOnline)
+        },
         _selectedDate.flatMapLatest { date ->
             combine(
                 patientTodoRepository.getConsultationsByDateAndStatus(date, "PENDING"),
@@ -94,7 +104,9 @@ class DashboardViewModel @Inject constructor(
             borrowedCount = stats[2] as Int,
             dueTodayCount = stats[3] as Int,
             wasteCount = stats[4] as Int,
-            syncState = sync,
+            syncState = sync.first,
+            isOnline = sync.third,
+            pendingSyncCount = sync.second,
             todayConsultations = todos[0] as List<ConsultationTodoEntity>,
             todayVaccinations = todos[1] as List<VaccinationTodoEntity>,
             visitedConsultations = todos[2] as List<ConsultationTodoEntity>,

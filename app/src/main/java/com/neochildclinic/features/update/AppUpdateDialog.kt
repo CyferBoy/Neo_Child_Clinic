@@ -1,4 +1,4 @@
-package com.neochildclinic.core.ui
+package com.neochildclinic.features.update
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,10 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.core.update.AppUpdateInfo
-import com.neochildclinic.core.update.UpdateType
+import com.neochildclinic.features.update.AppUpdateInfo
+import com.neochildclinic.features.update.UpdateType
 import com.neochildclinic.BuildConfig
-import com.neochildclinic.features.settings.DownloadProgress
+import com.neochildclinic.features.update.DownloadProgress
 
 @Composable
 fun AppUpdateDialog(

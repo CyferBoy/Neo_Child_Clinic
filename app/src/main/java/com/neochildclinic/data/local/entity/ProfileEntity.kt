@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 @Serializable
 @Entity(
@@ -16,15 +17,15 @@ import kotlinx.serialization.Serializable
 data class ProfileEntity(
     @PrimaryKey val id: String,
     val email: String,
-    val displayName: String,
-    val phoneNumber: String = "",
-    val employeeId: String? = null,
+    @SerialName("display_name") val displayName: String,
+    @SerialName("phone_number") val phoneNumber: String = "",
+    @SerialName("employee_id") val employeeId: String? = null,
     val role: String, // Enum name
-    val isActive: Boolean = true,
-    val fcmToken: String? = null,
-    val createdAt: String = "",
-    val updatedAt: String = "",
-    val lastLogin: String? = null,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("fcm_token") val fcmToken: String? = null,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("last_login") val lastLogin: String? = null,
     @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )

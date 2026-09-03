@@ -1,4 +1,4 @@
-package com.neochildclinic.features.settings
+package com.neochildclinic.features.update
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -6,9 +6,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.AppUpdateDialog
-import com.neochildclinic.core.ui.DowngradeConfirmDialog
-import com.neochildclinic.core.ui.DowngradeVersionListDialog
+import com.neochildclinic.features.settings.SettingsDetailTopBar
+import com.neochildclinic.features.update.AppUpdateDialog
+import com.neochildclinic.features.update.DowngradeConfirmDialog
+import com.neochildclinic.features.update.DowngradeVersionListDialog
 
 @Composable
 fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {

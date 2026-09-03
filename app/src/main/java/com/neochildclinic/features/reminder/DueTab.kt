@@ -70,6 +70,15 @@ fun DueTab(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        item {
+            CompletedDismissedSummaryCards(
+                completedCount = stats.completedToday,
+                dismissedCount = stats.dismissedToday,
+                onClick = onNavigateToCompletedDismissed
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         if (filteredVaccinations.isEmpty()) {
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {

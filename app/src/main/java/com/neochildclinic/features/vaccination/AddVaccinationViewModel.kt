@@ -147,6 +147,13 @@ class AddVaccinationViewModel @Inject constructor(
 
             val items = vaccination.items.map { item ->
                 val vaccine = inventory.firstOrNull { it.id == item.vaccineId }
+                    ?: InventoryItem(
+                        id = item.vaccineId,
+                        brandName = item.vaccineName.ifBlank { "Saved vaccine" },
+                        stock = 0,
+                        type = "",
+                        company = ""
+                    )
                 // Do not depend on the batch being present in the filtered UI list.
                 // An old batch can have zero stock and therefore be unavailable in the
                 // dropdown, while it is still a valid batch reference for this vaccination.

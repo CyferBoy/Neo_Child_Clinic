@@ -29,65 +29,79 @@ import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.*
 
 @Composable
-fun CompletedDismissedSummaryCard(
+fun CompletedDismissedSummaryCards(
     completedCount: Int,
     dismissedCount: Int,
     onClick: () -> Unit
 ) {
-    Card(
-        onClick = onClick,
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-        ),
-        shape = RoundedCornerShape(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Card(
+            onClick = onClick,
+            modifier = Modifier.weight(1f),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+            ),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = Color(0xFF2E7D32)
+                )
                 Text(
-                    text = "Completed & Dismissed",
+                    text = "Completed",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Check, 
-                        contentDescription = null, 
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFF2E7D32)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Completed: $completedCount",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Icon(
-                        Icons.Default.Close, 
-                        contentDescription = null, 
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Dismissed: $dismissedCount",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Text(
+                    text = completedCount.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
-            )
+        }
+
+        Card(
+            onClick = onClick,
+            modifier = Modifier.weight(1f),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Dismissed",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    text = dismissedCount.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
         }
     }
 }

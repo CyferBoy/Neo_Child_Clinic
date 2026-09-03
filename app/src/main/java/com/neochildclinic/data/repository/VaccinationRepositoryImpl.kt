@@ -6,6 +6,9 @@ import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
+import com.neochildclinic.core.utils.WidgetUtils
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
@@ -28,7 +31,8 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val inventoryRepository: InventoryRepository,
     private val auditLogger: AuditLogger,
-    private val memoryCache: MemoryCache
+    private val memoryCache: MemoryCache,
+    @ApplicationContext private val appContext: Context
 ) : VaccinationRepository {
 
     private val vaccinationDao = database.vaccinationDao()
@@ -284,6 +288,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 transactionGroupId = transactionGroupId
             )
         }
+        WidgetUtils.updateWidget(appContext)
     }
 
     override suspend fun deleteVaccination(id: String) {
@@ -354,6 +359,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 android.util.Log.e("VaccinationRepo", "Audit log failed but deletion proceeded", e)
             }
         }
+        WidgetUtils.updateWidget(appContext)
     }
 
     override suspend fun markAsDone(id: String) {
@@ -385,6 +391,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 )
             }
         }
+        WidgetUtils.updateWidget(appContext)
     }
 
     override fun getTodayCount(date: String): Flow<Int> = vaccinationDao.getCountByDate(date)

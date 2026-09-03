@@ -29,8 +29,8 @@ import com.neochildclinic.core.utils.BiometricAuthenticator
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.ui.LockScreen
-import com.neochildclinic.core.ui.AppUpdateDialog
-import com.neochildclinic.features.settings.AppUpdateViewModel
+import com.neochildclinic.features.update.AppUpdateDialog
+import com.neochildclinic.features.update.AppUpdateViewModel
 import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.features.dashboard.AuthViewModel

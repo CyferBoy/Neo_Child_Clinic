@@ -1,10 +1,10 @@
-package com.neochildclinic.features.settings
+package com.neochildclinic.features.update
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.update.AppUpdateInfo
-import com.neochildclinic.core.update.AppUpdateManager
-import com.neochildclinic.core.update.UpdateType
+import com.neochildclinic.features.update.AppUpdateInfo
+import com.neochildclinic.features.update.AppUpdateManager
+import com.neochildclinic.features.update.UpdateType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

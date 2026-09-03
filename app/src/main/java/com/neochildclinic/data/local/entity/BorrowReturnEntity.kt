@@ -52,7 +52,7 @@ data class BorrowReturnEntity(
 
     val notes: String? = null,
 
-    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
+    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
@@ -76,6 +76,6 @@ fun BorrowReturnRecord.toEntity(isSynced: Boolean = false) = BorrowReturnEntity(
     quantity = quantity,
     returnedDate = returnedDate,
     notes = notes,
-    createdAt = createdAt ?: "",
+    createdAt = createdAt ?: com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     isSynced = isSynced
 )

@@ -12,6 +12,7 @@ import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
@@ -23,7 +24,8 @@ import javax.inject.Singleton
 class SyncRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val auth: Auth
 ) : SyncRepository {
 
     private val syncDao = database.syncQueueDao()
@@ -76,6 +78,14 @@ class SyncRepositoryImpl @Inject constructor(
         }
 
         _syncState.value = SyncState.SYNCING
+
+        // Keep a persisted session usable before starting a batch. Auth refresh is
+        // safe to call when no session exists because currentSessionOrNull() returns null.
+        runCatching {
+            if (auth.currentSessionOrNull() != null) auth.refreshCurrentSession()
+        }.onFailure {
+            android.util.Log.w("SyncRepository", "Session refresh before sync failed", it)
+        }
         
         // 1. Sort the queue to respect FK dependencies
         // For CREATE/UPDATE: Parent (Priority 1) before Child (Priority 10)
@@ -103,9 +113,17 @@ class SyncRepositoryImpl @Inject constructor(
                     }
                 }
                 
-                // Process items in group sequentially
+                // Process items in group sequentially. If Supabase rejects the request
+                // because the access token expired between the pre-sync refresh and this
+                // upload, refresh once and retry the exact same queue item.
                 for (item in groupItems) {
-                    uploadEntity(item)
+                    try {
+                        uploadEntity(item)
+                    } catch (e: Exception) {
+                        if (!isJwtExpired(e)) throw e
+                        auth.refreshCurrentSession()
+                        uploadEntity(item)
+                    }
                     syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
                     syncDao.deleteItem(item)
                 }
@@ -134,6 +152,21 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
+
+    private fun isJwtExpired(error: Throwable): Boolean {
+        var current: Throwable? = error
+        repeat(8) {
+            val message = current?.message.orEmpty()
+            if (message.contains("jwt", ignoreCase = true) &&
+                (message.contains("expired", ignoreCase = true) ||
+                 message.contains("invalid", ignoreCase = true) ||
+                 message.contains("token", ignoreCase = true))) {
+                return true
+            }
+            current = current?.cause
+        }
+        return false
+    }
 
     private fun buildSyncErrorDetails(error: Throwable): String {
         val reason = error.message?.takeIf { it.isNotBlank() } ?: "Sync failed"
@@ -217,6 +250,7 @@ class SyncRepositoryImpl @Inject constructor(
             "PATIENT", "VACCINE" -> 1
             "VACCINATION", "VISIT", "BATCH" -> 2
             "VACCINATION_ITEM", "CONSULTATION", "CONSULTATION_TODO", "VACCINATION_TODO", "WASTE", "BORROW" -> 3
+            "BORROW_RETURN" -> 4
             "INVENTORY_TRANSACTION", "FINANCE" -> 4
             "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG", "PERSONAL_REMINDER" -> 5
             else -> 100
@@ -490,8 +524,17 @@ class SyncRepositoryImpl @Inject constructor(
             is AuditLogEntity -> data.timestamp
             is PatientNotesEntity -> data.timestamp
             is InventoryTransactionEntity -> data.timestamp
-            is BorrowEntity -> data.borrowedDate
-            is BorrowReturnEntity -> data.returnedDate
+            // A returned borrow is a local status update. borrow_records does not
+            // have a client-side updated_at field, so using the original borrowed
+            // date makes the conflict check incorrectly treat the remote row as newer
+            // and download the old is_returned=false row. Use the current timestamp
+            // while this pending update is being uploaded so the explicit return wins.
+            is BorrowEntity -> if (data.isReturned) {
+                com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            } else {
+                data.borrowedDate
+            }
+            is BorrowReturnEntity -> data.createdAt.ifBlank { data.returnedDate }
             is PersonalReminderEntity -> data.updatedAt
             else -> ""
         }

@@ -97,19 +97,30 @@ fun BorrowedRecordCard(
                 QuantityStat("Remaining", item.remainingQuantity, highlight = item.remainingQuantity > 0)
             }
 
-            // Row 3: Batch & Expiry
+            // Row 3: Batch & Expiry on the right side
             Spacer(modifier = Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "Batch: ${item.batchNumber}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Expiry: ${formatDateForDisplay(item.expiryDate)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "Batch: ${item.batchNumber}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
+                    )
+                    Text(
+                        text = "Expiry: ${formatDateForDisplay(item.expiryDate)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
+                    )
+                }
             }
 
             // Row 4: Dates
