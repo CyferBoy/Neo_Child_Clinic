@@ -1,8 +1,17 @@
-# Neo Child Clinic - Vaccine Manager (v0.5.0)
+# Neo Child Clinic - Vaccine Manager (v0.5.1)
 
 Neo Child Clinic is a modern, production-grade Android application designed for pediatric clinics to manage patient records, vaccination schedules, inventory, and clinical workflows with high security and data integrity.
 
-## Features (v0.5.0)
+## What's New in v0.5.1
+
+- **Offline-First Borrowed Vaccines & Returns:** Refactored the borrowed vaccines module to use a local Room repository (`BorrowRepository`) and background sync queue (`SyncRepository`).
+- **Flexible Return-to-Batch & New Batch Creation:** Support for returning borrowed vaccines to existing batches or creating a new batch (batch number, expiry date, pricing) directly from the return dialog.
+- **Unified Cards & Multi-Date Return Tracking:** Card UI updated with consistent styling, explicit return date labels, and multi-date tracking for partial returns.
+- **Personal Vaccine Reminders:** Follow-up reminder system for saved and walk-in/non-saved patients with date classification (Overdue, Today, Tomorrow, Upcoming) and notification scheduling via WorkManager.
+- **Linked Security Controls:** "Always Authenticate" and "Inactivity Days" settings are now dynamically linked to the "Biometric Lock" master switch.
+- **GMS Visibility & Stability Fixes:** Added Google Play Services manifest queries and metadata to resolve broker security exceptions on Android 11+.
+
+## Features
 
 - **Staff Accountability Tracking:** Added `created_by` and `updated_by` tracking across all major tables. Every record now saves the human-readable name (display name or email) of the staff member who created or last modified it.
 - **Supabase Backend Integration:** Fully integrated with **Supabase**. Uses Supabase Auth for identity management and PostgREST for high-performance PostgreSQL data access.
