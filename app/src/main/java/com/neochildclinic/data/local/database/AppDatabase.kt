@@ -35,7 +35,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PersonalReminderEntity::class,
         BorrowReturnEntity::class
     ], 
-    version = 2,
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -182,7 +182,7 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
-                val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+                val MIGRATION_21_22 = object : androidx.room.migration.Migration(21, 22) {
                     override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                         database.execSQL("ALTER TABLE personal_vaccine_reminders RENAME TO personal_vaccine_reminders_old")
                         database.execSQL("""CREATE TABLE personal_vaccine_reminders (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, patient_name TEXT NOT NULL, patient_phone TEXT NOT NULL, vaccine_id TEXT, vaccine_label TEXT, note TEXT, advance_received INTEGER NOT NULL, advance_amount REAL, advance_date TEXT, reminder_date TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, cancelled_at TEXT, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT, FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE, FOREIGN KEY(vaccine_id) REFERENCES vaccines(id) ON DELETE SET NULL)""")
@@ -202,7 +202,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_1_2)
+                .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

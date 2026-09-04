@@ -34,6 +34,17 @@ class PersonalReminderViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(PersonalReminderTab.ACTIVE)
     private val _isRefreshing = MutableStateFlow(false)
 
+    init {
+        // Self-heal on open: the Room cache backing this screen is only otherwise
+        // populated by RefreshDataUseCase (login/manual sync elsewhere) or by pull-
+        // to-refresh on this screen itself - neither is guaranteed to have run yet
+        // by the time someone opens Personal Reminders, so a reminder created on
+        // another device (or before this screen was ever visited) could sit
+        // invisible in the remote DB indefinitely. Kick off a background pull every
+        // time this screen is opened so it never just shows an empty list forever.
+        refresh()
+    }
+
     val uiState: StateFlow<PersonalReminderUiState> = combine(
         _selectedTab,
         // Sort Active so items needing attention appear first: Overdue, then Today,

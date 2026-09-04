@@ -7,7 +7,6 @@ import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.WasteRepository
-import com.neochildclinic.domain.repository.PersonalReminderRepository
 import com.neochildclinic.domain.usecase.patient.DeletePatientUseCase
 import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
 import com.neochildclinic.domain.usecase.patient.SavePatientUseCase
@@ -20,6 +19,7 @@ import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.InventoryDeductionDao
 import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.domain.repository.PersonalReminderRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -66,14 +66,14 @@ object UseCaseModule {
         financeRepository: FinanceRepository,
         personalReminderRepository: PersonalReminderRepository
     ) = RefreshDataUseCase(
-        patientRepository,
-        vaccinationRepository,
-        wasteRepository,
-        inventoryRepository,
-        reminderRepository,
-        consultationRepository,
-        financeRepository,
-        personalReminderRepository
+        patientRepository = patientRepository,
+        vaccinationRepository = vaccinationRepository,
+        wasteRepository = wasteRepository,
+        inventoryRepository = inventoryRepository,
+        reminderRepository = reminderRepository,
+        consultationRepository = consultationRepository,
+        financeRepository = financeRepository,
+        personalReminderRepository = personalReminderRepository
     )
 
     @Provides

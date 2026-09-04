@@ -7,6 +7,7 @@ import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.data.cache.MemoryCache
+import com.neochildclinic.core.utils.metadataString
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -71,13 +72,13 @@ class AuthViewModel @Inject constructor(
                     p = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("display_name")?.toString() 
-                            ?: currentUser.userMetadata?.get("name")?.toString() 
+                        displayName = currentUser.userMetadata?.get("display_name").metadataString() 
+                            ?: currentUser.userMetadata?.get("name").metadataString() 
                             ?: currentUser.email?.substringBefore("@") ?: "User",
-                        phoneNumber = currentUser.userMetadata?.get("phone_number")?.toString() ?: "",
-                        employeeId = currentUser.userMetadata?.get("employee_id")?.toString(),
+                        phoneNumber = currentUser.userMetadata?.get("phone_number").metadataString() ?: "",
+                        employeeId = currentUser.userMetadata?.get("employee_id").metadataString(),
                         role = try { 
-                            com.neochildclinic.domain.model.UserRole.valueOf(currentUser.userMetadata?.get("role")?.toString() ?: "nurse") 
+                            com.neochildclinic.domain.model.UserRole.valueOf(currentUser.userMetadata?.get("role").metadataString() ?: "nurse") 
                         } catch (_: Exception) { com.neochildclinic.domain.model.UserRole.nurse },
                         lastLogin = authLastLogin
                     )

@@ -7,6 +7,7 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
 import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.core.utils.metadataString
 import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
@@ -188,9 +189,9 @@ class PatientViewModel @Inject constructor(
                     _profile.value = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("name")?.toString() ?: currentUser.email?.substringBefore("@") ?: "User",
-                        phoneNumber = currentUser.userMetadata?.get("phone_number")?.toString() ?: "",
-                        employeeId = currentUser.userMetadata?.get("employee_id")?.toString(),
+                        displayName = currentUser.userMetadata?.get("name").metadataString() ?: currentUser.email?.substringBefore("@") ?: "User",
+                        phoneNumber = currentUser.userMetadata?.get("phone_number").metadataString() ?: "",
+                        employeeId = currentUser.userMetadata?.get("employee_id").metadataString(),
                         role = UserRole.nurse,
                         lastLogin = authLastLogin
                     )

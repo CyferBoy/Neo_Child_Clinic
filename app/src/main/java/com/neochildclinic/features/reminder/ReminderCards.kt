@@ -30,6 +30,8 @@ import com.neochildclinic.domain.model.*
 
 @Composable
 fun CompletedDismissedSummaryCards(
+    completedCount: Int,
+    dismissedCount: Int,
     onClick: () -> Unit
 ) {
     Row(
@@ -44,15 +46,14 @@ fun CompletedDismissedSummaryCards(
             ),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = Color(0xFF2E7D32)
                 )
                 Text(
@@ -72,15 +73,14 @@ fun CompletedDismissedSummaryCards(
             ),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
                     Icons.Default.Close,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = MaterialTheme.colorScheme.error
                 )
                 Text(

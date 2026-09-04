@@ -48,6 +48,8 @@ fun DueTab(
     ) {
         item {
             CompletedDismissedSummaryCards(
+                completedCount = stats.completedToday,
+                dismissedCount = stats.dismissedToday,
                 onClick = onNavigateToCompletedDismissed
             )
             Spacer(modifier = Modifier.height(16.dp))

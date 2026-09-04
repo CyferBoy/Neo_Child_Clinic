@@ -131,9 +131,25 @@ class AppUpdateManager @Inject constructor(
      * Returns null if no release exists for the installed version, or it exists but has no
      * downloadable APK asset (e.g. removed from GitHub since it was installed).
      */
+    /**
+     * Fresh check for the release matching the currently installed version (Re-update).
+     * Returns null if no release exists for the installed version, or it exists but has no
+     * downloadable APK asset (e.g. removed from GitHub since it was installed).
+     *
+     * Deliberately does NOT do a `releases/tags/{tag}` lookup - that endpoint requires an
+     * exact, case-sensitive tag match, and this repo's tags aren't consistently cased (e.g.
+     * "V0.5.0" vs "v0.5.0"), plus currentVersionName() includes the debug build's "-debug"
+     * suffix, which would never match any real release tag anyway. Instead this reuses the
+     * same "list all releases, compare by versionCode" approach as listDowngradeVersions()
+     * below, which is exactly as robust to tag naming/casing since it never constructs a
+     * tag-name URL at all.
+     */
     suspend fun checkForReupdate(): AppUpdateInfo? = withContext(Dispatchers.IO) {
-        val json = fetchJsonObject("$GITHUB_REPO_URL/releases/tags/v${currentVersionName()}") ?: return@withContext null
-        parseRelease(json, currentVersionCode())?.takeIf { it.updateType == UpdateType.REUPDATE }
+        val currentCode = currentVersionCode()
+        val array = fetchJsonArray("$GITHUB_REPO_URL/releases?per_page=100") ?: return@withContext null
+        (0 until array.length())
+            .mapNotNull { i -> array.optJSONObject(i)?.let { parseRelease(it, currentCode) } }
+            .firstOrNull { it.updateType == UpdateType.REUPDATE }
     }
 
     /**
