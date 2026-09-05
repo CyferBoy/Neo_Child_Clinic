@@ -1,16 +1,51 @@
 # Neo Child Clinic - Vaccine Manager
 
+[![GitHub release](https://img.shields.io/github/v/release/CyferBoy/Neo_Child_Clinic?label=latest%20release)](https://github.com/CyferBoy/Neo_Child_Clinic/releases/latest)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-active%20development-brightgreen)](#project-status)
+
 Neo Child Clinic - Vaccine Manager is an Android application for pediatric clinics to manage patients, vaccinations, consultations, vaccine inventory, reminders, staff, and financial records.
 
 The application uses an offline-first architecture with an encrypted local Room database and Supabase synchronization.
 
-## Current Version
+## Table of Contents
+
+- [Overview](#overview)
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Getting Started](#getting-started)
+- [Backend & Configuration](#backend--configuration)
+- [Releases & Updates](#releases--updates)
+- [Data Safety](#data-safety)
+- [Security & Privacy](#security--privacy)
+- [Contributing](#contributing)
+- [Support](#support)
+- [License](#license)
+- [Disclaimer](#disclaimer)
+
+---
+
+## Overview
 
 - **Version:** 0.5.1
 - **Version Code:** 3
 - **Minimum Android:** 7.0 (API 24)
 - **Target Android:** 15 (API 35)
 - **Status:** 🟢 Active Development
+
+Neo Child Clinic - Vaccine Manager is actively developed and maintained. Features, database structures, and backend services may change between releases.
+
+---
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](Screenshot/dashboard.png) Dashboard | ![Patient Details](Screenshot/patient%20details.png) Patient Details |
+| ![Due Vaccination](Screenshot/due%20vaccination.png) Due Vaccination | ![Inventory](Screenshot/inventory.png) Inventory |
+| ![Borrow Vaccine](Screenshot/borrow%20vaccine.png) Borrow Vaccine | ![App Drawer](Screenshot/app%20drawer.png) Navigation Drawer |
 
 ---
 
@@ -236,7 +271,7 @@ Background tasks such as synchronization and reminders are handled using WorkMan
 
 ---
 
-## Quick Start
+## Getting Started
 
 ### 1. Prerequisites
 
@@ -344,7 +379,9 @@ After installation:
 
 ---
 
-## Backend
+## Backend & Configuration
+
+### Backend
 
 Supabase is used for:
 
@@ -357,9 +394,7 @@ Supabase is used for:
 
 The project includes Edge Functions for privileged staff management and application-release notifications.
 
----
-
-## Configuration & Secrets
+### Configuration & Secrets
 
 Required application configuration:
 
@@ -380,9 +415,7 @@ Never commit:
 
 The Supabase publishable key is a client-side key and should not be treated as a server secret. Backend access must be protected using authentication and RLS.
 
----
-
-## Database
+### Database
 
 The application uses:
 
@@ -405,7 +438,17 @@ supabase/migrations/
 
 ---
 
-## GitHub Releases
+## Releases & Updates
+
+### Latest Release
+
+The latest stable APK is available from the GitHub Releases page.
+
+[View Releases](https://github.com/CyferBoy/Neo_Child_Clinic/releases)
+
+Production releases should use a properly signed APK.
+
+### Publishing a New Release
 
 To publish an application update:
 
@@ -425,31 +468,7 @@ minimum-version-code: 4
 
 The release workflow can notify registered devices through Firebase Cloud Messaging using the Supabase `notify-update` Edge Function.
 
----
-
-## Screenshots
-
-| | |
-|---|---|
-| ![Dashboard](Screenshot/dashboard.png) Dashboard | ![Patient Details](Screenshot/patient%20details.png) Patient Details |
-| ![Due Vaccination](Screenshot/due%20vaccination.png) Due Vaccination | ![Inventory](Screenshot/inventory.png) Inventory |
-| ![Borrow Vaccine](Screenshot/borrow%20vaccine.png) Borrow Vaccine | ![App Drawer](Screenshot/app%20drawer.png) Navigation Drawer |
-
----
-
-## Download
-
-The latest stable APK is available from the GitHub Releases page.
-
-[![GitHub release](https://img.shields.io/github/v/release/CyferBoy/Neo_Child_Clinic?label=latest%20release)](https://github.com/CyferBoy/Neo_Child_Clinic/releases/latest)
-
-[View Releases](https://github.com/CyferBoy/Neo_Child_Clinic/releases)
-
-Production releases should use a properly signed APK.
-
----
-
-## Changelog
+### Changelog
 
 Release-specific changes are documented in GitHub Releases.
 
@@ -457,7 +476,9 @@ Release-specific changes are documented in GitHub Releases.
 
 ---
 
-## Backup & Recovery
+## Data Safety
+
+### Backup & Recovery
 
 The application uses local storage and Supabase synchronization to maintain clinic data.
 
@@ -473,9 +494,7 @@ Important considerations:
 
 Do not consider device-local data alone as a complete backup.
 
----
-
-## Permissions
+### Permissions
 
 The application may request Android permissions required for features such as:
 
@@ -490,13 +509,22 @@ Permissions are used only for the corresponding application features.
 
 ---
 
-## Project Status
+## Security & Privacy
 
-🟢 Active Development
+If you discover a security vulnerability, please follow the instructions in [SECURITY.md](SECURITY.md). Do not publicly disclose security vulnerabilities before they have been reviewed.
 
-Neo Child Clinic - Vaccine Manager is actively developed and maintained.
+The application may handle sensitive clinic information including patient, vaccination, consultation, financial, and staff data.
 
-Features, database structures, and backend services may change between releases.
+Production deployments should properly configure:
+
+- Supabase RLS.
+- Storage policies.
+- Authentication.
+- Edge Function secrets.
+- Staff permissions.
+- Database backup and recovery.
+
+The application provides local database encryption and application security features, but secure deployment also depends on correct backend configuration.
 
 ---
 
@@ -516,30 +544,11 @@ Before submitting changes:
 
 ---
 
-## Security
+## Support
 
-If you discover a security vulnerability, please follow the instructions in [SECURITY.md](SECURITY.md).
+For application support:
 
-Do not publicly disclose security vulnerabilities before they have been reviewed.
-
-See [SECURITY.md](SECURITY.md) for security reporting information.
-
----
-
-## Privacy & Security
-
-The application may handle sensitive clinic information including patient, vaccination, consultation, financial, and staff data.
-
-Production deployments should properly configure:
-
-- Supabase RLS.
-- Storage policies.
-- Authentication.
-- Edge Function secrets.
-- Staff permissions.
-- Database backup and recovery.
-
-The application provides local database encryption and application security features, but secure deployment also depends on correct backend configuration.
+neochildclinic.sbg@gmail.com
 
 ---
 
@@ -548,14 +557,6 @@ The application provides local database encryption and application security feat
 This project is licensed under the Apache License, Version 2.0.
 
 See [LICENSE](LICENSE) for the complete license.
-
----
-
-## Support
-
-For application support:
-
-neochildclinic.sbg@gmail.com
 
 ---
 
