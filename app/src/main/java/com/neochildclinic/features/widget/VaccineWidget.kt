@@ -71,7 +71,7 @@ class VaccineWidget : GlanceAppWidget() {
                 .fillMaxSize()
                 .background(resolvedBgColor)
                 .cornerRadius(24.dp)
-                .padding(9.dp)
+                .padding(6.dp)
                 .clickable(
                     actionStartActivity<MainActivity>(
                         actionParametersOf(
@@ -80,20 +80,47 @@ class VaccineWidget : GlanceAppWidget() {
                     )
                 )
         ) {
+            // Header: Centered Title
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalAlignment = Alignment.Start
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Due Vaccination",
                     style = TextStyle(
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = textColorProvider
-                    ),
-                    modifier = GlanceModifier.defaultWeight()
+                    )
                 )
+            }
+            Divider(secondaryTextProvider)
+
+            // Content: Takes available space
+            Box(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                if (items.isEmpty()) {
+                    Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "No upcoming vaccinations",
+                            style = TextStyle(fontSize = 15.sp, color = secondaryTextProvider)
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(top = 4.dp)) {
+                        items(items) { item ->
+                            VaccineRow(item, textColorProvider, colors.accent)
+                        }
+                    }
+                }
+            }
+
+            // Footer: Centered Refresh Button
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Image(
                     provider = ImageProvider(R.drawable.ic_widget_refresh),
                     contentDescription = "Refresh",
@@ -102,22 +129,6 @@ class VaccineWidget : GlanceAppWidget() {
                         .size(20.dp)
                         .clickable(actionRunCallback<RefreshWidgetAction>())
                 )
-            }
-            Divider(secondaryTextProvider)
-
-            if (items.isEmpty()) {
-                Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No upcoming vaccinations",
-                        style = TextStyle(fontSize = 15.sp, color = secondaryTextProvider)
-                    )
-                }
-            } else {
-                LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(top = 4.dp)) {
-                    items(items) { item ->
-                        VaccineRow(item, textColorProvider, colors.accent)
-                    }
-                }
             }
         }
     }
