@@ -6,6 +6,7 @@ import com.neochildclinic.features.update.AppUpdateInfo
 import com.neochildclinic.features.update.AppUpdateManager
 import com.neochildclinic.features.update.UpdateType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +50,11 @@ class AppUpdateViewModel @Inject constructor(
     val installing: StateFlow<Boolean> = _installing.asStateFlow()
     private val _downloadProgress = MutableStateFlow(DownloadProgress())
     val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
+
+    // Tracks the in-flight download/install coroutine so the dialog's Cancel button
+    // (tapped while installing == true) can actually stop it, instead of just hiding
+    // the dialog while the download kept running in the background.
+    private var installJob: Job? = null
 
     // "App Updates / Your application is up to date." with Re-update/Downgrade/OK - the
     // mandatory first result of a manual check when the installed version is already latest.
@@ -122,6 +128,7 @@ class AppUpdateViewModel @Inject constructor(
     }
 
     fun dismissUpdate() {
+        cancelInstallIfRunning()
         _updateInfo.value?.let { updateManager.dismiss(it.versionCode) }
         _updateInfo.value = null
     }
@@ -129,7 +136,7 @@ class AppUpdateViewModel @Inject constructor(
     fun installUpdate() {
         val info = _updateInfo.value ?: return
         if (_installing.value) return
-        viewModelScope.launch {
+        installJob = viewModelScope.launch {
             _installing.value = true
             _downloadProgress.value = DownloadProgress()
             updateManager.downloadAndInstall(info) { percent, downloaded, total ->
@@ -138,6 +145,16 @@ class AppUpdateViewModel @Inject constructor(
                 _message.value = it.message ?: "Unable to install the update."
             }
             _installing.value = false
+        }
+    }
+
+    /** Cancel button on the update dialog, tapped while a download is in progress. */
+    private fun cancelInstallIfRunning() {
+        if (_installing.value) {
+            installJob?.cancel()
+            installJob = null
+            _installing.value = false
+            _downloadProgress.value = DownloadProgress()
         }
     }
 
@@ -161,12 +178,15 @@ class AppUpdateViewModel @Inject constructor(
         }
     }
 
-    fun dismissReupdate() { _reupdateInfo.value = null }
+    fun dismissReupdate() {
+        cancelInstallIfRunning()
+        _reupdateInfo.value = null
+    }
 
     fun installReupdate() {
         val info = _reupdateInfo.value ?: return
         if (_installing.value) return
-        viewModelScope.launch {
+        installJob = viewModelScope.launch {
             _installing.value = true
             _downloadProgress.value = DownloadProgress()
             updateManager.downloadAndInstall(info) { percent, downloaded, total ->
@@ -212,8 +232,9 @@ class AppUpdateViewModel @Inject constructor(
     /** Confirmation dialog's Change Version button - back to the list, keeping it populated. */
     fun changeDowngradeVersion() { _selectedDowngrade.value = null }
 
-    /** Confirmation dialog's Cancel button - abandons the whole flow. */
+    /** Confirmation dialog's Cancel button - abandons the whole flow (also mid-download). */
     fun cancelDowngradeConfirm() {
+        cancelInstallIfRunning()
         _selectedDowngrade.value = null
         _downgradeVersions.value = null
         _highlightedVersionCode.value = null
@@ -223,7 +244,7 @@ class AppUpdateViewModel @Inject constructor(
     fun confirmDowngrade() {
         val info = _selectedDowngrade.value ?: return
         if (_installing.value) return
-        viewModelScope.launch {
+        installJob = viewModelScope.launch {
             _installing.value = true
             _downloadProgress.value = DownloadProgress()
             updateManager.downloadAndInstall(info) { percent, downloaded, total ->

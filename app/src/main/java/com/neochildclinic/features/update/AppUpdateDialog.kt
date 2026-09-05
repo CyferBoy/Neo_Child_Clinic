@@ -200,8 +200,12 @@ fun AppUpdateDialog(
         dismissButton = if (!info.mandatory) {
             {
                 TextButton(
+                    // Previously `enabled = !installing`: the button relabels itself
+                    // "Cancel" specifically while installing == true, but that same
+                    // condition disabled it - so the one moment it read "Cancel" was
+                    // exactly when it couldn't be tapped. It should always be tappable.
                     onClick = onLater,
-                    enabled = !installing
+                    enabled = true
                 ) {
                     Text(if (installing) "Cancel" else "Later")
                 }
@@ -329,8 +333,11 @@ fun DowngradeConfirmDialog(
         },
         dismissButton = {
             Row {
+                // Changing version mid-download doesn't make sense (there's nothing to
+                // switch to yet), so that one stays disabled while installing. But Cancel
+                // must stay tappable throughout - same bug as the main update dialog.
                 TextButton(onClick = onChangeVersion, enabled = !installing) { Text("Change Version") }
-                TextButton(onClick = onCancel, enabled = !installing) { Text("Cancel") }
+                TextButton(onClick = onCancel, enabled = true) { Text("Cancel") }
             }
         }
     )

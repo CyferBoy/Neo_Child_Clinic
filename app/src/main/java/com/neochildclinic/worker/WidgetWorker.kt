@@ -34,7 +34,7 @@ class WidgetWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             val dueList = reminderRepository.getDueList().first()
-                .sortedBy { DateClassifier.getSortWeight(it.nextDueDate) }
+                .sortedWith(compareBy(DateClassifier.dueDateComparator()) { it.nextDueDate })
                 
             
             val patients = patientRepository.allPatients.first().associateBy { it.id }
@@ -83,8 +83,8 @@ class WidgetWorker @AssistedInject constructor(
         val dateYear = java.util.Calendar.getInstance().apply { time = date }.get(java.util.Calendar.YEAR)
         val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
 
-        // Same year as today -> "15 June". Different year -> "15 June 25".
-        val pattern = if (dateYear == currentYear) "d MMMM" else "d MMMM yy"
+        // Same year as today -> "15 Jun". Different year -> "15 Jun 25".
+        val pattern = if (dateYear == currentYear) "d MMM" else "d MMM yy"
         return java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH).format(date)
     }
 }

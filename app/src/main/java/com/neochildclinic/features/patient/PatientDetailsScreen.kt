@@ -56,10 +56,21 @@ fun PatientDetailsScreen(
         }
     }
     
-    val patientVaccinationCards by viewModel.getPatientVaccinationCards(patientId).collectAsState(initial = null)
-    val patientConsultations by viewModel.getPatientConsultations(patientId).collectAsState(initial = emptyList())
+    // Flows are created once per patientId (not on every recomposition). Calling
+    // viewModel.getPatientVaccinationCards(...) etc. directly in the composable body
+    // would return a brand-new Flow instance on every recomposition (e.g. whenever
+    // allPatients changes after an edit), and since collectAsState keys its internal
+    // state on the Flow instance, that reset the displayed list to its initial value
+    // (null / empty) every time - making vaccination history appear to "vanish" until
+    // something else (like a fresh navigation) repopulated it.
+    val vaccinationCardsFlow = remember(patientId) { viewModel.getPatientVaccinationCards(patientId) }
+    val consultationsFlow = remember(patientId) { viewModel.getPatientConsultations(patientId) }
+    val notesFlow = remember(patientId) { viewModel.getPatientNotes(patientId) }
+
+    val patientVaccinationCards by vaccinationCardsFlow.collectAsState(initial = null)
+    val patientConsultations by consultationsFlow.collectAsState(initial = emptyList())
     val documents by viewModel.documents.collectAsState()
-    val patientNotes by viewModel.getPatientNotes(patientId).collectAsState(initial = emptyList())
+    val patientNotes by notesFlow.collectAsState(initial = emptyList())
     val doctorMap by viewModel.doctorMap.collectAsState()
     val vaccineMap by viewModel.vaccineMap.collectAsState()
 

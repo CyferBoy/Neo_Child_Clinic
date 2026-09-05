@@ -238,7 +238,10 @@ class AddEditPersonalReminderViewModel @Inject constructor(
                     advanceReceived = state.advanceReceived,
                     advanceAmount = if (state.advanceReceived) amount else null,
                     advanceDate = if (state.advanceReceived) state.advanceDate else null,
-                    reminderDate = state.reminderDate,
+                    // Reminder date is optional in the UI ("Set Reminder Date" is only shown
+                    // when unset) - saving it as "" instead of null fails Postgres's `date`
+                    // column with "invalid input syntax for type date: \"\"" once this syncs.
+                    reminderDate = state.reminderDate.ifBlank { null },
                     status = existing?.status ?: "PENDING",
                     createdAt = existing?.createdAt ?: "",
                     updatedAt = existing?.updatedAt ?: "",

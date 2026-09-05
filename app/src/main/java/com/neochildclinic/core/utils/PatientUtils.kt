@@ -248,6 +248,21 @@ object PatientUtils {
     }
 
     /**
+     * Formats a date/ISO string as clinic-local (Indian Standard Time) date and time,
+     * regardless of the device's own timezone setting. Staff account timestamps
+     * (created/updated/last login) should always read in IST since that's what the
+     * clinic operates on - a staff member whose phone is set to a different timezone
+     * would otherwise see a shifted, confusing time for these fields.
+     */
+    fun formatDateTimeIST(isoString: String): String {
+        if (isoString.isBlank()) return "N/A"
+        val date = parseDate(isoString) ?: return isoString
+        val sdf = SimpleDateFormat("MMM d, yyyy hh:mm:ss a", Locale.ENGLISH)
+        sdf.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        return "${sdf.format(date)} IST"
+    }
+
+    /**
      * Formats a Date object to the standard app display format.
      */
     fun formatDate(date: Date): String {

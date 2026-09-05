@@ -9,6 +9,7 @@ import android.os.Build
 import android.provider.Settings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -210,6 +211,11 @@ class AppUpdateManager @Inject constructor(
                     apkFile.outputStream().use { output ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                         while (true) {
+                            // Without this, cancelling the ViewModel's install Job (e.g. tapping
+                            // Cancel while installing) has no effect on this loop - a raw blocking
+                            // InputStream.read() doesn't observe coroutine cancellation on its own,
+                            // so the download would keep running to completion in the background.
+                            ensureActive()
                             val read = input.read(buffer)
                             if (read == -1) break
                             output.write(buffer, 0, read)
@@ -245,6 +251,14 @@ class AppUpdateManager @Inject constructor(
             // APK is fully downloaded and verified complete - always move straight on to
             // handing it to PackageInstaller rather than requiring a separate step/tap.
             installWithPackageInstaller(apkFile, info)
+        }.also { result ->
+            // runCatching's catch-all also swallows CancellationException (thrown above by
+            // ensureActive() when the caller cancels this Job, e.g. tapping Cancel while
+            // installing). Left as a plain Result.failure, it would surface through
+            // .onFailure as a bogus "download failed" error message instead of just quietly
+            // stopping - rethrowing preserves normal coroutine cancellation semantics.
+            val error = result.exceptionOrNull()
+            if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
 

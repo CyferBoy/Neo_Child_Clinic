@@ -64,12 +64,34 @@ object DateClassifier {
     }
 
     /**
-     * Unified comparator for sorting dates:
-     * 1. Overdue: latest first (newest dates first)
-     * 2. Others: nearest first
+     * Raw chronological weight (ascending = earliest date first), regardless of
+     * overdue status. Used where a list is already filtered/bucketed by category
+     * (e.g. the Due tab's category filter) and only needs a tie-breaker within
+     * that single bucket - NOT for lists that mix overdue and upcoming items
+     * together, which should use [dueDateComparator] instead.
      */
     fun getSortWeight(dateStr: String): Long {
         val targetDate = PatientUtils.parseDate(dateStr) ?: return Long.MAX_VALUE
         return targetDate.time
     }
+
+    /**
+     * Unified comparator for sorting dates:
+     * 1. Non-overdue (today/tomorrow/future) first, nearest date first.
+     * 2. Overdue always last, newest (least overdue) date first.
+     *
+     * A plain ascending sort by raw timestamp puts overdue items - which are
+     * always in the past - at the very TOP, which is the opposite of what the
+     * Due widget/list wants. This comparator buckets by overdue status first so
+     * overdue items always sort after every upcoming item, regardless of date.
+     */
+    fun dueDateComparator(todayStart: Calendar = getTodayStart()): Comparator<String> =
+        compareBy<String> { classify(it, todayStart) is DateCategory.Overdue }
+            .thenComparator { a, b ->
+                val timeA = PatientUtils.parseDate(a)?.time ?: Long.MAX_VALUE
+                val timeB = PatientUtils.parseDate(b)?.time ?: Long.MAX_VALUE
+                val isOverdue = classify(a, todayStart) is DateCategory.Overdue
+                // Overdue: newest date first (descending). Everything else: nearest date first (ascending).
+                if (isOverdue) timeB.compareTo(timeA) else timeA.compareTo(timeB)
+            }
 }

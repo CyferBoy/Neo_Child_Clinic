@@ -146,10 +146,10 @@ fun StaffDetailsScreen(
 
                     InfoSection(title = "Account Information") {
                         InfoRow(Icons.Default.Fingerprint, "User UUID", staff.id)
-                        InfoRow(Icons.Default.CalendarToday, "Created At", staff.createdAt)
-                        InfoRow(Icons.Default.Update, "Last Updated", staff.updatedAt)
+                        InfoRow(Icons.Default.CalendarToday, "Created At", com.neochildclinic.core.utils.PatientUtils.formatDateTimeIST(staff.createdAt))
+                        InfoRow(Icons.Default.Update, "Last Updated", com.neochildclinic.core.utils.PatientUtils.formatDateTimeIST(staff.updatedAt))
                         if (!staff.lastLogin.isNullOrBlank()) {
-                            InfoRow(Icons.Default.Login, "Last Login", staff.lastLogin)
+                            InfoRow(Icons.Default.Login, "Last Login", com.neochildclinic.core.utils.PatientUtils.formatDateTimeIST(staff.lastLogin))
                         }
                     }
 
