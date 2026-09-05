@@ -456,6 +456,8 @@ Example:
 
 The latest stable APK is available from the GitHub Releases page.
 
+[![GitHub release](https://img.shields.io/github/v/release/CyferBoy/Neo_Child_Clinic?label=latest%20release)](https://github.com/CyferBoy/Neo_Child_Clinic/releases/latest)
+
 [View Releases](https://github.com/CyferBoy/Neo_Child_Clinic/releases)
 
 Production releases should use a properly signed APK.
