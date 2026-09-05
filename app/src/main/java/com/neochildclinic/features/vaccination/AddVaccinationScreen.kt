@@ -537,7 +537,6 @@ private fun NextVaccinationSection(
     onCancel: () -> Unit,
     onVaccineCancel: (InventoryItem) -> Unit
 ) {
-    var vaccineSearch by remember(state.type) { mutableStateOf("") }
     var vaccineExpanded by remember { mutableStateOf(false) }
     var showCancelDialog by remember(state.reminderId) { mutableStateOf(false) }
     var vaccineToCancel by remember { mutableStateOf<InventoryItem?>(null) }
@@ -568,30 +567,40 @@ private fun NextVaccinationSection(
                 isError = state.typeError
             )
 
-            StandardAutoCompleteField(
-                value = vaccineSearch,
-                onValueChange = { vaccineSearch = it; vaccineExpanded = true },
-                label = "Vaccine (Optional)",
+            // Vaccine picker for this section now mirrors the Batch field's UX in the
+            // Vaccine & Batch section above: a plain tap-to-open dropdown listing the
+            // available options, not a free-text search field. (Multiple vaccines can
+            // still be picked - the dropdown just closes after each pick, same as Batch.)
+            val filteredVaccines = if (state.type.isBlank()) {
+                emptyList()
+            } else {
+                inventory.filter { it.type.equals(state.type, ignoreCase = true) }
+            }
+            ExposedDropdownMenuBox(
                 expanded = vaccineExpanded,
-                onExpandedChange = { vaccineExpanded = it },
-                placeholder = if (state.type.isBlank()) "Select a Type first" else "Search vaccine"
+                onExpandedChange = { if (state.type.isNotBlank()) vaccineExpanded = it }
             ) {
-                if (state.type.isBlank()) {
-                    DropdownMenuItem(text = { Text("Select a Type above first") }, onClick = {}, enabled = false)
-                } else {
-                    val filtered = inventory.filter {
-                        it.type.equals(state.type, ignoreCase = true) &&
-                            it.brandName.contains(vaccineSearch, ignoreCase = true)
-                    }
-                    if (filtered.isEmpty()) {
+                StandardTextField(
+                    value = if (state.type.isBlank()) "Select a Type first" else "Select Vaccine",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = "Vaccine (Optional)",
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaccineExpanded) }
+                )
+                ExposedDropdownMenu(
+                    expanded = vaccineExpanded,
+                    onDismissRequest = { vaccineExpanded = false }
+                ) {
+                    if (filteredVaccines.isEmpty()) {
                         DropdownMenuItem(text = { Text("No vaccines found for \"${state.type}\"") }, onClick = {}, enabled = false)
                     }
-                    filtered.forEach { vaccine ->
+                    filteredVaccines.forEach { vaccine ->
                         val isSelected = state.nextVaccines.any { it.id == vaccine.id }
                         DropdownMenuItem(
                             text = { Text(vaccine.brandName) },
                             leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null,
-                            onClick = { onVaccineToggled(vaccine); vaccineSearch = "" }
+                            onClick = { onVaccineToggled(vaccine); vaccineExpanded = false }
                         )
                     }
                 }

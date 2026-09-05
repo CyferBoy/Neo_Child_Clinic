@@ -15,7 +15,6 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,7 +39,7 @@ class SyncRepositoryImpl @Inject constructor(
         priority: SyncPriority,
         transactionGroupId: String?
     ) {
-        if (entityId.isBlank() || entityId == "kotlin.Unit" || entityId == "Unit" || entityId == "null") {
+        if (entityId.isBlank() || (entityId == "kotlin.Unit") || (entityId == "Unit") || (entityId == "null")) {
             return
         }
 
@@ -320,7 +319,7 @@ class SyncRepositoryImpl @Inject constructor(
             try {
                 // Fetch remote metadata for conflict detection
                 val remoteId = if (item.entityName == "REMINDERS") {
-                    (localData as? ReminderEntity)?.serverId?.toString()
+                    (localData as? ReminderEntity)?.serverId
                 } else {
                     item.entityId
                 }
@@ -344,7 +343,7 @@ class SyncRepositoryImpl @Inject constructor(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Proceed with upsert if check fails
             }
 
@@ -434,7 +433,7 @@ class SyncRepositoryImpl @Inject constructor(
             ignoreUnknownKeys = true 
             coerceInputValues = true
         }
-        val element = kotlinx.serialization.json.JsonObject(remoteMap)
+        val element = JsonObject(remoteMap)
         
         when (entityName) {
             "PATIENT" -> {
@@ -588,8 +587,7 @@ class SyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteQueueItem(queueId: Long) {
-        val item = syncDao.getItemById(queueId)
-        if (item != null) {
+        syncDao.getItemById(queueId)?.let { item ->
             syncDao.deleteItem(item)
         }
     }

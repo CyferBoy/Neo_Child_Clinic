@@ -33,7 +33,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConsultationTodoEntity::class,
         VaccinationTodoEntity::class,
         PersonalReminderEntity::class,
-        BorrowReturnEntity::class
+        BorrowReturnEntity::class,
     ], 
     version = 22,
     exportSchema = false
@@ -99,8 +99,8 @@ abstract class AppDatabase : RoomDatabase() {
 
                 val factory = SupportOpenHelperFactory(passphrase)
 
-                val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
-                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                val migration17_18 = object : androidx.room.migration.Migration(17, 18) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         val tables = listOf(
                             "patients", "patient_visits", "consultations", "vaccines",
                             "vaccine_batches", "borrow_records", "waste_records", "reminders",
@@ -108,28 +108,28 @@ abstract class AppDatabase : RoomDatabase() {
                             "inventory_transactions", "profiles"
                         )
                         tables.forEach { table ->
-                            database.execSQL("ALTER TABLE `$table` ADD COLUMN `created_by` TEXT")
-                            database.execSQL("ALTER TABLE `$table` ADD COLUMN `updated_by` TEXT")
+                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `created_by` TEXT")
+                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `updated_by` TEXT")
                         }
                     }
                 }
                 
-                val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
-                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        database.execSQL("""CREATE TABLE IF NOT EXISTS consultation_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, address TEXT NOT NULL, todo_date TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_todo_date ON consultation_todos(todo_date)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_status ON consultation_todos(status)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_patient_id ON consultation_todos(patient_id)""")
-                        database.execSQL("""CREATE TABLE IF NOT EXISTS vaccination_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, vaccine_names TEXT NOT NULL, address TEXT NOT NULL, todo_date TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_todo_date ON vaccination_todos(todo_date)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_status ON vaccination_todos(status)""")
-                        database.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_patient_id ON vaccination_todos(patient_id)""")
+                val migration18_19 = object : androidx.room.migration.Migration(18, 19) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("""CREATE TABLE IF NOT EXISTS consultation_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, address TEXT NOT NULL, todo_date TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
+                        db.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_todo_date ON consultation_todos(todo_date)""")
+                        db.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_status ON consultation_todos(status)""")
+                        db.execSQL("""CREATE INDEX IF NOT EXISTS index_consultation_todos_patient_id ON consultation_todos(patient_id)""")
+                        db.execSQL("""CREATE TABLE IF NOT EXISTS vaccination_todos (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, name TEXT NOT NULL, mobile TEXT NOT NULL, vaccine_names TEXT NOT NULL, address TEXT NOT NULL, todo_date TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT)""")
+                        db.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_todo_date ON vaccination_todos(todo_date)""")
+                        db.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_status ON vaccination_todos(status)""")
+                        db.execSQL("""CREATE INDEX IF NOT EXISTS index_vaccination_todos_patient_id ON vaccination_todos(patient_id)""")
                     }
                 }
 
-                val MIGRATION_19_20 = object : androidx.room.migration.Migration(19, 20) {
-                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        database.execSQL(
+                val migration19_20 = object : androidx.room.migration.Migration(19, 20) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL(
                             """CREATE TABLE IF NOT EXISTS personal_vaccine_reminders (
                                 id TEXT NOT NULL PRIMARY KEY,
                                 patient_id TEXT NOT NULL,
@@ -152,16 +152,16 @@ abstract class AppDatabase : RoomDatabase() {
                                 FOREIGN KEY(vaccine_id) REFERENCES vaccines(id) ON DELETE SET NULL
                             )"""
                         )
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_patient_id ON personal_vaccine_reminders(patient_id)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_vaccine_id ON personal_vaccine_reminders(vaccine_id)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_status ON personal_vaccine_reminders(status)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_reminder_date ON personal_vaccine_reminders(reminder_date)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_patient_id ON personal_vaccine_reminders(patient_id)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_vaccine_id ON personal_vaccine_reminders(vaccine_id)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_status ON personal_vaccine_reminders(status)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_reminder_date ON personal_vaccine_reminders(reminder_date)")
                     }
                 }
 
-                val MIGRATION_20_21 = object : androidx.room.migration.Migration(20, 21) {
-                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        database.execSQL(
+                val migration20_21 = object : androidx.room.migration.Migration(20, 21) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL(
                             """CREATE TABLE IF NOT EXISTS borrow_returns (
                                 id TEXT NOT NULL PRIMARY KEY,
                                 borrow_record_id TEXT NOT NULL,
@@ -177,21 +177,21 @@ abstract class AppDatabase : RoomDatabase() {
                                 FOREIGN KEY(batch_id) REFERENCES vaccine_batches(batchId) ON DELETE CASCADE
                             )"""
                         )
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_returns_borrow_record_id ON borrow_returns(borrow_record_id)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_returns_batch_id ON borrow_returns(batch_id)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_returns_borrow_record_id ON borrow_returns(borrow_record_id)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_returns_batch_id ON borrow_returns(batch_id)")
                     }
                 }
 
-                val MIGRATION_21_22 = object : androidx.room.migration.Migration(21, 22) {
-                    override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        database.execSQL("ALTER TABLE personal_vaccine_reminders RENAME TO personal_vaccine_reminders_old")
-                        database.execSQL("""CREATE TABLE personal_vaccine_reminders (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, patient_name TEXT NOT NULL, patient_phone TEXT NOT NULL, vaccine_id TEXT, vaccine_label TEXT, note TEXT, advance_received INTEGER NOT NULL, advance_amount REAL, advance_date TEXT, reminder_date TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, cancelled_at TEXT, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT, FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE, FOREIGN KEY(vaccine_id) REFERENCES vaccines(id) ON DELETE SET NULL)""")
-                        database.execSQL("""INSERT INTO personal_vaccine_reminders (id, patient_id, patient_name, patient_phone, vaccine_id, vaccine_label, note, advance_received, advance_amount, advance_date, reminder_date, status, created_at, updated_at, completed_at, cancelled_at, is_synced, created_by, updated_by) SELECT r.id, r.patient_id, COALESCE(p.name, ''), COALESCE(p.phone, ''), r.vaccine_id, r.vaccine_label, r.note, r.advance_received, r.advance_amount, r.advance_date, r.reminder_date, r.status, r.created_at, r.updated_at, r.completed_at, r.cancelled_at, r.is_synced, r.created_by, r.updated_by FROM personal_vaccine_reminders_old r LEFT JOIN patients p ON p.id = r.patient_id""")
-                        database.execSQL("DROP TABLE personal_vaccine_reminders_old")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_patient_id ON personal_vaccine_reminders(patient_id)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_vaccine_id ON personal_vaccine_reminders(vaccine_id)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_status ON personal_vaccine_reminders(status)")
-                        database.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_reminder_date ON personal_vaccine_reminders(reminder_date)")
+                val migration21_22 = object : androidx.room.migration.Migration(21, 22) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE personal_vaccine_reminders RENAME TO personal_vaccine_reminders_old")
+                        db.execSQL("""CREATE TABLE personal_vaccine_reminders (id TEXT NOT NULL PRIMARY KEY, patient_id TEXT, patient_name TEXT NOT NULL, patient_phone TEXT NOT NULL, vaccine_id TEXT, vaccine_label TEXT, note TEXT, advance_received INTEGER NOT NULL, advance_amount REAL, advance_date TEXT, reminder_date TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, cancelled_at TEXT, is_synced INTEGER NOT NULL, created_by TEXT, updated_by TEXT, FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE, FOREIGN KEY(vaccine_id) REFERENCES vaccines(id) ON DELETE SET NULL)""")
+                        db.execSQL("""INSERT INTO personal_vaccine_reminders (id, patient_id, patient_name, patient_phone, vaccine_id, vaccine_label, note, advance_received, advance_amount, advance_date, reminder_date, status, created_at, updated_at, completed_at, cancelled_at, is_synced, created_by, updated_by) SELECT r.id, r.patient_id, COALESCE(p.name, ''), COALESCE(p.phone, ''), r.vaccine_id, r.vaccine_label, r.note, r.advance_received, r.advance_amount, r.advance_date, r.reminder_date, r.status, r.created_at, r.updated_at, r.completed_at, r.cancelled_at, r.is_synced, r.created_by, r.updated_by FROM personal_vaccine_reminders_old r LEFT JOIN patients p ON p.id = r.patient_id""")
+                        db.execSQL("DROP TABLE personal_vaccine_reminders_old")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_patient_id ON personal_vaccine_reminders(patient_id)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_vaccine_id ON personal_vaccine_reminders(vaccine_id)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_status ON personal_vaccine_reminders(status)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_personal_vaccine_reminders_reminder_date ON personal_vaccine_reminders(reminder_date)")
                     }
                 }
 
@@ -202,7 +202,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

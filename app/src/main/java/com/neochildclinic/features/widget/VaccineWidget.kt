@@ -14,6 +14,7 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.ActionParameters
@@ -25,6 +26,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.neochildclinic.R
 import com.neochildclinic.app.MainActivity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.WidgetDueEntity
@@ -78,17 +80,30 @@ class VaccineWidget : GlanceAppWidget() {
                     )
                 )
         ) {
-            Column(modifier = GlanceModifier.fillMaxWidth()) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.Start
+            ) {
                 Text(
                     text = "Due Vaccination",
                     style = TextStyle(
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = textColorProvider
-                    )
+                    ),
+                    modifier = GlanceModifier.defaultWeight()
                 )
-                Divider(secondaryTextProvider)
+                Image(
+                    provider = ImageProvider(R.drawable.ic_widget_refresh),
+                    contentDescription = "Refresh",
+                    colorFilter = androidx.glance.ColorFilter.tint(textColorProvider),
+                    modifier = GlanceModifier
+                        .size(20.dp)
+                        .clickable(actionRunCallback<RefreshWidgetAction>())
+                )
             }
+            Divider(secondaryTextProvider)
 
             if (items.isEmpty()) {
                 Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {

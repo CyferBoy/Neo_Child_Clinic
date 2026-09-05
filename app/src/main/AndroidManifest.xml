@@ -81,7 +81,7 @@
             android:name=".notification.NotificationActionReceiver"
             android:exported="false" />
         <receiver
-            android:name=".core.update.AppUpdateInstallReceiver"
+            android:name=".features.update.AppUpdateInstallReceiver"
             android:exported="false" />
 
         <!-- Without this, Android never routes FCM messages/token-refresh events

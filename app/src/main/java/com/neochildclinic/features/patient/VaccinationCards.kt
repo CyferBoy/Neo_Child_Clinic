@@ -60,8 +60,12 @@ fun VaccinationRecordCard(
     }
 
     // For a history card, show the earliest due-date group linked to this visit.
-    // If that group has vaccine names, show only those names; otherwise show only Type.
-    // No reminder status is used for this display.
+    // Each reminder in that group is labeled independently: if it has vaccine name(s)
+    // set, show those; if it only has a Type (no vaccine picked yet), show the Type.
+    // Previously all vaccine names in the group were shown, but ANY reminder having a
+    // vaccine name caused every type-only reminder in the same due-date group to be
+    // dropped from the display entirely, even though it's a separate next-vaccination
+    // entry that legitimately has no vaccine chosen yet.
     val nextDisplay = remember(reminders) {
         val firstDue = reminders
             .filter { it.dueDate.isNotBlank() }
@@ -69,11 +73,11 @@ fun VaccinationRecordCard(
             .minByOrNull { com.neochildclinic.core.utils.PatientUtils.parseDate(it.key)?.time ?: Long.MAX_VALUE }
             ?.value
             .orEmpty()
-        val vaccineNames = firstDue.flatMap {
-            it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank)
+        val labels = firstDue.flatMap { reminder ->
+            val names = reminder.vaccineName.split(",").map(String::trim).filter(String::isNotBlank)
+            if (names.isNotEmpty()) names else listOfNotNull(reminder.type.trim().takeIf(String::isNotBlank))
         }.distinct()
-        val types = firstDue.map { it.type.trim() }.filter(String::isNotBlank).distinct()
-        val text = if (vaccineNames.isNotEmpty()) vaccineNames.joinToString(", ") else types.joinToString(", ")
+        val text = labels.joinToString(", ")
         val dueDate = firstDue.firstOrNull()?.dueDate.orEmpty()
         text.takeIf { it.isNotBlank() } to dueDate.takeIf { it.isNotBlank() }
     }

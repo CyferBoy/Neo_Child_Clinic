@@ -82,7 +82,7 @@ class MainActivity : FragmentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
     private val appUpdateViewModel: AppUpdateViewModel by viewModels()
 
-    private var openDueTab by mutableStateOf(false)
+    private var openDueTab by mutableStateOf(value = false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,7 +118,10 @@ class MainActivity : FragmentActivity() {
                     AppNavigation(navController = navController, appUpdateViewModel = appUpdateViewModel)
                     
                     if (isLocked) {
-                        LockScreen(onAuthenticate = { authenticateWithBiometrics() }, onPasswordAuthenticate = { authenticateWithAccountPassword(it) })
+                        LockScreen(
+                            onAuthenticate = { authenticateWithBiometrics() },
+                            onPasswordAuthenticate = { authenticateWithAccountPassword(it) }
+                        )
                     }
 
                     // Small temporary heads-up popup for a silently-detected new version -
@@ -134,7 +137,7 @@ class MainActivity : FragmentActivity() {
                         visible = startupPopup != null,
                         enter = androidx.compose.animation.slideInVertically() + androidx.compose.animation.fadeIn(),
                         exit = androidx.compose.animation.slideOutVertically() + androidx.compose.animation.fadeOut(),
-                        modifier = Modifier.align(Alignment.TopCenter)
+                        modifier = Modifier.align(Alignment.TopCenter),
                     ) {
                         lastStartupPopupInfo?.let { info ->
                             com.neochildclinic.features.update.StartupUpdateBanner(
