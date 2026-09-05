@@ -429,26 +429,11 @@ The release workflow can notify registered devices through Firebase Cloud Messag
 
 ## Screenshots
 
-Screenshots can be added here to showcase the main application screens.
-
-Recommended screenshots:
-
-- Dashboard
-- Patient profile
-- Vaccination
-- Next Vaccine
-- Vaccine inventory
-- Borrowed vaccines
-- Financial section
-- Staff management
-- Statistics
-- Settings
-
-Example:
-
-![Dashboard](docs/screenshots/dashboard.png)
-![Patient](docs/screenshots/patient.png)
-![Vaccination](docs/screenshots/vaccination.png)
+| | |
+|---|---|
+| ![Dashboard](Screenshot/dashboard.png) Dashboard | ![Patient Details](Screenshot/patient%20details.png) Patient Details |
+| ![Due Vaccination](Screenshot/due%20vaccination.png) Due Vaccination | ![Inventory](Screenshot/inventory.png) Inventory |
+| ![Borrow Vaccine](Screenshot/borrow%20vaccine.png) Borrow Vaccine | ![App Drawer](Screenshot/app%20drawer.png) Navigation Drawer |
 
 ---
 
