@@ -360,7 +360,19 @@ class SyncRepositoryImpl @Inject constructor(
                 is InventoryTransactionEntity -> postgrest.from(table).upsert(localData)
                 is FinanceEntity -> postgrest.from(table).upsert(localData)
                 is AuditLogEntity -> postgrest.from(table).upsert(localData)
-                is ProfileEntity -> postgrest.from(table).upsert(localData)
+                // profiles has no client-side INSERT policy at all (only the manage-staff
+                // edge function, using the service role, is allowed to create rows there -
+                // see the migration comment in 20260816_security_hardening.sql). upsert()
+                // compiles to INSERT ... ON CONFLICT DO UPDATE, and Postgres RLS requires
+                // BOTH the INSERT and UPDATE policies to pass for that statement even when
+                // the row already exists and only the UPDATE arm will run - so with no
+                // INSERT policy at all, every profile sync failed RLS, including ordinary
+                // self-edits (name/phone) that the UPDATE-only policy would otherwise allow
+                // fine. A plain UPDATE only needs the UPDATE policy, matching how
+                // PatientViewModel already (correctly) writes to profiles elsewhere.
+                is ProfileEntity -> postgrest.from(table).update(localData) {
+                    filter { eq("id", localData.id) }
+                }
                 is ConsultationEntity -> postgrest.from(table).upsert(localData)
                 is ConsultationTodoEntity -> postgrest.from(table).upsert(localData)
                 is VaccinationTodoEntity -> postgrest.from(table).upsert(localData)
