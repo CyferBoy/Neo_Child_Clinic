@@ -31,7 +31,7 @@ The application uses an offline-first architecture with an encrypted local Room 
 
 - **Version:** 0.5.1
 - **Version Code:** 3
-- **Minimum Android:** 7.0 (API 24)
+- **Minimum Android:** 10.0 (API 29)
 - **Target Android:** 15 (API 35)
 - **Status:** 🟢 Active Development
 
