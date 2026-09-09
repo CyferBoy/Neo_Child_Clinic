@@ -43,9 +43,9 @@ Neo Child Clinic - Vaccine Manager is actively developed and maintained. Feature
 
 | | |
 |---|---|
-| ![Dashboard](Screenshot/dashboard.png) Dashboard | ![Patient Details](Screenshot/patient%20details.png) Patient Details |
-| ![Due Vaccination](Screenshot/due%20vaccination.png) Due Vaccination | ![Inventory](Screenshot/inventory.png) Inventory |
-| ![Borrow Vaccine](Screenshot/borrow%20vaccine.png) Borrow Vaccine | ![App Drawer](Screenshot/app%20drawer.png) Navigation Drawer |
+| ![Dashboard](docs/Screenshot/dashboard.png) Dashboard | ![Patient Details](docs/Screenshot/patient%20details.png) Patient Details |
+| ![Due Vaccination](docs/Screenshot/due%20vaccination.png) Due Vaccination | ![Inventory](docs/Screenshot/inventory.png) Inventory |
+| ![Borrow Vaccine](docs/Screenshot/borrow%20vaccine.png) Borrow Vaccine | ![App Drawer](docs/Screenshot/app%20drawer.png) Navigation Drawer |
 
 ---
 
