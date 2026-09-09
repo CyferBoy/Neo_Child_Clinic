@@ -91,7 +91,18 @@ class AddStockViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(vaccineSections = state.vaccineSections.map { section ->
                 if (section.localId == sectionId) {
-                    section.copy(vaccineId = vaccine.id, brandName = vaccine.brandName, companyName = vaccine.company)
+                    section.copy(
+                        vaccineId = vaccine.id,
+                        brandName = vaccine.brandName,
+                        companyName = vaccine.company,
+                        batches = section.batches.map { batch ->
+                            batch.copy(
+                                mrp = if (vaccine.mrp > 0) vaccine.mrp.toString() else batch.mrp,
+                                netRate = if (vaccine.netRate > 0) vaccine.netRate.toString() else batch.netRate,
+                                manufacturer = vaccine.company.ifBlank { batch.manufacturer }
+                            )
+                        }
+                    )
                 } else section
             })
         }
@@ -100,7 +111,18 @@ class AddStockViewModel @Inject constructor(
     fun addBatchRow(sectionId: String) {
         _uiState.update { state ->
             state.copy(vaccineSections = state.vaccineSections.map { section ->
-                if (section.localId == sectionId) section.copy(batches = section.batches + StockBatchFormState()) else section
+                if (section.localId == sectionId) {
+                    val defaultBatch = if (section.vaccineId.isNotBlank()) {
+                        StockBatchFormState(
+                            mrp = if (section.batches.firstOrNull()?.mrp?.isNotBlank() == true) section.batches.first().mrp else "",
+                            netRate = if (section.batches.firstOrNull()?.netRate?.isNotBlank() == true) section.batches.first().netRate else "",
+                            manufacturer = section.companyName
+                        )
+                    } else {
+                        StockBatchFormState()
+                    }
+                    section.copy(batches = section.batches + defaultBatch)
+                } else section
             })
         }
     }

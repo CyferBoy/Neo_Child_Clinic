@@ -109,6 +109,7 @@ private fun VaccineInventoryContent(
 ) {
     var isSearchActive by remember { mutableStateOf(false) }
     var overflowExpanded by remember { mutableStateOf(false) }
+    var fabExpanded by remember { mutableStateOf(false) }
 
     AppBackground {
         Scaffold(
@@ -146,8 +147,61 @@ private fun VaccineInventoryContent(
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = onAddStock) {
-                    Icon(Icons.Default.Add, "Add Stock")
+                Column(horizontalAlignment = Alignment.End) {
+                    AnimatedVisibility(visible = fabExpanded) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    fabExpanded = false
+                                    onAddVaccine()
+                                },
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Vaccines, "New Vaccine", modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("New Vaccine")
+                                }
+                            }
+
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    fabExpanded = false
+                                    onAddStock()
+                                },
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.AddBusiness, "Add Stock", modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Add Stock")
+                                }
+                            }
+                        }
+                    }
+
+                    FloatingActionButton(
+                        onClick = { fabExpanded = !fabExpanded },
+                        containerColor = if (fabExpanded) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (fabExpanded) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer
+                    ) {
+                        Icon(
+                            if (fabExpanded) Icons.Default.Close else Icons.Default.Add,
+                            contentDescription = if (fabExpanded) "Close" else "Add Menu"
+                        )
+                    }
                 }
             }
         ) { padding ->
