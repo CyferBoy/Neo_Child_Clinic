@@ -33,6 +33,8 @@ fun VaccineInventoryScreen(
     onEditVaccine: (String) -> Unit = {},
     onAddBatch: (String, String) -> Unit = { _, _ -> },
     onEditBatch: (String, String, String) -> Unit = { _, _, _ -> },
+    onAddStock: () -> Unit = {},
+    onStockHistory: () -> Unit = {},
     viewModel: VaccineInventoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -79,6 +81,8 @@ fun VaccineInventoryScreen(
         onEditVaccine = onEditVaccine,
         onAddBatch = onAddBatch,
         onEditBatch = onEditBatch,
+        onAddStock = onAddStock,
+        onStockHistory = onStockHistory,
         onDeleteBatch = { batchToDelete = it },
         onDeleteVaccine = { vaccineToDelete = it }
     )
@@ -98,10 +102,13 @@ private fun VaccineInventoryContent(
     onEditVaccine: (String) -> Unit,
     onAddBatch: (String, String) -> Unit,
     onEditBatch: (String, String, String) -> Unit,
+    onAddStock: () -> Unit,
+    onStockHistory: () -> Unit,
     onDeleteBatch: (VaccineBatchEntity) -> Unit,
     onDeleteVaccine: (InventoryItem) -> Unit
 ) {
     var isSearchActive by remember { mutableStateOf(false) }
+    var overflowExpanded by remember { mutableStateOf(false) }
 
     AppBackground {
         Scaffold(
@@ -115,13 +122,31 @@ private fun VaccineInventoryContent(
                     onSearchActiveChange = { isSearchActive = it },
                     onBack = onBack,
                     actions = {
+                        IconButton(onClick = onStockHistory) {
+                            Icon(Icons.Default.History, contentDescription = "Stock History")
+                        }
                         FilterButton(currentFilter = uiState.filter, onFilterSelected = onFilterChange)
                         SortButton(currentSort = uiState.sort, onSortSelected = onSortChange)
+                        Box {
+                            IconButton(onClick = { overflowExpanded = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                            }
+                            DropdownMenu(expanded = overflowExpanded, onDismissRequest = { overflowExpanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("New Vaccine Type") },
+                                    onClick = {
+                                        overflowExpanded = false
+                                        onAddVaccine()
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Add, null) }
+                                )
+                            }
+                        }
                     }
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = onAddVaccine) {
+                FloatingActionButton(onClick = onAddStock) {
                     Icon(Icons.Default.Add, "Add Stock")
                 }
             }

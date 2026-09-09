@@ -28,6 +28,18 @@ interface InventoryRepository {
         user: String,
         transactionGroupId: String? = null
     )
+
+    // Adds stock for multiple vaccines, each with one or more batches, as a single
+    // atomic operation (Add Stock screen). Keyed by vaccineId so the same vaccine
+    // can't be submitted twice in one call. Internally reuses addBatch/updateVaccine
+    // for every batch, so it produces the same batch records, inventory_transactions
+    // rows (PURCHASE), audit log entries and sync queue entries a single Add Batch
+    // call would - just wrapped in one Room transaction. If any vaccine/batch fails
+    // validation, the whole submission is rolled back and nothing is saved.
+    suspend fun addStockBatch(
+        entriesByVaccine: Map<String, List<VaccineBatchEntity>>,
+        user: String
+    )
     
     suspend fun updateBatch(
         batch: VaccineBatchEntity,
@@ -104,4 +116,17 @@ interface InventoryRepository {
 
     suspend fun transferPatientTransactions(duplicateId: String, masterId: String)
     suspend fun refreshInventory()
+
+    // Stock History - reads the existing inventory_transactions table (no separate
+    // history table). Filtering happens in SQL and results are paginated so the
+    // screen never has to load the full transaction history into memory at once.
+    suspend fun getStockHistoryPage(
+        vaccineId: String? = null,
+        batchId: String? = null,
+        types: List<InventoryTransactionType> = emptyList(),
+        fromDateIso: String? = null,
+        toDateIso: String? = null,
+        limit: Int = 50,
+        offset: Int = 0
+    ): List<InventoryTransactionEntity>
 }

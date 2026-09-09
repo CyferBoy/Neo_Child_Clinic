@@ -47,6 +47,8 @@ import com.neochildclinic.features.statistics.MilestonePatientsScreen
 import com.neochildclinic.features.statistics.StatisticsScreen
 import com.neochildclinic.features.inventory.AddVaccineScreen
 import com.neochildclinic.features.inventory.AddBatchScreen
+import com.neochildclinic.features.inventory.AddStockScreen
+import com.neochildclinic.features.inventory.StockHistoryScreen
 import com.neochildclinic.features.search.SearchScreen
 import com.neochildclinic.features.vaccination.AddVaccinationScreen
 import com.neochildclinic.features.inventory.BorrowedScreen
@@ -359,8 +361,18 @@ fun AppNavigation(
                 },
                 onEditBatch = { batchId, vaccineId, brandName ->
                     navController.navigate("edit_batch/$batchId?vaccineId=$vaccineId&brandName=$brandName")
-                }
+                },
+                onAddStock = { navController.navigate(Routes.ADD_VACCINE_STOCK) },
+                onStockHistory = { navController.navigate(Routes.STOCK_HISTORY) }
             )
+        }
+
+        composable(Routes.ADD_VACCINE_STOCK) {
+            AddStockScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.STOCK_HISTORY) {
+            StockHistoryScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.STATISTICS) {

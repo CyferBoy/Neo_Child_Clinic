@@ -73,6 +73,34 @@ interface VaccineDao {
     @Query("SELECT * FROM inventory_transactions WHERE transactionId = :id LIMIT 1")
     suspend fun getTransactionById(id: String): InventoryTransactionEntity?
 
+    // Stock History - filters entirely in SQL (rather than loading every transaction
+    // into memory and filtering in Kotlin) and paginates via LIMIT/OFFSET so the
+    // history screen never has to hold more than one page of rows at a time.
+    // typesEmpty short-circuits the IN(:types) check when "All" transaction types
+    // are selected, since Room can't bind an empty list to IN(...) meaningfully.
+    @Query(
+        """
+        SELECT * FROM inventory_transactions
+        WHERE (:vaccineId IS NULL OR vaccineId = :vaccineId)
+        AND (:batchId IS NULL OR batchId = :batchId)
+        AND (:typesEmpty = 1 OR transactionType IN (:types))
+        AND (:fromDate IS NULL OR substr(timestamp, 1, 10) >= :fromDate)
+        AND (:toDate IS NULL OR substr(timestamp, 1, 10) <= :toDate)
+        ORDER BY timestamp DESC
+        LIMIT :limit OFFSET :offset
+        """
+    )
+    suspend fun getFilteredTransactionsPage(
+        vaccineId: String?,
+        batchId: String?,
+        types: List<String>,
+        typesEmpty: Boolean,
+        fromDate: String?,
+        toDate: String?,
+        limit: Int,
+        offset: Int
+    ): List<InventoryTransactionEntity>
+
     // Stock Summary
     @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId")
     suspend fun getTotalStockForVaccine(vaccineId: String): Int?

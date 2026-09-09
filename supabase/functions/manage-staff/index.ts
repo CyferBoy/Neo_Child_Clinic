@@ -48,6 +48,11 @@ serve(async (req) => {
         email,
         password,
         email_confirm: true,
+        // `phone` is Supabase Auth's own top-level column - the one the Auth > Users
+        // dashboard actually shows in its Phone column. Previously only user_metadata.
+        // phone_number was set (which the app itself reads for display), so the Auth
+        // dashboard's Phone field was always empty regardless of what was entered here.
+        phone: toE164Phone(phoneNumber),
         user_metadata: {
           display_name: name,
           name,
@@ -106,6 +111,9 @@ serve(async (req) => {
         if (error) throw error
 
         const { error: authUpdateError } = await admin.auth.admin.updateUserById(staffId, {
+          // Same top-level `phone` field as CREATE - keeps Auth > Users' Phone column
+          // in sync with edits made here, not just the user_metadata copy.
+          ...(body.phoneNumber !== undefined ? { phone: toE164Phone(body.phoneNumber) } : {}),
           user_metadata: {
             display_name: body.name,
             name: body.name,
@@ -171,14 +179,45 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error("manage-staff error:", error)
-    const message = error instanceof Error ? error.message : "Unexpected error"
+    const message = errorMessage(error)
     return json({ error: message }, 400)
   }
 })
 
+function errorMessage(error: unknown): string {
+  // Supabase's own AuthError extends Error, so `instanceof Error` catches that fine.
+  // But PostgrestError - returned by every .from(...).insert()/.update()/.select() call,
+  // and thrown as-is throughout this file (e.g. `throw profileError`, `throw error`) - is
+  // a plain { message, details, hint, code } object, NOT an Error instance. Relying on
+  // `instanceof Error` alone flattened every database-level failure (duplicate email,
+  // a unique/foreign-key/NOT NULL constraint, RLS denial, etc.) into an unhelpful generic
+  // "Unexpected error", hiding the real reason from both the client and these logs.
+  if (error instanceof Error) return error.message
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === "string" && message.length > 0) return message
+  }
+  return "Unexpected error"
+}
+
 function validateRole(role: string) {
   const allowed = ["admin", "doctor", "receptionist", "nurse", "inventory_manager"]
   if (!allowed.includes(role)) throw new Error("Invalid staff role")
+}
+
+// Supabase Auth's `phone` column expects E.164 (e.g. "+919876543210"), but the app's
+// Add/Edit Staff form only collects a bare 10-digit Indian mobile number ("9876543210").
+// Passing that raw string as `phone` is silently accepted by some setups but rejected or
+// stored inconsistently by others - normalize it here rather than relying on the caller.
+// Adjust the "+91" default if this clinic ever operates outside India.
+function toE164Phone(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined
+  const trimmed = raw.trim()
+  if (!trimmed) return undefined
+  if (trimmed.startsWith("+")) return trimmed
+  const digitsOnly = trimmed.replace(/\D/g, "")
+  if (!digitsOnly) return undefined
+  return `+91${digitsOnly}`
 }
 
 function json(body: unknown, status = 200) {

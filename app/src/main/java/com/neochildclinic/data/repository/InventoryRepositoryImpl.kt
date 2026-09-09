@@ -245,6 +245,107 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addStockBatch(
+        entriesByVaccine: Map<String, List<VaccineBatchEntity>>,
+        user: String
+    ) {
+        if (entriesByVaccine.isEmpty()) {
+            throw IllegalStateException("Add at least one vaccine with a batch before saving.")
+        }
+
+        // A single outer transaction wraps every addBatch()/updateVaccine() call below.
+        // Room's withTransaction reuses the existing transaction when called again from
+        // within it (addBatch/updateVaccine each open their own), so this whole submission
+        // commits or rolls back together - if any vaccine/batch fails validation, nothing
+        // from this submission is left partially saved.
+        database.withTransaction {
+            val transactionGroupId = UUID.randomUUID().toString()
+
+            for ((vaccineId, batches) in entriesByVaccine) {
+                val vaccine = vaccineDao.getVaccineById(vaccineId)
+                    ?: throw IllegalStateException("Selected vaccine could not be found. Please refresh and try again.")
+
+                if (batches.isEmpty()) {
+                    throw IllegalStateException("${vaccine.brandName}: add at least one batch.")
+                }
+
+                val seenBatchNumbers = mutableSetOf<String>()
+
+                for (batch in batches) {
+                    if (batch.vaccineId != vaccineId) {
+                        throw IllegalStateException("${vaccine.brandName}: batch data does not match the selected vaccine.")
+                    }
+
+                    val batchNumber = batch.batchNumber.trim()
+                    if (batchNumber.isBlank()) {
+                        throw IllegalStateException("${vaccine.brandName}: batch number is required.")
+                    }
+                    if (!seenBatchNumbers.add(batchNumber.lowercase())) {
+                        throw IllegalStateException("${vaccine.brandName}: batch number '$batchNumber' was entered more than once in this submission.")
+                    }
+                    if (batch.expiryDate.isBlank()) {
+                        throw IllegalStateException("${vaccine.brandName} ($batchNumber): expiry date is required.")
+                    }
+                    if (batch.purchaseQuantity <= 0) {
+                        throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
+                    }
+                    if (batch.sellingPrice < 0 || batch.purchaseCost < 0) {
+                        throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
+                    }
+
+                    // Existing DB constraint check - same guard AddBatchViewModel relies on,
+                    // just enforced here too since this path can add many batches at once.
+                    val existingBatch = vaccineDao.getBatchByVaccineAndNumber(vaccineId, batchNumber)
+                    if (existingBatch != null) {
+                        throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
+                    }
+
+                    val normalizedBatch = batch.copy(
+                        batchNumber = batchNumber,
+                        remainingQuantity = batch.purchaseQuantity
+                    )
+
+                    // Reuses the existing single-batch save path so batch insert, the
+                    // PURCHASE inventory_transaction, audit log, and sync queue entries
+                    // stay identical to a normal Add Batch save.
+                    addBatch(normalizedBatch, user, transactionGroupId)
+
+                    // Same "latest batch price becomes the vaccine default" behavior as
+                    // AddBatchViewModel.saveBatch - re-read the vaccine since a prior
+                    // batch in this same submission may have just updated it.
+                    val currentVaccine = vaccineDao.getVaccineById(vaccineId) ?: vaccine
+                    if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
+                        updateVaccine(
+                            currentVaccine.copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost),
+                            user
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun getStockHistoryPage(
+        vaccineId: String?,
+        batchId: String?,
+        types: List<InventoryTransactionType>,
+        fromDateIso: String?,
+        toDateIso: String?,
+        limit: Int,
+        offset: Int
+    ): List<InventoryTransactionEntity> {
+        return vaccineDao.getFilteredTransactionsPage(
+            vaccineId = vaccineId,
+            batchId = batchId,
+            types = types.map { it.name },
+            typesEmpty = types.isEmpty(),
+            fromDate = fromDateIso,
+            toDate = toDateIso,
+            limit = limit,
+            offset = offset
+        )
+    }
+
     override suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String?) {
         database.withTransaction {
             val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return@withTransaction

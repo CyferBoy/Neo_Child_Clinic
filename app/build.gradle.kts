@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.hilt)
@@ -24,19 +23,19 @@ fun getEnv(key: String, default: String = ""): String {
 
 android {
     namespace = "com.neochildclinic"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.neochildclinic"
-        minSdk = 24
+        minSdk = 29
         targetSdk = 35
         versionCode = libs.versions.appVersionCode.get().toInt()
         versionName = libs.versions.appVersionName.get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "SUPABASE_URL", "\"${getEnv("NEXT_PUBLIC_SUPABASE_URL")}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${getEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")}\"")
+        buildConfigField("String", "SUPABASE_URL", "\"${getEnv("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${getEnv("SUPABASE_PUBLISHABLE_KEY")}\"")
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -54,7 +53,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -67,9 +66,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -96,7 +92,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.compose.material.icons.extended)
     
     // Supabase
     implementation(libs.supabase.postgrest)
@@ -156,7 +152,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.room.testing)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
