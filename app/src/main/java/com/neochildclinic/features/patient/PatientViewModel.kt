@@ -2,7 +2,6 @@ package com.neochildclinic.features.patient
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.AuditLogEntity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
@@ -274,12 +273,11 @@ class PatientViewModel @Inject constructor(
             }
     }
 
-    fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {
-        viewModelScope.launch {
-            patientRepository.refreshPatientTimeline(patientId)
-        }
-        return patientRepository.getPatientTimeline(patientId)
-    }
+    /**
+     * Patient audit history is online-only (see PatientAuditLogPager) - the dialog drives this
+     * directly via load()/loadMore()/clear() rather than through a Flow.
+     */
+    val auditLogPager = com.neochildclinic.features.audit.PatientAuditLogPager(postgrest, viewModelScope)
 
     fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
         return reminderRepository.getPatientReminders(patientId)

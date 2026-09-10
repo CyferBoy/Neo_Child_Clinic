@@ -10,7 +10,6 @@ import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.data.local.entity.AuditLogEntity
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
@@ -204,9 +203,11 @@ class PatientListViewModel @Inject constructor(
         }
     }
 
-    fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {
-        return patientRepository.getPatientTimeline(patientId)
-    }
+    /**
+     * Patient audit history is online-only (see PatientAuditLogPager) - the dialog drives this
+     * directly via load()/loadMore()/clear() rather than through a Flow.
+     */
+    val auditLogPager = com.neochildclinic.features.audit.PatientAuditLogPager(postgrest, viewModelScope)
 
     fun refresh() {
         viewModelScope.launch {

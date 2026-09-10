@@ -3,9 +3,13 @@ package com.neochildclinic.core.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,13 +49,23 @@ fun DeleteConfirmationDialog(
 }
 
 /**
- * Dialog to display a list of audit logs for a patient or entity.
+ * Dialog to display a patient's audit history.
+ *
+ * This is fed by an online-only pager (see PatientAuditLogPager) - there is no local cache to
+ * fall back on, so [isLoading]/[error] reflect the network call directly. Older entries are
+ * fetched a page at a time as the user scrolls near the bottom of the list; [onLoadMore] should
+ * be wired to that pager's loadMore().
  */
 @Composable
 fun AuditLogDialog(
     show: Boolean,
     onDismiss: () -> Unit,
-    logs: List<AuditLogEntity>
+    logs: List<AuditLogEntity>,
+    isLoading: Boolean = false,
+    isLoadingMore: Boolean = false,
+    hasMore: Boolean = false,
+    error: String? = null,
+    onLoadMore: () -> Unit = {}
 ) {
     if (show) {
         Dialog(onDismissRequest = onDismiss) {
@@ -69,19 +83,79 @@ fun AuditLogDialog(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (logs.isEmpty()) {
-                        Text(
-                            text = "No history recorded yet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 32.dp)
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.weight(1f, fill = false),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(logs) { log ->
-                                AuditLogItem(log)
+                    when {
+                        isLoading && logs.isEmpty() -> {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        error != null && logs.isEmpty() -> {
+                            Text(
+                                text = "Couldn't load history: $error",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(vertical = 32.dp)
+                            )
+                        }
+                        logs.isEmpty() -> {
+                            Text(
+                                text = "No history recorded yet.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 32.dp)
+                            )
+                        }
+                        else -> {
+                            val listState = rememberLazyListState()
+
+                            // Fire loadMore() once the user has scrolled within 5 items of the
+                            // end. This is the only trigger for paging - there's no "Load more"
+                            // button - so the dialog keeps extending itself while there's still
+                            // a next page (hasMore) and nothing is already in flight.
+                            LaunchedEffect(listState, logs.size, hasMore) {
+                                snapshotFlow {
+                                    val layout = listState.layoutInfo
+                                    val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+                                    lastVisible >= logs.size - 5
+                                }.collect { shouldLoadMore ->
+                                    if (shouldLoadMore) onLoadMore()
+                                }
+                            }
+
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .heightIn(max = 420.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(logs, key = { it.id }) { log ->
+                                    AuditLogItem(log)
+                                }
+
+                                if (isLoadingMore) {
+                                    item(key = "audit_history_loading_more") {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                        }
+                                    }
+                                }
+
+                                if (error != null && !isLoadingMore) {
+                                    item(key = "audit_history_error") {
+                                        Text(
+                                            text = "Couldn't load more: $error",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

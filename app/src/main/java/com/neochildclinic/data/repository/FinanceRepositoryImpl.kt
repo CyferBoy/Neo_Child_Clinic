@@ -42,7 +42,8 @@ class FinanceRepositoryImpl @Inject constructor(
      * silent duplicate rows that later got invisibly discarded when finance stats deduplicate
      * by visit and keep only the newest, dropping the other row's amount from every total.
      */
-    private fun vaccinationIncomeRowId(visitId: String): String = "visit_income_$visitId"
+    private fun vaccinationIncomeRowId(visitId: String): String =
+        java.util.UUID.nameUUIDFromBytes("visit_income:$visitId".toByteArray(Charsets.UTF_8)).toString()
 
     private suspend fun resolveTransactionDate(visitId: String?): String? {
         if (visitId.isNullOrBlank()) return null

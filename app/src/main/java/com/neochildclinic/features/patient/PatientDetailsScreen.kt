@@ -147,11 +147,22 @@ fun PatientDetailsScreen(
     )
 
     if (showAuditLog) {
-        val auditLogs by viewModel.getAuditLogs(patientId).collectAsState(initial = emptyList())
+        val auditState by viewModel.auditLogPager.state.collectAsState()
+        LaunchedEffect(showAuditLog, patientId) {
+            viewModel.auditLogPager.load(patientId)
+        }
         AuditLogDialog(
             show = showAuditLog,
-            onDismiss = { showAuditLog = false },
-            logs = auditLogs
+            onDismiss = {
+                showAuditLog = false
+                viewModel.auditLogPager.clear()
+            },
+            logs = auditState.logs,
+            isLoading = auditState.isLoading,
+            isLoadingMore = auditState.isLoadingMore,
+            hasMore = auditState.hasMore,
+            error = auditState.error,
+            onLoadMore = { viewModel.auditLogPager.loadMore() }
         )
     }
 

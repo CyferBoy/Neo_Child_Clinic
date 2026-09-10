@@ -12,15 +12,14 @@ The application uses an offline-first architecture with an encrypted local Room 
 
 - [Overview](#overview)
 - [Screenshots](#screenshots)
+- [Releases & Updates](#releases--updates)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Architecture](#architecture)
-- [Getting Started](#getting-started)
 - [Backend & Configuration](#backend--configuration)
-- [Releases & Updates](#releases--updates)
-- [Data Safety](#data-safety)
 - [Security & Privacy](#security--privacy)
 - [Contributing](#contributing)
+- [Getting Started](#getting-started)
 - [Support](#support)
 - [License](#license)
 - [Disclaimer](#disclaimer)
@@ -41,11 +40,36 @@ Neo Child Clinic - Vaccine Manager is actively developed and maintained. Feature
 
 ## Screenshots
 
-| | |
-|---|---|
-| ![Dashboard](docs/Screenshot/dashboard.png) Dashboard | ![Patient Details](docs/Screenshot/patient%20details.png) Patient Details |
-| ![Due Vaccination](docs/Screenshot/due%20vaccination.png) Due Vaccination | ![Inventory](docs/Screenshot/inventory.png) Inventory |
-| ![Borrow Vaccine](docs/Screenshot/borrow%20vaccine.png) Borrow Vaccine | ![App Drawer](docs/Screenshot/app%20drawer.png) Navigation Drawer |
+Click any screenshot to open it at full size.
+
+<table>
+<tr>
+<td align="center"><a href="docs/Screenshot/dashboard.png" target="_blank"><img src="docs/Screenshot/dashboard.png" width="220"><br>Dashboard</a></td>
+<td align="center"><a href="docs/Screenshot/patient%20details.png" target="_blank"><img src="docs/Screenshot/patient%20details.png" width="220"><br>Patient Details</a></td>
+<td align="center"><a href="docs/Screenshot/due%20vaccination.png" target="_blank"><img src="docs/Screenshot/due%20vaccination.png" width="220"><br>Due Vaccination</a></td>
+</tr>
+<tr>
+<td align="center"><a href="docs/Screenshot/inventory.png" target="_blank"><img src="docs/Screenshot/inventory.png" width="220"><br>Inventory</a></td>
+<td align="center"><a href="docs/Screenshot/borrow%20vaccine.png" target="_blank"><img src="docs/Screenshot/borrow%20vaccine.png" width="220"><br>Borrow Vaccine</a></td>
+<td align="center"><a href="docs/Screenshot/app%20drawer.png" target="_blank"><img src="docs/Screenshot/app%20drawer.png" width="220"><br>Navigation Drawer</a></td>
+</tr>
+</table>
+
+---
+
+## Releases & Updates
+
+### Releases
+
+Official application releases are published on the project's GitHub Releases page.
+
+<a href="https://github.com/CyferBoy/Neo_Child_Clinic/releases" target="_blank">📦 View & Download Releases</a>
+
+### Updates
+
+Application updates are provided through the **in-app update system**. The app checks GitHub Releases for newer versions, shows an in-app update prompt, and lets users download and install the new APK. Mandatory updates can require users to update before continuing. Users can also manually check for updates from Settings.
+
+<a href="https://github.com/CyferBoy/Neo_Child_Clinic/releases" target="_blank">📝 View Release Changelog</a>
 
 ---
 
@@ -54,189 +78,108 @@ Neo Child Clinic - Vaccine Manager is actively developed and maintained. Feature
 ### 👶 Patient Management
 
 - Create, edit, search, and manage patient records.
-- Automatic patient ID generation and age calculation.
-- Vaccination and consultation history.
+- Automatic patient ID and age calculation.
+- Patient vaccination and consultation history.
 - Patient notes and todos.
-- Patient merge support.
-- Patient document, photo, and lab-report attachments.
-- Search using patient details, vaccine names, and receipt numbers.
+- Merge duplicate patient records.
+- Attach patient documents, photos, and lab reports.
+- Search by patient details, vaccine names, and receipt numbers.
+- View and print/download vaccination and consultation receipts.
 
 ### 💉 Vaccination
 
 - Add and edit vaccination visits.
-- Multiple vaccines per visit.
-- Vaccine and batch selection.
-- Automatic next-vaccine calculation.
-- Individual next-vaccine management.
-- Stored next-vaccine IDs for reliable tracking.
-- Vaccination receipts.
-- Cash and online/UPI payment tracking.
-- With Fees and Doctor's Account options.
-- Inventory deduction and reconciliation when vaccination records are edited.
+- Add multiple vaccines to a single visit.
+- Select vaccine batches and quantities from inventory.
+- Prevent use of expired or unavailable stock.
+- Track vaccination payments, including Cash and Online/UPI.
+- Automatically update inventory when vaccinations are recorded or edited.
+- Generate vaccination receipts.
+
+**Next Vaccination**
+
+- Date-first scheduling.
+- Add multiple due dates to one record.
+- Add multiple Type + Vaccine entries under the same due date.
+- Edit or cancel individual scheduled vaccination items.
+- Automatic vaccination reminders.
 
 ### 🩺 Consultation
 
 - Add and edit consultations.
-- Doctor selection.
-- Consultation fees and clinical notes.
-- Follow-up dates.
-- Consultation todos.
-- Consultation receipts.
+- Select doctor/staff member.
+- Record consultation fees and clinical notes.
+- Set follow-up dates.
+- Add consultation todos.
+- Generate consultation receipts.
 
 ### 📦 Vaccine Inventory
 
-- Vaccine and batch management.
-- Stock and expiry tracking.
-- Inventory transactions.
-- Low-stock monitoring.
-- Vaccine wastage management.
-- Borrowed and lent vaccine tracking.
-- Partial vaccine returns.
-- Return to existing or newly created batches.
+- Manage vaccines and vaccine batches.
+- Add stock for multiple vaccines at once.
+- Add multiple batches for each vaccine in a single stock operation.
+- Track stock deductions and adjustments.
+- View complete stock transaction history.
+- Track borrowed vaccines and returns.
+- Record vaccine wastage.
+- Reconcile inventory.
 
-### 🔄 Borrowed Vaccines & Returns
+### 💰 Finance
 
-- Track vaccines borrowed from or lent to other doctors/clinics.
-- Offline-first borrowed vaccine management.
-- Partial returns.
-- Multiple return transactions.
-- Return vaccines to an existing batch.
-- Create a new batch during return with batch number, expiry date, and pricing.
-- Detailed return history and status tracking.
+- Record and manage expenses.
+- Track financial transactions.
+- View financial summaries and monthly details.
+- Calculate vaccination and consultation financial data.
 
 ### 🔔 Reminders & Notifications
 
-- Vaccination reminders.
-- Consultation follow-ups.
-- Personal vaccine reminders.
-- Overdue, Today, Tomorrow, and Upcoming classification.
-- Completed and cancelled reminder states.
-- Daily clinic summary.
-- Low-stock notifications.
-- Background notifications using WorkManager.
-- Configurable notification settings.
+- Vaccination due reminders.
+- Personal reminders with priority and status.
+- Background reminder notifications.
+- Reminder history and audit tracking.
 
-Personal vaccine reminders support both saved patients and walk-in/non-saved patients, including advance-payment tracking.
+### 👥 Staff & Access
+
+- Manage clinic staff.
+- Staff profiles and details.
+- Role-based access and permissions.
+- Authentication and controlled clinic access.
 
 ### 📊 Dashboard & Statistics
 
-- Today's consultations and vaccinations.
-- Upcoming and overdue work.
-- Low-stock information.
-- Vaccination statistics.
-- Consultation statistics.
-- Financial statistics.
-- Monthly financial information.
-- Vaccine usage statistics.
-- Patient milestones and clinic metrics.
+- Clinic dashboard.
+- Today's patients.
+- Vaccination and patient statistics.
+- Patient milestones.
+- Finance and expense statistics.
 
-### 💰 Financial Management
+### 📄 Documents & Records
 
-- Vaccination and consultation financial records.
-- Cash and online/UPI payments.
-- Vaccine cost/COGS tracking.
-- Financial summaries and monthly details.
-- Receipt generation and printing.
+- Store and manage patient documents.
+- Patient vaccination cards and records.
+- Receipts and printable records.
+- Audit logs for important clinic activity.
 
-#### Receipt Numbering
-
-Receipt numbers are generated server-side using a shared clinic sequence.
-
-- Financial year: April to March.
-- Financial year is determined from the visit/transaction date.
-- Receipt numbers are generated atomically to prevent duplicates.
-- Receipt numbers are not reused after deletion.
-
-Example:
-
-> 1 April 2026 - 31 March 2027 = Financial Year 26/27
-
-### 🧾 Expenses
-
-Separate expense management, kept as its own table (independent from vaccination,
-consultation, and inventory records):
-
-- Predefined expense categories (Rent, Electricity, Water, Internet, Staff Salary,
-  Medical Supplies, Vaccine Purchase, Equipment, Maintenance, Cleaning, Stationery,
-  Transportation, Marketing, Software/Subscription, Other).
-- Expense payment methods: Cash, Online/UPI, Bank.
-- Add, edit, and soft-delete expenses, with search, date/category/payment-method
-  filtering, and sorting.
-- Optional receipt attachment via the existing document/Storage system.
-- Staff accountability (created/updated by, with timestamps) and soft deletion, so
-  synchronized expense records are never permanently removed.
-- Offline-first: expenses are created/edited/deleted locally first and synchronized
-  through the app's existing sync queue.
-- Financial integration: expenses feed into Financial Statistics as their own line
-  (Total Expenses), alongside vaccination/consultation income, to compute Net Income -
-  without altering existing vaccination/consultation financial calculations. Uses the
-  same April-March financial year as the rest of Financial Management.
-
-### 👨‍⚕️ Staff Management
-
-Supported roles:
-
-- Admin
-- Doctor
-- Receptionist
-- Nurse
-- Inventory Manager
-
-Administrators can manage staff accounts, roles, and account status.
-
-### 🔐 Security
-
-- Supabase Authentication.
-- Role-based access control.
-- Supabase Row Level Security (RLS).
-- SQLCipher-encrypted Room database.
-- Android Keystore-backed secure storage.
-- Biometric application lock.
-- Configurable inactivity protection.
-- Staff accountability.
-- Audit logging.
-- Server-side authorization for privileged operations.
-
-### ☁️ Offline & Synchronization
+### ☁️ Offline & Sync
 
 - Offline-first local database.
-- Encrypted local storage.
-- Background synchronization with Supabase.
-- WorkManager-based sync.
-- Automatic retry for failed synchronization.
-- Sync queue and status tracking.
-- Manual synchronization.
-- Realtime synchronization for supported data.
-
-### 📎 Patient Documents
-
-Patient clinical documents can be stored using Supabase Storage.
-
-Supported attachments include:
-
-- Documents
-- Photos
-- Lab reports
+- Automatic synchronization with Supabase.
+- Sync queue and retry handling.
+- Refresh data manually when needed.
 
 ### 📱 Home Screen Widget
 
-Provides quick access to upcoming vaccination information directly from the Android home screen with refresh support.
+- Vaccine due information on the Android home screen.
+- Widget refresh support.
+- Configurable widget settings.
 
-### 🔄 Application Update System
+### 🔄 In-App Updates
 
-The built-in update system uses GitHub Releases and supports:
-
-- Optional updates.
-- Mandatory updates.
-- Re-update of the installed version.
-- Downgrade where supported.
-- APK download and installation.
-- Download progress and cancellation.
-- Release notes.
-- Minimum-version enforcement.
-- Startup update notifications.
-
-When a new update is detected, a small temporary notification can appear when the app opens. Tapping it opens the update interface. The notification is separate from downloading, re-update, and downgrade handling.
+- Check GitHub Releases for newer versions.
+- In-app update prompt with release information.
+- Download and install the latest APK from the app.
+- Mandatory update support.
+- Manual update check from Settings.
 
 ---
 
@@ -292,113 +235,6 @@ Background tasks such as synchronization and reminders are handled using WorkMan
 
 ---
 
-## Getting Started
-
-### 1. Prerequisites
-
-Install:
-
-- Android Studio
-- JDK 17
-- Android SDK 35
-- Git
-
-A Supabase project and Firebase project are required for full functionality.
-
-### 2. Clone the Repository
-
-```bash
-git clone https://github.com/CyferBoy/Neo_Child_Clinic.git
-cd Neo_Child_Clinic
-```
-
-Open the project in Android Studio and allow Gradle to sync.
-
-### 3. Configure Supabase
-
-Configure:
-
-```
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-```
-
-These can be provided through `.env.local` or the build environment.
-
-Apply the required migrations from:
-
-```
-supabase/migrations/
-```
-
-### 4. Configure Firebase
-
-Configure Firebase Cloud Messaging and add the required Android Firebase configuration.
-
-FCM is required for:
-
-- Vaccination reminders.
-- Personal vaccine reminders.
-- Low-stock notifications.
-- Daily summaries.
-- Application update notifications.
-
-### 5. Configure Storage
-
-Configure the patient document storage bucket:
-
-```
-patient-docs
-```
-
-Apply appropriate Storage policies.
-
-### 6. Configure Edge Functions
-
-Deploy:
-
-```
-supabase/functions/manage-staff/
-supabase/functions/notify-update/
-```
-
-Configure the required server-side secrets before deployment.
-
-### 7. Build
-
-```bash
-./gradlew assembleDebug
-```
-
-Or press Run ▶ in Android Studio.
-
-Run tests:
-
-```bash
-./gradlew testDebugUnitTest
-```
-
-Run lint:
-
-```bash
-./gradlew lintDebug
-```
-
-### 8. Initial Setup
-
-After installation:
-
-1. Sign in with an authorized staff account.
-2. Configure clinic settings.
-3. Add staff and doctors.
-4. Configure vaccines and inventory batches.
-5. Configure notification preferences.
-6. Perform an initial synchronization.
-7. Verify patient, vaccination, inventory, and financial synchronization.
-
-> **Important:** Before using real patient data, verify Authentication, RLS, Storage policies, Edge Function authorization, Firebase configuration, and backup/recovery settings.
-
----
 
 ## Backend & Configuration
 
@@ -457,79 +293,6 @@ Supabase migrations are stored in:
 supabase/migrations/
 ```
 
----
-
-## Releases & Updates
-
-### Latest Release
-
-The latest stable APK is available from the GitHub Releases page.
-
-[View Releases](https://github.com/CyferBoy/Neo_Child_Clinic/releases)
-
-Production releases should use a properly signed APK.
-
-### Publishing a New Release
-
-To publish an application update:
-
-1. Create a new GitHub Release.
-2. Add the appropriate version tag.
-3. Upload the signed APK.
-4. Add release notes.
-5. Add update metadata when required.
-
-Example:
-
-```
-version-code: 4
-update-type: mandatory
-minimum-version-code: 4
-```
-
-The release workflow can notify registered devices through Firebase Cloud Messaging using the Supabase `notify-update` Edge Function.
-
-### Changelog
-
-Release-specific changes are documented in GitHub Releases.
-
-[View Changelog](https://github.com/CyferBoy/Neo_Child_Clinic/releases)
-
----
-
-## Data Safety
-
-### Backup & Recovery
-
-The application uses local storage and Supabase synchronization to maintain clinic data.
-
-For production use, administrators should maintain a reliable database backup and recovery strategy.
-
-Important considerations:
-
-- Verify that synchronization is working.
-- Monitor failed synchronization tasks.
-- Configure Supabase database backups.
-- Maintain a recovery plan.
-- Test restoration procedures periodically.
-
-Do not consider device-local data alone as a complete backup.
-
-### Permissions
-
-The application may request Android permissions required for features such as:
-
-- Notifications.
-- Camera or image capture.
-- Access to selected files/documents.
-- Network access.
-- Background processing.
-- Firebase Cloud Messaging.
-
-Permissions are used only for the corresponding application features.
-
----
-
 ## Security & Privacy
 
 If you discover a security vulnerability, please follow the instructions in [SECURITY.md](SECURITY.md). Do not publicly disclose security vulnerabilities before they have been reviewed.
@@ -564,6 +327,14 @@ Before submitting changes:
 7. Do not commit secrets or production credentials.
 
 ---
+
+## Getting Started
+
+Want to set up the project locally?
+
+<a href="docs/GETTING_STARTED.md" target="_blank">🚀 Open the Getting Started Guide</a>
+
+The separate guide contains the complete setup instructions for Android Studio, JDK/SDK, Supabase, Firebase, local environment configuration, Edge Functions, building, testing, and initial clinic setup.
 
 ## Support
 

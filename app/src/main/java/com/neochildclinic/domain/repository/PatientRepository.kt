@@ -1,6 +1,5 @@
 package com.neochildclinic.domain.repository
 
-import com.neochildclinic.data.local.entity.AuditLogEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
 import com.neochildclinic.domain.model.Patient
 import kotlinx.coroutines.flow.Flow
@@ -22,8 +21,8 @@ interface PatientRepository {
     suspend fun getTotalPatientCount(): Int
     
     // Timeline & History
-    fun getPatientTimeline(patientId: String): Flow<List<AuditLogEntity>>
-    suspend fun refreshPatientTimeline(patientId: String)
+    // NOTE: patient audit history is now loaded online-only via PatientAuditLogPager
+    // (see PatientViewModel/PatientListViewModel), not through this repository.
     fun getPatientHistory(patientId: String): Flow<List<com.neochildclinic.domain.model.Vaccination>>
     
     // Notes Module

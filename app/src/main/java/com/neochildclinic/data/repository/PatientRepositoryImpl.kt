@@ -227,30 +227,8 @@ class PatientRepositoryImpl @Inject constructor(
 
     override suspend fun getTotalPatientCount(): Int = patientDao.getTotalPatientCount()
 
-    override fun getPatientTimeline(patientId: String): Flow<List<AuditLogEntity>> {
-        return auditLogDao.getLogsForPatient(patientId)
-    }
-
-    override suspend fun refreshPatientTimeline(patientId: String) {
-        withContext(Dispatchers.IO) {
-            try {
-                val entities = postgrest.from("audit_logs").select {
-                    filter { eq("patient_id", patientId) }
-                }.decodeList<AuditLogEntity>()
-                
-                database.withTransaction {
-                    for (remote in entities) {
-                        val local = auditLogDao.getLogById(remote.id)
-                        if (local == null || local.isSynced) {
-                            auditLogDao.insertLog(remote.copy(isSynced = true))
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("PatientRepo", "Failed to refresh timeline for $patientId", e)
-            }
-        }
-    }
+    // NOTE: patient audit history is loaded online-only via PatientAuditLogPager now, not
+    // through this repository - see PatientViewModel/PatientListViewModel.
 
     override fun getPatientHistory(patientId: String): Flow<List<Vaccination>> {
         return vaccinationDao.getVaccinationsForPatient(patientId).map { list ->
