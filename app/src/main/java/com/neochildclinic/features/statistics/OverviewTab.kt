@@ -78,32 +78,49 @@ fun OverviewTab(
     }
 
     // Quick Overview Chart Data (Last 6 Months)
-    val trendData = remember(patients, vaccinations, financeTransactions) {
+    // Previously this re-filtered the FULL patients/vaccinations/transactions lists once
+    // per month (6x), re-parsing every date string each time and even re-running
+    // filterValidVaccinations() (itself a full-list pass) inside the loop - O(6*N) scans
+    // and O(6*N) date parses for a chart that only needs 6 numbers. Rewritten below to do
+    // a single pass over each list, bucketing by year/month, then just look up the 6
+    // months needed. allValidVaccinations is already computed above, so it's reused
+    // instead of being recomputed here.
+    val trendData = remember(patients, vaccinations, financeTransactions, allValidVaccinations) {
         val cal = Calendar.getInstance()
-        (0 until 6).reversed().map { monthOffset ->
+        val months = (0 until 6).reversed().map { monthOffset ->
             val tempCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -monthOffset) }
-            val month = tempCal.get(Calendar.MONTH)
-            val year = tempCal.get(Calendar.YEAR)
-            val monthLabel = StatisticsUtils.monthNames[month]
-            
-            val mPatients = patients.filter { p ->
-                val d = PatientUtils.parseDate(p.registrationDate ?: "") ?: return@filter false
-                val c = Calendar.getInstance().apply { time = d }
-                c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year
-            }.size.toFloat()
-            
-            val mVaccinations = StatisticsUtils.filterValidVaccinations(vaccinations).filter { v ->
-                val d = PatientUtils.parseDate(v.dateGiven) ?: return@filter false
-                val c = Calendar.getInstance().apply { time = d }
-                c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year
-            }.size.toFloat()
+            val key = tempCal.get(Calendar.YEAR) * 12 + tempCal.get(Calendar.MONTH)
+            key to StatisticsUtils.monthNames[tempCal.get(Calendar.MONTH)]
+        }
+        val monthKeys = months.map { it.first }.toSet()
 
-            val mRevenue = financeTransactions.filter { t ->
-                val d = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(t)) ?: return@filter false
-                val c = Calendar.getInstance().apply { time = d }
-                c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year && t.type.equals("INCOME", true)
-            }.sumOf { it.amount }.toFloat() / 1000f // K-scale for revenue
+        fun yearMonthKey(dateStr: String): Int? {
+            val d = PatientUtils.parseDate(dateStr) ?: return null
+            val c = Calendar.getInstance().apply { time = d }
+            return c.get(Calendar.YEAR) * 12 + c.get(Calendar.MONTH)
+        }
 
+        val patientCounts = patients.asSequence()
+            .mapNotNull { yearMonthKey(it.registrationDate ?: "") }
+            .filter { it in monthKeys }
+            .groupingBy { it }.eachCount()
+
+        val vaccinationCounts = allValidVaccinations.asSequence()
+            .mapNotNull { yearMonthKey(it.dateGiven) }
+            .filter { it in monthKeys }
+            .groupingBy { it }.eachCount()
+
+        val revenueByMonth = financeTransactions.asSequence()
+            .filter { it.type.equals("INCOME", true) }
+            .mapNotNull { t -> yearMonthKey(FinanceCalculator.resolveReportingDate(t))?.let { it to t.amount } }
+            .filter { it.first in monthKeys }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, amounts) -> amounts.sum() }
+
+        months.map { (key, monthLabel) ->
+            val mPatients = (patientCounts[key] ?: 0).toFloat()
+            val mVaccinations = (vaccinationCounts[key] ?: 0).toFloat()
+            val mRevenue = ((revenueByMonth[key] ?: 0.0) / 1000.0).toFloat() // K-scale for revenue
             ChartDataPoint(monthLabel, listOf(mPatients, mPatients * 1.2f, mVaccinations, mRevenue)) // Simulated Consultations as 1.2x Patients
         }
     }

@@ -28,6 +28,22 @@ class FinanceRepositoryImpl @Inject constructor(
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : FinanceRepository {
 
+    /**
+     * Deterministic row id for a visit's VACCINATION income transaction. Each visit is only
+     * ever supposed to carry one payment entry (see recordVaccination()/updateIncomeForVisit()
+     * comments), but that invariant used to depend entirely on the *local* Room cache already
+     * containing the row before an edit runs: if a device edits a visit's income before it has
+     * synced down the row another device created (or right after a fresh install/reinstall,
+     * before the first sync completes), updateIncomeForVisit()'s "existing == null" fallback
+     * would insert a brand-new row with a random id instead of updating the real one. Both
+     * Room (OnConflictStrategy.REPLACE) and the Postgres sync (upsert) key off `id`, so once
+     * every vaccination-income row for a given visit uses this same deterministic id, any
+     * device that thinks it's "creating" one actually just overwrites the same row - no more
+     * silent duplicate rows that later got invisibly discarded when finance stats deduplicate
+     * by visit and keep only the newest, dropping the other row's amount from every total.
+     */
+    private fun vaccinationIncomeRowId(visitId: String): String = "visit_income_$visitId"
+
     private suspend fun resolveTransactionDate(visitId: String?): String? {
         if (visitId.isNullOrBlank()) return null
         val dateGiven = database.vaccinationDao().getVaccinationById(visitId)?.dateGiven
@@ -63,7 +79,14 @@ class FinanceRepositoryImpl @Inject constructor(
     ) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
+            // A visit is only supposed to ever have one VACCINATION income row (see
+            // vaccinationIncomeRowId doc above) - use the deterministic id here too so this
+            // "create" path can never diverge from what updateIncomeForVisit() writes.
+            val deterministicId = if (category.equals("VACCINATION", true) && !visitId.isNullOrBlank()) {
+                vaccinationIncomeRowId(visitId)
+            } else null
             val transaction = FinanceEntity(
+                id = deterministicId ?: java.util.UUID.randomUUID().toString(),
                 type = "INCOME",
                 transactionDate = resolveTransactionDate(visitId),
                 category = category,
@@ -275,7 +298,14 @@ class FinanceRepositoryImpl @Inject constructor(
             val existing = transactions.maxByOrNull { it.timestamp }
             val userName = sessionManager.getCurrentUserName()
             if (existing == null) {
+                // Local Room may simply not have the row yet (another device created it and
+                // sync hasn't pulled it down, or the app was just reinstalled) - use the same
+                // deterministic id recordIncome() would have used, so this "create" can only
+                // ever overwrite that one row (via Room REPLACE / Postgres upsert) instead of
+                // inserting a second, genuinely duplicate row that later silently drops one
+                // visit's payment out of every total.
                 val transaction = FinanceEntity(
+                    id = vaccinationIncomeRowId(visitId),
                     type = "INCOME",
                     transactionDate = resolveTransactionDate(visitId),
                     category = "VACCINATION",

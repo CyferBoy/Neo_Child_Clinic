@@ -94,11 +94,19 @@ object StatisticsUtils {
     }
 
     fun isDateInFilter(dateStr: String, filterMode: String, fyQuarter: Int = 0, selectedMonth: Int = -1): Boolean {
+        // "Overall" means "no date restriction" - it must not depend on the date string
+        // actually being parseable. Previously the parse happened first, so any record
+        // (patient, vaccination, or finance transaction) with a date PatientUtils.parseDate
+        // couldn't recognize was silently excluded even from Overall, with nothing in the
+        // UI to indicate a record had gone missing. Checking Overall first means a record
+        // only gets excluded when it's being filtered to a specific FY/quarter/month that
+        // its date genuinely can't be determined to be in or out of.
+        if (filterMode == "Overall") return true
+
         val date = PatientUtils.parseDate(dateStr) ?: return false
         val cal = Calendar.getInstance().apply { time = date }
         val m = cal.get(Calendar.MONTH)
         val y = cal.get(Calendar.YEAR)
-        if (filterMode == "Overall") return true
 
         val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: return false
         val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort

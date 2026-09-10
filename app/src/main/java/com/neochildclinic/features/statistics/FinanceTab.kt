@@ -154,6 +154,27 @@ private fun FinanceContent(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Surfaces FinanceStatsData.invalidTransactionDateCount, which was already being
+        // computed but never shown anywhere - a transaction whose date/timestamp genuinely
+        // can't be parsed silently disappears from every total (including Overall) with no
+        // indication to the user. This makes that visible instead of leaving totals looking
+        // mysteriously low with no way to tell why.
+        if (currentStats.invalidTransactionDateCount > 0) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "${currentStats.invalidTransactionDateCount} transaction(s) have a date that couldn't be read and are excluded from every total shown here.",
+                    modifier = Modifier.padding(14.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 

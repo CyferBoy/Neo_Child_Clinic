@@ -8,6 +8,16 @@ import java.util.*
 
 object PatientUtils {
 
+    // parseDate() is called for essentially every date across every Statistics screen
+    // (often the same string many times over, e.g. once per filter pass and again for
+    // each of the 6 months in the trend chart). Caching results avoids re-parsing the
+    // same string repeatedly. ConcurrentHashMap can't store null, so failed parses are
+    // cached as Optional.empty(). Capped and cleared wholesale if it ever grows large,
+    // since date-string cardinality is normally small (bounded by distinct records) but
+    // this keeps memory bounded defensively.
+    private val dateParseCache = java.util.concurrent.ConcurrentHashMap<String, Optional<Date>>()
+    private const val DATE_PARSE_CACHE_LIMIT = 5000
+
     /**
      * Returns an exact calendar age in the form "X years Y months Z days".
      * Date arithmetic is calendar based rather than an approximation from milliseconds.
@@ -210,6 +220,9 @@ object PatientUtils {
      */
     fun parseDate(dateStr: String): Date? {
         if (dateStr.isBlank()) return null
+
+        dateParseCache[dateStr]?.let { return it.orElse(null) }
+
         // Order matters: SimpleDateFormat.parse() happily matches just a leading prefix
         // of the string and silently ignores unparsed trailing text (even with
         // isLenient = false). A bare date pattern like "yyyy-MM-dd" will therefore
@@ -218,6 +231,14 @@ object PatientUtils {
         // dropping the time - which is exactly why timestamps were displaying as
         // the right date at 00:00. Every datetime pattern must be tried before any
         // date-only pattern so the more complete match wins first.
+        //
+        // NOTE: this used to try each format with sdf.parse(String), which throws and
+        // catches a ParseException for every failed attempt. On Android that's a real
+        // cost (stack trace capture) and this runs for nearly every date, everywhere in
+        // Statistics - it was the single biggest source of the lag. sdf.parse(String,
+        // ParsePosition) is the exact same underlying parse logic (same prefix-matching
+        // behavior, same precedence semantics) but returns null on failure instead of
+        // throwing, so behavior is unchanged and failed attempts are cheap.
         val formats = listOf(
             "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
             "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
@@ -228,14 +249,21 @@ object PatientUtils {
             "dd/MM/yyyy",
             "yyyy-MM-dd"
         )
+        var result: Date? = null
         for (format in formats) {
-            try {
-                val sdf = SimpleDateFormat(format, Locale.ENGLISH)
-                sdf.isLenient = false
-                return sdf.parse(dateStr)
-            } catch (_: Exception) {}
+            val sdf = SimpleDateFormat(format, Locale.ENGLISH)
+            sdf.isLenient = false
+            val pos = java.text.ParsePosition(0)
+            val parsed = sdf.parse(dateStr, pos)
+            if (parsed != null) {
+                result = parsed
+                break
+            }
         }
-        return null
+
+        if (dateParseCache.size >= DATE_PARSE_CACHE_LIMIT) dateParseCache.clear()
+        dateParseCache[dateStr] = Optional.ofNullable(result)
+        return result
     }
 
     /**
