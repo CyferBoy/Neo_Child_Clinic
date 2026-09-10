@@ -1,12 +1,6 @@
 package com.neochildclinic.di
 
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.ConsultationRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.*
 import com.neochildclinic.domain.usecase.patient.DeletePatientUseCase
 import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
 import com.neochildclinic.domain.usecase.patient.SavePatientUseCase
@@ -64,7 +58,8 @@ object UseCaseModule {
         reminderRepository: ReminderRepository,
         consultationRepository: ConsultationRepository,
         financeRepository: FinanceRepository,
-        personalReminderRepository: PersonalReminderRepository
+        personalReminderRepository: PersonalReminderRepository,
+        expenseRepository: ExpenseRepository
     ) = RefreshDataUseCase(
         patientRepository = patientRepository,
         vaccinationRepository = vaccinationRepository,
@@ -73,7 +68,8 @@ object UseCaseModule {
         reminderRepository = reminderRepository,
         consultationRepository = consultationRepository,
         financeRepository = financeRepository,
-        personalReminderRepository = personalReminderRepository
+        personalReminderRepository = personalReminderRepository,
+        expenseRepository = expenseRepository
     )
 
     @Provides

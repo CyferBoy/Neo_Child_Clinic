@@ -35,17 +35,11 @@ fun OverviewTab(
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
-    // Raw (status-unfiltered) visit dates - Financial Statistics must resolve a linked
-    // transaction's reporting date from the actual visit (vaccination or consultation)
-    // regardless of that visit's clinical/administered status, an orthogonal concept.
-    // See FinanceCalculator.resolveReportingDate.
-    val visitDatesById = remember(vaccinations) { vaccinations.associate { it.id to it.dateGiven } }
-
-    val availableYears = remember(patients, vaccinations, financeTransactions, visitDatesById) {
+    val availableYears = remember(patients, vaccinations, financeTransactions) {
         StatisticsUtils.getAvailableFinancialYears(
             patients.map { it.registrationDate ?: "" } +
                     vaccinations.map { it.dateGiven } +
-                    financeTransactions.map { FinanceCalculator.resolveReportingDate(it, visitDatesById) }
+                    financeTransactions.map { FinanceCalculator.resolveReportingDate(it) }
         )
     }
 
@@ -56,8 +50,8 @@ fun OverviewTab(
     val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
-    val filteredTransactions = remember(financeTransactions, visitDatesById, filterMode, fyQuarter, selectedMonth) {
-        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), filterMode, fyQuarter, selectedMonth) }
+    val filteredTransactions = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
+        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), filterMode, fyQuarter, selectedMonth) }
     }
 
     // Previous period data for growth calculation
@@ -70,8 +64,8 @@ fun OverviewTab(
     val prevVaccinations = remember(vaccinations, prevFilter, prevQuarter, prevMonth) {
         StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
     }
-    val prevTransactions = remember(financeTransactions, visitDatesById, prevFilter, prevQuarter, prevMonth) {
-        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), prevFilter, prevQuarter, prevMonth) }
+    val prevTransactions = remember(financeTransactions, prevFilter, prevQuarter, prevMonth) {
+        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
     }
 
     val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
@@ -105,7 +99,7 @@ fun OverviewTab(
             }.size.toFloat()
 
             val mRevenue = financeTransactions.filter { t ->
-                val d = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(t, visitDatesById)) ?: return@filter false
+                val d = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(t)) ?: return@filter false
                 val c = Calendar.getInstance().apply { time = d }
                 c.get(Calendar.MONTH) == month && c.get(Calendar.YEAR) == year && t.type.equals("INCOME", true)
             }.sumOf { it.amount }.toFloat() / 1000f // K-scale for revenue

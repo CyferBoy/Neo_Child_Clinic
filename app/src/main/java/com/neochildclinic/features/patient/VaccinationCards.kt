@@ -59,30 +59,30 @@ fun VaccinationRecordCard(
         vaccineNamesText.ifBlank { vaccination.notes }.ifBlank { "Vaccination Visit" }
     }
 
-    // For a history card, show the earliest due-date group linked to this visit.
-    // Each reminder in that group is labeled independently: if it has vaccine name(s)
-    // set, show those; if it only has a Type (no vaccine picked yet), show the Type.
-    // Previously all vaccine names in the group were shown, but ANY reminder having a
-    // vaccine name caused every type-only reminder in the same due-date group to be
-    // dropped from the display entirely, even though it's a separate next-vaccination
-    // entry that legitimately has no vaccine chosen yet.
-    val nextDisplay = remember(reminders) {
-        val firstDue = reminders
+    // Group by Due Date: If dates are the same, show vaccine names separated by comma.
+    // In "Next", only vaccine names are shown (falling back to Type if no vaccines).
+    val nextDisplays = remember(reminders) {
+        reminders
             .filter { it.dueDate.isNotBlank() }
             .groupBy { it.dueDate }
-            .minByOrNull { com.neochildclinic.core.utils.PatientUtils.parseDate(it.key)?.time ?: Long.MAX_VALUE }
-            ?.value
-            .orEmpty()
-        val labels = firstDue.flatMap { reminder ->
-            val names = reminder.vaccineName.split(",").map(String::trim).filter(String::isNotBlank)
-            if (names.isNotEmpty()) names else listOfNotNull(reminder.type.trim().takeIf(String::isNotBlank))
-        }.distinct()
-        val text = labels.joinToString(", ")
-        val dueDate = firstDue.firstOrNull()?.dueDate.orEmpty()
-        text.takeIf { it.isNotBlank() } to dueDate.takeIf { it.isNotBlank() }
+            .map { (dueDate, group) ->
+                val labels = group.map { reminder ->
+                    val names = reminder.vaccineName
+                        .split(",")
+                        .map(String::trim)
+                        .filter(String::isNotBlank)
+                    if (names.isNotEmpty()) {
+                        names.distinct().joinToString(", ")
+                    } else {
+                        reminder.type.trim().ifBlank { "Next Vaccination" }
+                    }
+                }.distinct()
+
+                val label = labels.joinToString(", ")
+                label to dueDate
+            }
+            .sortedBy { com.neochildclinic.core.utils.PatientUtils.parseDate(it.second)?.time ?: Long.MAX_VALUE }
     }
-    val nextLine = nextDisplay.first
-    val nextDueDate = nextDisplay.second
 
     Card(
         modifier = Modifier
@@ -127,21 +127,14 @@ fun VaccinationRecordCard(
                 }
             }
 
-            // Row 2: Next vaccination  |  payment breakdown
+            // Row 2: Given date  |  payment breakdown
             Spacer(modifier = Modifier.height(6.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                if (nextLine != null) {
-                    Text(
-                        text = "Next: $nextLine",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Text(
+                    text = "Given: ${formatDateForDisplay(vaccination.dateGiven)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 // Payment breakdown and small payment flags beneath it.
                 val paymentInfo = buildString {
@@ -177,20 +170,23 @@ fun VaccinationRecordCard(
                 }
             }
 
-            // Row 3: Given date  |  Due date
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    text = "Given: ${formatDateForDisplay(vaccination.dateGiven)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (!nextDueDate.isNullOrBlank()) {
+            // Row 3+: Next vaccination(s) and their Due dates
+            nextDisplays.forEach { (label, dueDate) ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Text(
-                        text = "Due: ${formatDateForDisplay(nextDueDate!!)}",
+                        text = "Next: $label",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Due: ${formatDateForDisplay(dueDate)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End
                     )
                 }
             }

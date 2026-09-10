@@ -89,6 +89,11 @@ object DatabaseModule {
     }
 
     @Provides
+    fun provideExpenseDao(database: AppDatabase): com.neochildclinic.data.local.dao.ExpenseDao {
+        return database.expenseDao()
+    }
+
+    @Provides
     fun provideProfileDao(database: AppDatabase): ProfileDao {
         return database.profileDao()
     }

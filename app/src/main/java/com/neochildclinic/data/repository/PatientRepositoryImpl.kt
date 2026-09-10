@@ -21,10 +21,9 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.core.utils.PatientIdGenerator
 import androidx.room.withTransaction
 import io.github.jan.supabase.postgrest.Postgrest
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.data.migration.PatientClinicIdMigrationWorker
 import androidx.work.ExistingWorkPolicy
@@ -33,8 +32,7 @@ import androidx.work.WorkManager
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.data.cache.MemoryCache
@@ -57,9 +55,11 @@ class PatientRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : PatientRepository {
 
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     init {
         // Schedule migration if not completed
-        GlobalScope.launch(Dispatchers.IO) {
+        repositoryScope.launch {
             if (!preferenceManager.isPatientIdMigrationCompleted.first()) {
                 schedulePatientIdMigration()
             }
@@ -117,7 +117,7 @@ class PatientRepositoryImpl @Inject constructor(
                             }
 
                             // Uniqueness conflict check (only for real IDs)
-                            if (localClinicId != null && !localClinicId.startsWith("TEMP-")) {
+                            if (!localClinicId.startsWith("TEMP-")) {
                                 val existingByClinicId = patientDao.getPatientByClinicId(localClinicId)
                                 if (existingByClinicId != null && existingByClinicId.id != patient.id) {
                                     val resolvedId = localClinicId + "-CONFLICT-" + patient.id.take(4)
@@ -196,7 +196,7 @@ class PatientRepositoryImpl @Inject constructor(
             // 1. Delete Reminders (Children)
             dueReminderDao.softDeleteRemindersForPatient(id)
             reminderIds.forEach {
-                syncRepository.enqueue("REMINDERS", it.toString(), SyncOperation.DELETE, SyncPriority.LOW)
+                syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
             }
 
             // 2. Delete Vaccinations/Visits (Children)
@@ -229,6 +229,27 @@ class PatientRepositoryImpl @Inject constructor(
 
     override fun getPatientTimeline(patientId: String): Flow<List<AuditLogEntity>> {
         return auditLogDao.getLogsForPatient(patientId)
+    }
+
+    override suspend fun refreshPatientTimeline(patientId: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val entities = postgrest.from("audit_logs").select {
+                    filter { eq("patient_id", patientId) }
+                }.decodeList<AuditLogEntity>()
+                
+                database.withTransaction {
+                    for (remote in entities) {
+                        val local = auditLogDao.getLogById(remote.id)
+                        if (local == null || local.isSynced) {
+                            auditLogDao.insertLog(remote.copy(isSynced = true))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PatientRepo", "Failed to refresh timeline for $patientId", e)
+            }
+        }
     }
 
     override fun getPatientHistory(patientId: String): Flow<List<Vaccination>> {

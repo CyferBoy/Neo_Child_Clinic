@@ -135,7 +135,8 @@ class StockHistoryViewModel @Inject constructor(
                     fromDateIso = toIsoDateOnly(state.fromDate),
                     toDateIso = toIsoDateOnly(state.toDate),
                     limit = PAGE_SIZE,
-                    offset = offset
+                    offset = offset,
+                    remoteOnly = true
                 )
 
                 _uiState.update {

@@ -123,6 +123,7 @@ fun AppNavigation(
                 onWaste = { navController.navigate(Routes.WASTE) },
                 onTodayPatients = { navController.navigate(Routes.TODAY_PATIENTS) },
                 onPersonalReminders = { navController.navigate(Routes.PERSONAL_REMINDERS) },
+                onExpenses = { navController.navigate(Routes.EXPENSES) },
                 onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onSync = { navController.navigate(Routes.SYNC) },
@@ -529,6 +530,32 @@ fun AppNavigation(
                 prefillPatientId = null,
                 onBack = { navController.popBackStack() },
                 onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.EXPENSES) {
+            com.neochildclinic.features.expenses.ExpenseListScreen(
+                onBack = { navController.popBackStack() },
+                onAddExpense = { navController.navigate(Routes.ADD_EXPENSE) },
+                onEditExpense = { expenseId -> navController.navigate("edit_expense/$expenseId") }
+            )
+        }
+
+        composable(Routes.ADD_EXPENSE) {
+            com.neochildclinic.features.expenses.AddExpenseScreen(
+                expenseId = null,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_EXPENSE,
+            arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getString("expenseId")
+            com.neochildclinic.features.expenses.AddExpenseScreen(
+                expenseId = expenseId,
+                onBack = { navController.popBackStack() }
             )
         }
 

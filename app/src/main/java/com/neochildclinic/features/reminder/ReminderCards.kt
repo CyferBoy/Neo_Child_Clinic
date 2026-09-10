@@ -280,16 +280,22 @@ fun CompletedRecordCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DismissedRecordCard(
     vaccination: Vaccination,
     patient: Patient?,
+    onLongClick: () -> Unit = {},
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

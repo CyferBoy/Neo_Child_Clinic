@@ -275,6 +275,9 @@ class PatientViewModel @Inject constructor(
     }
 
     fun getAuditLogs(patientId: String): Flow<List<AuditLogEntity>> {
+        viewModelScope.launch {
+            patientRepository.refreshPatientTimeline(patientId)
+        }
         return patientRepository.getPatientTimeline(patientId)
     }
 

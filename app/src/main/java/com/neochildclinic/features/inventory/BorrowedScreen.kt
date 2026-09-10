@@ -209,11 +209,12 @@ private fun BorrowedContent(
                 if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else if (filteredList.isEmpty()) {
-                    Text(
-                        text = if (uiState.mainTab == BorrowMainTab.RETURNED) "No fully returned records yet." else "No records found.",
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (uiState.mainTab == BorrowMainTab.RETURNED) "No fully returned records yet." else "No records found.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),

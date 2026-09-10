@@ -13,7 +13,10 @@ import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.model.Expense
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,10 +27,12 @@ data class StatisticsUiState(
     val inventory: List<InventoryItem> = emptyList(),
     val financeTransactions: List<FinanceEntity> = emptyList(),
     val vaccinationReminders: List<ReminderEntity> = emptyList(),
+    val expenses: List<Expense> = emptyList(),
     val isLoading: Boolean = false,
     val selectedTab: Int = 0,
     val isRefreshing: Boolean = false,
-    val refreshError: String? = null
+    val refreshError: String? = null,
+    val isCalculatingStats: Boolean = false
 )
 
 @HiltViewModel
@@ -37,6 +42,7 @@ class StatisticsViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     private val financeRepository: FinanceRepository,
     private val reminderRepository: ReminderRepository,
+    private val expenseRepository: ExpenseRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -53,6 +59,7 @@ class StatisticsViewModel @Inject constructor(
             inventoryRepository.getInventoryItems(),
             financeRepository.getAllTransactions(),
             reminderRepository.getAllReminders(),
+            expenseRepository.getAllExpenses(),
             _selectedTab,
             _isRefreshing,
             _refreshError
@@ -63,11 +70,25 @@ class StatisticsViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST") val inventory = values[2] as List<InventoryItem>
         @Suppress("UNCHECKED_CAST") val financeTransactions = values[3] as List<FinanceEntity>
         @Suppress("UNCHECKED_CAST") val vaccinationReminders = values[4] as List<ReminderEntity>
-        val tab = values[5] as Int
-        val refreshing = values[6] as Boolean
-        val refreshError = values[7] as String?
-        StatisticsUiState(patients, vaccinations, inventory, financeTransactions, vaccinationReminders, false, tab, refreshing, refreshError)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(isLoading = true))
+        @Suppress("UNCHECKED_CAST") val expenses = values[5] as List<Expense>
+        val tab = values[6] as Int
+        val refreshing = values[7] as Boolean
+        val refreshError = values[8] as String?
+        
+        StatisticsUiState(
+            patients = patients,
+            vaccinations = vaccinations,
+            inventory = inventory,
+            financeTransactions = financeTransactions,
+            vaccinationReminders = vaccinationReminders,
+            expenses = expenses,
+            selectedTab = tab,
+            isRefreshing = refreshing,
+            refreshError = refreshError,
+            isLoading = false
+        )
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(isLoading = true))
 
     fun updateTab(tab: Int) {
         _selectedTab.value = tab

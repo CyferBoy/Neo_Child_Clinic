@@ -117,9 +117,8 @@ interface InventoryRepository {
     suspend fun transferPatientTransactions(duplicateId: String, masterId: String)
     suspend fun refreshInventory()
 
-    // Stock History - reads the existing inventory_transactions table (no separate
-    // history table). Filtering happens in SQL and results are paginated so the
-    // screen never has to load the full transaction history into memory at once.
+    // Stock History - reads the inventory_transactions table. 
+    // Filtering happens in SQL and results are paginated.
     suspend fun getStockHistoryPage(
         vaccineId: String? = null,
         batchId: String? = null,
@@ -127,6 +126,7 @@ interface InventoryRepository {
         fromDateIso: String? = null,
         toDateIso: String? = null,
         limit: Int = 50,
-        offset: Int = 0
+        offset: Int = 0,
+        remoteOnly: Boolean = true
     ): List<InventoryTransactionEntity>
 }

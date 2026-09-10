@@ -251,6 +251,7 @@ class SyncRepositoryImpl @Inject constructor(
             "VACCINATION_ITEM", "CONSULTATION", "CONSULTATION_TODO", "VACCINATION_TODO", "WASTE", "BORROW" -> 3
             "BORROW_RETURN" -> 4
             "INVENTORY_TRANSACTION", "FINANCE" -> 4
+            "EXPENSE" -> 4
             "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG", "PERSONAL_REMINDER" -> 5
             else -> 100
         }
@@ -268,6 +269,7 @@ class SyncRepositoryImpl @Inject constructor(
             "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
             "PATIENT_NOTE" -> "patient_notes"
             "FINANCE" -> "finance_transactions"
+            "EXPENSE" -> "expenses"
             "PROFILE", "STAFF" -> "profiles"
             "BORROW" -> "borrow_records"
             "BORROW_RETURN" -> "borrow_returns"
@@ -380,6 +382,7 @@ class SyncRepositoryImpl @Inject constructor(
                 is BorrowReturnEntity -> postgrest.from(table).upsert(localData)
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
                 is PersonalReminderEntity -> postgrest.from(table).upsert(localData)
+                is ExpenseEntity -> postgrest.from(table).upsert(localData)
             }
         }
     }
@@ -518,6 +521,10 @@ class SyncRepositoryImpl @Inject constructor(
                 val entity = json.decodeFromJsonElement<PersonalReminderEntity>(element)
                 database.personalReminderDao().insert(entity.copy(isSynced = true))
             }
+            "EXPENSE" -> {
+                val entity = json.decodeFromJsonElement<ExpenseEntity>(element)
+                database.expenseDao().insertExpense(entity.copy(isSynced = true))
+            }
         }
     }
 
@@ -547,6 +554,7 @@ class SyncRepositoryImpl @Inject constructor(
             }
             is BorrowReturnEntity -> data.createdAt.ifBlank { data.returnedDate }
             is PersonalReminderEntity -> data.updatedAt
+            is ExpenseEntity -> data.updatedAt
             else -> ""
         }
     }
@@ -582,6 +590,7 @@ class SyncRepositoryImpl @Inject constructor(
                 "BORROW_RETURN" -> database.borrowReturnDao().getById(entityId)
                 "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId)
                 "PERSONAL_REMINDER" -> database.personalReminderDao().getById(entityId)
+                "EXPENSE" -> database.expenseDao().getExpenseById(entityId)
                 else -> null
             }
         } catch (e: Exception) {

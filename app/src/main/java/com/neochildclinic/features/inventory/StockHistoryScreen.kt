@@ -5,6 +5,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,6 +45,7 @@ fun StockHistoryScreen(
             viewModel.clearError()
         }
     }
+
 
     val filtersActive = uiState.selectedVaccineId != null || uiState.selectedBatchId != null ||
         uiState.selectedTypeFilter != StockHistoryTypeFilter.ALL ||
@@ -106,7 +108,22 @@ fun StockHistoryScreen(
                             )
                         }
                     } else {
+                        val listState = rememberLazyListState()
+
+                        LaunchedEffect(listState, uiState.transactions.size, uiState.canLoadMore) {
+                            snapshotFlow {
+                                val layout = listState.layoutInfo
+                                val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+                                lastVisible >= uiState.transactions.size - 5
+                            }.collect { shouldLoad ->
+                                if (shouldLoad && uiState.canLoadMore && !uiState.isLoadingMore) {
+                                    viewModel.loadMore()
+                                }
+                            }
+                        }
+
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -118,9 +135,11 @@ fun StockHistoryScreen(
                                     batchNumber = uiState.batchLabelById[transaction.batchId] ?: transaction.batchId
                                 )
                             }
-                            if (uiState.canLoadMore) {
+                            if (uiState.isLoadingMore) {
                                 item {
-                                    LoadMoreRow(isLoading = uiState.isLoadingMore, onClick = viewModel::loadMore)
+                                    Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
                                 }
                             }
                         }

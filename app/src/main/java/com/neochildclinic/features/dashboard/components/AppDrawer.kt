@@ -112,6 +112,14 @@ fun AppDrawer(
                 onClick = { onNavigate("personal_reminders") }
             )
 
+            // Expenses
+            DrawerMenuItem(
+                label = "Expenses",
+                icon = Icons.Default.Receipt,
+                isSelected = currentRoute == "expenses",
+                onClick = { onNavigate("expenses") }
+            )
+
             // Manage Staff
             if (userRole == UserRole.admin) {
                 DrawerMenuItem(

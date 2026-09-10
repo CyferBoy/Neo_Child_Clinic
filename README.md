@@ -151,6 +151,27 @@ Example:
 
 > 1 April 2026 - 31 March 2027 = Financial Year 26/27
 
+### 🧾 Expenses
+
+Separate expense management, kept as its own table (independent from vaccination,
+consultation, and inventory records):
+
+- Predefined expense categories (Rent, Electricity, Water, Internet, Staff Salary,
+  Medical Supplies, Vaccine Purchase, Equipment, Maintenance, Cleaning, Stationery,
+  Transportation, Marketing, Software/Subscription, Other).
+- Expense payment methods: Cash, Online/UPI, Bank.
+- Add, edit, and soft-delete expenses, with search, date/category/payment-method
+  filtering, and sorting.
+- Optional receipt attachment via the existing document/Storage system.
+- Staff accountability (created/updated by, with timestamps) and soft deletion, so
+  synchronized expense records are never permanently removed.
+- Offline-first: expenses are created/edited/deleted locally first and synchronized
+  through the app's existing sync queue.
+- Financial integration: expenses feed into Financial Statistics as their own line
+  (Total Expenses), alongside vaccination/consultation income, to compute Net Income -
+  without altering existing vaccination/consultation financial calculations. Uses the
+  same April-March financial year as the rest of Financial Management.
+
 ### 👨‍⚕️ Staff Management
 
 Supported roles:

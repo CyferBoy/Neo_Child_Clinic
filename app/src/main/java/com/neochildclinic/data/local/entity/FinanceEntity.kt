@@ -10,11 +10,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "finance_transactions",
-    indices = [Index("patientId"), Index("visitId"), Index("timestamp")]
+    indices = [Index("patientId"), Index("visitId"), Index("timestamp"), Index("transaction_date")]
 )
 data class FinanceEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
     val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    @SerialName("transaction_date") @ColumnInfo(name = "transaction_date") val transactionDate: String? = null,
     val type: String, // INCOME, EXPENSE
     val category: String, // VACCINATION, CONSULTATION, PURCHASE, etc.
     val amount: Double,

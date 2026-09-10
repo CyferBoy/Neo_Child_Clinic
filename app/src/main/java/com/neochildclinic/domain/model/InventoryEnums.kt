@@ -68,7 +68,8 @@ enum class StockHistoryTypeFilter(val label: String) {
     BORROWED("Borrowed"),
     RETURNED("Returned"),
     WASTE("Waste"),
-    ADJUSTMENT("Adjustment");
+    ADJUSTMENT("Adjustment"),
+    REVERSAL("Reversal");
 
     val transactionTypes: List<InventoryTransactionType>
         get() = when (this) {
@@ -86,8 +87,8 @@ enum class StockHistoryTypeFilter(val label: String) {
             )
             ADJUSTMENT -> listOf(
                 InventoryTransactionType.MANUAL_ADJUSTMENT,
-                InventoryTransactionType.ADJUSTMENT,
-                InventoryTransactionType.REVERSAL
+                InventoryTransactionType.ADJUSTMENT
             )
+            REVERSAL -> listOf(InventoryTransactionType.REVERSAL)
         }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,15 +24,19 @@ fun FinanceTable(
     filterMode: String,
     fyQuarter: Int = 0,
     selectedMonth: Int = -1,
-    onMonthClick: (String) -> Unit = {}
+    onMonthClick: (String) -> Unit = {},
+    visitDatesById: Map<String, String>? = null
 ) {
-    val displayData = FinanceCalculator.getMonthlyGroupedData(
-        transactions = transactions,
-        vaccinations = vaccinations,
-        filterMode = filterMode,
-        selectedQuarter = fyQuarter,
-        selectedMonth = selectedMonth
-    )
+    val displayData = remember(transactions, vaccinations, filterMode, fyQuarter, selectedMonth, visitDatesById) {
+        FinanceCalculator.getMonthlyGroupedData(
+            transactions = transactions,
+            vaccinations = vaccinations,
+            filterMode = filterMode,
+            selectedQuarter = fyQuarter,
+            selectedMonth = selectedMonth,
+            visitDatesById = visitDatesById
+        )
+    }
 
     Column(
         modifier = Modifier

@@ -8,6 +8,7 @@ import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.PersonalReminderRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -25,7 +26,8 @@ class RefreshDataUseCase @Inject constructor(
     private val reminderRepository: ReminderRepository,
     private val consultationRepository: ConsultationRepository,
     private val financeRepository: FinanceRepository,
-    private val personalReminderRepository: PersonalReminderRepository
+    private val personalReminderRepository: PersonalReminderRepository,
+    private val expenseRepository: ExpenseRepository
 ) {
     suspend operator fun invoke() = coroutineScope {
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
@@ -36,6 +38,10 @@ class RefreshDataUseCase @Inject constructor(
         // this is skipped (e.g. after the app's local data was cleared), Financial
         // Statistics has nothing to read and shows zero everywhere until this runs.
         financeRepository.refreshTransactions()
+        // Expenses has no FK dependencies on any other synced table, so it can refresh
+        // independently at any point - placed here alongside the other finance-adjacent
+        // pull so Financial Statistics has expense data available as soon as possible.
+        expenseRepository.refreshExpenses()
         // Remote vaccination records may arrive after the application-startup migration.
         // Re-run the idempotent COGS snapshot migration after refresh so legacy finance rows
         // are upgraded as soon as their linked vaccinations are available locally.

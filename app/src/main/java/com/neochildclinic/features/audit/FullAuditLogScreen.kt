@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,13 +65,37 @@ fun FullAuditLogScreen(
                         Text("No audit logs found", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
+                    val listState = rememberLazyListState()
+
+                    LaunchedEffect(listState, uiState.logs.size, uiState.hasMore) {
+                        snapshotFlow {
+                            val layout = listState.layoutInfo
+                            val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+                            lastVisible >= uiState.logs.size - 5
+                        }.collect { shouldLoadMore ->
+                            if (shouldLoadMore) viewModel.loadMore()
+                        }
+                    }
+
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(uiState.logs, key = { it.id }) { log ->
                             AuditLogItem(log)
+                        }
+
+                        if (uiState.isLoadingMore) {
+                            item(key = "audit_loading_more") {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                }
+                            }
                         }
                     }
                 }

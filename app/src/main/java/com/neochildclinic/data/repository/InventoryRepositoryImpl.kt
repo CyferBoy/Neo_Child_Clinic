@@ -15,6 +15,7 @@ import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -332,18 +333,35 @@ class InventoryRepositoryImpl @Inject constructor(
         fromDateIso: String?,
         toDateIso: String?,
         limit: Int,
-        offset: Int
+        offset: Int,
+        remoteOnly: Boolean
     ): List<InventoryTransactionEntity> {
-        return vaccineDao.getFilteredTransactionsPage(
-            vaccineId = vaccineId,
-            batchId = batchId,
-            types = types.map { it.name },
-            typesEmpty = types.isEmpty(),
-            fromDate = fromDateIso,
-            toDate = toDateIso,
-            limit = limit,
-            offset = offset
-        )
+        if (!remoteOnly) {
+            return vaccineDao.getFilteredTransactionsPage(
+                vaccineId = vaccineId,
+                batchId = batchId,
+                types = types.map { it.name },
+                typesEmpty = types.isEmpty(),
+                fromDate = fromDateIso,
+                toDate = toDateIso,
+                limit = limit,
+                offset = offset
+            )
+        }
+
+        return withContext(Dispatchers.IO) {
+            postgrest.from("inventory_transactions").select {
+                filter {
+                    if (vaccineId != null) eq("vaccine_id", vaccineId)
+                    if (batchId != null) eq("batch_id", batchId)
+                    if (types.isNotEmpty()) isIn("transaction_type", types.map { it.name })
+                    if (fromDateIso != null) gte("timestamp", fromDateIso)
+                    if (toDateIso != null) lte("timestamp", toDateIso + "T23:59:59")
+                }
+                order("timestamp", Order.DESCENDING)
+                range(offset.toLong(), (offset + limit - 1).toLong())
+            }.decodeList<InventoryTransactionEntity>()
+        }
     }
 
     override suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String?) {

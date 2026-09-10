@@ -29,12 +29,18 @@ data class VaccineSelectionState(
     val quantity: Int = 1
 )
 
-data class NextVaccinationState(
+data class NextVaccinationItem(
+    val id: String = UUID.randomUUID().toString(),
     val reminderId: String? = null,
     val type: String = "",
-    val nextVaccines: List<InventoryItem> = emptyList(),
-    val dueDate: String = "",
+    val vaccine: InventoryItem? = null,
     val typeError: Boolean = false
+)
+
+data class NextVaccinationGroup(
+    val id: String = UUID.randomUUID().toString(),
+    val dueDate: String = "",
+    val items: List<NextVaccinationItem> = listOf(NextVaccinationItem())
 )
 
 data class AddVaccinationUiState(
@@ -48,7 +54,7 @@ data class AddVaccinationUiState(
     val doctorError: Boolean = false,
     val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
-    val nextVaccinations: List<NextVaccinationState> = emptyList(),
+    val nextVaccinationGroups: List<NextVaccinationGroup> = emptyList(),
     val cashAmount: String = "0",
     val onlineAmount: String = "0",
     val totalAmount: Double = 0.0,
@@ -171,16 +177,27 @@ class AddVaccinationViewModel @Inject constructor(
 
             // Load existing Next Vaccination entries directly from reminders.
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
-            val nextStates = reminders.filter { it.status == "ACTIVE" && it.reminderEnabled }.map { reminder ->
-                val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
-                val nextVaccines = nextVaccineIds.mapNotNull { id -> inventory.find { it.id == id } }
-                NextVaccinationState(
-                    reminderId = reminder.id,
-                    type = reminder.type,
-                    dueDate = reminder.dueDate,
-                    nextVaccines = nextVaccines
-                )
-            }
+            val groups = reminders.filter { it.status == "ACTIVE" && it.reminderEnabled }
+                .groupBy { it.dueDate }
+                .map { (dueDate, groupReminders) ->
+                    NextVaccinationGroup(
+                        dueDate = dueDate,
+                        items = groupReminders.flatMap { reminder ->
+                            val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
+                            if (nextVaccineIds.isEmpty()) {
+                                listOf(NextVaccinationItem(reminderId = reminder.id, type = reminder.type, vaccine = null))
+                            } else {
+                                nextVaccineIds.map { id ->
+                                    NextVaccinationItem(
+                                        reminderId = reminder.id,
+                                        type = reminder.type,
+                                        vaccine = inventory.find { it.id == id }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
 
             val existingDoctor = _uiState.value.allDoctors.firstOrNull {
                 it.employeeId == vaccination.doctorId || it.id == vaccination.doctorId
@@ -191,7 +208,7 @@ class AddVaccinationViewModel @Inject constructor(
                 givenDate = vaccination.dateGiven,
                 selectedDoctor = existingDoctor ?: it.selectedDoctor,
                 vaccinesGiven = if (items.isNotEmpty()) items else listOf(VaccineSelectionState()),
-                nextVaccinations = nextStates,
+                nextVaccinationGroups = groups,
                 cashAmount = vaccination.cashAmount.toInt().toString(),
                 onlineAmount = vaccination.onlineAmount.toInt().toString(),
                 totalAmount = vaccination.totalPaid,
@@ -344,103 +361,123 @@ class AddVaccinationViewModel @Inject constructor(
         _uiState.update { it.copy(doctorsAcc = enabled) }
     }
 
-    fun addNextVaccination() {
-        _uiState.update { it.copy(nextVaccinations = it.nextVaccinations + NextVaccinationState()) }
+    fun addNextVaccinationGroup() {
+        _uiState.update { it.copy(nextVaccinationGroups = it.nextVaccinationGroups + NextVaccinationGroup()) }
     }
 
-    fun removeNextVaccination(index: Int) {
+    fun removeNextVaccinationGroup(groupId: String) {
         _uiState.update { state ->
-            if (index !in state.nextVaccinations.indices) state
-            else state.copy(nextVaccinations = state.nextVaccinations.toMutableList().also { it.removeAt(index) })
+            state.copy(nextVaccinationGroups = state.nextVaccinationGroups.filter { it.id != groupId })
         }
     }
 
-    fun cancelNextVaccination(index: Int) {
-        val state = _uiState.value
-        val row = state.nextVaccinations.getOrNull(index) ?: return
-        val reminderId = row.reminderId
+    fun updateNextVaccinationGroupDate(groupId: String, dueDate: String) {
+        _uiState.update { state ->
+            state.copy(nextVaccinationGroups = state.nextVaccinationGroups.map { group ->
+                if (group.id == groupId) group.copy(dueDate = dueDate) else group
+            })
+        }
+    }
+
+    fun addNextVaccinationItem(groupId: String) {
+        _uiState.update { state ->
+            state.copy(nextVaccinationGroups = state.nextVaccinationGroups.map { group ->
+                if (group.id == groupId) group.copy(items = group.items + NextVaccinationItem()) else group
+            })
+        }
+    }
+
+    fun removeNextVaccinationItem(groupId: String, itemId: String) {
+        _uiState.update { state ->
+            state.copy(nextVaccinationGroups = state.nextVaccinationGroups.map { group ->
+                if (group.id == groupId) {
+                    val updatedItems = group.items.filter { it.id != itemId }
+                    group.copy(items = updatedItems.ifEmpty { listOf(NextVaccinationItem()) })
+                } else group
+            })
+        }
+    }
+
+    fun updateNextVaccinationItem(groupId: String, itemId: String, type: String? = null, vaccine: InventoryItem? = null) {
+        _uiState.update { state ->
+            state.copy(nextVaccinationGroups = state.nextVaccinationGroups.map { group ->
+                if (group.id == groupId) {
+                    group.copy(items = group.items.map { item ->
+                        if (item.id == itemId) {
+                            item.copy(
+                                type = type ?: item.type,
+                                vaccine = if (type != null) null else (vaccine ?: item.vaccine),
+                                typeError = if (type != null) false else item.typeError
+                            )
+                        } else item
+                    })
+                } else group
+            })
+        }
+    }
+
+    fun cancelNextVaccinationGroup(groupId: String) {
+        val group = _uiState.value.nextVaccinationGroups.find { it.id == groupId } ?: return
+        viewModelScope.launch {
+            try {
+                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                group.items.forEach { item ->
+                    item.reminderId?.let { rId ->
+                        val reminder = reminderRepository.getReminderById(rId) ?: return@let
+                        reminderRepository.dismissReminder(reminder, "Cancelled from Next Vaccination Group", user)
+                        cancelledNextReminderIds += rId
+                    }
+                }
+                _uiState.update { state ->
+                    state.copy(nextVaccinationGroups = state.nextVaccinationGroups.filter { it.id != groupId })
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel group") }
+            }
+        }
+    }
+
+    fun cancelNextVaccinationItem(groupId: String, itemId: String) {
+        val group = _uiState.value.nextVaccinationGroups.find { it.id == groupId } ?: return
+        val item = group.items.find { it.id == itemId } ?: return
+        val reminderId = item.reminderId
+
         if (reminderId.isNullOrBlank()) {
-            removeNextVaccination(index)
+            removeNextVaccinationItem(groupId, itemId)
             return
         }
+
         viewModelScope.launch {
             try {
                 val reminder = reminderRepository.getReminderById(reminderId) ?: return@launch
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
-                reminderRepository.dismissReminder(reminder, "Cancelled from Next Vaccination", user)
-                cancelledNextReminderIds += reminderId
-                _uiState.update { current ->
-                    current.copy(nextVaccinations = current.nextVaccinations.toMutableList().also {
-                        if (index in it.indices) it.removeAt(index)
+
+                if (reminder.nxtVaccineId != null && reminder.nxtVaccineId.size > 1 && item.vaccine != null) {
+                    // It's a multi-vaccine reminder, but our UI redesign treats them as separate items.
+                    // The underlying repository logic for cancelNextVaccinationVaccine expects the ID.
+                    reminderRepository.cancelNextVaccinationVaccine(
+                        reminder = reminder,
+                        vaccineId = item.vaccine.id,
+                        reason = "Cancelled from Next Vaccination",
+                        performedBy = user
+                    )
+                } else {
+                    // Single vaccine or type-only reminder
+                    reminderRepository.dismissReminder(reminder, "Cancelled from Next Vaccination", user)
+                    cancelledNextReminderIds += reminderId
+                }
+
+                _uiState.update { state ->
+                    state.copy(nextVaccinationGroups = state.nextVaccinationGroups.map { g ->
+                        if (g.id == groupId) {
+                            val updated = g.items.filter { it.id != itemId }
+                            g.copy(items = updated.ifEmpty { listOf(NextVaccinationItem()) })
+                        } else g
                     })
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel next vaccination") }
+                _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel item") }
             }
-        }
-    }
-
-    fun cancelNextVaccinationVaccine(index: Int, vaccine: InventoryItem) {
-        val state = _uiState.value
-        val row = state.nextVaccinations.getOrNull(index) ?: return
-        val reminderId = row.reminderId
-        if (reminderId.isNullOrBlank()) {
-            toggleNextVaccinationVaccine(index, vaccine)
-            return
-        }
-        viewModelScope.launch {
-            try {
-                val reminder = reminderRepository.getReminderById(reminderId) ?: return@launch
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
-                reminderRepository.cancelNextVaccinationVaccine(
-                    reminder = reminder,
-                    vaccineId = vaccine.id,
-                    reason = "Cancelled from Next Vaccination",
-                    performedBy = user
-                )
-                val remaining = row.nextVaccines.filter { it.id != vaccine.id }
-                if (remaining.isEmpty()) cancelledNextReminderIds += reminderId
-                _uiState.update { current ->
-                    val rows = current.nextVaccinations.toMutableList()
-                    if (index in rows.indices) {
-                        if (remaining.isEmpty()) rows.removeAt(index)
-                        else rows[index] = rows[index].copy(nextVaccines = remaining)
-                    }
-                    current.copy(nextVaccinations = rows)
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel vaccine") }
-            }
-        }
-    }
-
-    fun updateNextVaccinationType(index: Int, type: String) {
-        _uiState.update { state ->
-            if (index !in state.nextVaccinations.indices) return@update state
-            val rows = state.nextVaccinations.toMutableList()
-            rows[index] = rows[index].copy(type = type, nextVaccines = emptyList(), typeError = false)
-            state.copy(nextVaccinations = rows)
-        }
-    }
-
-    fun toggleNextVaccinationVaccine(index: Int, vaccine: InventoryItem) {
-        _uiState.update { state ->
-            if (index !in state.nextVaccinations.indices) return@update state
-            val rows = state.nextVaccinations.toMutableList()
-            val current = rows[index].nextVaccines
-            rows[index] = rows[index].copy(
-                nextVaccines = if (current.any { it.id == vaccine.id }) current.filter { it.id != vaccine.id } else current + vaccine
-            )
-            state.copy(nextVaccinations = rows)
-        }
-    }
-
-    fun updateNextVaccinationDueDate(index: Int, dueDate: String) {
-        _uiState.update { state ->
-            if (index !in state.nextVaccinations.indices) return@update state
-            val rows = state.nextVaccinations.toMutableList()
-            rows[index] = rows[index].copy(dueDate = dueDate)
-            state.copy(nextVaccinations = rows)
         }
     }
 
@@ -478,15 +515,31 @@ class AddVaccinationViewModel @Inject constructor(
             }
         }
 
-        val nextRows = state.nextVaccinations
-        val invalidIndex = nextRows.indexOfFirst { it.type.isBlank() || it.dueDate.isBlank() }
-        if (invalidIndex >= 0) {
-            val rows = nextRows.toMutableList()
-            rows[invalidIndex] = rows[invalidIndex].copy(typeError = rows[invalidIndex].type.isBlank())
-            _uiState.update { it.copy(
-                errorMessage = "Each Next Vaccination entry requires a Type and Due Date.",
-                nextVaccinations = rows
-            ) }
+        val nextGroups = state.nextVaccinationGroups
+        var firstInvalidGroup: String? = null
+        var firstInvalidItem: String? = null
+
+        nextGroups.forEach { group ->
+            if (group.dueDate.isBlank()) {
+                if (firstInvalidGroup == null) firstInvalidGroup = group.id
+            }
+            group.items.forEach { item ->
+                if (item.type.isBlank()) {
+                    if (firstInvalidGroup == null) firstInvalidGroup = group.id
+                    if (firstInvalidItem == null) firstInvalidItem = item.id
+                }
+            }
+        }
+
+        if (firstInvalidGroup != null) {
+            _uiState.update { s ->
+                s.copy(
+                    errorMessage = "Each Next Vaccination entry requires a Type and Due Date.",
+                    nextVaccinationGroups = s.nextVaccinationGroups.map { g ->
+                        g.copy(items = g.items.map { it.copy(typeError = it.type.isBlank()) })
+                    }
+                )
+            }
             return
         }
 
@@ -542,26 +595,33 @@ class AddVaccinationViewModel @Inject constructor(
                     performedBy = state.selectedDoctor.displayName,
                     items = items,
                     nextVaccinations = emptyList(),
-                    // Every record saved through this screen represents a dose that was
-                    // actually administered - status must be COMPLETED for it to count in
-                    // statistics (StatisticsUtils.isCountedVaccination) and appear under
-                    // Completed (CompletedDismissedScreen). Without this it silently keeps
-                    // the domain model's ACTIVE default, which also means editing an
-                    // existing COMPLETED record would revert it back to ACTIVE.
                     status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED
                 )
 
-                if (isEdit && existingVaccination != null) {
-                    val reminderSpecs = nextRows.map { next ->
+                // Transform grouped UI state back to flat ReminderSpec list
+                val reminderSpecs = nextGroups.flatMap { group ->
+                    // Group items by Type under the same Date to keep compatibility with existing ReminderRepository logic
+                    // which expects a list of vaccines for a single type.
+                    // Actually, the requirements say "Each Type + Vaccine combination creates a separate reminder item".
+                    // But the existing repository saveNextVaccination takes List<String> vaccineNames.
+                    // If we want "separate reminder item" for each combo, we should send them one by one.
+                    // HOWEVER, if they have the same Type and same Date, they are usually grouped in this app.
+                    // Let's stick to the "Each combo is a row" in UI, but keep the "Type-based grouping" for saving
+                    // if they share the same Type and Date, OR just send them as individual specs.
+                    // The requirement says: 15 Oct 2026 Booster -> DPT, Primary -> MMR, Optional -> NULL
+                    // creates 3 separate reminders.
+                    group.items.map { item ->
                         VaccinationEditEngine.ReminderSpec(
-                            type = next.type,
-                            vaccineNames = next.nextVaccines.map { it.brandName },
-                            vaccineIds = next.nextVaccines.map { it.id },
-                            dueDate = next.dueDate,
+                            type = item.type,
+                            vaccineNames = listOfNotNull(item.vaccine?.brandName),
+                            vaccineIds = listOfNotNull(item.vaccine?.id),
+                            dueDate = group.dueDate,
                             notes = "Scheduled during visit on ${state.givenDate}"
                         )
                     }
+                }
 
+                if (isEdit && existingVaccination != null) {
                     // All edit side effects are diff-driven. Unchanged inventory, finance,
                     // vaccination-item identity, and reminders produce no transactions.
                     vaccinationEditEngine.execute(
@@ -575,15 +635,15 @@ class AddVaccinationViewModel @Inject constructor(
                     // New vaccination keeps the existing creation workflow.
                     clinicalService.recordVaccination(vaccination, user, isNew = true)
 
-                    nextRows.forEach { next ->
+                    reminderSpecs.forEach { spec ->
                         reminderRepository.saveNextVaccination(
                             patientId = patient.id,
                             originalVisitId = vaccinationId,
-                            type = next.type,
-                            vaccineNames = next.nextVaccines.map { it.brandName },
-                            nxtVaccineId = next.nextVaccines.map { it.id },
-                            dueDate = next.dueDate,
-                            notes = "Scheduled during visit on ${state.givenDate}",
+                            type = spec.type,
+                            vaccineNames = spec.vaccineNames,
+                            nxtVaccineId = spec.vaccineIds,
+                            dueDate = spec.dueDate,
+                            notes = spec.notes,
                             performedBy = user
                         )
                     }

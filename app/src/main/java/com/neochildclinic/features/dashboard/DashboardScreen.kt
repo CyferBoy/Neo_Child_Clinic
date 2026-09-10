@@ -40,6 +40,7 @@ fun DashboardScreen(
     onWaste: () -> Unit = {},
     onTodayPatients: () -> Unit = {},
     onPersonalReminders: () -> Unit = {},
+    onExpenses: () -> Unit = {},
     onManageStaff: () -> Unit = {},
     onLogout: () -> Unit = {},
     onSettings: () -> Unit = {},
@@ -100,6 +101,7 @@ fun DashboardScreen(
                         "vaccine_inventory" -> onAddVaccine()
                         "statistics" -> onStatistics()
                         "personal_reminders" -> onPersonalReminders()
+                        "expenses" -> onExpenses()
                         "manage_staff" -> onManageStaff()
                         "audit_logs" -> onAuditLogs()
                     }

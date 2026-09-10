@@ -1,5 +1,6 @@
 package com.neochildclinic.data.repository
 
+import android.util.Log
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.session.SessionManager
@@ -128,16 +129,19 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refresh() {
-        val remote = postgrest.from("personal_vaccine_reminders").select()
-            .decodeList<PersonalReminderEntity>()
-        remote.forEach { r ->
-            val local = dao.getById(r.id)
-            // Self-healing merge, mirroring PatientTodoRepositoryImpl.refresh(): only
-            // overwrite a row that either doesn't exist locally yet, or has no
-            // un-synced local edits pending upload.
-            if (local == null || local.isSynced) {
-                dao.insert(r.copy(isSynced = true))
+        try {
+            val remote = postgrest.from("personal_vaccine_reminders").select()
+                .decodeList<PersonalReminderEntity>()
+            Log.d("PersonalReminder", "Remote refresh: fetched ${remote.size} reminders")
+            remote.forEach { r ->
+                val local = dao.getById(r.id)
+                if (local == null || local.isSynced) {
+                    dao.insert(r.copy(isSynced = true))
+                }
             }
+        } catch (e: Exception) {
+            Log.e("PersonalReminder", "Refresh failed", e)
+            throw e
         }
     }
 }

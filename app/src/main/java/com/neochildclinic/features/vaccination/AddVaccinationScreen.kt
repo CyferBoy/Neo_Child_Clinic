@@ -249,33 +249,33 @@ fun AddVaccinationScreen(
                         onCheckedChange = { editNextVaccination = it }
                     )
                     if (isEdit && !editNextVaccination) {
-                        ReadOnlyValue(if (uiState.nextVaccinations.isEmpty()) "No next vaccination" else uiState.nextVaccinations.joinToString("\n") { row ->
-                            val vaccines = row.nextVaccines.joinToString(", ") { it.brandName }
-                            if (vaccines.isNotBlank()) "$vaccines • Due: ${row.dueDate}" else "${row.type} • Due: ${row.dueDate}"
+                        ReadOnlyValue(if (uiState.nextVaccinationGroups.isEmpty()) "No next vaccination" else uiState.nextVaccinationGroups.joinToString("\n") { group ->
+                            val itemsStr = group.items.joinToString(", ") { it.vaccine?.brandName ?: it.type }
+                            "$itemsStr • Due: ${group.dueDate}"
                         })
                     }
                 }
                 if (!isEdit || editNextVaccination) {
-                    items(uiState.nextVaccinations.indices.toList(), key = { it }) { index ->
-                        NextVaccinationSection(
-                            index = index,
-                            state = uiState.nextVaccinations[index],
+                    items(uiState.nextVaccinationGroups, key = { it.id }) { group ->
+                        NextVaccinationGroupCard(
+                            group = group,
                             inventory = uiState.inventory,
                             availableTypes = uiState.availableDueTypes,
-                            canRemove = true,
-                            onTypeSelected = { viewModel.updateNextVaccinationType(index, it) },
-                            onVaccineToggled = { viewModel.toggleNextVaccinationVaccine(index, it) },
-                            onDueDateSelected = { viewModel.updateNextVaccinationDueDate(index, it) },
-                            onRemove = { viewModel.removeNextVaccination(index) },
-                            onCancel = { viewModel.cancelNextVaccination(index) },
-                            onVaccineCancel = { viewModel.cancelNextVaccinationVaccine(index, it) }
+                            onDueDateSelected = { viewModel.updateNextVaccinationGroupDate(group.id, it) },
+                            onAddItem = { viewModel.addNextVaccinationItem(group.id) },
+                            onRemoveGroup = { viewModel.removeNextVaccinationGroup(group.id) },
+                            onCancelGroup = { viewModel.cancelNextVaccinationGroup(group.id) },
+                            onTypeSelected = { itemId, type -> viewModel.updateNextVaccinationItem(group.id, itemId, type = type) },
+                            onVaccineSelected = { itemId, vaccine -> viewModel.updateNextVaccinationItem(group.id, itemId, vaccine = vaccine) },
+                            onRemoveItem = { itemId -> viewModel.removeNextVaccinationItem(group.id, itemId) },
+                            onCancelItem = { itemId -> viewModel.cancelNextVaccinationItem(group.id, itemId) }
                         )
                     }
                     item {
-                        OutlinedButton(onClick = { viewModel.addNextVaccination() }, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { viewModel.addNextVaccinationGroup() }, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
-                            Text(if (uiState.nextVaccinations.isEmpty()) "Add Next Vaccination" else "Add Another Next Vaccination")
+                            Text(if (uiState.nextVaccinationGroups.isEmpty()) "Add Next Vaccination" else "Add Another Date")
                         }
                     }
                 }
@@ -522,155 +522,194 @@ private fun PaymentSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NextVaccinationSection(
-    index: Int,
-    state: NextVaccinationState,
+private fun NextVaccinationGroupCard(
+    group: NextVaccinationGroup,
     inventory: List<InventoryItem>,
     availableTypes: List<String>,
-    canRemove: Boolean,
-    onTypeSelected: (String) -> Unit,
-    onVaccineToggled: (InventoryItem) -> Unit,
     onDueDateSelected: (String) -> Unit,
-    onRemove: () -> Unit,
-    onCancel: () -> Unit,
-    onVaccineCancel: (InventoryItem) -> Unit
+    onAddItem: () -> Unit,
+    onRemoveGroup: () -> Unit,
+    onCancelGroup: () -> Unit,
+    onTypeSelected: (String, String) -> Unit,
+    onVaccineSelected: (String, InventoryItem?) -> Unit,
+    onRemoveItem: (String) -> Unit,
+    onCancelItem: (String) -> Unit
 ) {
-    var vaccineExpanded by remember { mutableStateOf(false) }
-    var showCancelDialog by remember(state.reminderId) { mutableStateOf(false) }
-    var vaccineToCancel by remember { mutableStateOf<InventoryItem?>(null) }
+    var showCancelGroupDialog by remember { mutableStateOf(false) }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f))
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Group Header: Date and Group Actions
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Next Vaccination ${index + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                if (state.reminderId != null) {
-                    TextButton(onClick = { showCancelDialog = true }) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    DateDropdownPicker(
+                        label = "Due Date*",
+                        currentDate = group.dueDate,
+                        onDateSelected = onDueDateSelected
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                if (group.items.any { it.reminderId != null }) {
+                    TextButton(onClick = { showCancelGroupDialog = true }) {
+                        Text("Cancel Group", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                     }
-                } else if (canRemove) {
-                    IconButton(onClick = onRemove) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Remove next vaccination")
+                } else {
+                    IconButton(onClick = onRemoveGroup) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Remove date group", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
 
-            DueVaccinationTypeDropdown(
-                types = availableTypes,
-                selectedType = state.type,
-                onTypeSelected = onTypeSelected,
-                label = "Type*",
-                isError = state.typeError
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-            // Vaccine picker for this section now mirrors the Batch field's UX in the
-            // Vaccine & Batch section above: a plain tap-to-open dropdown listing the
-            // available options, not a free-text search field. (Multiple vaccines can
-            // still be picked - the dropdown just closes after each pick, same as Batch.)
-            val filteredVaccines = if (state.type.isBlank()) {
-                emptyList()
-            } else {
-                inventory.filter { it.type.equals(state.type, ignoreCase = true) }
-            }
-            ExposedDropdownMenuBox(
-                expanded = vaccineExpanded,
-                onExpandedChange = { if (state.type.isNotBlank()) vaccineExpanded = it }
-            ) {
-                StandardTextField(
-                    value = if (state.type.isBlank()) "Select a Type first" else "Select Vaccine",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = "Vaccine (Optional)",
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaccineExpanded) }
+            // Items List
+            group.items.forEachIndexed { index, item ->
+                NextVaccinationItemRow(
+                    item = item,
+                    inventory = inventory,
+                    availableTypes = availableTypes,
+                    onTypeSelected = { onTypeSelected(item.id, it) },
+                    onVaccineSelected = { onVaccineSelected(item.id, it) },
+                    onRemove = { onRemoveItem(item.id) },
+                    onCancel = { onCancelItem(item.id) }
                 )
-                ExposedDropdownMenu(
-                    expanded = vaccineExpanded,
-                    onDismissRequest = { vaccineExpanded = false }
-                ) {
-                    if (filteredVaccines.isEmpty()) {
-                        DropdownMenuItem(text = { Text("No vaccines found for \"${state.type}\"") }, onClick = {}, enabled = false)
-                    }
-                    filteredVaccines.forEach { vaccine ->
-                        val isSelected = state.nextVaccines.any { it.id == vaccine.id }
-                        DropdownMenuItem(
-                            text = { Text(vaccine.brandName) },
-                            leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null,
-                            onClick = { onVaccineToggled(vaccine); vaccineExpanded = false }
-                        )
-                    }
+                if (index < group.items.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                 }
             }
 
-            if (state.nextVaccines.isNotEmpty()) {
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    state.nextVaccines.forEach { vaccine ->
-                        InputChip(
-                            selected = true,
-                            onClick = {
-                                if (state.reminderId != null) vaccineToCancel = vaccine
-                                else onVaccineToggled(vaccine)
-                            },
-                            label = { Text(vaccine.brandName) },
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = {
-                                        if (state.reminderId != null) vaccineToCancel = vaccine
-                                        else onVaccineToggled(vaccine)
-                                    },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = if (state.reminderId != null) "Cancel ${vaccine.brandName}" else "Remove", modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        )
-                    }
-                }
+            // Add Item Button
+            TextButton(
+                onClick = onAddItem,
+                modifier = Modifier.align(Alignment.Start),
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Add Vaccine/Type")
             }
-
-            DateDropdownPicker(
-                label = "Due Date*",
-                currentDate = state.dueDate,
-                onDateSelected = onDueDateSelected
-            )
         }
     }
 
-    if (showCancelDialog) {
+    if (showCancelGroupDialog) {
         AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text("Cancel Next Vaccination") },
-            text = { Text("Cancel this entire next vaccination visit and all its vaccines?") },
+            onDismissRequest = { showCancelGroupDialog = false },
+            title = { Text("Cancel Group") },
+            text = { Text("Cancel all vaccinations scheduled for ${group.dueDate}?") },
             confirmButton = {
-                TextButton(onClick = { showCancelDialog = false; onCancel() }) {
-                    Text("Cancel Vaccination", color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { showCancelGroupDialog = false; onCancelGroup() }) {
+                    Text("Cancel All", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) { Text("Keep") }
+                TextButton(onClick = { showCancelGroupDialog = false }) { Text("Keep") }
             }
         )
     }
+}
 
-    vaccineToCancel?.let { vaccine ->
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NextVaccinationItemRow(
+    item: NextVaccinationItem,
+    inventory: List<InventoryItem>,
+    availableTypes: List<String>,
+    onTypeSelected: (String) -> Unit,
+    onVaccineSelected: (InventoryItem?) -> Unit,
+    onRemove: () -> Unit,
+    onCancel: () -> Unit
+) {
+    var vaccineExpanded by remember { mutableStateOf(false) }
+    var showCancelItemDialog by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Type Dropdown
+            Box(modifier = Modifier.weight(1f)) {
+                DueVaccinationTypeDropdown(
+                    types = availableTypes,
+                    selectedType = item.type,
+                    onTypeSelected = onTypeSelected,
+                    label = "Type*",
+                    isError = item.typeError
+                )
+            }
+
+            // Item Actions
+            if (item.reminderId != null) {
+                IconButton(onClick = { showCancelItemDialog = true }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Cancel item", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                }
+            } else {
+                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove item", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        // Vaccine Dropdown (filtered by Type)
+        val filteredVaccines = if (item.type.isBlank()) {
+            emptyList()
+        } else {
+            inventory.filter { it.type.equals(item.type, ignoreCase = true) }
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = vaccineExpanded,
+            onExpandedChange = { if (item.type.isNotBlank()) vaccineExpanded = it }
+        ) {
+            StandardTextField(
+                value = item.vaccine?.brandName ?: if (item.type.isBlank()) "Select a Type first" else "None (Optional)",
+                onValueChange = {},
+                readOnly = true,
+                label = "Vaccine",
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaccineExpanded) }
+            )
+            ExposedDropdownMenu(
+                expanded = vaccineExpanded,
+                onDismissRequest = { vaccineExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("None") },
+                    onClick = { onVaccineSelected(null); vaccineExpanded = false },
+                    leadingIcon = { if (item.vaccine == null) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
+                )
+                filteredVaccines.forEach { vaccine ->
+                    val isSelected = item.vaccine?.id == vaccine.id
+                    DropdownMenuItem(
+                        text = { Text(vaccine.brandName) },
+                        leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null,
+                        onClick = { onVaccineSelected(vaccine); vaccineExpanded = false }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showCancelItemDialog) {
         AlertDialog(
-            onDismissRequest = { vaccineToCancel = null },
-            title = { Text("Cancel Vaccine") },
-            text = { Text("Cancel ${vaccine.brandName} from this next vaccination? Other vaccines in this visit will remain active.") },
+            onDismissRequest = { showCancelItemDialog = false },
+            title = { Text("Cancel Item") },
+            text = { Text("Cancel this ${item.type} ${item.vaccine?.brandName ?: ""} reminder?") },
             confirmButton = {
-                TextButton(onClick = { vaccineToCancel = null; onVaccineCancel(vaccine) }) {
-                    Text("Cancel Vaccine", color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { showCancelItemDialog = false; onCancel() }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { vaccineToCancel = null }) { Text("Keep") }
+                TextButton(onClick = { showCancelItemDialog = false }) { Text("Keep") }
             }
         )
     }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
+import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -20,7 +21,8 @@ data class CompletedDismissedUiState(
 @HiltViewModel
 class CompletedDismissedViewModel @Inject constructor(
     private val getPatientsUseCase: GetPatientsUseCase,
-    private val reminderRepository: ReminderRepository
+    private val reminderRepository: ReminderRepository,
+    private val auth: Auth
 ) : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -43,6 +45,20 @@ class CompletedDismissedViewModel @Inject constructor(
             isRefreshing = refreshing
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CompletedDismissedUiState(isLoading = true))
+
+    fun restoreReminders(vaccination: Vaccination) {
+        viewModelScope.launch {
+            try {
+                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                vaccination.nextVaccinations.forEach { summary ->
+                    val reminder = reminderRepository.getReminderById(summary.reminderId)
+                    if (reminder != null) {
+                        reminderRepository.restoreReminder(reminder, user)
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {

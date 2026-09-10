@@ -29,7 +29,7 @@ data class FinanceStatsData(
     val vaccineCost: Double,
     val grossProfit: Double,
     val netProfit: Double,
-    val invalidTimestampCount: Int = 0,
+    val invalidTransactionDateCount: Int = 0,
     val unmatchedVaccinationIncomeCount: Int = 0,
     val missingCogsSnapshotCount: Int = 0,
     val unrecordedVaccinationPaymentCount: Int = 0,
@@ -43,20 +43,23 @@ object FinanceCalculator {
     private const val COGS_MARKER = "[COGS_SNAPSHOT:"
 
     /**
-     * The date Financial Statistics must report a transaction under - "when did this
-     * revenue actually happen", not "when was this record entered". A transaction linked
-     * to a visit (vaccination OR consultation - both live in patient_visits, keyed by the
-     * same visitId) is reported under that visit's actual dateGiven. Everything else
-     * (expenses, or a transaction with no matching visit) falls back to the technical
-     * finance_transactions.timestamp, which is left untouched in the database either way -
-     * this only changes what date Statistics groups/filters by.
+     * The authoritative reporting date for a finance transaction.
+     * transaction_date represents when the financial activity occurred; timestamp
+     * remains the technical record creation/update timestamp.
+     *
+     * If transaction_date is missing but a visitId is present, the visit's date
+     * can be used as a fallback if provided in the optional visitDates map.
      */
-    fun resolveReportingDate(transaction: FinanceEntity, visitDatesById: Map<String, String>): String {
+    fun resolveReportingDate(transaction: FinanceEntity, visitDates: Map<String, String>? = null): String {
+        val transactionDate = transaction.transactionDate?.takeIf { it.isNotBlank() }
+        if (transactionDate != null) return transactionDate
+
         val visitId = transaction.visitId
-        if (!visitId.isNullOrBlank()) {
-            val visitDate = visitDatesById[visitId]
+        if (!visitId.isNullOrBlank() && visitDates != null) {
+            val visitDate = visitDates[visitId]
             if (!visitDate.isNullOrBlank()) return visitDate
         }
+
         return transaction.timestamp
     }
 
@@ -64,11 +67,15 @@ object FinanceCalculator {
         transactions: List<FinanceEntity>,
         vaccinationsForCogs: List<Vaccination>,
         allTransactionsForReconciliation: List<FinanceEntity> = transactions,
-        vaccinationsForReconciliation: List<Vaccination> = vaccinationsForCogs
+        vaccinationsForReconciliation: List<Vaccination> = vaccinationsForCogs,
+        visitDatesById: Map<String, String>? = null
     ): FinanceStatsData {
         val income = transactions.filter { it.type.equals(INCOME, true) }
         val expenses = transactions.filter { it.type.equals(EXPENSE, true) }
-        val vaccinationById = StatisticsUtils.filterValidVaccinations(vaccinationsForCogs).associateBy { it.id }
+        
+        // Cache valid vaccinations once
+        val validVaccinationsForCogs = StatisticsUtils.filterValidVaccinations(vaccinationsForCogs)
+        val vaccinationById = validVaccinationsForCogs.associateBy { it.id }
 
         val effectiveVaccinationIncome = deduplicateVaccinationIncome(income)
         val effectiveIncome = income.filterNot { it.category.equals(VACCINATION, true) } + effectiveVaccinationIncome
@@ -95,22 +102,25 @@ object FinanceCalculator {
                 if (vaccinationById[visitId] == null) {
                     unmatched++
                 } else {
-                    // Do not recalculate historical COGS from mutable clinical data.
-                    // Legacy records are snapshotted by the application startup migration.
                     missingCogsSnapshot++
                 }
             }
         }
 
         val isProfitComplete = missingCogsSnapshot == 0 && unmatched == 0
-        // Never present an incomplete profit calculation as a valid accounting result.
-        // Revenue/expense/cash/online remain usable, while profit is marked unavailable.
         val grossProfit = if (isProfitComplete) revenue - vaccineCost else 0.0
         val netProfit = if (isProfitComplete) grossProfit - totalExpenses else 0.0
-        val invalidTimestampCount = transactions.count { PatientUtils.parseDate(it.timestamp) == null }
+        
+        // Use pre-calculated reporting dates for invalid check
+        val invalidTransactionDateCount = transactions.count { 
+            val date = resolveReportingDate(it, visitDatesById)
+            PatientUtils.parseDate(date) == null 
+        }
+        
         val allRecordedVaccinationVisitIds = deduplicateVaccinationIncome(
             allTransactionsForReconciliation.filter { it.type.equals(INCOME, true) }
         ).mapNotNull { it.visitId }.toSet()
+        
         val validReconciliationVaccinations = StatisticsUtils.filterValidVaccinations(vaccinationsForReconciliation)
         val unrecordedVaccinationPaymentCount = validReconciliationVaccinations.count {
             it.totalPaid > 0.0 && it.id !in allRecordedVaccinationVisitIds
@@ -124,7 +134,7 @@ object FinanceCalculator {
             vaccineCost = vaccineCost,
             grossProfit = grossProfit,
             netProfit = netProfit,
-            invalidTimestampCount = invalidTimestampCount,
+            invalidTransactionDateCount = invalidTransactionDateCount,
             unmatchedVaccinationIncomeCount = unmatched,
             missingCogsSnapshotCount = missingCogsSnapshot,
             unrecordedVaccinationPaymentCount = unrecordedVaccinationPaymentCount,
@@ -137,15 +147,23 @@ object FinanceCalculator {
         vaccinations: List<Vaccination>,
         filterMode: String = "Overall",
         selectedQuarter: Int = 0,
-        selectedMonth: Int = -1
+        selectedMonth: Int = -1,
+        visitDatesById: Map<String, String>? = null
     ): List<FinanceSummaryItem> {
         val vaccinationById = StatisticsUtils.filterValidVaccinations(vaccinations).associateBy { it.id }
-        // Raw (status-unfiltered) map for date resolution: a linked visit's actual date is
-        // valid for reporting purposes regardless of that visit's clinical/admin status -
-        // e.g. a CONSULTATION visit's status has no bearing on whether its date is trustworthy.
-        val visitDatesById = vaccinations.associate { it.id to it.dateGiven }
+        
+        // Safety: Ignore transactions before the year 2000 to prevent infinite loops 
+        // if dates are corrupted (e.g., year 0202).
+        val safetyBoundary = Calendar.getInstance().apply {
+            set(2000, Calendar.JANUARY, 1, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        // Cache reporting dates to avoid redundant parsing in the loop
         val parsed = transactions.mapNotNull { transaction ->
-            val date = PatientUtils.parseDate(resolveReportingDate(transaction, visitDatesById)) ?: return@mapNotNull null
+            val reportingDate = resolveReportingDate(transaction, visitDatesById)
+            val date = PatientUtils.parseDate(reportingDate) ?: return@mapNotNull null
+            if (date.before(safetyBoundary)) return@mapNotNull null
             transaction to date
         }
         if (parsed.isEmpty()) return emptyList()
@@ -178,15 +196,25 @@ object FinanceCalculator {
         }
 
         val result = mutableListOf<FinanceSummaryItem>()
+        
+        // Optimization: Pre-group transactions by month key once
+        val transactionsByMonth = parsed.groupBy { (_, date) ->
+            val cal = Calendar.getInstance().apply { time = date }
+            String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+        }
+
         var cursor = first.clone() as Calendar
-        while (!cursor.after(last)) {
+        var iterationCount = 0
+        val maxIterations = 600 // Safety: limit to 50 years to prevent app hanging
+
+        while (!cursor.after(last) && iterationCount < maxIterations) {
+            iterationCount++
             val year = cursor.get(Calendar.YEAR)
             val month = cursor.get(Calendar.MONTH)
             val key = String.format(Locale.US, "%04d-%02d", year, month)
-            val monthTransactions = parsed.filter { (_, date) ->
-                val cal = Calendar.getInstance().apply { time = date }
-                cal.get(Calendar.YEAR) == year && cal.get(Calendar.MONTH) == month
-            }.map { it.first }
+            
+            // Fast lookup from the pre-grouped map
+            val monthTransactions = transactionsByMonth[key]?.map { it.first } ?: emptyList()
 
             val monthIncome = monthTransactions.filter { it.type.equals(INCOME, true) }
             val effectiveMonthVaccinationIncome = deduplicateVaccinationIncome(monthIncome)

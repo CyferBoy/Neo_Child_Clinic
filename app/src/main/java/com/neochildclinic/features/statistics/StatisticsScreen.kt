@@ -26,6 +26,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppPullToRefresh
 import kotlinx.coroutines.launch
@@ -193,6 +194,7 @@ private fun StatisticsContent(
                     inventory = uiState.inventory,
                     financeTransactions = uiState.financeTransactions,
                     vaccinationReminders = uiState.vaccinationReminders,
+                    expenses = uiState.expenses,
                     onMonthClick = onMonthClick,
                     onMilestoneClick = onMilestoneClick
                 )
@@ -251,6 +253,7 @@ private fun StatisticsTabContent(
     inventory: List<InventoryItem>,
     financeTransactions: List<FinanceEntity>,
     vaccinationReminders: List<ReminderEntity>,
+    expenses: List<Expense>,
     onMonthClick: (String) -> Unit,
     onMilestoneClick: (String) -> Unit
 ) {
@@ -258,7 +261,7 @@ private fun StatisticsTabContent(
         0 -> OverviewTab(patients, vaccinations, financeTransactions)
         1 -> PatientsTab(patients, onMilestoneClick)
         2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory)
-        3 -> FinanceTab(vaccinations, financeTransactions, onMonthClick)
+        3 -> FinanceTab(vaccinations, financeTransactions, expenses, onMonthClick)
         4 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Map coming soon", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

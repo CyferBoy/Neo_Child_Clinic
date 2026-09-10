@@ -1,5 +1,6 @@
 package com.neochildclinic.features.personalreminder
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.utils.DateCategory
@@ -47,19 +48,19 @@ class PersonalReminderViewModel @Inject constructor(
 
     val uiState: StateFlow<PersonalReminderUiState> = combine(
         _selectedTab,
-        // Sort Active so items needing attention appear first: Overdue, then Today,
-        // then Upcoming; ties broken by the reminder date itself.
-        repository.getActiveReminders().map { list ->
-            list.sortedWith(
-                compareBy(
-                    { reminderPriority(it.reminderDate) },
-                    { it.reminderDate?.let(DateClassifier::getSortWeight) ?: Long.MAX_VALUE }
+        repository.getActiveReminders()
+            .onEach { Log.d("PersonalReminder", "Active reminders: ${it.size}") }
+            .map { list ->
+                list.sortedWith(
+                    compareBy(
+                        { reminderPriority(it.reminderDate) },
+                        { it.reminderDate?.let(DateClassifier::getSortWeight) ?: Long.MAX_VALUE }
+                    )
                 )
-            )
-        },
-        repository.getCompletedReminders(),
-        repository.getCancelledReminders(),
-        patientRepository.allPatients,
+            },
+        repository.getCompletedReminders().onEach { Log.d("PersonalReminder", "Completed reminders: ${it.size}") },
+        repository.getCancelledReminders().onEach { Log.d("PersonalReminder", "Cancelled reminders: ${it.size}") },
+        patientRepository.allPatients.onEach { Log.d("PersonalReminder", "Total patients: ${it.size}") },
         _isRefreshing
     ) { values ->
         @Suppress("UNCHECKED_CAST")

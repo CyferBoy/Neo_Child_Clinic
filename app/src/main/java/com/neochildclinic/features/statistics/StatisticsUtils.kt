@@ -56,22 +56,24 @@ object StatisticsUtils {
         vaccinations.filter(::isCountedVaccination)
 
     fun getAvailableFinancialYears(dates: List<String>): List<String> {
-        val allDates = dates.mapNotNull { PatientUtils.parseDate(it) }
-        val today = Calendar.getInstance()
-        return if (allDates.isEmpty()) {
-            val curYear = today.get(Calendar.YEAR)
-            val curMonth = today.get(Calendar.MONTH)
+        if (dates.isEmpty()) {
+            val curYear = Calendar.getInstance().get(Calendar.YEAR)
+            val curMonth = Calendar.getInstance().get(Calendar.MONTH)
             val fyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
-            listOf("${fyStart % 100}-${(fyStart + 1) % 100}")
-        } else {
-            val years = allDates.map {
-                val cal = Calendar.getInstance().apply { time = it }
-                val y = cal.get(Calendar.YEAR)
-                val m = cal.get(Calendar.MONTH)
-                if (m >= Calendar.APRIL) y else y - 1
-            }.distinct().sorted()
-            years.map { "${it % 100}-${(it + 1) % 100}" }
+            return listOf("${fyStart % 100}-${(fyStart + 1) % 100}")
         }
+        
+        // Use a faster parsing approach for unique dates only
+        val uniqueDates = dates.distinct()
+        val allDates = uniqueDates.mapNotNull { PatientUtils.parseDate(it) }
+        
+        val years = allDates.map {
+            val cal = Calendar.getInstance().apply { time = it }
+            val y = cal.get(Calendar.YEAR)
+            val m = cal.get(Calendar.MONTH)
+            if (m >= Calendar.APRIL) y else y - 1
+        }.distinct().sorted()
+        return years.map { "${it % 100}-${(it + 1) % 100}" }
     }
 
     fun vaccineName(vaccination: Vaccination, itemIndex: Int): String {

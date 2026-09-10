@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.DeleteConfirmationDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,6 +25,18 @@ fun CompletedDismissedScreen(
     val uiState by viewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Completed", "Dismissed")
+    var vaccinationToRestore by remember { mutableStateOf<com.neochildclinic.domain.model.Vaccination?>(null) }
+
+    DeleteConfirmationDialog(
+        show = vaccinationToRestore != null,
+        onDismiss = { vaccinationToRestore = null },
+        onConfirm = {
+            vaccinationToRestore?.let { viewModel.restoreReminders(it) }
+            vaccinationToRestore = null
+        },
+        title = "Move to Due",
+        message = "Are you sure you want to move this vaccination back to the Due list?"
+    )
 
     AppBackground {
         Scaffold(
@@ -94,7 +107,12 @@ fun CompletedDismissedScreen(
                                     if (vaccination.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED) {
                                         CompletedRecordCard(vaccination, patient) { onPatientClick(vaccination.patientId) }
                                     } else {
-                                        DismissedRecordCard(vaccination, patient) { onPatientClick(vaccination.patientId) }
+                                        DismissedRecordCard(
+                                            vaccination = vaccination,
+                                            patient = patient,
+                                            onLongClick = { vaccinationToRestore = vaccination },
+                                            onClick = { onPatientClick(vaccination.patientId) }
+                                        )
                                     }
                                 }
                             }

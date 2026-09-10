@@ -23,6 +23,7 @@ interface PatientRepository {
     
     // Timeline & History
     fun getPatientTimeline(patientId: String): Flow<List<AuditLogEntity>>
+    suspend fun refreshPatientTimeline(patientId: String)
     fun getPatientHistory(patientId: String): Flow<List<com.neochildclinic.domain.model.Vaccination>>
     
     // Notes Module

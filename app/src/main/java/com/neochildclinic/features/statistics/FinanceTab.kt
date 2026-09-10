@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.*
 import java.util.*
 
@@ -24,6 +25,7 @@ import java.util.*
 fun FinanceTab(
     vaccinations: List<Vaccination>,
     transactions: List<FinanceEntity>,
+    expenses: List<Expense> = emptyList(),
     onMonthClick: (String) -> Unit = {}
 ) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
@@ -38,15 +40,24 @@ fun FinanceTab(
     // regardless of that visit's clinical/administered status, which is an orthogonal
     // concept. See FinanceCalculator.resolveReportingDate.
     val visitDatesById = remember(vaccinations) { vaccinations.associate { it.id to it.dateGiven } }
-    val availableYears = remember(transactions, vaccinations, visitDatesById) {
+
+    // Optimization: Resolve reporting dates once when transactions or visit dates change.
+    // This avoids repeated expensive date parsing inside filter loops, which was causing the UI to hang.
+    val transactionsWithDates = remember(transactions, visitDatesById) {
+        transactions.map { it to FinanceCalculator.resolveReportingDate(it, visitDatesById) }
+    }
+
+    val availableYears = remember(transactionsWithDates, vaccinations) {
         StatisticsUtils.getAvailableFinancialYears(
-            transactions.map { FinanceCalculator.resolveReportingDate(it, visitDatesById) } + vaccinations.map { it.dateGiven }
+            transactionsWithDates.map { it.second } + vaccinations.map { it.dateGiven }
         )
     }
     
     // Current period
-    val filteredTransactions = remember(transactions, visitDatesById, filterMode, fyQuarter, selectedMonth) {
-        transactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), filterMode, fyQuarter, selectedMonth) }
+    val filteredTransactions = remember(transactionsWithDates, filterMode, fyQuarter, selectedMonth) {
+        transactionsWithDates.filter {
+            StatisticsUtils.isDateInFilter(it.second, filterMode, fyQuarter, selectedMonth)
+        }.map { it.first }
     }
     val filteredVaccinations = remember(validVaccinations, filterMode, fyQuarter, selectedMonth) {
         validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
@@ -56,19 +67,34 @@ fun FinanceTab(
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
     }
-    val prevTransactions = remember(transactions, visitDatesById, prevFilter, prevQuarter, prevMonth) {
-        transactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it, visitDatesById), prevFilter, prevQuarter, prevMonth) }
+    val prevTransactions = remember(transactionsWithDates, prevFilter, prevQuarter, prevMonth) {
+        transactionsWithDates.filter {
+            StatisticsUtils.isDateInFilter(it.second, prevFilter, prevQuarter, prevMonth)
+        }.map { it.first }
     }
     val prevVaccinations = remember(validVaccinations, prevFilter, prevQuarter, prevMonth) {
         validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
     }
 
-    val currentStats = remember(filteredTransactions, validVaccinations) {
-        FinanceCalculator.calculateFinanceStats(filteredTransactions, validVaccinations, transactions, filteredVaccinations)
+    val currentStats = remember(filteredTransactions, validVaccinations, visitDatesById) {
+        FinanceCalculator.calculateFinanceStats(filteredTransactions, validVaccinations, transactions, filteredVaccinations, visitDatesById)
     }
-    val prevStats = remember(prevTransactions, validVaccinations) {
-        FinanceCalculator.calculateFinanceStats(prevTransactions, validVaccinations, transactions, prevVaccinations)
+    val prevStats = remember(prevTransactions, validVaccinations, visitDatesById) {
+        FinanceCalculator.calculateFinanceStats(prevTransactions, validVaccinations, transactions, prevVaccinations, visitDatesById)
     }
+
+    // Additive expense-table totals (task section 7) - computed with the exact same FY
+    // window as everything else on this tab, kept fully separate from currentStats/
+    // prevStats (FinanceStatsData.totalExpenses/netProfit, from finance_transactions,
+    // are untouched).
+    val currentExpensesPaise = remember(expenses, filterMode, fyQuarter, selectedMonth) {
+        ExpenseCalculator.totalExpensesPaiseInPeriod(expenses, filterMode, fyQuarter, selectedMonth)
+    }
+    val prevExpensesPaise = remember(expenses, prevFilter, prevQuarter, prevMonth) {
+        ExpenseCalculator.totalExpensesPaiseInPeriod(expenses, prevFilter, prevQuarter, prevMonth)
+    }
+    val netIncome = ExpenseCalculator.netIncomeRupees(currentStats.totalRevenue, currentExpensesPaise)
+    val prevNetIncome = ExpenseCalculator.netIncomeRupees(prevStats.totalRevenue, prevExpensesPaise)
 
     FinanceContent(
         currentStats = currentStats,
@@ -83,7 +109,12 @@ fun FinanceTab(
         onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
         onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it },
         onMonthClick = onMonthClick,
-        vaccinations = vaccinations
+        vaccinations = vaccinations,
+        currentExpensesRupees = currentExpensesPaise / 100.0,
+        prevExpensesRupees = prevExpensesPaise / 100.0,
+        netIncome = netIncome,
+        prevNetIncome = prevNetIncome,
+        visitDatesById = visitDatesById
     )
 }
 
@@ -102,7 +133,12 @@ private fun FinanceContent(
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
     onMonthClick: (String) -> Unit,
-    vaccinations: List<Vaccination>
+    vaccinations: List<Vaccination>,
+    currentExpensesRupees: Double = 0.0,
+    prevExpensesRupees: Double = 0.0,
+    netIncome: Double = 0.0,
+    prevNetIncome: Double = 0.0,
+    visitDatesById: Map<String, String>? = null
 ) {
     val customColors = LocalCustomColors.current
 
@@ -192,6 +228,34 @@ private fun FinanceContent(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        Text("Expenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(12.dp))
+        // Additive section (task section 7): sourced from the separate `expenses` table,
+        // not merged into currentStats/prevStats above (which remain finance_transactions-
+        // only, unchanged). Total Income here is currentStats.totalRevenue (vaccination +
+        // consultation income, already computed by FinanceCalculator).
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "Total Expenses",
+                value = String.format(Locale.US, "₹%,.0f", currentExpensesRupees),
+                icon = Icons.Default.Receipt,
+                iconColor = customColors.textPink,
+                iconBackground = customColors.softPink,
+                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentExpensesRupees, prevExpensesRupees)
+            )
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "Net Income",
+                value = String.format(Locale.US, "₹%,.0f", netIncome),
+                icon = Icons.Default.TrendingUp,
+                iconColor = customColors.textCyan,
+                iconBackground = customColors.softCyan,
+                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(netIncome, prevNetIncome)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
         Text("Financial Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(12.dp))
         
@@ -201,7 +265,8 @@ private fun FinanceContent(
             filterMode = filterMode,
             fyQuarter = fyQuarter,
             selectedMonth = selectedMonth,
-            onMonthClick = onMonthClick
+            onMonthClick = onMonthClick,
+            visitDatesById = visitDatesById
         )
 
         Spacer(modifier = Modifier.height(24.dp))

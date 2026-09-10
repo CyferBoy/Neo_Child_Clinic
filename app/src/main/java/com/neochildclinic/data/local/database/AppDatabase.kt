@@ -34,8 +34,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         VaccinationTodoEntity::class,
         PersonalReminderEntity::class,
         BorrowReturnEntity::class,
+        ExpenseEntity::class,
     ], 
-    version = 22,
+    version = 24,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -61,6 +62,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun patientTodoDao(): PatientTodoDao
     abstract fun personalReminderDao(): PersonalReminderDao
     abstract fun borrowReturnDao(): BorrowReturnDao
+    abstract fun expenseDao(): ExpenseDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -195,6 +197,36 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                val migration22_23 = object : androidx.room.migration.Migration(22, 23) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL(
+                            """CREATE TABLE IF NOT EXISTS expenses (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                expenseDate TEXT NOT NULL,
+                                category TEXT NOT NULL,
+                                title TEXT NOT NULL,
+                                description TEXT,
+                                amountPaise INTEGER NOT NULL,
+                                paymentMethod TEXT NOT NULL,
+                                referenceNumber TEXT,
+                                attachmentPath TEXT,
+                                isDeleted INTEGER NOT NULL DEFAULT 0,
+                                createdAt TEXT NOT NULL,
+                                updatedAt TEXT NOT NULL,
+                                created_by TEXT,
+                                updated_by TEXT,
+                                isSynced INTEGER NOT NULL DEFAULT 0,
+                                syncedAt TEXT
+                            )"""
+                        )
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_expenseDate ON expenses(expenseDate)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_category ON expenses(category)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_created_by ON expenses(created_by)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_updatedAt ON expenses(updatedAt)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_isDeleted ON expenses(isDeleted)")
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -202,8 +234,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22)
-                .fallbackToDestructiveMigration()
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23)
+                .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
                 instance

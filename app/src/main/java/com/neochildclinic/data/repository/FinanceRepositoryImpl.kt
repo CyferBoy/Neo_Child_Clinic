@@ -28,6 +28,15 @@ class FinanceRepositoryImpl @Inject constructor(
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : FinanceRepository {
 
+    private suspend fun resolveTransactionDate(visitId: String?): String? {
+        if (visitId.isNullOrBlank()) return null
+        val dateGiven = database.vaccinationDao().getVaccinationById(visitId)?.dateGiven
+        if (dateGiven.isNullOrBlank()) return null
+        
+        val parsed = com.neochildclinic.core.utils.PatientUtils.parseDate(dateGiven) ?: return null
+        return java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(parsed)
+    }
+
     override fun getAllTransactions(): Flow<List<FinanceEntity>> {
         return financeDao.getAllTransactions()
     }
@@ -56,6 +65,7 @@ class FinanceRepositoryImpl @Inject constructor(
             val userName = sessionManager.getCurrentUserName()
             val transaction = FinanceEntity(
                 type = "INCOME",
+                transactionDate = resolveTransactionDate(visitId),
                 category = category,
                 amount = amount,
                 cashAmount = cashAmount,
@@ -213,6 +223,7 @@ class FinanceRepositoryImpl @Inject constructor(
 
             val userName = sessionManager.getCurrentUserName()
             val updated = existing.copy(
+                transactionDate = resolveTransactionDate(visitId),
                 amount = amount,
                 cashAmount = cashAmount,
                 onlineAmount = onlineAmount,
@@ -266,6 +277,7 @@ class FinanceRepositoryImpl @Inject constructor(
             if (existing == null) {
                 val transaction = FinanceEntity(
                     type = "INCOME",
+                    transactionDate = resolveTransactionDate(visitId),
                     category = "VACCINATION",
                     amount = amount,
                     cashAmount = cashAmount,
@@ -301,6 +313,7 @@ class FinanceRepositoryImpl @Inject constructor(
             val snapshot = existingTransaction.remarks?.substringAfter("[COGS_SNAPSHOT:", missingDelimiterValue = "")?.substringBefore("]")?.toDoubleOrNull()
             val updatedRemarks = if (snapshot != null) existingTransaction.remarks else remarks
             val updated = existingTransaction.copy(
+                transactionDate = resolveTransactionDate(visitId),
                 amount = amount,
                 cashAmount = cashAmount,
                 onlineAmount = onlineAmount,
@@ -377,10 +390,45 @@ class FinanceRepositoryImpl @Inject constructor(
             try {
                 val transactions = postgrest.from("finance_transactions").select().decodeList<FinanceEntity>()
                 database.withTransaction {
+                    val visitDao = database.vaccinationDao()
                     for (remote in transactions) {
-                        val local = financeDao.getTransactionById(remote.id)
-                        if (local == null || local.isSynced) {
-                            financeDao.insertTransaction(remote.copy(isSynced = true))
+                        var normalizedRemote = remote
+                        
+                        // Self-healing: Ensure transaction date matches the visit date if linked
+                        val visitId = remote.visitId
+                        var wasHealed = false
+                        if (!visitId.isNullOrBlank()) {
+                            val visit = visitDao.getVaccinationById(visitId)
+                            if (visit != null) {
+                                val visitDate = com.neochildclinic.core.utils.PatientUtils.parseDate(visit.dateGiven)?.let {
+                                    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(it)
+                                }
+                                if (visitDate != null && remote.transactionDate != visitDate) {
+                                    normalizedRemote = remote.copy(transactionDate = visitDate)
+                                    wasHealed = true
+                                }
+                            }
+                        }
+
+                        val local = financeDao.getTransactionById(normalizedRemote.id)
+                        var shouldUpdateLocal = local == null || local.isSynced
+                        var finalEntity = normalizedRemote.copy(isSynced = true)
+
+                        if (local != null && wasHealed) {
+                            finalEntity = normalizedRemote.copy(isSynced = false)
+                            shouldUpdateLocal = true
+                        }
+
+                        if (shouldUpdateLocal) {
+                            financeDao.insertTransaction(finalEntity)
+                            if (wasHealed && !finalEntity.isSynced) {
+                                syncRepository.enqueue(
+                                    entityName = "FINANCE",
+                                    entityId = finalEntity.id,
+                                    operation = SyncOperation.UPDATE,
+                                    priority = SyncPriority.MEDIUM
+                                )
+                            }
                         }
                     }
                 }

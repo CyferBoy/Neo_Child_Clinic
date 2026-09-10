@@ -48,4 +48,7 @@ object Routes {
     const val PERSONAL_REMINDERS = "personal_reminders"
     const val ADD_PERSONAL_REMINDER = "add_personal_reminder?patientId={patientId}"
     const val EDIT_PERSONAL_REMINDER = "edit_personal_reminder/{reminderId}"
+    const val EXPENSES = "expenses"
+    const val ADD_EXPENSE = "add_expense"
+    const val EDIT_EXPENSE = "edit_expense/{expenseId}"
 }
