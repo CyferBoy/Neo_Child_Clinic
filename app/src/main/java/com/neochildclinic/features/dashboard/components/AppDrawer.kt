@@ -127,8 +127,8 @@ fun AppDrawer(
                 DrawerMenuItem(
                     label = "Doctor Slots",
                     icon = Icons.Default.Schedule,
-                    isSelected = currentRoute == "doctor_slots",
-                    onClick = { onNavigate("doctor_slots") }
+                    isSelected = currentRoute == "weekly_doctor_slots",
+                    onClick = { onNavigate("weekly_doctor_slots") }
                 )
             }
 

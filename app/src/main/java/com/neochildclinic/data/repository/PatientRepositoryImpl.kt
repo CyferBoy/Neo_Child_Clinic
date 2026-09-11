@@ -32,7 +32,6 @@ import androidx.work.WorkManager
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.data.cache.MemoryCache
@@ -121,7 +120,7 @@ class PatientRepositoryImpl @Inject constructor(
                                 val existingByClinicId = patientDao.getPatientByClinicId(localClinicId)
                                 if (existingByClinicId != null && existingByClinicId.id != patient.id) {
                                     val resolvedId = localClinicId + "-CONFLICT-" + patient.id.take(4)
-                                    patientDao.insertPatient(patient.copy(patientClinicId = resolvedId).toEntity())
+                                    patientDao.insertPatient(patient.copy(patientClinicId = resolvedId).toEntity(isSynced = true))
                                     continue
                                 }
                             }
