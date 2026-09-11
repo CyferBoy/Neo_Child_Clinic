@@ -52,6 +52,12 @@ fun AddConsultationScreen(
         }
     }
 
+    // Recompute available slots whenever the selected doctor or date changes (req. 1/22),
+    // clearing any slot that belonged to a different doctor/date along the way.
+    LaunchedEffect(uiState.selectedDoctor, date) {
+        viewModel.loadAvailableSlots(date)
+    }
+
     LaunchedEffect(uiState.editingConsultation) {
         val consultation = uiState.editingConsultation
         if (consultation != null && !editFieldsLoaded) {
@@ -157,6 +163,13 @@ fun AddConsultationScreen(
                     selectedDoctor = uiState.selectedDoctor,
                     onDoctorSelected = { viewModel.selectDoctor(it) },
                     isError = uiState.doctorError
+                )
+
+                AvailableSlotDropdown(
+                    state = uiState.slotsState,
+                    selectedSlot = uiState.selectedSlot,
+                    onSlotSelected = { viewModel.selectSlot(it) },
+                    isError = uiState.slotError
                 )
 
                 StandardTextField(

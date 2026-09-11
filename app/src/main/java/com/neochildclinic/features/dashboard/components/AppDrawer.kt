@@ -120,6 +120,18 @@ fun AppDrawer(
                 onClick = { onNavigate("expenses") }
             )
 
+            // Weekly Doctor Slots - visible to admin (all doctors) and doctor (own
+            // schedule only); receptionist/nurse/inventory_manager never see this entry,
+            // even though they can select a doctor+slot elsewhere (req. 5/6/7/8).
+            if (userRole == UserRole.admin || userRole == UserRole.doctor) {
+                DrawerMenuItem(
+                    label = "Doctor Slots",
+                    icon = Icons.Default.Schedule,
+                    isSelected = currentRoute == "doctor_slots",
+                    onClick = { onNavigate("doctor_slots") }
+                )
+            }
+
             // Manage Staff
             if (userRole == UserRole.admin) {
                 DrawerMenuItem(

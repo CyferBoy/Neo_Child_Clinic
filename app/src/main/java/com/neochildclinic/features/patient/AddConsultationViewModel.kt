@@ -2,6 +2,9 @@ package com.neochildclinic.features.patient
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.core.ui.SlotsUiState
+import com.neochildclinic.core.ui.loadUiState
+import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Profile
@@ -10,6 +13,7 @@ import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.ConsultationEditEngine
+import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.core.utils.PatientUtils
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +28,9 @@ data class AddConsultationUiState(
     val selectedDoctor: Profile? = null,
     val editingConsultation: Consultation? = null,
     val doctorError: Boolean = false,
+    val slotsState: SlotsUiState = SlotsUiState.Idle,
+    val selectedSlot: AvailableSlot? = null,
+    val slotError: Boolean = false,
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val error: String? = null
@@ -36,7 +43,8 @@ class AddConsultationViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val auth: Auth,
     private val consultationRepository: ConsultationRepository,
-    private val consultationEditEngine: ConsultationEditEngine
+    private val consultationEditEngine: ConsultationEditEngine,
+    private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddConsultationUiState())
@@ -47,6 +55,11 @@ class AddConsultationViewModel @Inject constructor(
     // reading _uiState.value.editingConsultation inside the profiles onEach doesn't work
     // because the profiles flow typically emits once, before loadForEdit() finishes.
     private val editingDoctorId = MutableStateFlow<String?>(null)
+
+    // Guards against a stale async slot-load response (from the doctor/date combo that
+    // was selected a moment ago) overwriting the state for the combo selected right after
+    // it - only the most recently requested load is allowed to update slotsState.
+    private var slotLoadToken = 0
 
     init {
         loadDoctors()
@@ -99,7 +112,40 @@ class AddConsultationViewModel @Inject constructor(
     }
 
     fun selectDoctor(doctor: Profile) {
-        _uiState.update { it.copy(selectedDoctor = doctor, doctorError = false) }
+        // Changing the doctor invalidates whatever slot was selected for the previous
+        // doctor (req. 1: "never allow a slot belonging to the previous doctor to remain
+        // selected"). The caller is expected to follow up with loadAvailableSlots(date)
+        // for the currently entered date.
+        _uiState.update { it.copy(selectedDoctor = doctor, doctorError = false, selectedSlot = null, slotError = false) }
+    }
+
+    /** Recomputes available slots for the currently selected doctor + [date] (req. 1/22). */
+    fun loadAvailableSlots(date: String) {
+        val doctor = _uiState.value.selectedDoctor
+        if (doctor == null || date.isBlank()) {
+            _uiState.update { it.copy(slotsState = SlotsUiState.Idle, selectedSlot = null) }
+            return
+        }
+        val token = ++slotLoadToken
+        _uiState.update { it.copy(slotsState = SlotsUiState.Loading, selectedSlot = null) }
+        viewModelScope.launch {
+            // Availability rows are keyed by profiles.id (the auth uid), same as
+            // doctor_weekly_slots.doctor_id / RLS's auth.uid() check - not by
+            // employeeId, which is what consultations.doctorId stores for
+            // attribution/display and may differ.
+            val result = getAvailableSlotsUseCase.loadUiState(doctor.id, date)
+            if (token != slotLoadToken) return@launch // superseded by a newer request
+            _uiState.update { current ->
+                val preselect = current.editingConsultation?.availabilitySlotId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { slotId -> (result as? SlotsUiState.Loaded)?.slots?.firstOrNull { it.weeklySlotId == slotId } }
+                current.copy(slotsState = result, selectedSlot = preselect ?: current.selectedSlot)
+            }
+        }
+    }
+
+    fun selectSlot(slot: AvailableSlot) {
+        _uiState.update { it.copy(selectedSlot = slot, slotError = false) }
     }
 
     fun saveConsultation(
@@ -115,11 +161,28 @@ class AddConsultationViewModel @Inject constructor(
             _uiState.update { it.copy(doctorError = true, error = "Please select a doctor.") }
             return
         }
+        if (state.selectedSlot == null) {
+            _uiState.update { it.copy(slotError = true, error = "Please select an available slot.") }
+            return
+        }
 
         val totalAmount = cash + online
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                // Revalidate (req. 17): another device may have changed this doctor's
+                // availability (a new date exception, or the weekly slot being toggled
+                // off) in the time between loading slots and tapping Save.
+                val stillAvailable = getAvailableSlotsUseCase.isSlotStillAvailable(
+                    state.selectedDoctor.id, date, state.selectedSlot.weeklySlotId
+                )
+                if (!stillAvailable) {
+                    _uiState.update { it.copy(isLoading = false, slotError = true, selectedSlot = null) }
+                    loadAvailableSlots(date)
+                    _uiState.update { it.copy(error = "That slot is no longer available. Please choose another.") }
+                    return@launch
+                }
+
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 val original = state.editingConsultation
 
@@ -134,6 +197,7 @@ class AddConsultationViewModel @Inject constructor(
                     val updated = original.copy(
                         doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                         doctorName = state.selectedDoctor.displayName,
+                        availabilitySlotId = state.selectedSlot.weeklySlotId,
                         date = date,
                         amount = totalAmount,
                         cashAmount = cash,
@@ -165,6 +229,7 @@ class AddConsultationViewModel @Inject constructor(
                         createdAt = PatientUtils.getCurrentIsoTimestamp(),
                         doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                         doctorName = state.selectedDoctor.displayName,
+                        availabilitySlotId = state.selectedSlot.weeklySlotId,
                         date = date,
                         amount = totalAmount,
                         cashAmount = cash,

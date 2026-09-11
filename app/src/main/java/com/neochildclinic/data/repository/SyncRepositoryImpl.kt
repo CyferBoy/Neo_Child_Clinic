@@ -252,6 +252,8 @@ class SyncRepositoryImpl @Inject constructor(
             "BORROW_RETURN" -> 4
             "INVENTORY_TRANSACTION", "FINANCE" -> 4
             "EXPENSE" -> 4
+            "DOCTOR_WEEKLY_SLOT" -> 2
+            "DOCTOR_SLOT_EXCEPTION" -> 3
             "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG", "PERSONAL_REMINDER" -> 5
             else -> 100
         }
@@ -278,6 +280,8 @@ class SyncRepositoryImpl @Inject constructor(
             "CONSULTATION_TODO" -> "consultation_todos"
             "VACCINATION_TODO" -> "vaccination_todos"
             "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
+            "DOCTOR_WEEKLY_SLOT" -> "doctor_weekly_slots"
+            "DOCTOR_SLOT_EXCEPTION" -> "doctor_slot_exceptions"
             else -> throw IllegalArgumentException("Unknown entity: ${item.entityName}")
         }
 
@@ -383,6 +387,8 @@ class SyncRepositoryImpl @Inject constructor(
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
                 is PersonalReminderEntity -> postgrest.from(table).upsert(localData)
                 is ExpenseEntity -> postgrest.from(table).upsert(localData)
+                is DoctorWeeklySlotEntity -> postgrest.from(table).upsert(localData)
+                is DoctorSlotExceptionEntity -> postgrest.from(table).upsert(localData)
             }
         }
     }
@@ -525,6 +531,14 @@ class SyncRepositoryImpl @Inject constructor(
                 val entity = json.decodeFromJsonElement<ExpenseEntity>(element)
                 database.expenseDao().insertExpense(entity.copy(isSynced = true))
             }
+            "DOCTOR_WEEKLY_SLOT" -> {
+                val entity = json.decodeFromJsonElement<DoctorWeeklySlotEntity>(element)
+                database.doctorAvailabilityDao().upsertWeeklySlot(entity.copy(isSynced = true))
+            }
+            "DOCTOR_SLOT_EXCEPTION" -> {
+                val entity = json.decodeFromJsonElement<DoctorSlotExceptionEntity>(element)
+                database.doctorAvailabilityDao().upsertException(entity.copy(isSynced = true))
+            }
         }
     }
 
@@ -555,6 +569,8 @@ class SyncRepositoryImpl @Inject constructor(
             is BorrowReturnEntity -> data.createdAt.ifBlank { data.returnedDate }
             is PersonalReminderEntity -> data.updatedAt
             is ExpenseEntity -> data.updatedAt
+            is DoctorWeeklySlotEntity -> data.updatedAt
+            is DoctorSlotExceptionEntity -> data.updatedAt
             else -> ""
         }
     }
@@ -591,6 +607,8 @@ class SyncRepositoryImpl @Inject constructor(
                 "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId)
                 "PERSONAL_REMINDER" -> database.personalReminderDao().getById(entityId)
                 "EXPENSE" -> database.expenseDao().getExpenseById(entityId)
+                "DOCTOR_WEEKLY_SLOT" -> database.doctorAvailabilityDao().getWeeklySlotById(entityId)
+                "DOCTOR_SLOT_EXCEPTION" -> database.doctorAvailabilityDao().getExceptionById(entityId)
                 else -> null
             }
         } catch (e: Exception) {

@@ -2,6 +2,7 @@ package com.neochildclinic.features.dashboard
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -38,19 +39,71 @@ private enum class TodayPatientTab { CONSULTATION, VACCINATION }
 @Composable
 fun TodayPatientsScreen(
     viewModel: DashboardViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    // Set from a "New Consultation/Vaccination Patient" notification tap (req. 9), via
+    // Routes.TODAY_PATIENTS's optional ?tab=&highlightId= args. Both are null for every
+    // other entry point (the dashboard's own "Today's Patients" tile), so the default
+    // (CONSULTATION, no highlight) is unchanged for that path.
+    initialTab: String? = null,
+    highlightId: String? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
-    var selectedTab by rememberSaveable { mutableStateOf(TodayPatientTab.CONSULTATION) }
+    var selectedTab by rememberSaveable {
+        mutableStateOf(
+            if (initialTab == "vaccination") TodayPatientTab.VACCINATION else TodayPatientTab.CONSULTATION
+        )
+    }
     var showSelectionDialog by remember { mutableStateOf(false) }
     var showAddDialogForType by remember { mutableStateOf<TodayPatientTab?>(null) }
     var editingTodo by remember { mutableStateOf<Any?>(null) }
     var showMonthYearPicker by remember { mutableStateOf(false) }
+    // Cleared once consumed so it only scrolls/highlights on the notification-driven
+    // arrival, not again on every later recomposition (e.g. after toggling an item's status).
+    var pendingHighlightId by remember(highlightId) { mutableStateOf(highlightId) }
 
     val pendingList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.todayConsultations else uiState.todayVaccinations
     val visitedList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.visitedConsultations else uiState.visitedVaccinations
     val customColors = LocalCustomColors.current
+    val listState = rememberLazyListState()
+
+    // If possible, use the included todo ID to open the exact entry (req. 9). The item may
+    // be on this device's Room a moment later than the push itself (still mid-download via
+    // the realtime-triggered refresh()), so this simply does nothing until it appears -
+    // there is no separate fetch-by-id path to add here.
+    LaunchedEffect(pendingHighlightId, pendingList, visitedList) {
+        val targetId = pendingHighlightId ?: return@LaunchedEffect
+        val pendingIndex = pendingList.indexOfFirst { item ->
+            when (item) {
+                is ConsultationTodoEntity -> item.id == targetId
+                is VaccinationTodoEntity -> item.id == targetId
+                else -> false
+            }
+        }
+        val found = if (pendingIndex >= 0) {
+            listState.animateScrollToItem(pendingIndex)
+            true
+        } else {
+            val visitedIndex = visitedList.indexOfFirst { item ->
+                when (item) {
+                    is ConsultationTodoEntity -> item.id == targetId
+                    is VaccinationTodoEntity -> item.id == targetId
+                    else -> false
+                }
+            }
+            // +1 for the "Visited" section header item emitted just before this list below.
+            if (visitedIndex >= 0) {
+                listState.animateScrollToItem(pendingList.size + 1 + visitedIndex)
+                true
+            } else {
+                false
+            }
+        }
+        if (found) {
+            kotlinx.coroutines.delay(2500)
+            pendingHighlightId = null
+        }
+    }
 
     val displayMonthYear = remember(selectedDate) {
         val calendar = Calendar.getInstance()
@@ -133,6 +186,7 @@ fun TodayPatientsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 80.dp)
@@ -161,9 +215,15 @@ fun TodayPatientsScreen(
                             }
                         }
                     ) { index, item ->
+                        val itemId = when (item) {
+                            is ConsultationTodoEntity -> item.id
+                            is VaccinationTodoEntity -> item.id
+                            else -> null
+                        }
                         TodayPatientItem(
                             index = index + 1,
                             item = item,
+                            isHighlighted = itemId != null && itemId == pendingHighlightId,
                             onStatusToggle = { viewModel.toggleTodoStatus(item) },
                             onDelete = {
                                 when (item) {
@@ -196,9 +256,15 @@ fun TodayPatientsScreen(
                                 }
                             }
                         ) { index, item ->
+                            val itemId = when (item) {
+                                is ConsultationTodoEntity -> item.id
+                                is VaccinationTodoEntity -> item.id
+                                else -> null
+                            }
                             TodayPatientItem(
                                 index = index + 1,
                                 item = item,
+                                isHighlighted = itemId != null && itemId == pendingHighlightId,
                                 onStatusToggle = { viewModel.toggleTodoStatus(item) },
                                 onDelete = {
                                     when (item) {
@@ -246,23 +312,35 @@ fun TodayPatientsScreen(
             type = currentType,
             patients = uiState.patients,
             initialItem = editingTodo,
+            allDoctors = uiState.allDoctors,
+            slotsState = uiState.todoSlotsState,
+            todoDate = selectedDate,
+            onDoctorSelected = { doctorId -> viewModel.loadTodoSlots(doctorId, selectedDate) },
             onDismiss = { 
                 showAddDialogForType = null
                 editingTodo = null
+                viewModel.clearTodoSlots()
             },
-            onConfirm = { name, mobile, address, vaccineNames, patientId ->
+            onConfirm = { name, mobile, address, vaccineNames, patientId, doctorId, doctorName, slotId ->
                 val id = when (editingTodo) {
                     is ConsultationTodoEntity -> (editingTodo as ConsultationTodoEntity).id
                     is VaccinationTodoEntity -> (editingTodo as VaccinationTodoEntity).id
                     else -> null
                 }
                 if (currentType == TodayPatientTab.CONSULTATION) {
-                    viewModel.addConsultationDirect(id = id, patientId = patientId, name = name, mobile = mobile, address = address)
+                    viewModel.addConsultationDirect(
+                        id = id, patientId = patientId, name = name, mobile = mobile, address = address,
+                        doctorId = doctorId, doctorName = doctorName, availabilitySlotId = slotId
+                    )
                 } else {
-                    viewModel.addVaccinationDirect(id = id, patientId = patientId, name = name, mobile = mobile, address = address, vaccineNames = vaccineNames)
+                    viewModel.addVaccinationDirect(
+                        id = id, patientId = patientId, name = name, mobile = mobile, address = address, vaccineNames = vaccineNames,
+                        doctorId = doctorId, doctorName = doctorName, availabilitySlotId = slotId
+                    )
                 }
                 showAddDialogForType = null
                 editingTodo = null
+                viewModel.clearTodoSlots()
             }
         )
     }
@@ -376,8 +454,12 @@ private fun EnhancedAddTodoDialog(
     type: TodayPatientTab,
     patients: List<Patient>,
     initialItem: Any? = null,
+    allDoctors: List<com.neochildclinic.domain.model.Profile>,
+    slotsState: com.neochildclinic.core.ui.SlotsUiState,
+    todoDate: String,
+    onDoctorSelected: (String) -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String, String?) -> Unit
+    onConfirm: (name: String, mobile: String, address: String, vaccineNames: String, patientId: String?, doctorId: String?, doctorName: String?, slotId: String?) -> Unit
 ) {
     var name by rememberSaveable { 
         mutableStateOf(
@@ -422,6 +504,38 @@ private fun EnhancedAddTodoDialog(
                 else -> null
             }
         )
+    }
+    val initialDoctorId = remember(initialItem) {
+        when (initialItem) {
+            is ConsultationTodoEntity -> initialItem.doctorId
+            is VaccinationTodoEntity -> initialItem.doctorId
+            else -> null
+        }
+    }
+    var selectedDoctor by remember(allDoctors) {
+        mutableStateOf(allDoctors.firstOrNull { it.id == initialDoctorId })
+    }
+    var selectedSlot by remember { mutableStateOf<com.neochildclinic.domain.model.AvailableSlot?>(null) }
+
+    // Preselect the previously saved slot once availability has loaded for this doctor.
+    LaunchedEffect(slotsState, initialItem) {
+        val savedSlotId = when (initialItem) {
+            is ConsultationTodoEntity -> initialItem.availabilitySlotId
+            is VaccinationTodoEntity -> initialItem.availabilitySlotId
+            else -> null
+        }
+        if (selectedSlot == null && !savedSlotId.isNullOrBlank()) {
+            (slotsState as? com.neochildclinic.core.ui.SlotsUiState.Loaded)?.slots
+                ?.firstOrNull { it.weeklySlotId == savedSlotId }
+                ?.let { selectedSlot = it }
+        }
+    }
+
+    // Loads (or reloads) availability whenever the selected doctor changes - covers both
+    // the edit-mode preselect (once allDoctors has loaded and the match is found) and a
+    // fresh manual pick from the dropdown below.
+    LaunchedEffect(selectedDoctor?.id) {
+        selectedDoctor?.let { onDoctorSelected(it.id) }
     }
 
     val suggestions = remember(name, patients) {
@@ -497,12 +611,38 @@ private fun EnhancedAddTodoDialog(
                         placeholder = { Text("e.g. MMR, DPT") }
                     )
                 }
+
+                // Doctor assignment (req. 15/16) - optional at this quick-add stage.
+                // Leaving it unset keeps existing behavior (notification broadcasts to
+                // every doctor); picking one targets that doctor's device specifically.
+                com.neochildclinic.core.ui.DoctorDropdown(
+                    doctors = allDoctors,
+                    selectedDoctor = selectedDoctor,
+                    onDoctorSelected = { doctor ->
+                        selectedDoctor = doctor
+                        selectedSlot = null
+                    }
+                )
+
+                if (selectedDoctor != null) {
+                    com.neochildclinic.core.ui.AvailableSlotDropdown(
+                        state = slotsState,
+                        selectedSlot = selectedSlot,
+                        onSlotSelected = { selectedSlot = it },
+                        label = "Available Slot (optional)"
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 enabled = name.isNotBlank() && mobile.isNotBlank() && (type == TodayPatientTab.CONSULTATION || vaccineNames.isNotBlank()),
-                onClick = { onConfirm(name, mobile, address, vaccineNames, selectedPatientId) }
+                onClick = {
+                    onConfirm(
+                        name, mobile, address, vaccineNames, selectedPatientId,
+                        selectedDoctor?.id, selectedDoctor?.displayName, selectedSlot?.weeklySlotId
+                    )
+                }
             ) {
                 Text(if (initialItem == null) "Add" else "Save")
             }
@@ -610,6 +750,7 @@ private fun DateItem(
 private fun TodayPatientItem(
     index: Int,
     item: Any,
+    isHighlighted: Boolean = false,
     onStatusToggle: () -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit
@@ -644,9 +785,21 @@ private fun TodayPatientItem(
     val color = if (item is ConsultationTodoEntity) customColors.softBlue else customColors.softGreen
     val textColor = if (item is ConsultationTodoEntity) customColors.textBlue else customColors.textGreen
 
+    // Brief visual anchor for a notification-driven arrival (req. 9) - fades back to the
+    // card's normal border once TodayPatientsScreen clears pendingHighlightId below.
+    val highlightBorderColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isHighlighted) textColor else Color.Transparent,
+        label = "todayPatientHighlight"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .border(
+                width = if (isHighlighted) 2.dp else 0.dp,
+                color = highlightBorderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
             .combinedClickable(
                 onClick = {},
                 onLongClick = { menuExpanded = true }

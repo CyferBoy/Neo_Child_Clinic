@@ -57,9 +57,11 @@ object UseCaseModule {
         inventoryRepository: InventoryRepository,
         reminderRepository: ReminderRepository,
         consultationRepository: ConsultationRepository,
+        patientTodoRepository: com.neochildclinic.domain.repository.PatientTodoRepository,
         financeRepository: FinanceRepository,
         personalReminderRepository: PersonalReminderRepository,
-        expenseRepository: ExpenseRepository
+        expenseRepository: com.neochildclinic.domain.repository.ExpenseRepository,
+        doctorAvailabilityRepository: com.neochildclinic.domain.repository.DoctorAvailabilityRepository
     ) = RefreshDataUseCase(
         patientRepository = patientRepository,
         vaccinationRepository = vaccinationRepository,
@@ -67,9 +69,11 @@ object UseCaseModule {
         inventoryRepository = inventoryRepository,
         reminderRepository = reminderRepository,
         consultationRepository = consultationRepository,
+        patientTodoRepository = patientTodoRepository,
         financeRepository = financeRepository,
         personalReminderRepository = personalReminderRepository,
-        expenseRepository = expenseRepository
+        expenseRepository = expenseRepository,
+        doctorAvailabilityRepository = doctorAvailabilityRepository
     )
 
     @Provides

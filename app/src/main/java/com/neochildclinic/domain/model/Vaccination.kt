@@ -26,6 +26,7 @@ data class Vaccination(
     @SerialName("receipt_number") val receiptNumber: String = "",
     @SerialName("with_fees") val withFees: Boolean = false,
     @SerialName("doctors_acc") val doctorsAcc: Boolean = false,
+    @SerialName("availability_slot_id") val availabilitySlotId: String? = null,
     @SerialName("raw_vaccine_names") val rawVaccineNames: String = "", // Fallback for legacy records
     @SerialName("vaccine_ids") val vaccineIds: List<String> = emptyList(), // Legacy support for validator
     @SerialName("created_by") val createdBy: String? = null,

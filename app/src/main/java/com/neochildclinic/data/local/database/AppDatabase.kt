@@ -35,8 +35,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PersonalReminderEntity::class,
         BorrowReturnEntity::class,
         ExpenseEntity::class,
+        DoctorWeeklySlotEntity::class,
+        DoctorSlotExceptionEntity::class,
     ], 
-    version = 24,
+    version = 25,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -63,6 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun personalReminderDao(): PersonalReminderDao
     abstract fun borrowReturnDao(): BorrowReturnDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun doctorAvailabilityDao(): DoctorAvailabilityDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -227,6 +230,66 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                // Doctor assignment + availability slots (Today's Patient / Add
+                // Consultation / Add Vaccination doctor+slot picker). All new columns are
+                // nullable and all new tables are additive-only - existing
+                // consultations/patient_visits/consultation_todos/vaccination_todos rows
+                // remain valid with availabilitySlotId = NULL (req. 20: no forced
+                // migration of historical records onto a slot they were never booked
+                // against).
+                val migration24_25 = object : androidx.room.migration.Migration(24, 25) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE consultations ADD COLUMN availabilitySlotId TEXT")
+                        db.execSQL("ALTER TABLE patient_visits ADD COLUMN availabilitySlotId TEXT")
+                        db.execSQL("ALTER TABLE consultation_todos ADD COLUMN doctor_id TEXT")
+                        db.execSQL("ALTER TABLE consultation_todos ADD COLUMN doctor_name TEXT")
+                        db.execSQL("ALTER TABLE consultation_todos ADD COLUMN availability_slot_id TEXT")
+                        db.execSQL("ALTER TABLE vaccination_todos ADD COLUMN doctor_id TEXT")
+                        db.execSQL("ALTER TABLE vaccination_todos ADD COLUMN doctor_name TEXT")
+                        db.execSQL("ALTER TABLE vaccination_todos ADD COLUMN availability_slot_id TEXT")
+
+                        db.execSQL(
+                            """CREATE TABLE IF NOT EXISTS doctor_weekly_slots (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                doctorId TEXT NOT NULL,
+                                dayOfWeek INTEGER NOT NULL,
+                                startMinute INTEGER NOT NULL,
+                                endMinute INTEGER NOT NULL,
+                                is_active INTEGER NOT NULL DEFAULT 1,
+                                created_at TEXT NOT NULL DEFAULT '',
+                                updated_at TEXT NOT NULL DEFAULT '',
+                                is_synced INTEGER NOT NULL DEFAULT 0,
+                                created_by TEXT,
+                                updated_by TEXT
+                            )"""
+                        )
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_weekly_slots_doctorId ON doctor_weekly_slots(doctorId)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_weekly_slots_dayOfWeek ON doctor_weekly_slots(dayOfWeek)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_weekly_slots_isActive ON doctor_weekly_slots(is_active)")
+
+                        db.execSQL(
+                            """CREATE TABLE IF NOT EXISTS doctor_slot_exceptions (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                doctorId TEXT NOT NULL,
+                                exceptionDate TEXT NOT NULL,
+                                exceptionType TEXT NOT NULL,
+                                weeklySlotId TEXT,
+                                reason TEXT,
+                                is_deleted INTEGER NOT NULL DEFAULT 0,
+                                created_at TEXT NOT NULL DEFAULT '',
+                                updated_at TEXT NOT NULL DEFAULT '',
+                                is_synced INTEGER NOT NULL DEFAULT 0,
+                                created_by TEXT,
+                                updated_by TEXT
+                            )"""
+                        )
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_slot_exceptions_doctorId ON doctor_slot_exceptions(doctorId)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_slot_exceptions_exceptionDate ON doctor_slot_exceptions(exceptionDate)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_slot_exceptions_weeklySlotId ON doctor_slot_exceptions(weeklySlotId)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_doctor_slot_exceptions_isDeleted ON doctor_slot_exceptions(is_deleted)")
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -234,7 +297,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23)
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25)
                 .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance

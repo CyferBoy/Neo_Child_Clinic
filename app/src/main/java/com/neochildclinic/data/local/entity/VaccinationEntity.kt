@@ -59,6 +59,7 @@ data class VisitEntity(
     val source: String = "CLINIC",
     @SerialName("visit_type") val visitType: String = "VACCINATION",
     @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
+    @SerialName("availability_slot_id") val availabilitySlotId: String? = null,
     
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
@@ -89,6 +90,7 @@ fun VisitEntity.toVaccination() = Vaccination(
     receiptNumber = receiptNumber,
     withFees = withFees,
     doctorsAcc = doctorsAcc,
+    availabilitySlotId = availabilitySlotId,
     createdBy = createdBy,
     updatedBy = updatedBy
 )
@@ -119,6 +121,7 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = run {
     visitType = "VACCINATION",
     source = source,
     inventoryStatus = inventoryStatus,
+    availabilitySlotId = availabilitySlotId,
     createdAt = timestamp,
     updatedAt = timestamp,
     isSynced = isSynced,

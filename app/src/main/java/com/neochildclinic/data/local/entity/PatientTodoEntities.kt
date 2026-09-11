@@ -24,6 +24,12 @@ data class ConsultationTodoEntity(
     val address: String,
     @SerialName("todo_date") @ColumnInfo(name = "todo_date") val todoDate: String,
     val status: String = "PENDING",
+    // Doctor assignment (req. 15/16): the assigned doctor's device is the one that gets
+    // the Today's Patient FCM notification. doctorId is the profiles.id/employeeId used
+    // elsewhere for doctor attribution; availabilitySlotId references doctor_weekly_slots.
+    @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
+    @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
+    @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
@@ -49,6 +55,9 @@ data class VaccinationTodoEntity(
     val address: String,
     @SerialName("todo_date") @ColumnInfo(name = "todo_date") val todoDate: String,
     val status: String = "PENDING",
+    @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
+    @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
+    @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,

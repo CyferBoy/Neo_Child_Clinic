@@ -121,9 +121,10 @@ fun AppNavigation(
                 onBorrowed = { navController.navigate(Routes.BORROWED) },
                 onDue = { navController.navigate(Routes.DUE) },
                 onWaste = { navController.navigate(Routes.WASTE) },
-                onTodayPatients = { navController.navigate(Routes.TODAY_PATIENTS) },
+                onTodayPatients = { navController.navigate("today_patients") },
                 onPersonalReminders = { navController.navigate(Routes.PERSONAL_REMINDERS) },
                 onExpenses = { navController.navigate(Routes.EXPENSES) },
+                onDoctorSlots = { navController.navigate(Routes.WEEKLY_DOCTOR_SLOTS) },
                 onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onSync = { navController.navigate(Routes.SYNC) },
@@ -541,6 +542,12 @@ fun AppNavigation(
             )
         }
 
+        composable(Routes.WEEKLY_DOCTOR_SLOTS) {
+            com.neochildclinic.features.doctorslots.WeeklyDoctorSlotsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.ADD_EXPENSE) {
             com.neochildclinic.features.expenses.AddExpenseScreen(
                 expenseId = null,
@@ -559,10 +566,18 @@ fun AppNavigation(
             )
         }
 
-        composable(Routes.TODAY_PATIENTS) {
+        composable(
+            route = Routes.TODAY_PATIENTS,
+            arguments = listOf(
+                navArgument("tab") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("highlightId") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
+        ) { backStackEntry ->
             val dashboardViewModel: com.neochildclinic.features.dashboard.DashboardViewModel = hiltViewModel()
             TodayPatientsScreen(
                 viewModel = dashboardViewModel,
+                initialTab = backStackEntry.arguments?.getString("tab"),
+                highlightId = backStackEntry.arguments?.getString("highlightId"),
                 onBack = { navController.popBackStack() }
             )
         }

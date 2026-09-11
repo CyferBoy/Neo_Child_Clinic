@@ -9,6 +9,7 @@ data class Consultation(
     val patientId: String = "",
     val doctorId: String = "",
     val doctorName: String = "",
+    val availabilitySlotId: String? = null,
     val date: String = "", // yyyy-MM-dd
     val amount: Double = 0.0,
     val cashAmount: Double = 0.0,

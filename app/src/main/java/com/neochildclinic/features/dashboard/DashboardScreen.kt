@@ -41,6 +41,7 @@ fun DashboardScreen(
     onTodayPatients: () -> Unit = {},
     onPersonalReminders: () -> Unit = {},
     onExpenses: () -> Unit = {},
+    onDoctorSlots: () -> Unit = {},
     onManageStaff: () -> Unit = {},
     onLogout: () -> Unit = {},
     onSettings: () -> Unit = {},
@@ -102,6 +103,7 @@ fun DashboardScreen(
                         "statistics" -> onStatistics()
                         "personal_reminders" -> onPersonalReminders()
                         "expenses" -> onExpenses()
+                        "weekly_doctor_slots" -> onDoctorSlots()
                         "manage_staff" -> onManageStaff()
                         "audit_logs" -> onAuditLogs()
                     }

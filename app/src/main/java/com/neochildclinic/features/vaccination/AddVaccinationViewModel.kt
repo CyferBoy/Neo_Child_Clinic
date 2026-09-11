@@ -1,5 +1,8 @@
 package com.neochildclinic.features.vaccination
 
+import com.neochildclinic.core.ui.SlotsUiState
+import com.neochildclinic.core.ui.loadUiState
+import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.constants.Constants
@@ -52,6 +55,9 @@ data class AddVaccinationUiState(
     val allDoctors: List<Profile> = emptyList(),
     val selectedDoctor: Profile? = null,
     val doctorError: Boolean = false,
+    val slotsState: SlotsUiState = SlotsUiState.Idle,
+    val selectedSlot: AvailableSlot? = null,
+    val slotError: Boolean = false,
     val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
     val nextVaccinationGroups: List<NextVaccinationGroup> = emptyList(),
@@ -74,7 +80,8 @@ class AddVaccinationViewModel @Inject constructor(
     private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val clinicalService: ClinicalVaccinationService,
     private val vaccinationEditEngine: VaccinationEditEngine,
-    private val auth: Auth
+    private val auth: Auth,
+    private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddVaccinationUiState())
@@ -88,6 +95,11 @@ class AddVaccinationViewModel @Inject constructor(
     // The doctorId recorded on the vaccination being edited (if any). Kept separate from
     // selectedDoctor so the doctor list can include this doctor even if they're now inactive.
     private val editingDoctorId = MutableStateFlow<String?>(null)
+
+    // The availabilitySlotId recorded on the vaccination being edited (if any) - used to
+    // preselect the matching slot once availability has loaded for its doctor/date.
+    private var editingAvailabilitySlotId: String? = null
+    private var slotLoadToken = 0
 
     init {
         fetchInventory()
@@ -202,6 +214,7 @@ class AddVaccinationViewModel @Inject constructor(
             val existingDoctor = _uiState.value.allDoctors.firstOrNull {
                 it.employeeId == vaccination.doctorId || it.id == vaccination.doctorId
             }
+            editingAvailabilitySlotId = vaccination.availabilitySlotId
 
             _uiState.update { it.copy(
                 existingVaccinationId = vaccinationId,
@@ -216,6 +229,7 @@ class AddVaccinationViewModel @Inject constructor(
                 doctorsAcc = vaccination.doctorsAcc,
                 isVaccinationLoading = false
             ) }
+            loadAvailableSlots()
         }
     }
 
@@ -270,11 +284,44 @@ class AddVaccinationViewModel @Inject constructor(
                         selectedDoctor = editDoctor ?: if (state.selectedDoctor == null) defaultDoctor else state.selectedDoctor
                     )
                 }
+                loadAvailableSlots()
             }.launchIn(viewModelScope)
     }
 
     fun selectDoctor(doctor: Profile) {
-        _uiState.update { it.copy(selectedDoctor = doctor, doctorError = false) }
+        // Changing the doctor invalidates whatever slot was selected for the previous
+        // doctor (req. 2: "never allow a slot belonging to the previous doctor to remain
+        // selected"). Follow up with loadAvailableSlots().
+        _uiState.update { it.copy(selectedDoctor = doctor, doctorError = false, selectedSlot = null, slotError = false) }
+        loadAvailableSlots()
+    }
+
+    /** Recomputes available slots for the currently selected doctor + givenDate (req. 2/22). */
+    fun loadAvailableSlots() {
+        val state = _uiState.value
+        val doctor = state.selectedDoctor
+        if (doctor == null || state.givenDate.isBlank()) {
+            _uiState.update { it.copy(slotsState = SlotsUiState.Idle, selectedSlot = null) }
+            return
+        }
+        val token = ++slotLoadToken
+        _uiState.update { it.copy(slotsState = SlotsUiState.Loading, selectedSlot = null) }
+        viewModelScope.launch {
+            // Keyed by profiles.id (auth uid) - see AddConsultationViewModel for why this
+            // must not be employeeId.
+            val result = getAvailableSlotsUseCase.loadUiState(doctor.id, state.givenDate)
+            if (token != slotLoadToken) return@launch
+            _uiState.update { current ->
+                val preselect = editingAvailabilitySlotId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { slotId -> (result as? SlotsUiState.Loaded)?.slots?.firstOrNull { it.weeklySlotId == slotId } }
+                current.copy(slotsState = result, selectedSlot = preselect ?: current.selectedSlot)
+            }
+        }
+    }
+
+    fun selectSlot(slot: AvailableSlot) {
+        _uiState.update { it.copy(selectedSlot = slot, slotError = false) }
     }
 
     fun updateGivenDate(date: String) {
@@ -295,6 +342,8 @@ class AddVaccinationViewModel @Inject constructor(
             }
             state.copy(givenDate = date, vaccinesGiven = revalidated)
         }
+        // Date change recalculates availability too (req. 22), same as a doctor change.
+        loadAvailableSlots()
     }
 
     fun addVaccineRow() {
@@ -492,6 +541,10 @@ class AddVaccinationViewModel @Inject constructor(
             _uiState.update { it.copy(doctorError = true, errorMessage = "Please select a doctor.") }
             return
         }
+        if (state.selectedSlot == null) {
+            _uiState.update { it.copy(slotError = true, errorMessage = "Please select an available slot.") }
+            return
+        }
 
         val isEdit = !state.existingVaccinationId.isNullOrBlank()
 
@@ -547,6 +600,18 @@ class AddVaccinationViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // Revalidate (req. 17): another device may have changed this doctor's
+                // availability between loading slots and tapping Save.
+                val stillAvailable = getAvailableSlotsUseCase.isSlotStillAvailable(
+                    state.selectedDoctor.id, state.givenDate, state.selectedSlot.weeklySlotId
+                )
+                if (!stillAvailable) {
+                    _uiState.update { it.copy(isLoading = false, slotError = true, selectedSlot = null) }
+                    loadAvailableSlots()
+                    _uiState.update { it.copy(errorMessage = "That slot is no longer available. Please choose another.") }
+                    return@launch
+                }
+
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
 
@@ -593,6 +658,7 @@ class AddVaccinationViewModel @Inject constructor(
                     doctorsAcc = state.doctorsAcc,
                     doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                     performedBy = state.selectedDoctor.displayName,
+                    availabilitySlotId = state.selectedSlot.weeklySlotId,
                     items = items,
                     nextVaccinations = emptyList(),
                     status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED

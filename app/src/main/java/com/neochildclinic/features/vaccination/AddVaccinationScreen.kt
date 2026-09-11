@@ -158,6 +158,13 @@ fun AddVaccinationScreen(
                             onDoctorSelected = { viewModel.selectDoctor(it) },
                             isError = uiState.doctorError
                         )
+                        Spacer(Modifier.height(8.dp))
+                        AvailableSlotDropdown(
+                            state = uiState.slotsState,
+                            selectedSlot = uiState.selectedSlot,
+                            onSlotSelected = { viewModel.selectSlot(it) },
+                            isError = uiState.slotError
+                        )
                     } else {
                         ReadOnlyValue(uiState.selectedDoctor?.displayName ?: "Not selected")
                     }
