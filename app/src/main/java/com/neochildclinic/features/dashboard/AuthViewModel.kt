@@ -31,6 +31,10 @@ class AuthViewModel @Inject constructor(
     private val memoryCache: MemoryCache
 ) : ViewModel() {
 
+    companion object {
+        private const val SESSION_STATUS_TIMEOUT_MS = 4_000L
+    }
+
     val currentUser: UserInfo? get() = auth.currentSessionOrNull()?.user
 
     // The SDK resolves any session saved to disk asynchronously (autoLoadFromStorage).
@@ -39,8 +43,24 @@ class AuthViewModel @Inject constructor(
     // which races the storage load and returns null before it's had a chance to finish.
     val sessionStatus: StateFlow<SessionStatus> = auth.sessionStatus
 
-    suspend fun awaitResolvedSessionStatus(): SessionStatus =
-        sessionStatus.first { it !is SessionStatus.Initializing }
+    /**
+     * Waits for sessionStatus to leave Initializing, but never indefinitely. With
+     * autoLoadFromStorage + the SDK's default alwaysAutoRefresh, a session that's expired
+     * or close to it on disk triggers a network token-refresh attempt before the status
+     * resolves - and that refresh call has no bounded timeout of its own. This app is
+     * offline-first (Room is the source of truth), so a cold start with no network must
+     * never sit on a loading screen forever waiting for a refresh that can't complete -
+     * that was exactly this bug.
+     *
+     * Returns null on timeout (status is still Initializing). Callers should treat a null
+     * result the same as "fall back to whatever's already cached in memory" via
+     * [currentUser], since a previously logged-in user should keep full offline access to
+     * their local data rather than being bounced to Login just because there's no signal.
+     */
+    suspend fun awaitResolvedSessionStatus(): SessionStatus? =
+        kotlinx.coroutines.withTimeoutOrNull(SESSION_STATUS_TIMEOUT_MS) {
+            sessionStatus.first { it !is SessionStatus.Initializing }
+        }
 
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading

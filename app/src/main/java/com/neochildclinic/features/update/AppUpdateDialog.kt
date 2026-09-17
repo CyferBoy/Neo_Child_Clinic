@@ -2,7 +2,6 @@ package com.neochildclinic.features.update
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
@@ -10,11 +9,10 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.neochildclinic.features.update.AppUpdateInfo
-import com.neochildclinic.features.update.UpdateType
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.features.update.DownloadProgress
 
@@ -24,14 +22,10 @@ fun AppUpdateDialog(
     installing: Boolean,
     progress: DownloadProgress,
     onUpdate: () -> Unit,
-    onLater: () -> Unit
+    onLater: () -> Unit,
+    onDontRemindMe: () -> Unit = onLater
 ) {
-    val isDowngrade = info.updateType == UpdateType.DOWNGRADE
-    val title = when (info.updateType) {
-        UpdateType.UPDATE -> "Update Available"
-        UpdateType.REUPDATE -> "Re-update Available"
-        UpdateType.DOWNGRADE -> "Downgrade Available"
-    }
+    val title = if (info.mandatory) "Update Required" else "Update Available"
 
     AlertDialog(
         onDismissRequest = { if (!info.mandatory && !installing) onLater() },
@@ -56,10 +50,11 @@ fun AppUpdateDialog(
                     Text(title, style = MaterialTheme.typography.headlineSmall)
                     if (!installing) {
                         Text(
-                            if (isDowngrade) "An older version is available"
+                            if (info.mandatory) "This is a major update and is required"
                             else "A new version is ready",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (info.mandatory) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -160,22 +155,37 @@ fun AppUpdateDialog(
                 } else {
                     Column(
                         modifier = Modifier
-                            .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState()),
+                            .weight(1f, fill = false),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("Vaccine Manager ${info.versionName} is available.")
-                        if (isDowngrade) {
+                        Text(
+                            "What's New",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            tonalElevation = 1.dp
+                        ) {
                             Text(
-                                "You currently have a newer version installed. Installing this release may remove newer features or fixes.",
-                                color = MaterialTheme.colorScheme.error
+                                formatChangelog(info.releaseNotes),
+                                modifier = Modifier
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(14.dp),
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp)
                             )
                         }
-                        Text(info.releaseNotes)
                         if (info.mandatory) {
                             Text(
-                                "This update is required to continue using the application.",
-                                fontWeight = FontWeight.SemiBold
+                                if (info.releasesBehind > 1) {
+                                    "This update is required to continue using the application (${info.releasesBehind} releases behind)."
+                                } else {
+                                    "This update is required to continue using the application."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -190,8 +200,6 @@ fun AppUpdateDialog(
                 Text(
                     when {
                         installing -> "Downloading…"
-                        info.updateType == UpdateType.REUPDATE -> "Reinstall"
-                        info.updateType == UpdateType.DOWNGRADE -> "Downgrade"
                         else -> "Update"
                     }
                 )
@@ -199,15 +207,15 @@ fun AppUpdateDialog(
         },
         dismissButton = if (!info.mandatory) {
             {
-                TextButton(
-                    // Previously `enabled = !installing`: the button relabels itself
-                    // "Cancel" specifically while installing == true, but that same
-                    // condition disabled it - so the one moment it read "Cancel" was
-                    // exactly when it couldn't be tapped. It should always be tappable.
-                    onClick = onLater,
-                    enabled = true
-                ) {
-                    Text(if (installing) "Cancel" else "Later")
+                if (installing) {
+                    TextButton(onClick = onLater, enabled = true) { Text("Cancel") }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = onDontRemindMe) {
+                            Text("Don't remind me", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = onLater) { Text("Later") }
+                    }
                 }
             }
         } else null
@@ -223,131 +231,57 @@ private fun formatBytes(bytes: Long): String {
     return "%.1f GB".format(mb / 1024.0)
 }
 
-/**
- * Section 3/8: the downgrade version-selection list. Excludes the installed version and
- * anything newer (already guaranteed by AppUpdateManager.listDowngradeVersions() only
- * returning UpdateType.DOWNGRADE entries), sorted newest-to-oldest by the caller.
- */
-@Composable
-fun DowngradeVersionListDialog(
-    versions: List<AppUpdateInfo>,
-    selectedVersionCode: Long?,
-    onSelect: (AppUpdateInfo) -> Unit,
-    onCancel: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text("Downgrade") },
-        text = {
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState())
-            ) {
-                Text("Select a version to downgrade to:", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
-                versions.forEach { version ->
-                    val selected = version.versionCode == selectedVersionCode
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectable(selected = selected, onClick = { onSelect(version) })
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        RadioButton(selected = selected, onClick = { onSelect(version) })
-                        Column(Modifier.padding(start = 4.dp, top = 10.dp)) {
-                            Text("v${version.versionName}", style = MaterialTheme.typography.bodyLarge)
-                            version.publishedAt?.let {
-                                Text(
-                                    formatPublishedDate(it),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (version.releaseNotes.isNotBlank()) {
-                                Text(
-                                    version.releaseNotes,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } }
-    )
-}
+// Ported from SpotiFLAC-Mobile's update_dialog.dart _formatChangelog(): turns a raw GitHub
+// release body into a short, clean bulleted summary instead of showing raw markdown.
+private val whatsNewPattern = Regex("(?i)###?\\s*What'?s\\s*New\\s*\\n")
+private val cutoffPattern = Regex("(?i)\\n---|\\n###?\\s*Downloads")
+private val sectionPattern = Regex("^#{1,3}\\s*(.+)$")
+private val listPattern = Regex("^[-*]\\s+(.+)$")
+private val subListPattern = Regex("^\\s+[-*]\\s+(.+)$")
+private val boldPattern = Regex("\\*\\*([^*]+)\\*\\*")
+private val codePattern = Regex("`([^`]+)`")
 
-/**
- * Section 4/5/6: confirmation for a specific selected downgrade version. Change Version
- * returns to the list (list stays populated); Cancel abandons the whole flow; Downgrade is
- * the only action that starts the actual download/install.
- */
-@Composable
-fun DowngradeConfirmDialog(
-    info: AppUpdateInfo,
-    installing: Boolean,
-    progress: DownloadProgress,
-    onChangeVersion: () -> Unit,
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = { if (!installing) onCancel() },
-        title = { Text("Downgrade") },
-        text = {
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                if (installing) {
-                    if (progress.percent >= 0) {
-                        LinearProgressIndicator(
-                            progress = { progress.percent / 100f },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text("${progress.percent}%", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text("Downloading…", style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (progress.totalBytes > 0) {
-                        Text(
-                            formatBytes(progress.downloadedBytes) + " / " + formatBytes(progress.totalBytes),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(4.dp))
-                }
-                Text("Downgrading to Vaccine Manager v${info.versionName}")
+private fun formatChangelog(changelog: String, emptyFallback: String = "See release notes for details."): String {
+    var content = changelog
+
+    whatsNewPattern.find(content)?.let { content = content.substring(it.range.last + 1) }
+    cutoffPattern.find(content)?.let { content = content.substring(0, it.range.first) }
+
+    val formattedLines = mutableListOf<String>()
+    for (rawLine in content.split("\n")) {
+        val line = rawLine.trim()
+        if (line.isEmpty()) continue
+
+        val sectionMatch = sectionPattern.find(line)
+        if (sectionMatch != null) {
+            val section = sectionMatch.groupValues.getOrNull(1)?.trim()
+            if (!section.isNullOrEmpty()) {
+                if (formattedLines.isNotEmpty()) formattedLines.add("")
+                formattedLines.add(section)
             }
-        },
-        confirmButton = {
-            Button(onClick = onConfirm, enabled = !installing) { Text("Downgrade") }
-        },
-        dismissButton = {
-            Row {
-                // Changing version mid-download doesn't make sense (there's nothing to
-                // switch to yet), so that one stays disabled while installing. But Cancel
-                // must stay tappable throughout - same bug as the main update dialog.
-                TextButton(onClick = onChangeVersion, enabled = !installing) { Text("Change Version") }
-                TextButton(onClick = onCancel, enabled = true) { Text("Cancel") }
-            }
+            continue
         }
-    )
-}
 
-private fun formatPublishedDate(iso: String): String = try {
-    val parsed = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.ENGLISH).apply {
-        timeZone = java.util.TimeZone.getTimeZone("UTC")
-    }.parse(iso)
-    if (parsed != null) java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.ENGLISH).format(parsed) else iso
-} catch (_: Exception) {
-    iso
+        val listMatch = listPattern.find(line)
+        if (listMatch != null) {
+            var itemText = listMatch.groupValues.getOrElse(1) { "" }
+            itemText = boldPattern.replace(itemText) { it.groupValues[1] }
+            itemText = codePattern.replace(itemText) { it.groupValues[1] }
+            formattedLines.add("• $itemText")
+            continue
+        }
+
+        val subListMatch = subListPattern.find(line)
+        if (subListMatch != null) {
+            var itemText = subListMatch.groupValues.getOrElse(1) { "" }
+            itemText = boldPattern.replace(itemText) { it.groupValues[1] }
+            formattedLines.add("  - $itemText")
+            continue
+        }
+    }
+
+    var formatted = formattedLines.joinToString("\n").trim()
+    if (formatted.length > 2000) formatted = formatted.substring(0, 2000) + "..."
+
+    return formatted.ifEmpty { emptyFallback }
 }

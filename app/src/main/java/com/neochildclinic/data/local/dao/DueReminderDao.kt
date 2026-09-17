@@ -18,6 +18,18 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC")
     fun getAllDismissedReminders(): Flow<List<ReminderEntity>>
 
+    // --- Pagination (large-data scalability pass) ---
+    // Due/Completed/Dismissed are explicitly called out in the spec; `status` is indexed
+    // (see ReminderEntity). Additive - existing Flow methods above are untouched.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getDueRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getCompletedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getDismissedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
+
     @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type LIMIT 1")
     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String, type: String): ReminderEntity?
 

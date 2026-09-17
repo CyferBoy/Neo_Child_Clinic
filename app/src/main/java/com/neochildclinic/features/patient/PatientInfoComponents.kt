@@ -23,9 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
-import com.neochildclinic.data.local.entity.AuditLogEntity
 import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination

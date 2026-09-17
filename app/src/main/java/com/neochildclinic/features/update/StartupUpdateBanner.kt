@@ -29,7 +29,7 @@ private const val STARTUP_POPUP_VISIBLE_MILLIS = 4_500L
  *    any of that dialog's content (What's New / Download & Install / Don't remind / Later)
  *    here.
  *
- * The caller is responsible for only showing this for a genuine UpdateType.UPDATE result
+ * The caller is responsible for only showing this for a genuine available-update result
  * (see AppUpdateViewModel.checkForUpdates) - this composable itself has no opinion on when
  * it should appear, only on how it behaves once shown.
  */

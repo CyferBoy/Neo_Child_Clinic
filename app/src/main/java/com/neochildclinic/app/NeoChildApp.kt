@@ -35,6 +35,9 @@ class NeoChildApp : Application(), Configuration.Provider {
     @Inject
     lateinit var getVaccinationsUseCase: GetVaccinationsUseCase
 
+    @Inject
+    lateinit var backupAutoScheduler: com.neochildclinic.data.manager.BackupAutoScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -81,6 +84,13 @@ class NeoChildApp : Application(), Configuration.Provider {
                 financeRepository.migrateLegacyVaccinationCogs(vaccinations)
             } catch (e: Exception) {
                 Log.e(TAG, "Unable to migrate historical finance COGS snapshots", e)
+            }
+        }
+        scope.launch {
+            try {
+                backupAutoScheduler.rearmIfEnabled()
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to re-arm Automatic Backup scheduling", e)
             }
         }
     }

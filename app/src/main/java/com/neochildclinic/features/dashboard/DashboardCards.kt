@@ -19,8 +19,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neochildclinic.core.ui.FoldedCornerAccent
-import com.neochildclinic.core.ui.FoldedCornerShape
 
 @Composable
 fun DashboardCardSmall(

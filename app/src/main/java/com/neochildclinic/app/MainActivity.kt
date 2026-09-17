@@ -126,7 +126,7 @@ class MainActivity : FragmentActivity() {
 
                     // Small temporary heads-up popup for a silently-detected new version -
                     // never the full dialog itself. See AppUpdateViewModel.checkForUpdates
-                    // for why this is only ever populated for a genuine UpdateType.UPDATE
+                    // for why this is only ever populated for a genuine available-update
                     // result from a silent (non-manual) check, at most once per session.
                     // lastStartupPopupInfo keeps the banner's content available while it
                     // plays its slide/fade-out exit animation, since startupPopup itself
@@ -154,7 +154,8 @@ class MainActivity : FragmentActivity() {
                             installing = installingUpdate,
                             progress = downloadProgress,
                             onUpdate = { appUpdateViewModel.installUpdate() },
-                            onLater = { appUpdateViewModel.dismissUpdate() }
+                            onLater = { appUpdateViewModel.dismissUpdate() },
+                            onDontRemindMe = { appUpdateViewModel.dontRemindMe() }
                         )
                     }
                 }
@@ -204,7 +205,14 @@ class MainActivity : FragmentActivity() {
     private fun checkAppLock() {
         lifecycleScope.launch {
             val status = authViewModel.awaitResolvedSessionStatus()
-            if (status !is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) return@launch
+            // Same offline fallback as Navigation.kt's start-destination resolution: a
+            // timed-out (null) status almost always means no network at launch, not "not
+            // logged in" - and app-lock exists specifically to protect an already logged-in
+            // user's local data, so it should still apply in that case rather than being
+            // silently skipped.
+            val isAuthenticated = status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated ||
+                (status == null && authViewModel.currentUser != null)
+            if (!isAuthenticated) return@launch
 
             val settings = settingsManager.settingsFlow.first()
             BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)

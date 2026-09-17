@@ -6,8 +6,6 @@ import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.features.settings.NotificationSettingsManager
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,8 +25,6 @@ data class VaccineInventoryUiState(
 @HiltViewModel
 class VaccineInventoryViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
-    private val settingsManager: NotificationSettingsManager,
-    private val patientRepository: PatientRepository,
     private val auth: Auth
 ) : ViewModel() {
 

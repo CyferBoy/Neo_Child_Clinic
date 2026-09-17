@@ -1,0 +1,1389 @@
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/app/MainActivity.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/app/MainActivity.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/app/MainActivity.kt	2026-09-15 09:33:07.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/app/MainActivity.kt	2026-09-16 10:00:29.349864673 +0000
+@@ -154,7 +154,8 @@
+                             installing = installingUpdate,
+                             progress = downloadProgress,
+                             onUpdate = { appUpdateViewModel.installUpdate() },
+-                            onLater = { appUpdateViewModel.dismissUpdate() }
++                            onLater = { appUpdateViewModel.dismissUpdate() },
++                            onDontRemindMe = { appUpdateViewModel.dontRemindMe() }
+                         )
+                     }
+                 }
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/AuditLogDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/AuditLogDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/AuditLogDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/AuditLogDao.kt	2026-09-16 03:49:36.331944444 +0000
+@@ -26,6 +26,32 @@
+     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 200")
+     fun getAllLogs(): Flow<List<AuditLogEntity>>
+ 
++    // --- Pagination (large-data scalability pass) ---
++    // getAllLogs() above already caps at 200; these cover the three per-patient/per-entity/
++    // per-module queries, which had no cap at all and are indexed on patientId, entityType+
++    // entityId, and module respectively (see AuditLogEntity). Additive, existing Flow
++    // methods above are untouched.
++    @Query("SELECT * FROM audit_logs WHERE patientId = :patientId ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
++    suspend fun getLogsForPatientPage(patientId: String, limit: Int, offset: Int): List<AuditLogEntity>
++
++    @Query("SELECT * FROM audit_logs WHERE entityType = :type AND entityId = :id ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
++    suspend fun getLogsForEntityPage(type: String, id: String, limit: Int, offset: Int): List<AuditLogEntity>
++
++    @Query("SELECT * FROM audit_logs WHERE module = :module ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
++    suspend fun getLogsForModulePage(module: String, limit: Int, offset: Int): List<AuditLogEntity>
++
++    // Keyset variant for scrolling past the newest 200 shown by getAllLogs(): pass the
++    // timestamp of the last row already shown (id as tiebreak for identical timestamps).
++    @Query(
++        """
++        SELECT * FROM audit_logs
++        WHERE (timestamp < :lastTimestamp) OR (timestamp = :lastTimestamp AND id < :lastId)
++        ORDER BY timestamp DESC, id DESC
++        LIMIT :limit
++        """
++    )
++    suspend fun getLogsBefore(lastTimestamp: String, lastId: String, limit: Int): List<AuditLogEntity>
++
+ 
+     @Query("UPDATE audit_logs SET isSynced = 1 WHERE id = :id")
+     suspend fun markSynced(id: String)
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowDao.kt	2026-09-16 03:48:01.424457116 +0000
+@@ -21,6 +21,16 @@
+     @Query("SELECT * FROM borrow_records WHERE isReturned = 1")
+     fun getReturnedBorrows(): Flow<List<BorrowEntity>>
+ 
++    // --- Pagination (large-data scalability pass) --- additive, existing Flow methods
++    // above are untouched. isReturned has no dedicated index today; at clinic scale this
++    // table is small relative to patients/visits, so id-ordered paging is used rather
++    // than adding a new index purely for this.
++    @Query("SELECT * FROM borrow_records WHERE isReturned = 0 ORDER BY id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getActiveBorrowsPage(limit: Int, offset: Int): List<BorrowEntity>
++
++    @Query("SELECT * FROM borrow_records WHERE isReturned = 1 ORDER BY id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getReturnedBorrowsPage(limit: Int, offset: Int): List<BorrowEntity>
++
+     @Query("UPDATE borrow_records SET isReturned = 1, returnedDate = :date, isSynced = 0 WHERE id = :id")
+     suspend fun markReturned(id: String, date: String)
+ 
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowReturnDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowReturnDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowReturnDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/BorrowReturnDao.kt	2026-09-16 03:48:06.941706743 +0000
+@@ -19,6 +19,11 @@
+     @Query("SELECT * FROM borrow_returns")
+     fun getAllReturns(): Flow<List<BorrowReturnEntity>>
+ 
++    // --- Pagination (large-data scalability pass) --- additive, existing Flow method
++    // above is untouched.
++    @Query("SELECT * FROM borrow_returns ORDER BY returned_date DESC, created_at DESC LIMIT :limit OFFSET :offset")
++    suspend fun getAllReturnsPage(limit: Int, offset: Int): List<BorrowReturnEntity>
++
+     @Query("SELECT * FROM borrow_returns WHERE id = :id LIMIT 1")
+     suspend fun getById(id: String): BorrowReturnEntity?
+ 
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/ConsultationDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/ConsultationDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/ConsultationDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/ConsultationDao.kt	2026-09-16 03:47:47.529508031 +0000
+@@ -12,6 +12,14 @@
+     @Query("SELECT * FROM consultations WHERE patientId = :patientId ORDER BY date DESC")
+     fun getConsultationsForPatient(patientId: String): Flow<List<ConsultationEntity>>
+ 
++    // --- Pagination (large-data scalability pass) --- additive, existing Flow methods
++    // above are untouched.
++    @Query("SELECT * FROM consultations ORDER BY date DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getAllConsultationsPage(limit: Int, offset: Int): List<ConsultationEntity>
++
++    @Query("SELECT * FROM consultations WHERE patientId = :patientId ORDER BY date DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getConsultationsForPatientPage(patientId: String, limit: Int, offset: Int): List<ConsultationEntity>
++
+     @Query("SELECT * FROM consultations WHERE id = :id")
+     suspend fun getConsultationById(id: String): ConsultationEntity?
+ 
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/DueReminderDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/DueReminderDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/DueReminderDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/DueReminderDao.kt	2026-09-16 03:50:03.145052607 +0000
+@@ -18,6 +18,18 @@
+     @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC")
+     fun getAllDismissedReminders(): Flow<List<ReminderEntity>>
+ 
++    // --- Pagination (large-data scalability pass) ---
++    // Due/Completed/Dismissed are explicitly called out in the spec; `status` is indexed
++    // (see ReminderEntity). Additive - existing Flow methods above are untouched.
++    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getDueRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
++
++    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getCompletedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
++
++    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getDismissedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
++
+     @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type LIMIT 1")
+     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String, type: String): ReminderEntity?
+ 
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/FinanceDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/FinanceDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/FinanceDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/FinanceDao.kt	2026-09-16 03:49:08.669199542 +0000
+@@ -27,6 +27,60 @@
+     @Query("SELECT * FROM finance_transactions WHERE visitId = :visitId")
+     suspend fun getTransactionsByVisitId(visitId: String): List<FinanceEntity>
+ 
++    // --- Pagination & date-range filtering (large-data scalability pass) ---
++    // Additive. getAllTransactions()/getAllTransactionsSnapshot() above are left exactly
++    // as-is: FinanceCalculator (features/statistics) does bespoke per-row parsing (COGS
++    // snapshot markers, invalid-date counting, profit-completeness flags) over the full
++    // list that these new SQL-level aggregates deliberately do not attempt to replicate,
++    // so the displayed statistics/business rules cannot silently change. These are the
++    // building blocks for a future date-range-scoped dashboard: narrow to the financial
++    // year (or any window) in SQL first, then run the existing per-row logic only over
++    // that narrower set instead of the entire transaction history.
++
++    @Query(
++        "SELECT * FROM finance_transactions " +
++        "ORDER BY COALESCE(transaction_date, substr(timestamp, 1, 10)) DESC, timestamp DESC " +
++        "LIMIT :limit OFFSET :offset"
++    )
++    suspend fun getAllTransactionsPage(limit: Int, offset: Int): List<FinanceEntity>
++
++    @Query(
++        "SELECT * FROM finance_transactions WHERE patientId = :patientId " +
++        "ORDER BY COALESCE(transaction_date, substr(timestamp, 1, 10)) DESC, timestamp DESC " +
++        "LIMIT :limit OFFSET :offset"
++    )
++    suspend fun getTransactionsForPatientPage(patientId: String, limit: Int, offset: Int): List<FinanceEntity>
++
++    // fromDate/toDate are inclusive "yyyy-MM-dd" bounds, matched against the same
++    // COALESCE(transaction_date, timestamp-date) used everywhere else in this DAO, so a
++    // financial-year (Apr 1 -> Mar 31) query is just fromDate="2025-04-01", toDate="2026-03-31".
++    @Query(
++        """
++        SELECT * FROM finance_transactions
++        WHERE COALESCE(transaction_date, substr(timestamp, 1, 10)) BETWEEN :fromDate AND :toDate
++        ORDER BY COALESCE(transaction_date, substr(timestamp, 1, 10)) DESC, timestamp DESC
++        LIMIT :limit OFFSET :offset
++        """
++    )
++    suspend fun getTransactionsInRangePage(fromDate: String, toDate: String, limit: Int, offset: Int): List<FinanceEntity>
++
++    // Row counts and simple sums for a date range, computed by SQLite rather than by
++    // summing a fully-materialized Kotlin list. Use for "how many transactions / what's
++    // the raw revenue-minus-expense total in this window" - anything needing the finer
++    // COGS/validity business rules still goes through FinanceCalculator on a page/range
++    // fetched via the methods above.
++    @Query(
++        "SELECT COUNT(*) FROM finance_transactions " +
++        "WHERE COALESCE(transaction_date, substr(timestamp, 1, 10)) BETWEEN :fromDate AND :toDate"
++    )
++    suspend fun getTransactionCountInRange(fromDate: String, toDate: String): Int
++
++    @Query(
++        "SELECT COALESCE(SUM(amount), 0.0) FROM finance_transactions " +
++        "WHERE type = :type AND COALESCE(transaction_date, substr(timestamp, 1, 10)) BETWEEN :fromDate AND :toDate"
++    )
++    suspend fun getAmountSumInRange(type: String, fromDate: String, toDate: String): Double
++
+     @Query("DELETE FROM finance_transactions WHERE id = :id")
+     suspend fun deleteTransactionById(id: String)
+ 
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/PatientDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/PatientDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/PatientDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/PatientDao.kt	2026-09-16 03:47:12.838355246 +0000
+@@ -33,6 +33,41 @@
+     """)
+     fun searchPatients(q: String): Flow<List<PatientEntity>>
+ 
++    // --- Pagination (large-data scalability pass) ---
++    // getAllPatients()/searchPatients() above are unbounded and were the biggest risk in
++    // the app for large clinics - every screen backed by them loads the entire patients
++    // table into memory. These paginated variants are additive: existing call sites are
++    // untouched, callers that need bounded pages (e.g. an infinite-scroll patient list)
++    // can migrate to these. name has an index (see PatientEntity), so ORDER BY name is
++    // indexed; id is included as a tiebreak for patients sharing a name so paging is stable.
++
++    @Query("SELECT * FROM patients ORDER BY name COLLATE NOCASE ASC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getPatientsPage(limit: Int, offset: Int): List<PatientEntity>
++
++    // Keyset/cursor variant: avoids the cost of a large OFFSET (SQLite still has to walk
++    // and discard `offset` rows before it can return anything). Pass the name/id of the
++    // last row from the previous page (empty strings for the first page).
++    @Query(
++        """
++        SELECT * FROM patients
++        WHERE (name COLLATE NOCASE > :lastName) OR (name COLLATE NOCASE = :lastName AND id > :lastId)
++        ORDER BY name COLLATE NOCASE ASC, id ASC
++        LIMIT :limit
++        """
++    )
++    suspend fun getPatientsAfter(lastName: String, lastId: String, limit: Int): List<PatientEntity>
++
++    @Query(
++        """
++        SELECT * FROM patients 
++        WHERE (name LIKE :q OR phone LIKE :q OR patientClinicId LIKE :q OR address LIKE :q
++             OR id IN (SELECT patientId FROM patient_visits WHERE vaccineNames LIKE :q OR receiptNumber LIKE :q))
++        ORDER BY name COLLATE NOCASE ASC, id ASC
++        LIMIT :limit OFFSET :offset
++        """
++    )
++    suspend fun searchPatientsPage(q: String, limit: Int, offset: Int): List<PatientEntity>
++
+     @Query("SELECT COUNT(*) FROM patients")
+     fun getPatientCount(): Flow<Int>
+ 
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/VaccinationDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/VaccinationDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/VaccinationDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/VaccinationDao.kt	2026-09-16 03:47:40.363056058 +0000
+@@ -13,6 +13,16 @@
+     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
+     fun getVaccinationsForPatient(patientId: String): Flow<List<VisitEntity>>
+ 
++    // --- Pagination (large-data scalability pass) ---
++    // patient_visits grows with every visit (not just every patient), so getAllVaccinations()
++    // is the fastest-growing unbounded list in the app. Additive - existing Flow methods
++    // above are untouched for backward compatibility.
++    @Query("SELECT * FROM patient_visits ORDER BY dateGiven DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getAllVaccinationsPage(limit: Int, offset: Int): List<VisitEntity>
++
++    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getVaccinationsForPatientPage(patientId: String, limit: Int, offset: Int): List<VisitEntity>
++
+     @Transaction
+     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
+     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/WasteDao.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/WasteDao.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/WasteDao.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/dao/WasteDao.kt	2026-09-16 03:47:54.734071559 +0000
+@@ -28,4 +28,12 @@
+ 
+     @Query("SELECT COUNT(*) FROM waste_records")
+     fun getWasteCount(): Flow<Int>
++
++    // --- Pagination (large-data scalability pass) --- additive, existing Flow methods
++    // above are untouched. dateWasted and vaccineId are both indexed (see WasteEntity).
++    @Query("SELECT * FROM waste_records ORDER BY dateWasted DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getAllWastePage(limit: Int, offset: Int): List<WasteEntity>
++
++    @Query("SELECT * FROM waste_records WHERE vaccineId = :vaccineId ORDER BY dateWasted DESC, id ASC LIMIT :limit OFFSET :offset")
++    suspend fun getWasteForVaccinePage(vaccineId: String, limit: Int, offset: Int): List<WasteEntity>
+ }
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt	2026-09-12 08:54:04.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt	2026-09-16 03:46:58.362403505 +0000
+@@ -39,7 +39,7 @@
+         DoctorSlotExceptionEntity::class,
+         BackupHistoryEntity::class,
+     ], 
+-    version = 26,
++    version = 27,
+     exportSchema = false
+ )
+ @TypeConverters(Converters::class)
+@@ -77,7 +77,7 @@
+         // Kept in sync with the @Database(version = ...) annotation above; used by
+         // BackupRepositoryImpl so the backup envelope records which schema version
+         // produced it, without needing reflection to read the annotation at runtime.
+-        const val DB_VERSION = 26
++        const val DB_VERSION = 27
+ 
+         @Volatile
+         private var INSTANCE: AppDatabase? = null
+@@ -325,6 +325,22 @@
+                     }
+                 }
+ 
++                // Large-data scalability pass: adds indices that were missing entirely on
++                // inventory_deductions and waste_records, plus originalVisitId on reminders
++                // (see InventoryDeductionEntity/WasteEntity/ReminderEntity for why). Purely
++                // additive - only CREATE INDEX statements, no table/column changes, so it
++                // cannot break existing data or queries.
++                val migration26_27 = object : androidx.room.migration.Migration(26, 27) {
++                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
++                        db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_deductions_vaccinationId ON inventory_deductions(vaccinationId)")
++                        db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_deductions_status ON inventory_deductions(status)")
++                        db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_records_vaccineId ON waste_records(vaccineId)")
++                        db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_records_dateWasted ON waste_records(dateWasted)")
++                        db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_records_isSynced ON waste_records(isSynced)")
++                        db.execSQL("CREATE INDEX IF NOT EXISTS index_reminders_originalVisitId ON reminders(originalVisitId)")
++                    }
++                }
++
+                 val instance = Room.databaseBuilder(
+                     context.applicationContext,
+                     AppDatabase::class.java,
+@@ -332,7 +348,7 @@
+                 )
+                 .openHelperFactory(factory)
+                 .setJournalMode(JournalMode.TRUNCATE)
+-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26)
++                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27)
+                 .fallbackToDestructiveMigration(dropAllTables = true)
+                 .build()
+                 INSTANCE = instance
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/InventoryDeductionEntity.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/InventoryDeductionEntity.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/InventoryDeductionEntity.kt	2026-09-12 03:50:59.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/InventoryDeductionEntity.kt	2026-09-16 03:46:30.016384418 +0000
+@@ -2,14 +2,22 @@
+ 
+ import androidx.room.ColumnInfo
+ import androidx.room.Entity
++import androidx.room.Index
+ import androidx.room.PrimaryKey
+ import kotlinx.serialization.Serializable
+ 
+ // @Serializable added for Backup & Restore (see data/backup/BackupModels.kt) so this
+ // table can be exported/imported the same way every other entity already is. Purely
+ // additive - does not change the Room schema, column names, or any existing behavior.
++//
++// Indices added (large-data scalability pass): vaccinationId and status are the only
++// columns InventoryDeductionDao filters on (getForVaccination / getCompletedForVaccination),
++// and this table previously had no indices at all, forcing a full table scan per lookup.
+ @Serializable
+-@Entity(tableName = "inventory_deductions")
++@Entity(
++    tableName = "inventory_deductions",
++    indices = [Index("vaccinationId"), Index("status")]
++)
+ data class InventoryDeductionEntity(
+     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+     val vaccinationId: String,
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt	2026-09-16 03:46:41.220083369 +0000
+@@ -24,7 +24,11 @@
+     indices = [
+         Index(value = ["patientId", "originalVisitId", "dueDate", "type", "vaccineName"], unique = true),
+         Index("status"),
+-        Index("dueDate")
++        Index("dueDate"),
++        // originalVisitId is looked up on its own (getRemindersByVisitId, and the
++        // PatientVaccinationCardEntity @Relation join) but wasn't a leftmost-prefix
++        // column of any existing index, so those queries were full table scans.
++        Index("originalVisitId")
+     ]
+ )
+ @Serializable
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/WasteEntity.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/WasteEntity.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/WasteEntity.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/local/entity/WasteEntity.kt	2026-09-16 03:46:36.107962789 +0000
+@@ -2,13 +2,20 @@
+ 
+ import androidx.room.ColumnInfo
+ import androidx.room.Entity
++import androidx.room.Index
+ import androidx.room.PrimaryKey
+ import com.neochildclinic.domain.model.WasteRecord
+ import kotlinx.serialization.SerialName
+ import kotlinx.serialization.Serializable
+ 
++// Indices added (large-data scalability pass): vaccineId (WasteDao.getWasteForVaccine),
++// dateWasted (default sort order on every waste query), and isSynced (sync scan) - this
++// table previously had no indices at all.
+ @Serializable
+-@Entity(tableName = "waste_records")
++@Entity(
++    tableName = "waste_records",
++    indices = [Index("vaccineId"), Index("dateWasted"), Index("isSynced")]
++)
+ data class WasteEntity(
+     @PrimaryKey val id: String,
+     val vaccineId: String,
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/PatientRepositoryImpl.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/PatientRepositoryImpl.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/PatientRepositoryImpl.kt	2026-09-13 00:49:43.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/PatientRepositoryImpl.kt	2026-09-16 03:57:15.069373979 +0000
+@@ -220,6 +220,12 @@
+     override fun searchPatients(query: String): Flow<List<Patient>> =
+         patientDao.searchPatients(query).map { list -> list.map { it.toPatient() } }
+ 
++    // Large-data scalability pass: keyset pagination over the patients table (see
++    // PatientDao.getPatientsAfter for why keyset rather than OFFSET). afterName/afterId
++    // null means "first page".
++    override suspend fun getPatientsPage(afterName: String?, afterId: String?, limit: Int): List<Patient> =
++        patientDao.getPatientsAfter(afterName ?: "", afterId ?: "", limit).map { it.toPatient() }
++
+     override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
+ 
+     override suspend fun getTotalPatientCount(): Int = patientDao.getTotalPatientCount()
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt	2026-09-16 08:58:24.007107843 +0000
+@@ -112,16 +112,26 @@
+                     }
+                 }
+                 
++                // Batch the pre-upsert conflict-check read (Section 6: Batched
++                // Synchronization): one SELECT ... WHERE id IN (...) per table for this
++                // group, instead of one SELECT per item inside uploadEntity. DELETE and
++                // REMINDERS items are excluded because neither used the per-item check this
++                // replaces (see fetchRemoteConflictData for why).
++                val conflictCheckCandidates = groupItems.filter {
++                    it.operation != SyncOperation.DELETE.name && it.entityName != "REMINDERS"
++                }
++                val remoteConflictData = fetchRemoteConflictData(conflictCheckCandidates)
++
+                 // Process items in group sequentially. If Supabase rejects the request
+                 // because the access token expired between the pre-sync refresh and this
+                 // upload, refresh once and retry the exact same queue item.
+                 for (item in groupItems) {
+                     try {
+-                        uploadEntity(item)
++                        uploadEntity(item, remoteConflictData)
+                     } catch (e: Exception) {
+                         if (!isJwtExpired(e)) throw e
+                         auth.refreshCurrentSession()
+-                        uploadEntity(item)
++                        uploadEntity(item, remoteConflictData)
+                     }
+                     syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
+                     syncDao.deleteItem(item)
+@@ -259,32 +269,81 @@
+         }
+     }
+ 
+-    private suspend fun uploadEntity(item: SyncQueueEntity) {
+-        val table = when (item.entityName) {
+-            "PATIENT" -> "patients"
+-            "VACCINATION", "VISIT" -> "patient_visits"
+-            "VACCINATION_ITEM" -> "vaccination_items"
+-            "WASTE" -> "waste_records"
+-            "REMINDERS" -> "reminders"
+-            "VACCINE" -> "vaccines"
+-            "BATCH" -> "vaccine_batches"
+-            "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
+-            "PATIENT_NOTE" -> "patient_notes"
+-            "FINANCE" -> "finance_transactions"
+-            "EXPENSE" -> "expenses"
+-            "PROFILE", "STAFF" -> "profiles"
+-            "BORROW" -> "borrow_records"
+-            "BORROW_RETURN" -> "borrow_returns"
+-            "AUDIT_LOG" -> "audit_logs"
+-            "CONSULTATION" -> "consultations"
+-            "CONSULTATION_TODO" -> "consultation_todos"
+-            "VACCINATION_TODO" -> "vaccination_todos"
+-            "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
+-            "DOCTOR_WEEKLY_SLOT" -> "doctor_weekly_slots"
+-            "DOCTOR_SLOT_EXCEPTION" -> "doctor_slot_exceptions"
+-            else -> throw IllegalArgumentException("Unknown entity: ${item.entityName}")
++    // Shared entityName -> Supabase table mapping, used both by uploadEntity (which still
++    // throws on an unrecognized entityName, exactly as before) and by the batched
++    // conflict-check prefetch below (which just skips grouping for entries it doesn't
++    // recognize, since uploadEntity will throw on them anyway when its turn comes).
++    private fun entityTable(entityName: String): String? = when (entityName) {
++        "PATIENT" -> "patients"
++        "VACCINATION", "VISIT" -> "patient_visits"
++        "VACCINATION_ITEM" -> "vaccination_items"
++        "WASTE" -> "waste_records"
++        "REMINDERS" -> "reminders"
++        "VACCINE" -> "vaccines"
++        "BATCH" -> "vaccine_batches"
++        "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
++        "PATIENT_NOTE" -> "patient_notes"
++        "FINANCE" -> "finance_transactions"
++        "EXPENSE" -> "expenses"
++        "PROFILE", "STAFF" -> "profiles"
++        "BORROW" -> "borrow_records"
++        "BORROW_RETURN" -> "borrow_returns"
++        "AUDIT_LOG" -> "audit_logs"
++        "CONSULTATION" -> "consultations"
++        "CONSULTATION_TODO" -> "consultation_todos"
++        "VACCINATION_TODO" -> "vaccination_todos"
++        "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
++        "DOCTOR_WEEKLY_SLOT" -> "doctor_weekly_slots"
++        "DOCTOR_SLOT_EXCEPTION" -> "doctor_slot_exceptions"
++        else -> null
++    }
++
++    // Groups items by their target table and issues one `id IN (...)` SELECT per table,
++    // instead of the one SELECT per item this replaces (large-data scalability pass,
++    // Section 6: Batched Synchronization). REMINDERS and DELETE items are excluded by the
++    // caller because neither ever reached the per-item conflict-check this replaces:
++    // REMINDERS resolves its own identity/return path earlier in uploadEntity, and DELETE
++    // returns before the conflict-check block too - so behavior for both is unchanged.
++    // A read failure for one table's batch is logged and simply leaves that table's items
++    // out of the map, matching the previous per-item try/catch, which also proceeded with
++    // a plain upsert whenever the live check failed.
++    private suspend fun fetchRemoteConflictData(
++        items: List<SyncQueueEntity>
++    ): Map<String, Map<String, kotlinx.serialization.json.JsonElement>> {
++        if (items.isEmpty()) return emptyMap()
++
++        val result = mutableMapOf<String, Map<String, kotlinx.serialization.json.JsonElement>>()
++        val byTable = items.groupBy { entityTable(it.entityName) }
++
++        for ((table, tableItems) in byTable) {
++            if (table == null) continue
++            val ids = tableItems.map { it.entityId }.distinct()
++            if (ids.isEmpty()) continue
++
++            try {
++                val rows = postgrest.from(table).select {
++                    filter { isIn("id", ids) }
++                }.decodeList<Map<String, kotlinx.serialization.json.JsonElement>>()
++
++                for (row in rows) {
++                    val id = row["id"]?.toString()?.trim('"') ?: continue
++                    result["$table:$id"] = row
++                }
++            } catch (e: Exception) {
++                android.util.Log.w("SyncRepository", "Batched conflict-check read failed for $table", e)
++            }
+         }
+ 
++        return result
++    }
++
++    private suspend fun uploadEntity(
++        item: SyncQueueEntity,
++        remoteConflictData: Map<String, Map<String, kotlinx.serialization.json.JsonElement>>
++    ) {
++        val table = entityTable(item.entityName)
++            ?: throw IllegalArgumentException("Unknown entity: ${item.entityName}")
++
+         if (item.operation == SyncOperation.DELETE.name) {
+             if (item.entityName == "REMINDERS") {
+                 val serverId = database.dueReminderDao().getReminderById(item.entityId)?.serverId
+@@ -321,36 +380,24 @@
+         val localData = fetchEntityData(item)
+         if (localData != null) {
+             val localUpdatedAt = getEntityUpdatedAt(localData)
+-            
+-            try {
+-                // Fetch remote metadata for conflict detection
+-                val remoteId = if (item.entityName == "REMINDERS") {
+-                    (localData as? ReminderEntity)?.serverId
+-                } else {
+-                    item.entityId
+-                }
+-
+-                if (remoteId != null) {
+-                    val remoteData = postgrest.from(table).select {
+-                        filter { eq("id", remoteId) }
+-                    }.decodeSingleOrNull<Map<String, kotlinx.serialization.json.JsonElement>>()
+-                    
+-                    if (remoteData != null) {
+-                        val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
+-                            ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
+-                        
+-                        val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
+-                        val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
+-
+-                        if (remoteUpdatedAt > localUpdatedAtLong) {
+-                            // REMOTE IS NEWER: Sync back to local (Self-healing)
+-                            downloadAndReplaceLocal(item.entityName, remoteData)
+-                            return
+-                        }
+-                    }
++
++            // Conflict check: was resolved with its own SELECT per item before this change;
++            // now reads from the batch-fetched map built once per sync group in
++            // processNextItems (see fetchRemoteConflictData). REMINDERS never reaches this
++            // point (it returns earlier above), so the key is always table:entityId.
++            val remoteData = remoteConflictData["$table:${item.entityId}"]
++            if (remoteData != null) {
++                val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
++                    ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
++
++                val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
++                val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
++
++                if (remoteUpdatedAt > localUpdatedAtLong) {
++                    // REMOTE IS NEWER: Sync back to local (Self-healing)
++                    downloadAndReplaceLocal(item.entityName, remoteData)
++                    return
+                 }
+-            } catch (_: Exception) {
+-                // Proceed with upsert if check fails
+             }
+ 
+             // EXPLICIT CASTING: Supabase upsert<T> requires the concrete type at compile time
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/WasteRepositoryImpl.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/WasteRepositoryImpl.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/WasteRepositoryImpl.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/data/repository/WasteRepositoryImpl.kt	2026-09-16 03:57:25.168111954 +0000
+@@ -165,6 +165,10 @@
+ 
+     override fun getWasteCount(): Flow<Int> = wasteDao.getWasteCount()
+ 
++    // Large-data scalability pass: additive, existing getAllWaste() Flow is unchanged.
++    override suspend fun getAllWastePage(limit: Int, offset: Int): List<WasteRecord> =
++        wasteDao.getAllWastePage(limit, offset).map { it.toDomain() }
++
+     private fun mapReasonToTransactionType(reason: String): InventoryTransactionType {
+         return when (reason.lowercase()) {
+             "expired" -> InventoryTransactionType.EXPIRED
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/PatientRepository.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/PatientRepository.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/PatientRepository.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/PatientRepository.kt	2026-09-16 03:57:09.957444832 +0000
+@@ -19,6 +19,12 @@
+     fun searchPatients(query: String): Flow<List<Patient>>
+     fun getPatientCount(): Flow<Int>
+     suspend fun getTotalPatientCount(): Int
++
++    // Paginated access (large-data scalability pass). Keyset-based: pass the name/id of
++    // the last patient from the previous page, or null for the first page. Additive -
++    // allPatients/searchPatients above are unchanged; screens that need a bounded,
++    // infinite-scroll-style list should migrate to this instead of collecting allPatients.
++    suspend fun getPatientsPage(afterName: String?, afterId: String?, limit: Int): List<Patient>
+     
+     // Timeline & History
+     // NOTE: patient audit history is now loaded online-only via PatientAuditLogPager
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/WasteRepository.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/WasteRepository.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/WasteRepository.kt	2026-09-11 17:05:51.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/domain/repository/WasteRepository.kt	2026-09-16 03:57:20.882399153 +0000
+@@ -11,4 +11,8 @@
+     suspend fun deleteWaste(id: String, user: String)
+     suspend fun refreshWaste()
+     fun getWasteCount(): Flow<Int>
++
++    // Paginated access (large-data scalability pass). Additive - getAllWaste() above is
++    // unchanged.
++    suspend fun getAllWastePage(limit: Int, offset: Int): List<WasteRecord>
+ }
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateDialog.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateDialog.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateDialog.kt	2026-09-14 01:51:56.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateDialog.kt	2026-09-16 10:00:29.351331476 +0000
+@@ -11,6 +11,7 @@
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
+ import com.neochildclinic.features.update.AppUpdateInfo
+ import com.neochildclinic.BuildConfig
+ import com.neochildclinic.features.update.DownloadProgress
+@@ -21,9 +22,10 @@
+     installing: Boolean,
+     progress: DownloadProgress,
+     onUpdate: () -> Unit,
+-    onLater: () -> Unit
++    onLater: () -> Unit,
++    onDontRemindMe: () -> Unit = onLater
+ ) {
+-    val title = "Update Available"
++    val title = if (info.mandatory) "Update Required" else "Update Available"
+ 
+     AlertDialog(
+         onDismissRequest = { if (!info.mandatory && !installing) onLater() },
+@@ -48,9 +50,11 @@
+                     Text(title, style = MaterialTheme.typography.headlineSmall)
+                     if (!installing) {
+                         Text(
+-                            "A new version is ready",
++                            if (info.mandatory) "This is a major update and is required"
++                            else "A new version is ready",
+                             style = MaterialTheme.typography.bodyMedium,
+-                            color = MaterialTheme.colorScheme.onSurfaceVariant
++                            color = if (info.mandatory) MaterialTheme.colorScheme.error
++                                else MaterialTheme.colorScheme.onSurfaceVariant
+                         )
+                     }
+                 }
+@@ -151,16 +155,37 @@
+                 } else {
+                     Column(
+                         modifier = Modifier
+-                            .weight(1f, fill = false)
+-                            .verticalScroll(rememberScrollState()),
++                            .weight(1f, fill = false),
+                         verticalArrangement = Arrangement.spacedBy(10.dp)
+                     ) {
+-                        Text("Vaccine Manager ${info.versionName} is available.")
+-                        Text(info.releaseNotes)
++                        Text(
++                            "What's New",
++                            style = MaterialTheme.typography.titleSmall,
++                            fontWeight = FontWeight.Bold
++                        )
++                        Surface(
++                            modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
++                            shape = MaterialTheme.shapes.medium,
++                            tonalElevation = 1.dp
++                        ) {
++                            Text(
++                                formatChangelog(info.releaseNotes),
++                                modifier = Modifier
++                                    .verticalScroll(rememberScrollState())
++                                    .padding(14.dp),
++                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp)
++                            )
++                        }
+                         if (info.mandatory) {
+                             Text(
+-                                "This update is required to continue using the application.",
+-                                fontWeight = FontWeight.SemiBold
++                                if (info.releasesBehind > 1) {
++                                    "This update is required to continue using the application (${info.releasesBehind} releases behind)."
++                                } else {
++                                    "This update is required to continue using the application."
++                                },
++                                style = MaterialTheme.typography.bodySmall,
++                                fontWeight = FontWeight.SemiBold,
++                                color = MaterialTheme.colorScheme.error
+                             )
+                         }
+                     }
+@@ -182,15 +207,15 @@
+         },
+         dismissButton = if (!info.mandatory) {
+             {
+-                TextButton(
+-                    // Previously `enabled = !installing`: the button relabels itself
+-                    // "Cancel" specifically while installing == true, but that same
+-                    // condition disabled it - so the one moment it read "Cancel" was
+-                    // exactly when it couldn't be tapped. It should always be tappable.
+-                    onClick = onLater,
+-                    enabled = true
+-                ) {
+-                    Text(if (installing) "Cancel" else "Later")
++                if (installing) {
++                    TextButton(onClick = onLater, enabled = true) { Text("Cancel") }
++                } else {
++                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
++                        TextButton(onClick = onDontRemindMe) {
++                            Text("Don't remind me", color = MaterialTheme.colorScheme.onSurfaceVariant)
++                        }
++                        TextButton(onClick = onLater) { Text("Later") }
++                    }
+                 }
+             }
+         } else null
+@@ -205,3 +230,58 @@
+     if (mb < 1024) return "%.1f MB".format(mb)
+     return "%.1f GB".format(mb / 1024.0)
+ }
++
++// Ported from SpotiFLAC-Mobile's update_dialog.dart _formatChangelog(): turns a raw GitHub
++// release body into a short, clean bulleted summary instead of showing raw markdown.
++private val whatsNewPattern = Regex("(?i)###?\\s*What'?s\\s*New\\s*\\n")
++private val cutoffPattern = Regex("(?i)\\n---|\\n###?\\s*Downloads")
++private val sectionPattern = Regex("^#{1,3}\\s*(.+)$")
++private val listPattern = Regex("^[-*]\\s+(.+)$")
++private val subListPattern = Regex("^\\s+[-*]\\s+(.+)$")
++private val boldPattern = Regex("\\*\\*([^*]+)\\*\\*")
++private val codePattern = Regex("`([^`]+)`")
++
++private fun formatChangelog(changelog: String, emptyFallback: String = "See release notes for details."): String {
++    var content = changelog
++
++    whatsNewPattern.find(content)?.let { content = content.substring(it.range.last + 1) }
++    cutoffPattern.find(content)?.let { content = content.substring(0, it.range.first) }
++
++    val formattedLines = mutableListOf<String>()
++    for (rawLine in content.split("\n")) {
++        val line = rawLine.trim()
++        if (line.isEmpty()) continue
++
++        val sectionMatch = sectionPattern.find(line)
++        if (sectionMatch != null) {
++            val section = sectionMatch.groupValues.getOrNull(1)?.trim()
++            if (!section.isNullOrEmpty()) {
++                if (formattedLines.isNotEmpty()) formattedLines.add("")
++                formattedLines.add(section)
++            }
++            continue
++        }
++
++        val listMatch = listPattern.find(line)
++        if (listMatch != null) {
++            var itemText = listMatch.groupValues.getOrElse(1) { "" }
++            itemText = boldPattern.replace(itemText) { it.groupValues[1] }
++            itemText = codePattern.replace(itemText) { it.groupValues[1] }
++            formattedLines.add("• $itemText")
++            continue
++        }
++
++        val subListMatch = subListPattern.find(line)
++        if (subListMatch != null) {
++            var itemText = subListMatch.groupValues.getOrElse(1) { "" }
++            itemText = boldPattern.replace(itemText) { it.groupValues[1] }
++            formattedLines.add("  - $itemText")
++            continue
++        }
++    }
++
++    var formatted = formattedLines.joinToString("\n").trim()
++    if (formatted.length > 2000) formatted = formatted.substring(0, 2000) + "..."
++
++    return formatted.ifEmpty { emptyFallback }
++}
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateInfo.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateInfo.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateInfo.kt	2026-09-14 01:50:01.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateInfo.kt	2026-09-16 10:00:29.352508925 +0000
+@@ -8,7 +8,15 @@
+     val downloadUrl: String,
+     val releaseNotes: String,
+     val htmlUrl: String,
+-    val currentVersionCode: Long
++    val currentVersionCode: Long,
++    // SHA-256 of the APK asset, from GitHub's asset "digest" field when present (not every
++    // repo/release has this populated). Verified against the downloaded file before
++    // install; null means "no digest available, skip verification" rather than a failure.
++    val apkSha256: String? = null,
++    // How many non-prerelease releases newer than the installed version exist - purely
++    // informational (shown in the mandatory-update notice), NOT what decides mandatory.
++    // Mandatory is decided solely by the X.0.0 major-version-tag rule below.
++    val releasesBehind: Int = 0
+ ) {
+     fun isRequired(): Boolean = mandatory
+ }
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateManager.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateManager.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateManager.kt	2026-09-14 01:50:47.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateManager.kt	2026-09-16 10:00:29.353775090 +0000
+@@ -11,13 +11,23 @@
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.ensureActive
+ import kotlinx.coroutines.withContext
++import org.json.JSONArray
+ import org.json.JSONObject
+ import java.io.File
+ import java.net.HttpURLConnection
+ import java.net.URL
++import java.security.MessageDigest
+ import javax.inject.Inject
+ import javax.inject.Singleton
+ 
++/**
++ * Modeled on SpotiFLAC-Mobile's update_checker.dart/apk_downloader.dart: a cached,
++ * ETag-revalidated release list; resumable, SHA-256-verified APK downloads; and a
++ * "releases behind" count for information only. The one deliberate divergence, per
++ * explicit instruction: mandatory/forced updates are decided solely by the installed
++ * app's own X.0.0 major-version-tag rule (already existed here before this port), not by
++ * SpotiFLAC's "3+ releases behind forces an update" policy.
++ */
+ @Singleton
+ class AppUpdateManager @Inject constructor(
+     @ApplicationContext private val context: Context
+@@ -25,15 +35,26 @@
+     companion object {
+         private const val GITHUB_REPO_URL =
+             "https://api.github.com/repos/CyferBoy/Neo_Child_Clinic"
+-        private const val GITHUB_LATEST_URL = "$GITHUB_REPO_URL/releases/latest"
++        private const val GITHUB_RELEASES_LIST_URL = "$GITHUB_REPO_URL/releases?per_page=30"
+         private const val PREFS = "app_update"
+         private const val DISMISSED_VERSION_CODE = "dismissed_version_code"
++        private const val AUTO_CHECKS_DISABLED = "auto_checks_disabled"
++        private const val CACHED_RELEASES_BODY = "cached_releases_body"
++        private const val CACHED_RELEASES_AT = "cached_releases_at"
++        private const val CACHED_RELEASES_ETAG = "cached_releases_etag"
+         private const val APK_FILE = "neo-child-clinic-update.apk"
++        private const val APK_PART_FILE = "$APK_FILE.part"
++        private const val APK_PART_METADATA_FILE = "$APK_PART_FILE.json"
++
++        // Release cadence here is days, not minutes, and the payload is tens of KB - serve
++        // from cache within this window and only revalidate (via ETag) after it expires,
++        // same reasoning as SpotiFLAC's UpdateChecker._cacheTtl.
++        private const val CACHE_TTL_MS = 6L * 60 * 60 * 1000
+     }
+ 
+     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+ 
+-    private fun openGetConnection(url: String): HttpURLConnection =
++    private fun openGetConnection(url: String, extraHeaders: Map<String, String> = emptyMap()): HttpURLConnection =
+         (URL(url).openConnection() as HttpURLConnection).apply {
+             requestMethod = "GET"
+             connectTimeout = 10_000
+@@ -41,33 +62,83 @@
+             setRequestProperty("Accept", "application/vnd.github+json")
+             setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+             setRequestProperty("User-Agent", "Neo-Child-Clinic-Android")
++            extraHeaders.forEach { (k, v) -> setRequestProperty(k, v) }
++        }
++
++    /**
++     * Cached-then-conditional-GET-then-stale-on-failure fetch of the releases list body,
++     * mirroring UpdateChecker._fetchReleasesBody(): fresh cache within CACHE_TTL_MS is
++     * served with no network call at all; past that, a conditional GET (If-None-Match) can
++     * still return 304 and just refresh the cache timestamp; and if GitHub is unreachable
++     * or errors, a stale cached body is still better than failing the whole update check.
++     */
++    private fun fetchReleasesBody(): String? {
++        val cachedBody = prefs.getString(CACHED_RELEASES_BODY, null)
++        val cachedAt = prefs.getLong(CACHED_RELEASES_AT, 0L)
++        val age = System.currentTimeMillis() - cachedAt
++        if (cachedBody != null && age < CACHE_TTL_MS) {
++            return cachedBody
+         }
+ 
+-    private fun fetchJsonObject(url: String): JSONObject? {
+-        val connection = openGetConnection(url)
++        val cachedEtag = prefs.getString(CACHED_RELEASES_ETAG, null)
++        val headers = if (cachedBody != null && cachedEtag != null) {
++            mapOf("If-None-Match" to cachedEtag)
++        } else emptyMap()
++
++        val connection = openGetConnection(GITHUB_RELEASES_LIST_URL, headers)
+         return try {
+-            if (connection.responseCode !in 200..299) null
+-            else JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
++            when (connection.responseCode) {
++                304 -> {
++                    if (cachedBody != null) {
++                        prefs.edit().putLong(CACHED_RELEASES_AT, System.currentTimeMillis()).apply()
++                    }
++                    cachedBody
++                }
++                in 200..299 -> {
++                    val body = connection.inputStream.bufferedReader().use { it.readText() }
++                    val editor = prefs.edit()
++                        .putString(CACHED_RELEASES_BODY, body)
++                        .putLong(CACHED_RELEASES_AT, System.currentTimeMillis())
++                    connection.getHeaderField("ETag")?.let { editor.putString(CACHED_RELEASES_ETAG, it) }
++                    editor.apply()
++                    body
++                }
++                else -> cachedBody // stale is better than none for the update prompt
++            }
++        } catch (e: Exception) {
++            cachedBody
+         } finally {
+             connection.disconnect()
+         }
+     }
+ 
+-    // Shared release-JSON -> AppUpdateInfo parser, used by the "latest" check. Returns
+-    // null for any release that is not strictly newer than the installed version - there
+-    // is no reinstall-same-version or downgrade-to-older-version path anymore, so a
+-    // same-or-older release simply isn't a candidate at all.
+-    private fun parseRelease(json: JSONObject, currentVersionCode: Long): AppUpdateInfo? {
++    /**
++     * Whether the automatic (silent, non-manual) check should run at all - the "Don't
++     * remind me" choice on the update dialog. A manual check (the Check for Updates
++     * button on the App Update screen) always runs regardless of this flag.
++     */
++    fun areAutoChecksDisabled(): Boolean = prefs.getBoolean(AUTO_CHECKS_DISABLED, false)
++
++    fun setAutoChecksDisabled(disabled: Boolean) {
++        prefs.edit().putBoolean(AUTO_CHECKS_DISABLED, disabled).apply()
++    }
++
++    // Shared release-JSON -> AppUpdateInfo parser. Returns null for any release that is
++    // not strictly newer than the installed version - there is no reinstall-same-version
++    // or downgrade-to-older-version path, so a same-or-older release isn't a candidate.
++    private fun parseRelease(json: JSONObject, currentVersionCode: Long, releasesBehind: Int): AppUpdateInfo? {
+         val rawTag = json.optString("tag_name").trim()
+         val tagName = if (rawTag.startsWith("v", ignoreCase = true)) rawTag.substring(1).trim() else rawTag
+         val versionCode = extractVersionCode(json, tagName) ?: return null
+         if (versionCode <= currentVersionCode) return null
+         val assets = json.optJSONArray("assets") ?: return null
+         var apkUrl: String? = null
++        var apkSha256: String? = null
+         for (i in 0 until assets.length()) {
+             val asset = assets.optJSONObject(i) ?: continue
+             if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
+                 apkUrl = asset.optString("browser_download_url")
++                apkSha256 = normalizeDigest(asset.optString("digest").takeIf { it.isNotBlank() })
+                 break
+             }
+         }
+@@ -81,6 +152,7 @@
+         ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
+ 
+         val belowMinimumVersion = minimumVersionCode != null && currentVersionCode < minimumVersionCode
++        // The sole "forced update" trigger, by explicit instruction - NOT releasesBehind.
+         val isMajorVersionTag = tagName.matches(Regex("^\\d+\\.0\\.0$"))
+         val required = explicitlyMandatory || belowMinimumVersion || isMajorVersionTag
+ 
+@@ -92,13 +164,55 @@
+             downloadUrl = downloadUrl,
+             releaseNotes = cleanReleaseNotes(body),
+             htmlUrl = json.optString("html_url"),
+-            currentVersionCode = currentVersionCode
++            currentVersionCode = currentVersionCode,
++            apkSha256 = apkSha256,
++            releasesBehind = releasesBehind
+         )
+     }
+ 
+-    suspend fun checkForUpdate(): AppUpdateInfo? = withContext(Dispatchers.IO) {
+-        val json = fetchJsonObject(GITHUB_LATEST_URL) ?: return@withContext null
+-        val info = parseRelease(json, currentVersionCode()) ?: return@withContext null
++    private fun normalizeDigest(digest: String?): String? {
++        if (digest == null) return null
++        val normalized = digest.trim().lowercase().removePrefix("sha256:")
++        return if (Regex("^[a-f0-9]{64}$").matches(normalized)) normalized else null
++    }
++
++    suspend fun checkForUpdate(isManual: Boolean = false): AppUpdateInfo? = withContext(Dispatchers.IO) {
++        if (!isManual && areAutoChecksDisabled()) return@withContext null
++
++        val releasesJson = fetchReleasesBody() ?: return@withContext null
++        val releases = try {
++            JSONArray(releasesJson)
++        } catch (e: Exception) {
++            return@withContext null
++        }
++        if (releases.length() == 0) return@withContext null
++
++        val currentCode = currentVersionCode()
++
++        // Stable channel only: the first non-prerelease, non-draft release in the list.
++        var candidate: JSONObject? = null
++        for (i in 0 until releases.length()) {
++            val release = releases.optJSONObject(i) ?: continue
++            if (release.optBoolean("prerelease", false)) continue
++            if (release.optBoolean("draft", false)) continue
++            candidate = release
++            break
++        }
++        val candidateJson = candidate ?: return@withContext null
++
++        // How many stable releases are newer than the installed version - informational
++        // only (shown in the mandatory-update notice), never what decides mandatory.
++        var releasesBehind = 0
++        for (i in 0 until releases.length()) {
++            val release = releases.optJSONObject(i) ?: continue
++            if (release.optBoolean("prerelease", false) || release.optBoolean("draft", false)) continue
++            val rawTag = release.optString("tag_name").trim()
++            val tagName = if (rawTag.startsWith("v", ignoreCase = true)) rawTag.substring(1).trim() else rawTag
++            val code = extractVersionCode(release, tagName)
++            if (code != null && code > currentCode) releasesBehind++
++        }
++
++        val info = parseRelease(candidateJson, currentCode, releasesBehind) ?: return@withContext null
+ 
+         val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
+         if (!info.mandatory && dismissed == info.versionCode) {
+@@ -129,67 +243,29 @@
+                 error("Please allow this app to install unknown apps, then tap Update again.")
+             }
+ 
+-            val apkFile = File(context.cacheDir, APK_FILE)
+-            if (apkFile.exists()) apkFile.delete()
+-
+-            val connection = (URL(info.downloadUrl).openConnection() as HttpURLConnection).apply {
+-                requestMethod = "GET"
+-                connectTimeout = 15_000
+-                readTimeout = 60_000
+-                instanceFollowRedirects = true
+-                setRequestProperty("Accept", "application/vnd.android.package-archive")
+-                setRequestProperty("User-Agent", "Neo-Child-Clinic-Android")
++            val uri = runCatching { URL(info.downloadUrl) }.getOrNull()
++            if (uri == null || uri.protocol != "https") {
++                error("Refusing to download from a non-HTTPS URL.")
+             }
+ 
+-            try {
+-                if (connection.responseCode !in 200..299) {
+-                    error("Download failed: HTTP ${connection.responseCode}")
+-                }
+-                val totalBytes = connection.contentLengthLong
+-                var downloadedBytes = 0L
+-                var lastReported = -1
+-                connection.inputStream.use { input ->
+-                    apkFile.outputStream().use { output ->
+-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+-                        while (true) {
+-                            // Without this, cancelling the ViewModel's install Job (e.g. tapping
+-                            // Cancel while installing) has no effect on this loop - a raw blocking
+-                            // InputStream.read() doesn't observe coroutine cancellation on its own,
+-                            // so the download would keep running to completion in the background.
+-                            ensureActive()
+-                            val read = input.read(buffer)
+-                            if (read == -1) break
+-                            output.write(buffer, 0, read)
+-                            downloadedBytes += read
+-                            val percent = if (totalBytes > 0) {
+-                                ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
+-                            } else -1
+-                            if (percent != lastReported) {
+-                                lastReported = percent
+-                                onProgress(percent, downloadedBytes, totalBytes)
+-                            }
+-                        }
+-                    }
+-                }
++            val apkFile = File(context.cacheDir, APK_FILE)
++            val partFile = File(context.cacheDir, APK_PART_FILE)
++            val metadataFile = File(context.cacheDir, APK_PART_METADATA_FILE)
++            if (apkFile.exists()) apkFile.delete()
+ 
+-                // The read loop above only proves the stream ended - not that it ended
+-                // where it should have. Without this, a connection dropped mid-transfer
+-                // (no exception, just a short read) would silently hand a truncated/empty
+-                // APK to PackageInstaller instead of failing here with a clear reason.
+-                if (downloadedBytes <= 0L) {
+-                    error("Download produced an empty file. Please try again.")
+-                }
+-                if (totalBytes > 0 && downloadedBytes != totalBytes) {
+-                    error("Download incomplete ($downloadedBytes of $totalBytes bytes). Please try again.")
+-                }
++            downloadWithResume(info, partFile, metadataFile, onProgress)
+ 
+-                onProgress(100, downloadedBytes, totalBytes)
+-            } finally {
+-                connection.disconnect()
++            if (!partFile.renameTo(apkFile)) {
++                // Cross-filesystem rename can fail even within the same app's cacheDir in
++                // rare cases (e.g. different mount points under scoped storage on some
++                // OEMs) - copy+delete is the safe fallback.
++                partFile.copyTo(apkFile, overwrite = true)
++                partFile.delete()
+             }
++            metadataFile.delete()
+ 
+-            // Only reachable once the block above completes without throwing, i.e. the
+-            // APK is fully downloaded and verified complete - always move straight on to
++            // Only reachable once the APK is fully downloaded, size-verified, and
++            // (when a digest was available) SHA-256-verified - always move straight on to
+             // handing it to PackageInstaller rather than requiring a separate step/tap.
+             installWithPackageInstaller(apkFile)
+         }.also { result ->
+@@ -203,6 +279,168 @@
+         }
+     }
+ 
++    /**
++     * Downloads into [partFile] with HTTP Range resume support, mirroring
++     * ApkDownloader.downloadApk(): if a partial file from a previous attempt exists for
++     * the *same* URL (tracked via the metadata sidecar), resume it with a conditional
++     * Range request; otherwise (or if the server can't/won't honor the resume) start over.
++     * On success, verifies the total byte count and - when [AppUpdateInfo.apkSha256] is
++     * available - the file's SHA-256 digest, before returning.
++     */
++    private suspend fun downloadWithResume(
++        info: AppUpdateInfo,
++        partFile: File,
++        metadataFile: File,
++        onProgress: (percent: Int, downloadedBytes: Long, totalBytes: Long) -> Unit
++    ) {
++        val metadata = readResumeMetadata(metadataFile)
++        var resumeOffset = 0L
++        if (partFile.exists() && metadata?.optString("url") == info.downloadUrl) {
++            resumeOffset = partFile.length()
++        } else {
++            partFile.delete()
++            metadataFile.delete()
++        }
++
++        val headers = buildMap {
++            if (resumeOffset > 0) {
++                put("Range", "bytes=$resumeOffset-")
++                val etag = metadata?.optString("etag")?.takeIf { it.isNotBlank() }
++                if (etag != null) put("If-Range", etag)
++            }
++        }
++        val connection = (URL(info.downloadUrl).openConnection() as HttpURLConnection).apply {
++            requestMethod = "GET"
++            connectTimeout = 15_000
++            readTimeout = 60_000
++            instanceFollowRedirects = true
++            setRequestProperty("Accept", "application/vnd.android.package-archive")
++            setRequestProperty("User-Agent", "Neo-Child-Clinic-Android")
++            headers.forEach { (k, v) -> setRequestProperty(k, v) }
++        }
++
++        try {
++            val responseCode = connection.responseCode
++            if (responseCode == 416) {
++                // Server rejected the saved range - the partial is no longer valid
++                // (e.g. the asset changed). Discard and let the caller retry from empty.
++                partFile.delete(); metadataFile.delete()
++                error("Download was interrupted and could not resume. Please try again.")
++            }
++            if (responseCode !in intArrayOf(200, 206)) {
++                error("Download failed: HTTP $responseCode")
++            }
++
++            val isResume = resumeOffset > 0 && responseCode == 206 &&
++                contentRangeStartsAt(connection.getHeaderField("Content-Range"), resumeOffset)
++            if (resumeOffset > 0 && responseCode == 206 && !isResume) {
++                // Server answered 206 but for a different range than requested (a buggy
++                // or unexpected proxy) - never trust it blindly and silently append onto
++                // the wrong offset. Discard and restart clean.
++                partFile.delete(); metadataFile.delete()
++            }
++            val effectiveOffset = if (isResume) resumeOffset else 0L
++            if (!isResume && partFile.exists()) partFile.delete()
++
++            val contentLength = connection.contentLengthLong
++            val totalBytes = if (contentLength > 0) contentLength + effectiveOffset else -1L
++
++            val newEtag = connection.getHeaderField("ETag") ?: ""
++            metadataFile.writeText(
++                JSONObject().apply {
++                    put("url", info.downloadUrl)
++                    put("etag", newEtag)
++                    put("total", totalBytes)
++                }.toString()
++            )
++
++            var downloadedBytes = effectiveOffset
++            var lastReported = -1
++            connection.inputStream.use { input ->
++                java.io.FileOutputStream(partFile, isResume).use { output ->
++                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
++                    while (true) {
++                        // Without this, cancelling the ViewModel's install Job (e.g.
++                        // tapping Cancel while installing) has no effect on this loop - a
++                        // raw blocking InputStream.read() doesn't observe coroutine
++                        // cancellation on its own, so the download would keep running to
++                        // completion in the background.
++                        // Without this, cancelling the ViewModel's install Job (e.g.
++                        // tapping Cancel while installing) has no effect on this loop - a
++                        // raw blocking InputStream.read() doesn't observe coroutine
++                        // cancellation on its own, so the download would keep running to
++                        // completion in the background. downloadWithResume() is a suspend
++                        // function called from inside withContext(Dispatchers.IO){} rather
++                        // than lexically nested in it, so (unlike a bare ensureActive()
++                        // relying on an outer CoroutineScope receiver) this needs the
++                        // current coroutine's context explicitly.
++                        kotlin.coroutines.coroutineContext.ensureActive()
++                        val read = input.read(buffer)
++                        if (read == -1) break
++                        output.write(buffer, 0, read)
++                        downloadedBytes += read
++                        val percent = if (totalBytes > 0) {
++                            ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
++                        } else -1
++                        if (percent != lastReported) {
++                            lastReported = percent
++                            onProgress(percent, downloadedBytes, totalBytes)
++                        }
++                    }
++                }
++            }
++
++            if (downloadedBytes <= 0L) {
++                partFile.delete(); metadataFile.delete()
++                error("Download produced an empty file. Please try again.")
++            }
++            if (totalBytes > 0 && downloadedBytes != totalBytes) {
++                error("Download incomplete ($downloadedBytes of $totalBytes bytes). Please try again.")
++            }
++
++            info.apkSha256?.let { expected ->
++                val actual = sha256Hex(partFile)
++                if (!actual.equals(expected, ignoreCase = true)) {
++                    partFile.delete(); metadataFile.delete()
++                    error("Downloaded file failed integrity verification. Please try again.")
++                }
++            }
++
++            onProgress(100, downloadedBytes, totalBytes)
++        } finally {
++            connection.disconnect()
++        }
++    }
++
++    /** "bytes 500-999/1000" -> does the range actually start at [expectedOffset]? */
++    private fun contentRangeStartsAt(contentRange: String?, expectedOffset: Long): Boolean {
++        if (contentRange == null) return false
++        val match = Regex("bytes\\s+(\\d+)-").find(contentRange) ?: return false
++        return match.groupValues[1].toLongOrNull() == expectedOffset
++    }
++
++    private fun readResumeMetadata(metadataFile: File): JSONObject? {
++        if (!metadataFile.exists()) return null
++        return try {
++            JSONObject(metadataFile.readText())
++        } catch (e: Exception) {
++            null
++        }
++    }
++
++    private fun sha256Hex(file: File): String {
++        val digest = MessageDigest.getInstance("SHA-256")
++        file.inputStream().use { input ->
++            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
++            while (true) {
++                val read = input.read(buffer)
++                if (read == -1) break
++                digest.update(buffer, 0, read)
++            }
++        }
++        return digest.digest().joinToString("") { "%02x".format(it) }
++    }
++
+     private fun installWithPackageInstaller(apkFile: File) {
+         val packageInstaller = context.packageManager.packageInstaller
+         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateScreen.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateScreen.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateScreen.kt	2026-09-14 01:52:21.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateScreen.kt	2026-09-16 10:00:29.355144534 +0000
+@@ -3,6 +3,7 @@
+ import androidx.compose.foundation.layout.*
+ import androidx.compose.material3.*
+ import androidx.compose.runtime.*
++import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.unit.dp
+ import com.neochildclinic.core.ui.AppBackground
+@@ -15,6 +16,7 @@
+     val downloadProgress by viewModel.downloadProgress.collectAsState()
+     val message by viewModel.message.collectAsState()
+     val upToDate by viewModel.upToDate.collectAsState()
++    val autoChecksEnabled by viewModel.autoChecksEnabled.collectAsState()
+ 
+     LaunchedEffect(Unit) { viewModel.checkForUpdates(isManual = true) }
+ 
+@@ -68,6 +70,28 @@
+                     style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                 )
++
++                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
++
++                Row(
++                    modifier = Modifier.fillMaxWidth(),
++                    horizontalArrangement = Arrangement.SpaceBetween,
++                    verticalAlignment = Alignment.CenterVertically
++                ) {
++                    Column(modifier = Modifier.weight(1f)) {
++                        Text("Automatic update checks", style = MaterialTheme.typography.bodyLarge)
++                        Text(
++                            "Show a heads-up when a new version is found on launch. " +
++                                "Turned off automatically if you tap \"Don't remind me\" on that popup.",
++                            style = MaterialTheme.typography.bodySmall,
++                            color = MaterialTheme.colorScheme.onSurfaceVariant
++                        )
++                    }
++                    Switch(
++                        checked = autoChecksEnabled,
++                        onCheckedChange = { viewModel.setAutoChecksEnabled(it) }
++                    )
++                }
+             }
+         }
+     }
+diff -ruN /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateViewModel.kt /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateViewModel.kt
+--- /home/claude/neo_child_clinic_orig/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateViewModel.kt	2026-09-14 01:51:20.000000000 +0000
++++ /home/claude/neo_child_clinic/Neo_Child_Clinic-main/app/src/main/java/com/neochildclinic/features/update/AppUpdateViewModel.kt	2026-09-16 10:00:29.356386099 +0000
+@@ -60,12 +60,18 @@
+     private val _upToDate = MutableStateFlow(false)
+     val upToDate: StateFlow<Boolean> = _upToDate.asStateFlow()
+ 
++    // "Automatic update checks" toggle exposed on the App Update screen - the "Don't
++    // remind me" choice on the update dialog sets this to false; a manual "Check for
++    // Updates" tap always still works regardless (see AppUpdateManager.checkForUpdate).
++    private val _autoChecksEnabled = MutableStateFlow(!updateManager.areAutoChecksDisabled())
++    val autoChecksEnabled: StateFlow<Boolean> = _autoChecksEnabled.asStateFlow()
++
+     fun checkForUpdates(isManual: Boolean = false) {
+         if (_checking.value) return
+         viewModelScope.launch {
+             _checking.value = true
+             _message.value = null
+-            runCatching { updateManager.checkForUpdate() }
++            runCatching { updateManager.checkForUpdate(isManual) }
+                 .onSuccess { info ->
+                     if (!isManual) {
+                         // Silent launch/resume check: NEVER auto-opens the full Update
+@@ -106,6 +112,20 @@
+         _updateInfo.value = null
+     }
+ 
++    /** "Don't remind me" on the update dialog - disables the silent startup/resume check
++     * going forward. Distinct from dismissUpdate()/dismiss(versionCode), which only skips
++     * this one version. Surfaced back on the App Update screen as a toggle so it isn't a
++     * one-way trap. */
++    fun setAutoChecksEnabled(enabled: Boolean) {
++        updateManager.setAutoChecksDisabled(!enabled)
++        _autoChecksEnabled.value = enabled
++    }
++
++    fun dontRemindMe() {
++        setAutoChecksEnabled(false)
++        dismissUpdate()
++    }
++
+     fun installUpdate() {
+         val info = _updateInfo.value ?: return
+         if (_installing.value) return

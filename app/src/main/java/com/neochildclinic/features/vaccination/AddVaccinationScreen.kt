@@ -23,7 +23,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.model.UserRole
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -720,15 +719,4 @@ private fun NextVaccinationItemRow(
             }
         )
     }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 8.dp),
-        color = MaterialTheme.colorScheme.primary
-    )
 }

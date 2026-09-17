@@ -19,6 +19,12 @@ interface PatientRepository {
     fun searchPatients(query: String): Flow<List<Patient>>
     fun getPatientCount(): Flow<Int>
     suspend fun getTotalPatientCount(): Int
+
+    // Paginated access (large-data scalability pass). Keyset-based: pass the name/id of
+    // the last patient from the previous page, or null for the first page. Additive -
+    // allPatients/searchPatients above are unchanged; screens that need a bounded,
+    // infinite-scroll-style list should migrate to this instead of collecting allPatients.
+    suspend fun getPatientsPage(afterName: String?, afterId: String?, limit: Int): List<Patient>
     
     // Timeline & History
     // NOTE: patient audit history is now loaded online-only via PatientAuditLogPager

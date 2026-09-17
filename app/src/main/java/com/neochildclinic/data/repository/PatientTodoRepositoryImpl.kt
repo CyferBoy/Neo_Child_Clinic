@@ -17,8 +17,7 @@ import javax.inject.Singleton
 class PatientTodoRepositoryImpl @Inject constructor(
     database: AppDatabase,
     private val syncRepository: SyncRepository,
-    private val postgrest: Postgrest,
-    private val sessionManager: com.neochildclinic.core.session.SessionManager
+    private val postgrest: Postgrest
 ) : PatientTodoRepository {
     private val dao: PatientTodoDao = database.patientTodoDao()
 

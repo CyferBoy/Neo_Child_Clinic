@@ -13,9 +13,6 @@ interface DoctorAvailabilityDao {
     @Query("SELECT * FROM doctor_weekly_slots WHERE doctorId = :doctorId AND is_active = 1 ORDER BY dayOfWeek, startMinute")
     fun getActiveWeeklySlotsForDoctor(doctorId: String): Flow<List<DoctorWeeklySlotEntity>>
 
-    @Query("SELECT * FROM doctor_weekly_slots WHERE doctorId = :doctorId ORDER BY dayOfWeek, startMinute")
-    fun getAllWeeklySlotsForDoctor(doctorId: String): Flow<List<DoctorWeeklySlotEntity>>
-
     @Query("SELECT * FROM doctor_weekly_slots WHERE doctorId = :doctorId AND dayOfWeek = :dayOfWeek AND is_active = 1 ORDER BY startMinute")
     suspend fun getActiveWeeklySlotsForDay(doctorId: String, dayOfWeek: Int): List<DoctorWeeklySlotEntity>
 
@@ -47,18 +44,4 @@ interface DoctorAvailabilityDao {
 
     @Query("UPDATE doctor_slot_exceptions SET is_deleted = 1, updated_at = :updatedAt, is_synced = 0, updated_by = :updatedBy WHERE id = :id")
     suspend fun markExceptionDeleted(id: String, updatedAt: String, updatedBy: String?)
-
-    // ---- Bulk pull-from-remote helpers ----
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertWeeklySlots(slots: List<DoctorWeeklySlotEntity>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExceptions(exceptions: List<DoctorSlotExceptionEntity>)
-
-    @Query("SELECT * FROM doctor_weekly_slots WHERE id = :id AND is_synced = 0 LIMIT 1")
-    suspend fun getUnsyncedWeeklySlot(id: String): DoctorWeeklySlotEntity?
-
-    @Query("SELECT * FROM doctor_slot_exceptions WHERE id = :id AND is_synced = 0 LIMIT 1")
-    suspend fun getUnsyncedException(id: String): DoctorSlotExceptionEntity?
 }

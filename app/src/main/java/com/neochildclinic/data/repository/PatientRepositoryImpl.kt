@@ -4,7 +4,6 @@ import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.PatientDao
 import com.neochildclinic.data.local.dao.DueReminderDao
-import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.dao.PatientNotesDao
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.entity.*
@@ -42,7 +41,6 @@ class PatientRepositoryImpl @Inject constructor(
     private val patientDao: PatientDao,
     private val vaccinationDao: VaccinationDao,
     private val dueReminderDao: DueReminderDao,
-    private val auditLogDao: AuditLogDao,
     private val notesDao: PatientNotesDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
@@ -221,6 +219,12 @@ class PatientRepositoryImpl @Inject constructor(
 
     override fun searchPatients(query: String): Flow<List<Patient>> =
         patientDao.searchPatients(query).map { list -> list.map { it.toPatient() } }
+
+    // Large-data scalability pass: keyset pagination over the patients table (see
+    // PatientDao.getPatientsAfter for why keyset rather than OFFSET). afterName/afterId
+    // null means "first page".
+    override suspend fun getPatientsPage(afterName: String?, afterId: String?, limit: Int): List<Patient> =
+        patientDao.getPatientsAfter(afterName ?: "", afterId ?: "", limit).map { it.toPatient() }
 
     override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
 

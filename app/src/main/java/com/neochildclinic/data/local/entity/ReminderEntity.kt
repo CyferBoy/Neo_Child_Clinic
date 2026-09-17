@@ -24,7 +24,11 @@ import kotlinx.serialization.Transient
     indices = [
         Index(value = ["patientId", "originalVisitId", "dueDate", "type", "vaccineName"], unique = true),
         Index("status"),
-        Index("dueDate")
+        Index("dueDate"),
+        // originalVisitId is looked up on its own (getRemindersByVisitId, and the
+        // PatientVaccinationCardEntity @Relation join) but wasn't a leftmost-prefix
+        // column of any existing index, so those queries were full table scans.
+        Index("originalVisitId")
     ]
 )
 @Serializable

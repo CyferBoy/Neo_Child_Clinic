@@ -182,20 +182,24 @@ enum class VaccineWidgetTheme(
     val key: String,
     val label: String,
     private val lightBackground: Color,
-    private val darkBackground: Color,
     val primaryText: Color,
     val secondaryText: Color,
     val accent: Color
 ) {
-    SYSTEM("system", "System", Color(0xFFF7F7F7), Color(0xFF202124), Color.Unspecified, Color.Unspecified, Color(0xFF1976D2)),
-    LIGHT("light", "Light", Color.White, Color.White, Color(0xFF1C1B1F), Color(0xFF5F6368), Color(0xFF1976D2)),
-    DARK("dark", "Dark", Color(0xFF303030), Color(0xFF303030), Color.White, Color(0xFFCAC4D0), Color(0xFF90CAF9)),
-    MIDNIGHT("midnight", "Midnight", Color(0xFF050608), Color(0xFF050608), Color.White, Color(0xFFB9C1D0), Color(0xFF64B5F6)),
-    GLASS("glass", "Glass", Color(0x99202020), Color(0x99202020), Color.White, Color(0xFFE0E0E0), Color(0xFF90CAF9)),
-    CLINIC_BLUE("clinic_blue", "Clinic Blue", Color(0xFF1565C0), Color(0xFF0D47A1), Color.White, Color(0xFFD6E8FF), Color(0xFF90CAF9)),
-    CLINIC_GREEN("clinic_green", "Clinic Green", Color(0xFF2E7D32), Color(0xFF1B5E20), Color.White, Color(0xFFD7F2D8), Color(0xFFA5D6A7)),
-    WARM("warm", "Warm", Color(0xFFFFF3E0), Color(0xFF4E342E), Color(0xFF3E2723), Color(0xFF6D4C41), Color(0xFFEF6C00)),
-    HIGH_CONTRAST("high_contrast", "High Contrast", Color.Black, Color.Black, Color.White, Color.White, Color(0xFFFFFF00));
+    // darkBackground was removed here (dead - colors() below only ever reads
+    // lightBackground; SYSTEM's actual night-mode colors are separately hardcoded as
+    // literals in colors() rather than read from this enum, so no entry's dark value was
+    // ever live). If per-theme dark-mode support is wanted later, colors() needs to
+    // actually branch on isSystemInDarkTheme for every theme, not just SYSTEM.
+    SYSTEM("system", "System", Color(0xFFF7F7F7), Color.Unspecified, Color.Unspecified, Color(0xFF1976D2)),
+    LIGHT("light", "Light", Color.White, Color(0xFF1C1B1F), Color(0xFF5F6368), Color(0xFF1976D2)),
+    DARK("dark", "Dark", Color(0xFF303030), Color.White, Color(0xFFCAC4D0), Color(0xFF90CAF9)),
+    MIDNIGHT("midnight", "Midnight", Color(0xFF050608), Color.White, Color(0xFFB9C1D0), Color(0xFF64B5F6)),
+    GLASS("glass", "Glass", Color(0x99202020), Color.White, Color(0xFFE0E0E0), Color(0xFF90CAF9)),
+    CLINIC_BLUE("clinic_blue", "Clinic Blue", Color(0xFF1565C0), Color.White, Color(0xFFD6E8FF), Color(0xFF90CAF9)),
+    CLINIC_GREEN("clinic_green", "Clinic Green", Color(0xFF2E7D32), Color.White, Color(0xFFD7F2D8), Color(0xFFA5D6A7)),
+    WARM("warm", "Warm", Color(0xFFFFF3E0), Color(0xFF3E2723), Color(0xFF6D4C41), Color(0xFFEF6C00)),
+    HIGH_CONTRAST("high_contrast", "High Contrast", Color.Black, Color.White, Color.White, Color(0xFFFFFF00));
 
     data class Palette(
         val background: Color,

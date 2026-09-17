@@ -23,7 +23,6 @@ class ConsultationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
-    private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : ConsultationRepository {

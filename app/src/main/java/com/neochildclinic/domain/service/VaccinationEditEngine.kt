@@ -2,11 +2,8 @@ package com.neochildclinic.domain.service
 
 import androidx.room.withTransaction
 import com.neochildclinic.domain.model.InventoryTransactionType
-import com.neochildclinic.core.model.SyncOperation
-import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.InventoryRepository

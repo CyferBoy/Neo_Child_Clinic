@@ -112,16 +112,26 @@ class SyncRepositoryImpl @Inject constructor(
                     }
                 }
                 
+                // Batch the pre-upsert conflict-check read (Section 6: Batched
+                // Synchronization): one SELECT ... WHERE id IN (...) per table for this
+                // group, instead of one SELECT per item inside uploadEntity. DELETE and
+                // REMINDERS items are excluded because neither used the per-item check this
+                // replaces (see fetchRemoteConflictData for why).
+                val conflictCheckCandidates = groupItems.filter {
+                    it.operation != SyncOperation.DELETE.name && it.entityName != "REMINDERS"
+                }
+                val remoteConflictData = fetchRemoteConflictData(conflictCheckCandidates)
+
                 // Process items in group sequentially. If Supabase rejects the request
                 // because the access token expired between the pre-sync refresh and this
                 // upload, refresh once and retry the exact same queue item.
                 for (item in groupItems) {
                     try {
-                        uploadEntity(item)
+                        uploadEntity(item, remoteConflictData)
                     } catch (e: Exception) {
                         if (!isJwtExpired(e)) throw e
                         auth.refreshCurrentSession()
-                        uploadEntity(item)
+                        uploadEntity(item, remoteConflictData)
                     }
                     syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
                     syncDao.deleteItem(item)
@@ -259,31 +269,80 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun uploadEntity(item: SyncQueueEntity) {
-        val table = when (item.entityName) {
-            "PATIENT" -> "patients"
-            "VACCINATION", "VISIT" -> "patient_visits"
-            "VACCINATION_ITEM" -> "vaccination_items"
-            "WASTE" -> "waste_records"
-            "REMINDERS" -> "reminders"
-            "VACCINE" -> "vaccines"
-            "BATCH" -> "vaccine_batches"
-            "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
-            "PATIENT_NOTE" -> "patient_notes"
-            "FINANCE" -> "finance_transactions"
-            "EXPENSE" -> "expenses"
-            "PROFILE", "STAFF" -> "profiles"
-            "BORROW" -> "borrow_records"
-            "BORROW_RETURN" -> "borrow_returns"
-            "AUDIT_LOG" -> "audit_logs"
-            "CONSULTATION" -> "consultations"
-            "CONSULTATION_TODO" -> "consultation_todos"
-            "VACCINATION_TODO" -> "vaccination_todos"
-            "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
-            "DOCTOR_WEEKLY_SLOT" -> "doctor_weekly_slots"
-            "DOCTOR_SLOT_EXCEPTION" -> "doctor_slot_exceptions"
-            else -> throw IllegalArgumentException("Unknown entity: ${item.entityName}")
+    // Shared entityName -> Supabase table mapping, used both by uploadEntity (which still
+    // throws on an unrecognized entityName, exactly as before) and by the batched
+    // conflict-check prefetch below (which just skips grouping for entries it doesn't
+    // recognize, since uploadEntity will throw on them anyway when its turn comes).
+    private fun entityTable(entityName: String): String? = when (entityName) {
+        "PATIENT" -> "patients"
+        "VACCINATION", "VISIT" -> "patient_visits"
+        "VACCINATION_ITEM" -> "vaccination_items"
+        "WASTE" -> "waste_records"
+        "REMINDERS" -> "reminders"
+        "VACCINE" -> "vaccines"
+        "BATCH" -> "vaccine_batches"
+        "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
+        "PATIENT_NOTE" -> "patient_notes"
+        "FINANCE" -> "finance_transactions"
+        "EXPENSE" -> "expenses"
+        "PROFILE", "STAFF" -> "profiles"
+        "BORROW" -> "borrow_records"
+        "BORROW_RETURN" -> "borrow_returns"
+        "AUDIT_LOG" -> "audit_logs"
+        "CONSULTATION" -> "consultations"
+        "CONSULTATION_TODO" -> "consultation_todos"
+        "VACCINATION_TODO" -> "vaccination_todos"
+        "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
+        "DOCTOR_WEEKLY_SLOT" -> "doctor_weekly_slots"
+        "DOCTOR_SLOT_EXCEPTION" -> "doctor_slot_exceptions"
+        else -> null
+    }
+
+    // Groups items by their target table and issues one `id IN (...)` SELECT per table,
+    // instead of the one SELECT per item this replaces (large-data scalability pass,
+    // Section 6: Batched Synchronization). REMINDERS and DELETE items are excluded by the
+    // caller because neither ever reached the per-item conflict-check this replaces:
+    // REMINDERS resolves its own identity/return path earlier in uploadEntity, and DELETE
+    // returns before the conflict-check block too - so behavior for both is unchanged.
+    // A read failure for one table's batch is logged and simply leaves that table's items
+    // out of the map, matching the previous per-item try/catch, which also proceeded with
+    // a plain upsert whenever the live check failed.
+    private suspend fun fetchRemoteConflictData(
+        items: List<SyncQueueEntity>
+    ): Map<String, Map<String, kotlinx.serialization.json.JsonElement>> {
+        if (items.isEmpty()) return emptyMap()
+
+        val result = mutableMapOf<String, Map<String, kotlinx.serialization.json.JsonElement>>()
+        val byTable = items.groupBy { entityTable(it.entityName) }
+
+        for ((table, tableItems) in byTable) {
+            if (table == null) continue
+            val ids = tableItems.map { it.entityId }.distinct()
+            if (ids.isEmpty()) continue
+
+            try {
+                val rows = postgrest.from(table).select {
+                    filter { isIn("id", ids) }
+                }.decodeList<Map<String, kotlinx.serialization.json.JsonElement>>()
+
+                for (row in rows) {
+                    val id = row["id"]?.toString()?.trim('"') ?: continue
+                    result["$table:$id"] = row
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("SyncRepository", "Batched conflict-check read failed for $table", e)
+            }
         }
+
+        return result
+    }
+
+    private suspend fun uploadEntity(
+        item: SyncQueueEntity,
+        remoteConflictData: Map<String, Map<String, kotlinx.serialization.json.JsonElement>>
+    ) {
+        val table = entityTable(item.entityName)
+            ?: throw IllegalArgumentException("Unknown entity: ${item.entityName}")
 
         if (item.operation == SyncOperation.DELETE.name) {
             if (item.entityName == "REMINDERS") {
@@ -321,36 +380,24 @@ class SyncRepositoryImpl @Inject constructor(
         val localData = fetchEntityData(item)
         if (localData != null) {
             val localUpdatedAt = getEntityUpdatedAt(localData)
-            
-            try {
-                // Fetch remote metadata for conflict detection
-                val remoteId = if (item.entityName == "REMINDERS") {
-                    (localData as? ReminderEntity)?.serverId
-                } else {
-                    item.entityId
-                }
 
-                if (remoteId != null) {
-                    val remoteData = postgrest.from(table).select {
-                        filter { eq("id", remoteId) }
-                    }.decodeSingleOrNull<Map<String, kotlinx.serialization.json.JsonElement>>()
-                    
-                    if (remoteData != null) {
-                        val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
-                            ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
-                        
-                        val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
-                        val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
+            // Conflict check: was resolved with its own SELECT per item before this change;
+            // now reads from the batch-fetched map built once per sync group in
+            // processNextItems (see fetchRemoteConflictData). REMINDERS never reaches this
+            // point (it returns earlier above), so the key is always table:entityId.
+            val remoteData = remoteConflictData["$table:${item.entityId}"]
+            if (remoteData != null) {
+                val remoteUpdatedAtStr = remoteData["updated_at"]?.toString()?.replace("\"", "")
+                    ?: remoteData["last_updated"]?.toString()?.replace("\"", "")
 
-                        if (remoteUpdatedAt > localUpdatedAtLong) {
-                            // REMOTE IS NEWER: Sync back to local (Self-healing)
-                            downloadAndReplaceLocal(item.entityName, remoteData)
-                            return
-                        }
-                    }
+                val remoteUpdatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(remoteUpdatedAtStr)
+                val localUpdatedAtLong = com.neochildclinic.core.utils.PatientUtils.isoToLong(localUpdatedAt)
+
+                if (remoteUpdatedAt > localUpdatedAtLong) {
+                    // REMOTE IS NEWER: Sync back to local (Self-healing)
+                    downloadAndReplaceLocal(item.entityName, remoteData)
+                    return
                 }
-            } catch (_: Exception) {
-                // Proceed with upsert if check fails
             }
 
             // EXPLICIT CASTING: Supabase upsert<T> requires the concrete type at compile time

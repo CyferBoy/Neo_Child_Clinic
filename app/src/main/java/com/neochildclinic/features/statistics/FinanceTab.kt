@@ -390,53 +390,6 @@ private fun FilterSection(
     }
 }
 
-@Composable
-private fun FinanceQuarterAndMonthFilters(
-    fyQuarter: Int,
-    selectedMonth: Int,
-    onQuarterChange: (Int) -> Unit,
-    onMonthChange: (Int) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatisticsUtils.fyQuarters.forEachIndexed { index, _ ->
-                val q = index + 1
-                FilterChip(selected = fyQuarter == q, onClick = { onQuarterChange(q) }, label = { Text("Q$q") }, modifier = Modifier.weight(1f))
-            }
-        }
-        if (fyQuarter > 0) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatisticsUtils.fyQuarters[fyQuarter - 1].second.forEach { month ->
-                    FilterChip(selected = selectedMonth == month, onClick = { onMonthChange(month) }, label = { Text(StatisticsUtils.monthNames[month]) })
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FinanceMetricRow(label1: String, amount1: Double, label2: String, amount2: Double, valuesAvailable: Boolean = true) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        FinanceMetricCard(label1, amount1, if (label2.isBlank()) Modifier.fillMaxWidth() else Modifier.weight(1f), valuesAvailable)
-        if (label2.isNotBlank()) FinanceMetricCard(label2, amount2, Modifier.weight(1f), valuesAvailable)
-    }
-}
-
-@Composable
-private fun FinanceMetricCard(label: String, amount: Double, modifier: Modifier, valuesAvailable: Boolean = true) {
-    Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(
-                if (valuesAvailable) "₹${amount.toInt()}" else "Unavailable",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun FinanceTabPreview() {

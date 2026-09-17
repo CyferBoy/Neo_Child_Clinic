@@ -62,4 +62,45 @@ object SecurityUtils {
             Log.e(TAG, "Failed to delete corrupted prefs: ${e.message}")
         }
     }
+
+    // ---- Backup & Restore: automatic-backup password storage ----
+    //
+    // Manual "Export Backup" / "Backup Now" always prompt the user for a password fresh
+    // and never persist it. Automatic Backup is the one flow that must run unattended
+    // (a nightly WorkManager job with no one present to type a password), so - and only if
+    // the user turns Automatic Backup on - the password they set is stored here, wrapped by
+    // the same Android Keystore-backed EncryptedSharedPreferences mechanism already used for
+    // the database passphrase above. Turning Automatic Backup back off clears it immediately.
+    private const val BACKUP_PREFS_NAME = "backup_secure_prefs"
+    private const val BACKUP_PASSWORD_KEY = "backup_password"
+
+    fun saveBackupPassword(context: Context, password: String) {
+        val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val prefs = EncryptedSharedPreferences.create(
+            context, BACKUP_PREFS_NAME, masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        prefs.edit().putString(BACKUP_PASSWORD_KEY, password).apply()
+    }
+
+    fun getBackupPassword(context: Context): String? {
+        val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val prefs = EncryptedSharedPreferences.create(
+            context, BACKUP_PREFS_NAME, masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        return prefs.getString(BACKUP_PASSWORD_KEY, null)
+    }
+
+    fun clearBackupPassword(context: Context) {
+        val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val prefs = EncryptedSharedPreferences.create(
+            context, BACKUP_PREFS_NAME, masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        prefs.edit().remove(BACKUP_PASSWORD_KEY).apply()
+    }
 }

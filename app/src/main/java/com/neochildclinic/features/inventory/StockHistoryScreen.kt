@@ -158,23 +158,7 @@ private fun AnimatedVisibilityFilters(visible: Boolean, content: @Composable () 
 }
 
 @Composable
-private fun LoadMoreRow(isLoading: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(28.dp))
-        } else {
-            TextButton(onClick = onClick) {
-                Text("Load More")
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun StockHistoryFilters(
     uiState: StockHistoryUiState,
     onVaccineFilterChange: (String?) -> Unit,

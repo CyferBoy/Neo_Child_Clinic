@@ -36,6 +36,10 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"${getEnv("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${getEnv("SUPABASE_PUBLISHABLE_KEY")}\"")
+        // Cloudflare Worker that mediates cloud backup/restore against R2 (see
+        // cloudflare/backup-worker/). Empty means Cloud Backup/Restore are simply
+        // unavailable in this build - Local Export/Import always work regardless.
+        buildConfigField("String", "BACKUP_WORKER_URL", "\"${getEnv("BACKUP_WORKER_URL")}\"")
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -102,6 +106,8 @@ dependencies {
     implementation(libs.supabase.functions)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
     
     // Firebase
     implementation(platform(libs.firebase.bom))

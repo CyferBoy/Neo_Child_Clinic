@@ -1,0 +1,6 @@
+# Legacy HS256 verification (keep for backward compatibility if your project still uses HS256)
+SUPABASE_JWT_SECRET=replace-with-your-supabase-project-jwt-secret
+
+# Preferred: Supabase asymmetric JWT verification (ES256/RS256)
+# Example:
+# SUPABASE_JWKS_URL=https://YOUR_PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json

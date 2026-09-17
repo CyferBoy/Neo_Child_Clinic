@@ -2,13 +2,20 @@ package com.neochildclinic.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.WasteRecord
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+// Indices added (large-data scalability pass): vaccineId (WasteDao.getWasteForVaccine),
+// dateWasted (default sort order on every waste query), and isSynced (sync scan) - this
+// table previously had no indices at all.
 @Serializable
-@Entity(tableName = "waste_records")
+@Entity(
+    tableName = "waste_records",
+    indices = [Index("vaccineId"), Index("dateWasted"), Index("isSynced")]
+)
 data class WasteEntity(
     @PrimaryKey val id: String,
     val vaccineId: String,

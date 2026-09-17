@@ -1,0 +1,26 @@
+name = "neochildclinic-backup-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# R2 is bound directly - the Worker calls env.BACKUP_BUCKET.put()/.get()/.delete() natively.
+# There is no R2 access key or secret access key anywhere in this project: a native binding
+# is Cloudflare's recommended way for a Worker to use its own account's R2 bucket, and it is
+# strictly more secure than the access-key/secret-key (S3-compatible API) approach, because
+# no long-lived credential exists at all - not in the Android app, not in this repo, not
+# even as a Worker secret. See docs/BACKUP_RESTORE.md "Cloudflare Worker configuration" for
+# the access-key alternative, kept there only for reference in case a future non-Worker
+# backend service ever needs direct S3-API access to the same bucket.
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "neo-child-clinic-backups"
+# preview_bucket_name = "neo-child-clinic-backups-preview"   # uncomment for `wrangler dev`
+
+[[d1_databases]]
+binding = "DB"
+database_name = "neochildclinic-backups"
+database_id = "3feb9a4a-b42a-4b64-b4fe-07788ae2a203"
+
+# Secrets (never put these here - set via `wrangler secret put <NAME>`):
+#   SUPABASE_JWT_SECRET - legacy HS256 signing secret (backward compatibility only).
+#   SUPABASE_JWKS_URL  - preferred JWKS endpoint for ES256/RS256 tokens:
+#                         https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json

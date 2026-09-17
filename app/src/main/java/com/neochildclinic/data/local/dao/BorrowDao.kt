@@ -21,6 +21,16 @@ interface BorrowDao {
     @Query("SELECT * FROM borrow_records WHERE isReturned = 1")
     fun getReturnedBorrows(): Flow<List<BorrowEntity>>
 
+    // --- Pagination (large-data scalability pass) --- additive, existing Flow methods
+    // above are untouched. isReturned has no dedicated index today; at clinic scale this
+    // table is small relative to patients/visits, so id-ordered paging is used rather
+    // than adding a new index purely for this.
+    @Query("SELECT * FROM borrow_records WHERE isReturned = 0 ORDER BY id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getActiveBorrowsPage(limit: Int, offset: Int): List<BorrowEntity>
+
+    @Query("SELECT * FROM borrow_records WHERE isReturned = 1 ORDER BY id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getReturnedBorrowsPage(limit: Int, offset: Int): List<BorrowEntity>
+
     @Query("UPDATE borrow_records SET isReturned = 1, returnedDate = :date, isSynced = 0 WHERE id = :id")
     suspend fun markReturned(id: String, date: String)
 

@@ -165,6 +165,10 @@ class WasteRepositoryImpl @Inject constructor(
 
     override fun getWasteCount(): Flow<Int> = wasteDao.getWasteCount()
 
+    // Large-data scalability pass: additive, existing getAllWaste() Flow is unchanged.
+    override suspend fun getAllWastePage(limit: Int, offset: Int): List<WasteRecord> =
+        wasteDao.getAllWastePage(limit, offset).map { it.toDomain() }
+
     private fun mapReasonToTransactionType(reason: String): InventoryTransactionType {
         return when (reason.lowercase()) {
             "expired" -> InventoryTransactionType.EXPIRED

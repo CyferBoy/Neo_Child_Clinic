@@ -72,10 +72,16 @@ fun AppNavigation(
     var resolvedStartDest by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val status = authViewModel.awaitResolvedSessionStatus()
-        resolvedStartDest = if (status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) {
-            Routes.DASHBOARD
-        } else {
-            Routes.LOGIN
+        resolvedStartDest = when {
+            status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated -> Routes.DASHBOARD
+            status != null -> Routes.LOGIN
+            // status == null means awaitResolvedSessionStatus() timed out (see its doc) -
+            // almost always no network at launch while a stored session still needs a
+            // refresh it can't complete. Fall back to whatever's already cached in memory
+            // rather than sitting on the loading screen below forever - a previously
+            // logged-in user keeps full offline access to their local data.
+            authViewModel.currentUser != null -> Routes.DASHBOARD
+            else -> Routes.LOGIN
         }
     }
 

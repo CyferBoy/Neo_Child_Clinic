@@ -37,8 +37,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ExpenseEntity::class,
         DoctorWeeklySlotEntity::class,
         DoctorSlotExceptionEntity::class,
+        BackupHistoryEntity::class,
     ], 
-    version = 25,
+    version = 27,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -67,9 +68,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun doctorAvailabilityDao(): DoctorAvailabilityDao
 
+    // Backup & Restore (see data/local/dao/BackupDao.kt)
+    abstract fun backupDao(): BackupDao
+
     companion object {
         private const val TAG = "AppDatabase"
         private const val DB_NAME = "neochild_db"
+        // Kept in sync with the @Database(version = ...) annotation above; used by
+        // BackupRepositoryImpl so the backup envelope records which schema version
+        // produced it, without needing reflection to read the annotation at runtime.
+        const val DB_VERSION = 27
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -290,6 +298,49 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                // Backup & Restore (req. 4/18): adds the local backup_history table only.
+                // Purely additive - no existing table/column is touched, so this never
+                // risks data loss the way fallbackToDestructiveMigration would.
+                val migration25_26 = object : androidx.room.migration.Migration(25, 26) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL(
+                            """CREATE TABLE IF NOT EXISTS backup_history (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                type TEXT NOT NULL,
+                                location TEXT NOT NULL,
+                                createdAt TEXT NOT NULL,
+                                sizeBytes INTEGER NOT NULL DEFAULT 0,
+                                backupVersion INTEGER NOT NULL DEFAULT 0,
+                                appVersion TEXT NOT NULL DEFAULT '',
+                                status TEXT NOT NULL,
+                                errorMessage TEXT,
+                                storagePath TEXT,
+                                recordCountsJson TEXT,
+                                triggeredBy TEXT NOT NULL DEFAULT 'MANUAL'
+                            )"""
+                        )
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_backup_history_createdAt ON backup_history(createdAt)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_backup_history_type ON backup_history(type)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_backup_history_status ON backup_history(status)")
+                    }
+                }
+
+                // Large-data scalability pass: adds indices that were missing entirely on
+                // inventory_deductions and waste_records, plus originalVisitId on reminders
+                // (see InventoryDeductionEntity/WasteEntity/ReminderEntity for why). Purely
+                // additive - only CREATE INDEX statements, no table/column changes, so it
+                // cannot break existing data or queries.
+                val migration26_27 = object : androidx.room.migration.Migration(26, 27) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_deductions_vaccinationId ON inventory_deductions(vaccinationId)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_deductions_status ON inventory_deductions(status)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_records_vaccineId ON waste_records(vaccineId)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_records_dateWasted ON waste_records(dateWasted)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_records_isSynced ON waste_records(isSynced)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS index_reminders_originalVisitId ON reminders(originalVisitId)")
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -297,7 +348,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25)
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance

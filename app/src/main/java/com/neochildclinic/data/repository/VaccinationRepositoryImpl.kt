@@ -28,7 +28,6 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val syncRepository: SyncRepository,
-    private val financeRepository: com.neochildclinic.domain.repository.FinanceRepository,
     private val inventoryRepository: InventoryRepository,
     private val auditLogger: AuditLogger,
     private val memoryCache: MemoryCache,

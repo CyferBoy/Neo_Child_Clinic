@@ -107,4 +107,9 @@ object DatabaseModule {
     fun provideInventoryDeductionDao(database: AppDatabase): InventoryDeductionDao {
         return database.inventoryDeductionDao()
     }
+
+    // Note: BackupRepositoryImpl (Backup & Restore feature) takes AppDatabase directly
+    // and calls database.backupDao() / database.consultationDao() / etc. itself, matching
+    // the existing convention already used by ConsultationRepositoryImpl, SyncRepositoryImpl,
+    // and others in this file's sibling repositories - so no new DAO providers are needed here.
 }
