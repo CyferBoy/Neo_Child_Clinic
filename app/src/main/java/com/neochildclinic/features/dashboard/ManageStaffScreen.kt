@@ -99,7 +99,7 @@ fun ManageStaffScreen(
                 }
 
                 if (uiState.isLoading && uiState.staffList.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp))
                 } else if (filteredStaff.isEmpty()) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -63,10 +63,10 @@ sealed class BackupException(
         "Auth session expired/refresh failed", cause
     )
 
-    class Unauthorized : BackupException(
+    class Unauthorized(serverDetail: String? = null) : BackupException(
         BackupFailureReason.UNAUTHORIZED,
         "You are not authorized to access this backup.",
-        "Server returned 401/403"
+        "Server returned 401/403" + (serverDetail?.let { ": $it" } ?: "")
     )
 
     class UploadFailed(cause: Throwable? = null) : BackupException(
@@ -81,10 +81,10 @@ sealed class BackupException(
         "Download from cloud storage failed", cause
     )
 
-    class ServerError(code: Int? = null, cause: Throwable? = null) : BackupException(
+    class ServerError(code: Int? = null, cause: Throwable? = null, serverDetail: String? = null) : BackupException(
         BackupFailureReason.SERVER_ERROR,
         "The backup server encountered an error. Please try again later.",
-        "Server error${code?.let { " (HTTP $it)" } ?: ""}", cause
+        "Server error${code?.let { " (HTTP $it)" } ?: ""}" + (serverDetail?.let { ": $it" } ?: ""), cause
     )
 
     class InsufficientStorage : BackupException(

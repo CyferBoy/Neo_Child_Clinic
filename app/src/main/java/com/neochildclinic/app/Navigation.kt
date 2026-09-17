@@ -63,7 +63,12 @@ fun AppNavigation(
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authProfile by authViewModel.profile.collectAsState()
-    val userRole = authProfile?.role ?: UserRole.nurse
+    val isProfileLoading by authViewModel.isProfileLoading.collectAsState()
+    // While the authoritative profile is still resolving, don't treat the user as a
+    // nurse for route-guarding purposes (see DashboardScreen for the matching gate on
+    // the dashboard/drawer itself). Falling through to UserRole.nurse here too early
+    // was part of the same intermittent-nurse-view bug.
+    val userRole = authProfile?.role ?: if (isProfileLoading) null else UserRole.nurse
 
     // The Supabase SDK resolves any session saved to disk asynchronously. Reading
     // currentUser synchronously here would race that resolution and randomly send

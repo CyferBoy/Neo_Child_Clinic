@@ -17,6 +17,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsBytes
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.HttpHeaders
@@ -59,6 +60,12 @@ class CloudBackupApi @Inject constructor(private val auth: Auth) {
         val backupVersion: Int,
         val status: String
     )
+
+    // Matches the Worker's `json({ error: message }, status)` error responses
+    // (cloudflare/backup-worker/src/index.ts) - used only to enrich logDetail, never shown
+    // to the user (see BackupException doc).
+    @Serializable
+    private data class WorkerErrorBody(val error: String? = null)
 
     private val client by lazy {
         HttpClient(CIO) {
@@ -122,12 +129,36 @@ class CloudBackupApi @Inject constructor(private val auth: Auth) {
         }
     }
 
-    private fun checkStatus(response: HttpResponse) {
+    /** Best-effort extraction of the Worker's `{"error": "..."}` body, for BackupException's
+     * logDetail only - never shown to the user (userMessage is fixed, spec'd wording; see
+     * the class doc). Falls back to the raw body text if it isn't the expected JSON shape,
+     * and to null if the body can't be read at all (e.g. a non-JSON Cloudflare edge error
+     * page for a 522/524) - a broken/unexpected body must never mask the original HTTP
+     * status by throwing here. Truncated and newline-stripped so it can't bloat Logcat.
+     */
+    private suspend fun serverErrorDetail(response: HttpResponse): String? = try {
+        val text = response.bodyAsText()
+        if (text.isBlank()) {
+            null
+        } else {
+            val parsed = runCatching {
+                Json { ignoreUnknownKeys = true }.decodeFromString<WorkerErrorBody>(text)
+            }.getOrNull()
+            (parsed?.error ?: text).replace("\n", " ").replace("\r", "").take(200)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    private suspend fun checkStatus(response: HttpResponse) {
         when (response.status) {
-            HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden -> throw BackupException.Unauthorized()
+            HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden ->
+                throw BackupException.Unauthorized(serverErrorDetail(response))
             HttpStatusCode.InsufficientStorage -> throw BackupException.InsufficientStorage()
             HttpStatusCode.PayloadTooLarge -> throw BackupException.TooLarge(-1L, MAX_BACKUP_BYTES)
-            else -> if (response.status.value !in 200..299) throw BackupException.ServerError(response.status.value)
+            else -> if (response.status.value !in 200..299) {
+                throw BackupException.ServerError(code = response.status.value, serverDetail = serverErrorDetail(response))
+            }
         }
     }
 

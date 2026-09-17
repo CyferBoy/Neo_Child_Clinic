@@ -27,6 +27,7 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
+import com.neochildclinic.core.ui.SkeletonListItem
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
@@ -115,10 +116,10 @@ fun ExpenseListScreen(
                             }
                             if (uiState.canLoadMore) {
                                 item {
-                                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                                        if (uiState.isLoadingMore) {
-                                            CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                                        } else {
+                                    if (uiState.isLoadingMore) {
+                                        SkeletonListItem(showLeadingIcon = true, showTrailing = false)
+                                    } else {
+                                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                                             TextButton(onClick = viewModel::loadMore) { Text("Load More") }
                                         }
                                     }

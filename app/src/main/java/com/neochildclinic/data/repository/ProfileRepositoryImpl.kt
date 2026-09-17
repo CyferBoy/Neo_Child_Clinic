@@ -32,6 +32,21 @@ class ProfileRepositoryImpl @Inject constructor(
         return profileDao.getProfileById(id)?.toDomain()?.also { memoryCache.putProfile(it) }
     }
 
+    override suspend fun fetchProfileFromRemote(id: String): Profile? {
+        return try {
+            postgrest.from("profiles")
+                .select { filter { eq("id", id); eq("is_deleted", false) } }
+                .decodeSingleOrNull<Profile>()
+                ?.also {
+                    profileDao.insertProfile(it.toEntity())
+                    memoryCache.putProfile(it)
+                }
+        } catch (e: Exception) {
+            android.util.Log.e("ProfileRepo", "Failed to fetch profile $id from remote", e)
+            null
+        }
+    }
+
     override suspend fun refreshProfiles() {
         try {
             val profiles = postgrest.from("profiles").select { filter { eq("is_deleted", false) } }.decodeList<Profile>()

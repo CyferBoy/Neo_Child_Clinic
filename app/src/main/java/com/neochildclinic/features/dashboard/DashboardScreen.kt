@@ -23,6 +23,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.SyncState
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.SkeletonCard
+import com.neochildclinic.core.ui.SkeletonLine
 import com.neochildclinic.features.dashboard.components.AppDrawer
 import com.neochildclinic.app.Routes
 import com.neochildclinic.core.designsystem.LocalCustomColors
@@ -54,9 +56,33 @@ fun DashboardScreen(
 ) {
     val uiState by dashboardViewModel.uiState.collectAsState()
     val authProfile by authViewModel.profile.collectAsState()
+    val isProfileLoading by authViewModel.isProfileLoading.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Don't render the role-gated dashboard/drawer until the real profile has resolved.
+    // Defaulting to UserRole.nurse while authProfile is still null (the old behavior)
+    // is what made admin/doctor accounts intermittently flash the nurse view on cold
+    // start or a fast reopen.
+    if (isProfileLoading && authProfile == null) {
+        // Skeleton shape approximating the dashboard's header + 2-column tile grid,
+        // shown while the profile (and therefore the real dashboard content) is
+        // still resolving - see the comment above for why this gate exists at all.
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            SkeletonLine(widthFraction = 0.4f, height = 20.dp)
+            Spacer(modifier = Modifier.height(20.dp))
+            repeat(3) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    SkeletonCard(modifier = Modifier.weight(1f), height = 100.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    SkeletonCard(modifier = Modifier.weight(1f), height = 100.dp)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+        return
+    }
 
     val role = authProfile?.role ?: UserRole.nurse
 

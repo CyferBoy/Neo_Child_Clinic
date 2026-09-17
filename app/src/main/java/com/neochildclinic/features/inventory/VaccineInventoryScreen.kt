@@ -211,9 +211,12 @@ private fun VaccineInventoryContent(
                 modifier = Modifier.padding(padding)
             ) {
                 if (uiState.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 8,
+                        cardShaped = true,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    )
                 } else if (uiState.inventory.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(if (searchQuery.isEmpty()) "No inventory found" else "No results found")

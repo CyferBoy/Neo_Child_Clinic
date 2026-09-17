@@ -29,6 +29,7 @@ import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonCard
 import kotlinx.coroutines.launch
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -183,8 +184,20 @@ private fun StatisticsContent(
             modifier = Modifier.padding(paddingValues)
         ) {
             if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                // Chart-shaped skeleton: a row of small summary tiles, then a tall
+                // block standing in for the chart, matching StatisticsTabContent's shape.
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        SkeletonCard(modifier = Modifier.weight(1f), height = 72.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        SkeletonCard(modifier = Modifier.weight(1f), height = 72.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        SkeletonCard(modifier = Modifier.weight(1f), height = 72.dp)
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 240.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 120.dp)
                 }
             } else {
                 StatisticsTabContent(

@@ -71,6 +71,14 @@ class AuthViewModel @Inject constructor(
     private val _profile = MutableStateFlow<Profile?>(null)
     val profile: StateFlow<Profile?> = _profile.asStateFlow()
 
+    // True while the authoritative profile (and therefore role) is being resolved.
+    // Screens that gate UI on role (drawer menu, Manage Staff, Statistics, etc.) must
+    // wait for this to go false rather than reading `profile?.role ?: UserRole.nurse` -
+    // treating "not loaded yet" as "nurse" is what caused admin accounts to intermittently
+    // flash the nurse view on cold start / fast reopen.
+    private val _isProfileLoading = MutableStateFlow(false)
+    val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
+
     init {
         // Fetch profile if already logged in
         viewModelScope.launch {
@@ -81,12 +89,30 @@ class AuthViewModel @Inject constructor(
     }
 
     private suspend fun fetchProfile(userId: String) {
+        _isProfileLoading.value = true
         try {
             // Get from repository (handles local fallback and remote sync)
             var p = profileRepository.getProfileById(userId)
             val authLastLogin = auth.currentSessionOrNull()?.user?.lastSignInAt?.toString()
-            
+
             if (p == null) {
+                // No local cache row for this user yet (fresh install, cleared app data,
+                // or first login on this device before the initial sync has pulled the
+                // profiles table down). The profiles table - not Supabase Auth
+                // user_metadata - is the source of truth for role, so fetch this user's
+                // row directly before ever guessing. Previously this jumped straight to
+                // building a profile from user_metadata and defaulting role to "nurse"
+                // whenever that metadata was missing/unset (the common case, since role
+                // is normally managed via Manage Staff, not auth metadata) - silently
+                // persisting the wrong role until a slower background refresh corrected
+                // it, which is exactly the intermittent "opens as nurse" bug.
+                p = profileRepository.fetchProfileFromRemote(userId)
+            }
+
+            if (p == null) {
+                // Still nothing - genuinely offline with no cache, or a brand-new signup
+                // whose profile row hasn't been provisioned server-side yet. Fall back to
+                // a synthetic profile from auth metadata only as a last resort.
                 val currentUser = auth.currentSessionOrNull()?.user
                 if (currentUser != null) {
                     p = Profile(
@@ -129,6 +155,8 @@ class AuthViewModel @Inject constructor(
             }
         } catch (e: Exception) {
             _error.value = "Failed to load profile: ${e.message}"
+        } finally {
+            _isProfileLoading.value = false
         }
     }
 

@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.SearchTopAppBar
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.Patient
 
 @Composable
@@ -55,9 +56,7 @@ fun SearchScreen(
                     .padding(paddingValues)
             ) {
                 if (uiState.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 8)
                 } else if (uiState.results.isEmpty() && query.isNotBlank()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No results found for \"$query\"", color = MaterialTheme.colorScheme.onSurfaceVariant)

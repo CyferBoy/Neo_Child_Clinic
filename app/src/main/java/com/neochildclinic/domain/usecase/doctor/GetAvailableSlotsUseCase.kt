@@ -56,16 +56,29 @@ class GetAvailableSlotsUseCase @Inject constructor(
         return result is DoctorAvailabilityResult.Available && result.slots.any { it.weeklySlotId == slotId }
     }
 
+    // Callers don't agree on date string format: Add Consultation and Add Vaccination
+    // pass the app's display format (Constants.DATE_FORMAT, "d MMM yyyy" - e.g.
+    // "17 Sep 2026"), while the Today's Patient quick-add dialog (DashboardViewModel)
+    // passes ISO "yyyy-MM-dd". This previously only accepted "yyyy-MM-dd" with strict
+    // parsing, so every call from Add Consultation/Add Vaccination silently failed to
+    // parse, fell through to `return DoctorAvailabilityResult.Available(emptyList())`,
+    // and the Available Slot dropdown always showed "No slots available" regardless of
+    // what was actually configured on the Weekly Doctor Slots screen. Accept both
+    // formats here instead of touching every call site's date convention.
     private fun dayOfWeekFor(date: String): Int? {
-        return try {
-            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH)
+        // SimpleDateFormat isn't thread-safe, so create fresh instances per call rather
+        // than caching them on this class (which Hilt may hand out beyond one coroutine).
+        fun parseWith(pattern: String): java.util.Date? {
+            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH)
             sdf.isLenient = false
-            val parsed = sdf.parse(date) ?: return null
-            val cal = java.util.Calendar.getInstance()
-            cal.time = parsed
-            cal.get(java.util.Calendar.DAY_OF_WEEK) // Calendar.SUNDAY(1) .. Calendar.SATURDAY(7)
-        } catch (e: Exception) {
-            null
+            return runCatching { sdf.parse(date) }.getOrNull()
         }
+
+        val parsed = parseWith("yyyy-MM-dd")
+            ?: parseWith(com.neochildclinic.core.constants.Constants.DATE_FORMAT)
+            ?: return null
+        val cal = java.util.Calendar.getInstance()
+        cal.time = parsed
+        return cal.get(java.util.Calendar.DAY_OF_WEEK) // Calendar.SUNDAY(1) .. Calendar.SATURDAY(7)
     }
 }

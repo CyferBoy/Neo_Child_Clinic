@@ -36,6 +36,7 @@ import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.AuditLogDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.ActionDropdownMenu
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.utils.PatientUtils.calculateAgeLabel
 
@@ -189,9 +190,13 @@ private fun PatientListContent(
                 modifier = Modifier.padding(paddingValues)
             ) {
                 if (uiState.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 8,
+                        cardShaped = true,
+                        spacing = 8.dp,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    )
                 } else if (uiState.patients.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
