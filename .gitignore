@@ -58,5 +58,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
-  
-node_modules/ 
+
+# Node
+**/node_modules/
+
+# Cloudflare Wrangler
+**/.wrangler/
