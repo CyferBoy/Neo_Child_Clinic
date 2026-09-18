@@ -249,23 +249,31 @@ private fun InfoGridRow(
     leftClickable: Boolean = false,
     onLeftClick: () -> Unit = {}
 ) {
-    // FlowRow (not a fixed two-column Row) so Column 1 is free to take whatever width
-    // its content needs - e.g. a long "DOB • Age: ..." string - and wraps its own text
-    // onto a second line if it's too wide for the card, rather than forcing Column 2
-    // into a squeezed half-width box where its text would clip, overlap, or ellipsize.
-    // When both columns fit on one line (the common case) they sit side by side exactly
-    // as before; when they don't, Column 2 simply flows onto the next line.
-    FlowRow(
+    // Two weighted columns so the row always fills the card: any width left over after
+    // both items' content is divided equally between the columns instead of sitting as
+    // dead space at the end of the row. Each column keeps its content left-aligned and
+    // lets long text (e.g. "DOB • Age: ...") wrap onto a second line within its half
+    // rather than clipping or forcing the other column into a squeezed box.
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Box(
-            modifier = if (leftClickable) Modifier.clickable(onClick = onLeftClick) else Modifier
+            modifier = if (leftClickable) {
+                Modifier.weight(1f).clickable(onClick = onLeftClick)
+            } else {
+                Modifier.weight(1f)
+            },
+            contentAlignment = Alignment.CenterStart
         ) {
             InfoRow(left.first, left.second)
         }
-        InfoRow(right.first, right.second)
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            InfoRow(right.first, right.second)
+        }
     }
 }
 

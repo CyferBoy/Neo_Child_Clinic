@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -22,9 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.SyncState
-import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.SkeletonBox
 import com.neochildclinic.core.ui.SkeletonCard
-import com.neochildclinic.core.ui.SkeletonLine
 import com.neochildclinic.features.dashboard.components.AppDrawer
 import com.neochildclinic.app.Routes
 import com.neochildclinic.core.designsystem.LocalCustomColors
@@ -66,19 +66,105 @@ fun DashboardScreen(
     // is what made admin/doctor accounts intermittently flash the nurse view on cold
     // start or a fast reopen.
     if (isProfileLoading && authProfile == null) {
-        // Skeleton shape approximating the dashboard's header + 2-column tile grid,
-        // shown while the profile (and therefore the real dashboard content) is
-        // still resolving - see the comment above for why this gate exists at all.
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            SkeletonLine(widthFraction = 0.4f, height = 20.dp)
-            Spacer(modifier = Modifier.height(20.dp))
-            repeat(3) {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    SkeletonCard(modifier = Modifier.weight(1f), height = 100.dp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    SkeletonCard(modifier = Modifier.weight(1f), height = 100.dp)
+        // Skeleton shown while the profile (and therefore the real dashboard content) is
+        // still resolving - see the comment above for why this gate exists at all. It renders
+        // inside the same shell (background + top bar) and mirrors the real dashboard layout:
+        // logo header, the 2-column tile grid (210/150 and 150/210 heights, 16dp gaps), then
+        // the 3-tile Borrowed/Due/Waste row - so the loading state reads as the dashboard.
+        val customColors = LocalCustomColors.current
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = customColors.bgOffWhite
+        ) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = { DashboardTopBar(onMenuClick = {}) }
+            ) { paddingValues ->
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp)
+                ) {
+                    val isWideScreen = maxWidth > 600.dp
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
+                    ) {
+                        // ClinicLogo placeholder
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            SkeletonBox(
+                                modifier = Modifier.size(if (isWideScreen) 180.dp else 140.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // DashboardMainGrid placeholder: same 2 columns, same tile heights
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 210.dp,
+                                    shape = RoundedCornerShape(24.dp)
+                                )
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 150.dp,
+                                    shape = RoundedCornerShape(24.dp)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 150.dp,
+                                    shape = RoundedCornerShape(24.dp)
+                                )
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 210.dp,
+                                    shape = RoundedCornerShape(24.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // DashboardSmallActionsRow placeholder (Borrowed / Due / Waste)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            repeat(3) {
+                                SkeletonCard(
+                                    modifier = Modifier.weight(1f),
+                                    height = 90.dp,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
             }
         }
         return
