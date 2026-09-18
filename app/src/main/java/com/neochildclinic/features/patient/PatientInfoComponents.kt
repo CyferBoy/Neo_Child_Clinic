@@ -30,6 +30,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import io.github.jan.supabase.storage.FileObject
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.utils.PatientUtils.formatAgeYearsMonths
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -213,14 +214,18 @@ fun PatientInfoSection(patient: Patient) {
 
             HorizontalDivider(modifier = Modifier.alpha(0.3f))
 
+            val dobDisplay = formatDateForDisplay(patient.dob)
+            val ageLabel = formatAgeYearsMonths(patient.dob)
+            val dobWithAge = if (ageLabel != null) "$dobDisplay • Age: $ageLabel" else dobDisplay
+
             InfoGridRow(
-                Pair(Icons.Default.Cake, formatDateForDisplay(patient.dob)),
+                Pair(Icons.Default.Cake, dobWithAge),
                 Pair(if (patient.gender == "Male") Icons.Default.Male else Icons.Default.Female, patient.gender)
             )
 
             InfoGridRow(
                 Pair(Icons.Default.Phone, patient.phone),
-                Pair(Icons.Default.CalendarToday, "Reg: ${formatDateForDisplay(patient.registrationDate ?: "")}"),
+                Pair(Icons.Default.CalendarToday, formatDateForDisplay(patient.registrationDate ?: "")),
                 leftClickable = patient.phone.isNotBlank(),
                 onLeftClick = {
                     val phoneNumber = patient.phone.trim()
@@ -244,21 +249,23 @@ private fun InfoGridRow(
     leftClickable: Boolean = false,
     onLeftClick: () -> Unit = {}
 ) {
-    Row(modifier = Modifier.fillMaxWidth()) {
+    // FlowRow (not a fixed two-column Row) so Column 1 is free to take whatever width
+    // its content needs - e.g. a long "DOB • Age: ..." string - and wraps its own text
+    // onto a second line if it's too wide for the card, rather than forcing Column 2
+    // into a squeezed half-width box where its text would clip, overlap, or ellipsize.
+    // When both columns fit on one line (the common case) they sit side by side exactly
+    // as before; when they don't, Column 2 simply flows onto the next line.
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .then(if (leftClickable) Modifier.clickable(onClick = onLeftClick) else Modifier)
+            modifier = if (leftClickable) Modifier.clickable(onClick = onLeftClick) else Modifier
         ) {
             InfoRow(left.first, left.second)
         }
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 6.dp)
-        ) {
-            InfoRow(right.first, right.second)
-        }
+        InfoRow(right.first, right.second)
     }
 }
 

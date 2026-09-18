@@ -2,6 +2,7 @@ package com.neochildclinic.data.backup
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,8 +26,8 @@ class BackupCryptoTest {
         BackupCrypto.decrypt(container, "wrong-password".toCharArray())
     }
 
-    @Test(expected = BackupException.Corrupted::class)
-    fun `a tampered container fails integrity checking rather than silently returning bad data`() {
+    @Test
+    fun `a tampered container is rejected rather than silently returning bad data`() {
         val plaintext = "some backup content".toByteArray(Charsets.UTF_8)
         val container = BackupCrypto.encrypt(plaintext, "a-password".toCharArray())
 
@@ -35,7 +36,18 @@ class BackupCryptoTest {
         val flipIndex = tampered.size - 5
         tampered[flipIndex] = (tampered[flipIndex].toInt() xor 0xFF).toByte()
 
-        BackupCrypto.decrypt(tampered, "a-password".toCharArray())
+        // AES-GCM cannot distinguish a wrong password from tampered ciphertext - both fail
+        // the auth tag - so decryption must fail closed with a safe BackupException and never
+        // partially apply data. The WrongPassword/Corrupted split is informational only;
+        // tampering that survives GCM is additionally caught by the envelope checksum in
+        // BackupSerializer (reported as Corrupted at the restore layer).
+        val thrown = assertThrows(BackupException::class.java) {
+            BackupCrypto.decrypt(tampered, "a-password".toCharArray())
+        }
+        assertTrue(
+            "Expected a password-or-integrity failure, got ${thrown::class.simpleName}",
+            thrown is BackupException.WrongPassword || thrown is BackupException.Corrupted
+        )
     }
 
     @Test(expected = BackupException.Corrupted::class)

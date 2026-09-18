@@ -1,6 +1,7 @@
 package com.neochildclinic.data.backup
 
 import java.nio.ByteBuffer
+import java.nio.BufferUnderflowException
 import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -47,6 +48,7 @@ object BackupCrypto {
     private const val GCM_TAG_BITS = 128
     private const val PBKDF2_ITERATIONS = 210_000
     private const val KEY_BITS = 256
+    private const val MIN_CONTAINER_SIZE = 4 + 1 + 1 + SALT_LEN + 1 + IV_LEN + 4
 
     private val secureRandom = SecureRandom()
 
@@ -72,29 +74,29 @@ object BackupCrypto {
     }
 
     fun decrypt(container: ByteArray, password: CharArray): ByteArray {
-        if (container.size < 4 + 1 + 1 + SALT_LEN + 1 + IV_LEN + 4) {
-            throw BackupException.Corrupted("Container too small: ${container.size} bytes")
-        }
-        val buffer = ByteBuffer.wrap(container).order(ByteOrder.BIG_ENDIAN)
-
-        val magicBytes = ByteArray(4).also { buffer.get(it) }
-        if (String(magicBytes, Charsets.US_ASCII) != MAGIC) {
-            throw BackupException.Corrupted("Bad magic header - not a Neo Child Clinic backup file")
-        }
-        val formatVersion = buffer.get()
-        if (formatVersion != CONTAINER_FORMAT_VERSION) {
-            throw BackupException.UnsupportedVersion(formatVersion.toInt())
-        }
-        val saltLen = buffer.get().toInt().let { if (it < 0) it + 256 else it }
-        val salt = ByteArray(saltLen).also { buffer.get(it) }
-        val ivLen = buffer.get().toInt().let { if (it < 0) it + 256 else it }
-        val iv = ByteArray(ivLen).also { buffer.get(it) }
-        val iterations = buffer.int
-        val ciphertext = ByteArray(buffer.remaining()).also { buffer.get(it) }
-
-        val key = deriveKey(password, salt, iterations)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         try {
+            if (container.size < MIN_CONTAINER_SIZE) {
+                throw BackupException.Corrupted("Container too small: ${container.size} bytes")
+            }
+            val buffer = ByteBuffer.wrap(container).order(ByteOrder.BIG_ENDIAN)
+
+            val magicBytes = ByteArray(4).also { buffer.get(it) }
+            if (String(magicBytes, Charsets.US_ASCII) != MAGIC) {
+                throw BackupException.Corrupted("Bad magic header - not a Neo Child Clinic backup file")
+            }
+            val formatVersion = buffer.get()
+            if (formatVersion != CONTAINER_FORMAT_VERSION) {
+                throw BackupException.UnsupportedVersion(formatVersion.toInt())
+            }
+            val saltLen = buffer.get().toInt().let { if (it < 0) it + 256 else it }
+            val salt = ByteArray(saltLen).also { buffer.get(it) }
+            val ivLen = buffer.get().toInt().let { if (it < 0) it + 256 else it }
+            val iv = ByteArray(ivLen).also { buffer.get(it) }
+            val iterations = buffer.int
+            val ciphertext = ByteArray(buffer.remaining()).also { buffer.get(it) }
+
+            val key = deriveKey(password, salt, iterations)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
             return cipher.doFinal(ciphertext)
         } catch (e: AEADBadTagException) {
@@ -102,6 +104,10 @@ object BackupCrypto {
             // GCM cannot distinguish the two, so we report it as a password/integrity failure
             // rather than guessing which.
             throw BackupException.WrongPassword(cause = e)
+        } catch (e: BufferUnderflowException) {
+            throw BackupException.Corrupted("Container truncated or malformed", e)
+        } catch (e: BackupException) {
+            throw e
         } catch (e: Exception) {
             throw BackupException.Corrupted("Decryption failed: ${e.javaClass.simpleName}", e)
         }

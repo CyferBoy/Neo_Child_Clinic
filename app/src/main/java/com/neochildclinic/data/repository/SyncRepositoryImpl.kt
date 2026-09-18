@@ -13,6 +13,8 @@ import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.JsonObject
@@ -28,7 +30,16 @@ class SyncRepositoryImpl @Inject constructor(
 ) : SyncRepository {
 
     private val syncDao = database.syncQueueDao()
-    
+
+    companion object {
+        // How long to wait for the SDK to finish loading a persisted session
+        // (autoLoadFromStorage) before deciding whether a fresh background batch can
+        // authenticate. Generous enough for a cold start, short enough that an
+        // offline boot never stalls sync waiting on a token-refresh that can't reach
+        // the network. Mirrors AuthViewModel's own bounded session-status wait.
+        private const val SESSION_RESOLVE_TIMEOUT_MS = 5_000L
+    }
+
     private val _syncState = MutableStateFlow(SyncState.IDLE)
     override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
@@ -78,11 +89,44 @@ class SyncRepositoryImpl @Inject constructor(
 
         _syncState.value = SyncState.SYNCING
 
-        // Keep a persisted session usable before starting a batch. Auth refresh is
-        // safe to call when no session exists because currentSessionOrNull() returns null.
-        runCatching {
-            if (auth.currentSessionOrNull() != null) auth.refreshCurrentSession()
-        }.onFailure {
+        // Keep a persisted session usable before starting a batch.
+        //
+        // The SDK loads a saved session asynchronously (autoLoadFromStorage), but a
+        // WorkManager run in a freshly-created process (the app having been minimized
+        // and its process killed) can read currentSessionOrNull() as null before that
+        // load finishes. Without waiting, every upload in this batch goes out anonymous
+        // (anon key only), auth.uid() is null, so is_active_staff() is false and Supabase
+        // rejects each row with "new row violates row-level security policy for table ...".
+        // Wait for the load to settle first (bounded - a cold start must stay offline-first
+        // and never hang on a network token-refresh inside the SDK's initial status flow).
+        val sessionResolved = awaitSessionResolved(auth.sessionStatus, SESSION_RESOLVE_TIMEOUT_MS)
+
+        val currentSession = auth.currentSessionOrNull()
+        if (currentSession == null) {
+            // Never push anonymous rows at an RLS-protected database. Leave the queue
+            // pending so a later sync picks it up, instead of burning retries on RLS
+            // rejections that can't succeed without an authenticated session.
+            if (sessionResolved) {
+                // Status settled on NotAuthenticated (or a failed initial refresh) - the
+                // user is genuinely logged out. Skip everything; do NOT schedule work, so
+                // we never retry-loop without a session. A manual/after-login sync handles it.
+                android.util.Log.w("SyncRepository", "No active session; skipping sync batch")
+            } else {
+                // Status was still Initializing when the bounded wait expired - the SDK was
+                // restoring/refreshing a saved session too slowly (cold start, network).
+                // This is transient: requeue one quiet, network-constrained background run
+                // (unique work, so no unbounded queue) instead of failing or pushing anonymously.
+                android.util.Log.w(
+                    "SyncRepository",
+                    "Session still restoring after ${SESSION_RESOLVE_TIMEOUT_MS}ms; scheduling a background retry"
+                )
+                syncManager.scheduleSync()
+            }
+            _syncState.value = SyncState.IDLE
+            return
+        }
+
+        runCatching { auth.refreshCurrentSession() }.onFailure {
             android.util.Log.w("SyncRepository", "Session refresh before sync failed", it)
         }
         
@@ -123,13 +167,16 @@ class SyncRepositoryImpl @Inject constructor(
                 val remoteConflictData = fetchRemoteConflictData(conflictCheckCandidates)
 
                 // Process items in group sequentially. If Supabase rejects the request
-                // because the access token expired between the pre-sync refresh and this
-                // upload, refresh once and retry the exact same queue item.
+                // with a 401 (expired/invalid access token between the pre-sync refresh
+                // and this upload), refresh once and retry the exact same queue item. Any
+                // other rejection - notably genuine data-level authz failures such as RLS
+                // ("new row violates row-level security policy", PostgREST 400 "42501") -
+                // rethrows into the group handler and is never retried as a token problem.
                 for (item in groupItems) {
                     try {
                         uploadEntity(item, remoteConflictData)
                     } catch (e: Exception) {
-                        if (!isJwtExpired(e)) throw e
+                        if (!requiresSessionRefresh(e)) throw e
                         auth.refreshCurrentSession()
                         uploadEntity(item, remoteConflictData)
                     }
@@ -162,16 +209,15 @@ class SyncRepositoryImpl @Inject constructor(
     }
 
 
-    private fun isJwtExpired(error: Throwable): Boolean {
+    // True only for a *session/token* problem that one refresh + retry can fix. Uses the
+    // actual HTTP status where supabase-kt surfaced one: an expired/invalid JWT is a
+    // 401 (UnauthorizedRestException), while a genuine RLS rejection is 400 with PostgREST
+    // error code "42501" and must stay a failure. The message-text check is only a fallback
+    // for non-REST failures (e.g. local JWT parsing) and never matches RLS text.
+    private fun requiresSessionRefresh(error: Throwable): Boolean {
         var current: Throwable? = error
         repeat(8) {
-            val message = current?.message.orEmpty()
-            if (message.contains("jwt", ignoreCase = true) &&
-                (message.contains("expired", ignoreCase = true) ||
-                 message.contains("invalid", ignoreCase = true) ||
-                 message.contains("token", ignoreCase = true))) {
-                return true
-            }
+            if (shouldRefreshSessionFor((current as? RestException)?.statusCode, current?.message)) return true
             current = current?.cause
         }
         return false
@@ -690,3 +736,31 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 }
+
+// True only when a request failed as a *session/token* problem. A 401 (expired/invalid
+// JWT) always counts, whatever the message. Otherwise we fall back to the message text for
+// non-REST failures only. A genuine RLS rejection - PostgREST 400 with code "42501",
+// "new row violates row-level security policy ..." - is a data-level authorization failure,
+// NOT a token failure, so its status (400) wins and it is never treated as refreshable.
+internal fun shouldRefreshSessionFor(statusCode: Int?, message: String?): Boolean {
+    if (statusCode == 401) return true
+    val text = message.orEmpty()
+    return text.contains("jwt", ignoreCase = true) &&
+        (text.contains("expired", ignoreCase = true) ||
+            text.contains("invalid", ignoreCase = true) ||
+            text.contains("token", ignoreCase = true))
+}
+
+// Blocks until the SDK has left the Initializing status - i.e. it has restored a persisted
+// session (autoLoadFromStorage) and/or finished any refresh-on-load, settling on
+// Authenticated, NotAuthenticated or RefreshFailure - or until timeoutMs elapses.
+// Returns false ONLY on timeout (session still resolving = transient): a settled
+// NotAuthenticated status still returns true, so callers can tell "genuinely logged out"
+// apart from "still restoring, retry shortly".
+internal suspend fun awaitSessionResolved(
+    sessionStatus: StateFlow<SessionStatus>,
+    timeoutMs: Long
+): Boolean =
+    kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+        sessionStatus.first { it !is SessionStatus.Initializing }
+    } != null

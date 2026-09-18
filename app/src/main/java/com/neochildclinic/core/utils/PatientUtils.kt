@@ -137,6 +137,48 @@ object PatientUtils {
     }
     
     /**
+     * Returns "<years> year(s) <months> month(s)" (e.g. "1 year 0 months", "0 years 3
+     * months") for the Patient Details screen's DOB/age display. Reuses the same
+     * calendar-based day-borrow diff already used by calculateAgeLabel()/
+     * calculateExactAge() (and the shared parseDate() cache), but always renders both
+     * the year and month component - rather than omitting a zero part or switching to
+     * a weeks-based label for infants - to match that screen's fixed display format.
+     * Returns null for an unparseable or future dob, same as the other age helpers.
+     */
+    fun formatAgeYearsMonths(dob: String, onDate: Calendar = Calendar.getInstance()): String? {
+        val birthDate = parseDate(dob) ?: return null
+        val birth = Calendar.getInstance().apply {
+            time = birthDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val today = (onDate.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (birth.after(today)) return null
+
+        var years = today.get(Calendar.YEAR) - birth.get(Calendar.YEAR)
+        var months = today.get(Calendar.MONTH) - birth.get(Calendar.MONTH)
+        if (today.get(Calendar.DAY_OF_MONTH) < birth.get(Calendar.DAY_OF_MONTH)) {
+            months--
+        }
+        if (months < 0) {
+            years--
+            months += 12
+        }
+        if (years < 0) return null
+
+        val yearLabel = if (years == 1) "year" else "years"
+        val monthLabel = if (months == 1) "month" else "months"
+        return "$years $yearLabel $months $monthLabel"
+    }
+
+    /**
      * Returns a user-friendly age string (e.g., "5 Years", "2 Months", "3 Weeks").
      */
     fun calculateAgeLabel(dob: String): String? {

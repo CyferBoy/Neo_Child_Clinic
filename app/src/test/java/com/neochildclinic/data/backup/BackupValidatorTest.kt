@@ -27,7 +27,8 @@ class BackupValidatorTest {
         val vaccine = VaccineEntity(id = "vaccine-1", type = "IPV", brandName = "Brand", companyName = "Company")
         val batch = VaccineBatchEntity(
             batchId = "batch-1", vaccineId = "vaccine-1", batchNumber = "B1", manufacturer = "Mfr",
-            purchaseDate = "2026-01-01", expiryDate = "2027-01-01", purchaseQuantity = 10, remainingQuantity = 9
+            purchaseDate = "2026-01-01", expiryDate = "2027-01-01", purchaseQuantity = 10, remainingQuantity = 9,
+            supplier = "Test Supplier", purchaseCost = 100.0, sellingPrice = 150.0
         )
         val visit = VisitEntity(id = "visit-1", patientId = "patient-1", dateGiven = "2026-01-02")
         val item = VaccinationItemEntity(id = "item-1", vaccinationId = "visit-1", vaccineId = "vaccine-1", batchId = "batch-1")
