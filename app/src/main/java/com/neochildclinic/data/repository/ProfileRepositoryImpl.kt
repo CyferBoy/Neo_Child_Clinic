@@ -4,7 +4,6 @@ import com.neochildclinic.data.local.dao.ProfileDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
@@ -67,29 +66,6 @@ class ProfileRepositoryImpl @Inject constructor(
             entityId = profile.id,
             operation = SyncOperation.UPDATE,
             priority = SyncPriority.HIGH
-        )
-    }
-
-    override suspend fun toggleProfileStatus(id: String, isActive: Boolean) {
-        val profile = getProfileById(id) ?: return
-        val updated = profile.copy(isActive = isActive)
-        updateProfile(updated)
-    }
-
-    override suspend fun updateProfileRole(id: String, role: UserRole) {
-        val profile = getProfileById(id) ?: return
-        val updated = profile.copy(role = role)
-        updateProfile(updated)
-    }
-
-    override suspend fun deleteProfile(id: String) {
-        profileDao.deleteProfile(id)
-        memoryCache.invalidateProfile(id)
-        syncRepository.enqueue(
-            entityName = "PROFILE",
-            entityId = id,
-            operation = SyncOperation.DELETE,
-            priority = SyncPriority.MEDIUM
         )
     }
 

@@ -143,11 +143,6 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getExpenseCount(): Flow<Int> = expenseDao.getExpenseCount()
-
-    override suspend fun getExpensesInDateRange(fromDate: String, toDate: String): List<Expense> =
-        expenseDao.getExpensesInDateRange(fromDate, toDate).map { it.toDomain() }
-
     override suspend fun getFilteredExpensesPage(
         category: String?,
         paymentMethod: String?,

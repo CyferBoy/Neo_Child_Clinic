@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
 import java.util.Calendar
 
@@ -29,6 +31,8 @@ fun MilestonePatientsScreen(
     viewModel: MilestonePatientsViewModel = hiltViewModel()
 ) {
     val patients by viewModel.patients.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val label = remember(milestoneKey) { StatisticsUtils.milestoneLabelForKey(milestoneKey) ?: "" }
 
     val today = remember { Calendar.getInstance() }
@@ -72,36 +76,50 @@ fun MilestonePatientsScreen(
                 )
             }
         ) { padding ->
-            if (entries.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text(
-                        "No patients reaching this milestone in the next 2 months.",
-                        modifier = Modifier.padding(24.dp),
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize().padding(padding)
+            ) {
+                if (isLoading) {
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 8,
+                        cardShaped = true,
+                        spacing = 8.dp,
+                        contentPadding = PaddingValues(16.dp)
                     )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(entries, key = { it.first.id }) { (patient, _, milestoneLabel) ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().clickable { onPatientClick(patient.id) },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(patient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    "DOB: ${PatientUtils.formatDateForDisplay(patient.dob)} • Milestone: $milestoneLabel",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                } else if (entries.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No patients reaching this milestone in the next 2 months.",
+                            modifier = Modifier.padding(24.dp),
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(entries, key = { it.first.id }) { (patient, _, milestoneLabel) ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { onPatientClick(patient.id) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(patient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "DOB: ${PatientUtils.formatDateForDisplay(patient.dob)} • Milestone: $milestoneLabel",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }

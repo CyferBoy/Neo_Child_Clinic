@@ -116,10 +116,10 @@ fun DashboardMainGrid(
             )
             DashboardCard(
                 title = "Inventory",
+                subtitle = "Out of Stock: ${uiState.outOfStockCount}\nLow on Stock: ${uiState.lowStockCount}",
                 icon = Icons.Default.ShoppingCart,
                 containerColor = customColors.softOrange,
-                contentColor = if (uiState.lowStockCount > 0) customColors.textPink else customColors.textOrange,
-                badge = if (uiState.lowStockCount > 0) "${uiState.lowStockCount} Low" else null,
+                contentColor = if (uiState.outOfStockCount > 0 || uiState.lowStockCount > 0) customColors.textPink else customColors.textOrange,
                 height = 210.dp, // Maintain larger height
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onInventory

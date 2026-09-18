@@ -522,51 +522,6 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
 
-    override suspend fun undoAction(auditId: String, performedBy: String) {
-        withContext(Dispatchers.IO) {
-            val log = auditLogDao.getLogById(auditId) ?: return@withContext
-            if (log.entityType != "REMINDER") return@withContext
-
-            database.withTransaction {
-                try {
-                    val previousState = log.oldValue?.let { json.decodeFromString<ReminderEntity>(it) }
-                    
-                    if (previousState != null) {
-                        // Restore state from snapshot
-                        dueReminderDao.insertReminder(previousState.copy(isSynced = false))
-                        
-                        auditLogger.recordLog(
-                            module = "PATIENT",
-                            entityType = "REMINDER",
-                            entityId = log.entityId,
-                            action = "UNDO",
-                            patientId = log.patientId,
-                            remarks = "Undid action: ${log.action} by $performedBy"
-                        )
-                        
-                        val parts = log.entityId.split("||")
-                        if (parts.size == 4) {
-                            enqueueReminderSync("REMINDERS", previousState.id, SyncOperation.UPDATE, SyncPriority.HIGH)
-                        }
-                    } else if (log.action == "SCHEDULED") {
-                        // Undoing a creation means deletion
-                        val parts = log.entityId.split("||")
-                        if (parts.size == 4) {
-                            val existing = dueReminderDao.getReminderByStableId(parts[0], parts[1], parts[2], parts[3])
-                            if (existing != null) {
-                                dueReminderDao.deleteReminder(parts[0], parts[1], parts[2], parts[3])
-                                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.DELETE, SyncPriority.HIGH)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("ReminderRepo", "Undo failed", e)
-                }
-            }
-            triggerImmediateCheck()
-        }
-    }
-
     override fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
         return auditLogDao.getLogsForPatient(patientId).map { logs ->
             logs.map { log ->
@@ -642,11 +597,6 @@ class ReminderRepositoryImpl @Inject constructor(
                 markReminderCompleted(existing, "SYSTEM_NOTIFICATION")
             }
         }
-    }
-
-    override suspend fun insertReminder(reminder: ReminderEntity): String {
-        dueReminderDao.insertReminder(reminder)
-        return reminder.id
     }
 
     override suspend fun transferReminders(duplicateId: String, masterId: String) {

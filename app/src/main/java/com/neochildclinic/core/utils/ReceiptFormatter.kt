@@ -5,7 +5,6 @@ import android.graphics.*
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.neochildclinic.R
-import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import java.text.SimpleDateFormat
@@ -107,106 +106,6 @@ object ReceiptFormatter {
         }
         
         return currentY + infoBoxHeight + 12f
-    }
-
-    fun drawConsultationContent(context: Context, canvas: Canvas, patient: Patient, consultation: Consultation, doctorDisplayName: String? = null) {
-        val paint = Paint()
-        var yPos = 40f
-        val pageWidth = PAGE_WIDTH.toFloat()
-
-        yPos = drawClinicHeader(context, canvas, paint, yPos)
-
-        // Metadata
-        paint.textAlign = Paint.Align.RIGHT
-        paint.typeface = Typeface.create("serif", Typeface.BOLD)
-        paint.textSize = 20f
-        paint.color = Color.rgb(200, 200, 200)
-        canvas.drawText("CONSULTATION", pageWidth - MARGIN, 55f, paint)
-        
-        paint.color = Color.BLACK
-        paint.textSize = 9f
-        paint.typeface = Typeface.create("serif", Typeface.BOLD)
-        canvas.drawText("No: #CON-${consultation.id.takeLast(6).uppercase()}", pageWidth - MARGIN, 75f, paint)
-        paint.typeface = Typeface.create("serif", Typeface.NORMAL)
-        canvas.drawText("Date: ${PatientUtils.formatDateForDisplay(consultation.date)}", pageWidth - MARGIN, 87f, paint)
-        
-        val timeStr = SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
-        canvas.drawText("Time: $timeStr", pageWidth - MARGIN, 99f, paint)
-        
-        paint.textAlign = Paint.Align.LEFT
-        paint.strokeWidth = 1.5f
-        canvas.drawLine(MARGIN, yPos, pageWidth - MARGIN, yPos, paint)
-        yPos += 20f
-
-        yPos = drawPatientInfoBar(canvas, paint, patient, yPos)
-
-        paint.typeface = Typeface.create("serif", Typeface.NORMAL)
-        paint.textSize = 9f
-        val displayDoctor = doctorDisplayName ?: consultation.doctorName.ifBlank { "Dr. Farogh Hassan" }
-        canvas.drawText("Consultation by: $displayDoctor", MARGIN, yPos, paint)
-        yPos += 18f
-
-        paint.typeface = Typeface.create("serif", Typeface.BOLD)
-        paint.textSize = 12f
-        canvas.drawText("Consultation Fee", MARGIN, yPos, paint)
-        
-        paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("₹${String.format(Locale.getDefault(), "%.2f", consultation.amount)}", pageWidth - MARGIN, yPos, paint)
-        
-        paint.textAlign = Paint.Align.LEFT
-        yPos += 20f
-        canvas.drawLine(MARGIN, yPos, pageWidth - MARGIN, yPos, paint)
-        
-        if (consultation.notes.isNotBlank()) {
-            yPos += 20f
-            paint.typeface = Typeface.create("serif", Typeface.BOLD)
-            paint.textSize = 10f
-            canvas.drawText("Notes:", MARGIN, yPos, paint)
-            
-            yPos += 15f
-            paint.typeface = Typeface.create("serif", Typeface.NORMAL)
-            paint.textSize = 9f
-            val noteLines = wrapText(consultation.notes, pageWidth - (2 * MARGIN), paint)
-            noteLines.forEachIndexed { index, line ->
-                canvas.drawText(line, MARGIN, yPos + (index * 12f), paint)
-            }
-            yPos += (noteLines.size * 12f)
-        }
-
-        if (consultation.nextFollowUpDate.isNotBlank()) {
-            yPos = (yPos + 30f).coerceAtLeast(340f)
-            val boxWidth = (pageWidth - (2 * MARGIN)) / 2f
-            paint.style = Paint.Style.STROKE
-            canvas.drawRect(MARGIN, yPos, MARGIN + boxWidth, yPos + 40f, paint)
-            
-            paint.style = Paint.Style.FILL
-            paint.textSize = 9f
-            paint.typeface = Typeface.create("serif", Typeface.BOLD)
-            canvas.drawText("NEXT FOLLOW-UP ON:", MARGIN + 10f, yPos + 15f, paint)
-            
-            paint.textSize = 10f
-            canvas.drawText(consultation.nextFollowUpDate, MARGIN + 10f, yPos + 32f, paint)
-        } else {
-            yPos = 340f
-        }
-
-        paint.color = Color.BLACK
-        paint.textAlign = Paint.Align.CENTER
-        val boxWidth = (pageWidth - (2 * MARGIN)) / 2f
-        val sigAreaLeft = MARGIN + boxWidth + 20f
-        val sigCenterX = (sigAreaLeft + (pageWidth - MARGIN)) / 2f
-        
-        canvas.drawLine(sigAreaLeft + 20f, yPos + 35f, pageWidth - MARGIN - 20f, yPos + 35f, paint)
-        paint.textSize = 9f
-        paint.typeface = Typeface.create("serif", Typeface.NORMAL)
-        canvas.drawText("Signature / Stamp", sigCenterX, yPos + 48f, paint)
-
-        yPos = 405f
-        paint.textAlign = Paint.Align.LEFT
-        paint.color = Color.GRAY
-        paint.textSize = 7f
-        paint.typeface = Typeface.create("serif", Typeface.NORMAL)
-        canvas.drawText("* Please call before visiting for consultation.", MARGIN, yPos, paint)
     }
 
     fun drawReceiptContent(context: Context, canvas: Canvas, patient: Patient, vaccination: Vaccination, doctorDisplayName: String? = null) {

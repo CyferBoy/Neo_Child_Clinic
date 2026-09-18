@@ -55,6 +55,7 @@ data class BorrowedUiState(
     val borrowedList: List<BorrowedDisplayItem> = emptyList(),
     val inventory: List<InventoryItem> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val mainTab: BorrowMainTab = BorrowMainTab.BORROWED,
     val selectedTab: Int = 0, // By(0) / From(1)
     val actionError: String? = null
@@ -68,6 +69,7 @@ class BorrowedViewModel @Inject constructor(
 
     private val _mainTab = MutableStateFlow(BorrowMainTab.BORROWED)
     private val _selectedTab = MutableStateFlow(0)
+    private val _isRefreshing = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
@@ -81,7 +83,8 @@ class BorrowedViewModel @Inject constructor(
         borrowRepository.getReturnRecords(),
         inventoryRepository.getInventoryItems(),
         _mainTab,
-        _selectedTab
+        _selectedTab,
+        _isRefreshing
     ) { values ->
         @Suppress("UNCHECKED_CAST") val activeRecords = values[0] as List<BorrowedVaccine>
         @Suppress("UNCHECKED_CAST") val returnedRecords = values[1] as List<BorrowedVaccine>
@@ -89,6 +92,7 @@ class BorrowedViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST") val inv = values[3] as List<InventoryItem>
         val mainTab = values[4] as BorrowMainTab
         val tab = values[5] as Int
+        val refreshing = values[6] as Boolean
 
         val records = activeRecords + returnedRecords
         val allBatches: List<VaccineBatchEntity> = inv.flatMap { it.batches }
@@ -146,10 +150,23 @@ class BorrowedViewModel @Inject constructor(
             borrowedList = displayItems,
             inventory = inv,
             isLoading = false, // If we reach here, we have a result
+            isRefreshing = refreshing,
             mainTab = mainTab,
             selectedTab = tab
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BorrowedUiState(isLoading = true))
+
+    fun refresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                borrowRepository.refreshBorrows()
+                inventoryRepository.refreshInventory()
+            } catch (_: Exception) {}
+            _isRefreshing.value = false
+        }
+    }
 
     fun selectMainTab(tab: BorrowMainTab) {
         _mainTab.value = tab

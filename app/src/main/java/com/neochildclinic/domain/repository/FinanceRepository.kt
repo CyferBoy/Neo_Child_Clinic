@@ -6,8 +6,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface FinanceRepository {
     fun getAllTransactions(): Flow<List<FinanceEntity>>
-    fun getTransactionsForPatient(patientId: String): Flow<List<FinanceEntity>>
-    fun getDailyIncome(start: Long): Flow<Double?>
     
     suspend fun recordIncome(
         amount: Double,
@@ -20,14 +18,6 @@ interface FinanceRepository {
         recordedBy: String,
         transactionGroupId: String? = null
     )
-    
-    suspend fun recordExpense(
-        amount: Double, 
-        category: String, 
-        remarks: String?,
-        recordedBy: String
-    )
-
 
     suspend fun updateConsultationIncome(
         visitId: String,

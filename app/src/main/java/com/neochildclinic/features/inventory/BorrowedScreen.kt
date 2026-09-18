@@ -20,6 +20,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.model.BorrowedVaccine
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
@@ -63,6 +65,7 @@ fun BorrowedScreen(
         uiState = uiState,
         filteredList = filteredList,
         onBack = onBack,
+        onRefresh = viewModel::refresh,
         onMainTabSelected = viewModel::selectMainTab,
         onTypeTabSelected = viewModel::updateTab,
         onAddClick = {
@@ -124,6 +127,7 @@ private fun BorrowedContent(
     uiState: BorrowedUiState,
     filteredList: List<BorrowedDisplayItem>,
     onBack: () -> Unit,
+    onRefresh: () -> Unit,
     onMainTabSelected: (BorrowMainTab) -> Unit,
     onTypeTabSelected: (Int) -> Unit,
     onAddClick: () -> Unit,
@@ -205,31 +209,43 @@ private fun BorrowedContent(
                 }
             }
 
-            Box(modifier = Modifier.weight(1f)) {
-                if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else if (filteredList.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (uiState.mainTab == BorrowMainTab.RETURNED) "No fully returned records yet." else "No records found.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            AppPullToRefresh(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 8,
+                            cardShaped = true,
+                            spacing = 12.dp,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
                         )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(bottom = 80.dp, top = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(filteredList, key = { it.id }) { item ->
-                            BorrowedRecordCard(
-                                item = item,
-                                onClick = { onItemClick(item) },
-                                onEdit = { onEditRequest(item) },
-                                onReturn = { onReturnRequest(item) },
-                                onDelete = { onDeleteRequest(item) },
-                                modifier = Modifier.animateItem()
+                    } else if (filteredList.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = if (uiState.mainTab == BorrowMainTab.RETURNED) "No fully returned records yet." else "No records found.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(bottom = 80.dp, top = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(filteredList, key = { it.id }) { item ->
+                                BorrowedRecordCard(
+                                    item = item,
+                                    onClick = { onItemClick(item) },
+                                    onEdit = { onEditRequest(item) },
+                                    onReturn = { onReturnRequest(item) },
+                                    onDelete = { onDeleteRequest(item) },
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }

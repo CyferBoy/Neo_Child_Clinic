@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.AuditLogEntity
 import java.util.*
@@ -48,14 +49,18 @@ fun FullAuditLogScreen(
             }
         ) { paddingValues ->
             AppPullToRefresh(
-                isRefreshing = uiState.isLoading,
+                isRefreshing = uiState.isRefreshing,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.padding(paddingValues)
             ) {
                 if (uiState.isLoading && uiState.logs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 8,
+                        cardShaped = true,
+                        spacing = 8.dp,
+                        contentPadding = PaddingValues(16.dp)
+                    )
                 } else if (uiState.error != null) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)

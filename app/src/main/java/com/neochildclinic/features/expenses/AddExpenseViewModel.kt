@@ -157,7 +157,7 @@ class AddExpenseViewModel @Inject constructor(
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 // Persist as ISO (yyyy-MM-dd), not the picker's display format - a plain
                 // string comparison in SQL only sorts/range-filters correctly on ISO dates
-                // (see ExpenseDao.getFilteredExpensesPage / getExpensesInDateRange).
+                // (see ExpenseDao.getFilteredExpensesPage).
                 val isoDate = PatientUtils.parseDate(state.expenseDate)
                     ?.let { SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(it) }
                     ?: state.expenseDate

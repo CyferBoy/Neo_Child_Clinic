@@ -15,7 +15,6 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.DocumentRepository
 import io.github.jan.supabase.storage.FileObject
@@ -25,8 +24,6 @@ import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
 import com.neochildclinic.domain.usecase.patient.SavePatientUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.usecase.vaccination.DeleteVaccinationUseCase
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
-import com.neochildclinic.domain.usecase.vaccination.SaveVaccinationUseCase
 import com.neochildclinic.core.utils.PatientUtils
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
@@ -44,15 +41,12 @@ data class PatientVaccinationCardData(
 class PatientViewModel @Inject constructor(
     private val getPatientsUseCase: GetPatientsUseCase,
     private val getPatientByIdUseCase: GetPatientByIdUseCase,
-    private val getVaccinationsUseCase: GetVaccinationsUseCase,
     private val vaccinationRepository: VaccinationRepository,
     private val savePatientUseCase: SavePatientUseCase,
     private val deletePatientUseCase: DeletePatientUseCase,
-    private val saveVaccinationUseCase: SaveVaccinationUseCase,
     private val deleteVaccinationUseCase: DeleteVaccinationUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
-    private val reminderRepository: ReminderRepository,
     private val consultationRepository: ConsultationRepository,
     private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
@@ -64,6 +58,9 @@ class PatientViewModel @Inject constructor(
 
     private val _documents = MutableStateFlow<List<FileObject>>(emptyList())
     val documents: StateFlow<List<FileObject>> = _documents.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     fun loadDocuments(patientId: String) {
         viewModelScope.launch {
@@ -96,8 +93,6 @@ class PatientViewModel @Inject constructor(
     }
     
     val allPatients: StateFlow<List<Patient>>
-    val allVaccinations: StateFlow<List<Vaccination>>
-    val patientsWithMissingPrice: StateFlow<Set<String>>
     val doctorMap: StateFlow<Map<String, String>>
     val vaccineMap: StateFlow<Map<String, String>>
     
@@ -111,20 +106,6 @@ class PatientViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = emptyList()
-        )
-
-        allVaccinations = getVaccinationsUseCase().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = emptyList()
-        )
-
-        patientsWithMissingPrice = allVaccinations.map { vaccinations ->
-            vaccinations.filter { it.totalPaid <= 0.0 }.map { it.patientId }.toSet()
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptySet()
         )
 
         doctorMap = profileRepository.allProfiles
@@ -200,8 +181,13 @@ class PatientViewModel @Inject constructor(
     }
 
     fun refresh() {
+        if (_isRefreshing.value) return
         viewModelScope.launch {
-            refreshDataUseCase()
+            _isRefreshing.value = true
+            try {
+                refreshDataUseCase()
+            } catch (_: Exception) {}
+            _isRefreshing.value = false
         }
     }
 
@@ -253,19 +239,6 @@ class PatientViewModel @Inject constructor(
         }
     }
 
-    fun saveVaccination(vaccination: Vaccination, onComplete: () -> Unit) {
-        viewModelScope.launch {
-            saveVaccinationUseCase(vaccination)
-            onComplete()
-        }
-    }
-
-    fun getPatientHistory(patientId: String): Flow<List<Vaccination>> {
-        return getVaccinationsUseCase.forPatient(patientId).map { vaccinations ->
-            vaccinations.sortedByDescending { PatientUtils.parseDate(it.dateGiven)?.time ?: 0L }
-        }
-    }
-
     fun getPatientConsultations(patientId: String): Flow<List<Consultation>> {
         return consultationRepository.getConsultationsForPatient(patientId)
             .map { consultations ->
@@ -278,10 +251,6 @@ class PatientViewModel @Inject constructor(
      * directly via load()/loadMore()/clear() rather than through a Flow.
      */
     val auditLogPager = com.neochildclinic.features.audit.PatientAuditLogPager(postgrest, viewModelScope)
-
-    fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
-        return reminderRepository.getPatientReminders(patientId)
-    }
 
     /**
      * Emits each patient's vaccination history as one Room transaction snapshot.

@@ -28,6 +28,12 @@ class DashboardRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getOutOfStockCount(): Flow<Int> {
+        return inventoryRepository.getInventoryItems().map { items ->
+            items.count { it.hasOutofStock }
+        }
+    }
+
     override fun getBorrowedCount(): Flow<Int> {
         return borrowDao.getActiveBorrows().map { it.size }
     }

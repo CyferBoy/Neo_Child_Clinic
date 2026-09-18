@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,9 +74,13 @@ fun CompletedDismissedScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     if (uiState.isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 8,
+                            cardShaped = true,
+                            spacing = 8.dp,
+                            contentPadding = PaddingValues(16.dp)
+                        )
                     } else {
                         val visibleRecords = uiState.processedVaccinations.filter {
                             if (selectedTabIndex == 0) it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED

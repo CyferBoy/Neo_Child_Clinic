@@ -1,9 +1,12 @@
 package com.neochildclinic.app
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,8 +96,13 @@ fun AppNavigation(
     val startDest = resolvedStartDest
     if (startDest == null) {
         // Session status still resolving - avoid flashing Login or Dashboard incorrectly.
+        // Show a calm branded placeholder (not a spinner) so startup doesn't read as "loading".
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.CircularProgressIndicator()
+            Image(
+                painter = painterResource(id = com.neochildclinic.R.drawable.logo),
+                contentDescription = "Clinic Logo",
+                modifier = Modifier.size(140.dp)
+            )
         }
         return
     }
@@ -594,22 +602,6 @@ fun AppNavigation(
         }
 
         composable(
-            route = "add_vaccine_with_details/{patientId}/{vaccineName}",
-            arguments = listOf(
-                navArgument("patientId") { type = NavType.StringType },
-                navArgument("vaccineName") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
-            val vaccineName = backStackEntry.arguments?.getString("vaccineName") ?: ""
-            AddVaccinationScreen(
-                patientId = patientId,
-                initialVaccineName = vaccineName,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(
             route = Routes.ADD_CONSULTATION,
             arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
         ) { backStackEntry ->
@@ -628,13 +620,6 @@ fun AppNavigation(
             AddConsultationScreen(
                 patientId = "",
                 consultationId = consultationId,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Routes.ADD_VACCINE) {
-            AddVaccinationScreen(
-                patientId = "",
                 onBack = { navController.popBackStack() }
             )
         }

@@ -33,9 +33,6 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     override fun getActiveReminders(): Flow<List<PersonalReminderEntity>> = dao.getActiveReminders()
     override fun getCompletedReminders(): Flow<List<PersonalReminderEntity>> = dao.getCompletedReminders()
     override fun getCancelledReminders(): Flow<List<PersonalReminderEntity>> = dao.getCancelledReminders()
-    override fun getRemindersForPatient(patientId: String): Flow<List<PersonalReminderEntity>> =
-        dao.getRemindersForPatient(patientId)
-    override fun observeById(id: String): Flow<PersonalReminderEntity?> = dao.observeById(id)
     override suspend fun getById(id: String): PersonalReminderEntity? = dao.getById(id)
 
     override suspend fun createReminder(reminder: PersonalReminderEntity) {

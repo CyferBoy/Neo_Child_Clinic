@@ -13,8 +13,6 @@ interface PersonalReminderRepository {
     fun getActiveReminders(): Flow<List<PersonalReminderEntity>>
     fun getCompletedReminders(): Flow<List<PersonalReminderEntity>>
     fun getCancelledReminders(): Flow<List<PersonalReminderEntity>>
-    fun getRemindersForPatient(patientId: String): Flow<List<PersonalReminderEntity>>
-    fun observeById(id: String): Flow<PersonalReminderEntity?>
     suspend fun getById(id: String): PersonalReminderEntity?
 
     suspend fun createReminder(reminder: PersonalReminderEntity)

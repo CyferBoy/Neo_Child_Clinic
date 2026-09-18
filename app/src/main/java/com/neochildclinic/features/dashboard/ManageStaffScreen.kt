@@ -87,7 +87,13 @@ fun ManageStaffScreen(
             },
             containerColor = Color.Transparent
         ) { padding ->
-            Column(Modifier.padding(padding)) {
+            val isRefreshing by viewModel.isRefreshing.collectAsState()
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refreshStaff,
+                modifier = Modifier.padding(padding).fillMaxSize()
+            ) {
+            Column(Modifier.fillMaxSize()) {
                 if (selectedRoleFilter != null) {
                     FilterChip(
                         selected = true,
@@ -119,6 +125,7 @@ fun ManageStaffScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -80,8 +80,7 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
                         state = state,
                         onBackupNow = { pendingAction = PendingPasswordAction.CloudBackup },
                         onRestore = { id -> pendingAction = PendingPasswordAction.CloudRestore(id) },
-                        onDelete = { id -> viewModel.deleteCloudBackup(id) },
-                        onRefresh = { viewModel.refreshCloudBackups() }
+                        onDelete = { id -> viewModel.deleteCloudBackup(id) }
                     )
                 }
 
@@ -171,8 +170,7 @@ private fun CloudBackupSection(
     state: BackupUiState,
     onBackupNow: () -> Unit,
     onRestore: (String) -> Unit,
-    onDelete: (String) -> Unit,
-    onRefresh: () -> Unit
+    onDelete: (String) -> Unit
 ) {
     SettingsSection("Cloud Backup") {
         Column(Modifier.padding(bottom = 4.dp)) {

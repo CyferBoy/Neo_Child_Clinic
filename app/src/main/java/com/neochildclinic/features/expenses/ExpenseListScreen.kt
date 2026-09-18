@@ -27,6 +27,7 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.SkeletonListItem
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.Expense
@@ -97,8 +98,16 @@ fun ExpenseListScreen(
                     ExpenseFilters(uiState = uiState, viewModel = viewModel)
                 }
 
-                AppPullToRefresh(isRefreshing = uiState.isLoading, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                    if (!uiState.isLoading && uiState.expenses.isEmpty()) {
+                AppPullToRefresh(isRefreshing = uiState.isRefreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                    if (uiState.isLoading && uiState.expenses.isEmpty()) {
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 8,
+                            cardShaped = true,
+                            spacing = 8.dp,
+                            contentPadding = PaddingValues(16.dp)
+                        )
+                    } else if (!uiState.isLoading && uiState.expenses.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
                                 if (filtersActive || uiState.query.isNotBlank()) "No expenses match these filters" else "No expenses recorded yet",

@@ -32,6 +32,9 @@ class AdminViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AdminUiState())
     val uiState: StateFlow<AdminUiState> = _uiState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
         fetchStaff()
         observeStaff()
@@ -41,6 +44,19 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             profileRepository.allProfiles.collect { list ->
                 _uiState.value = _uiState.value.copy(staffList = list)
+            }
+        }
+    }
+
+    fun refreshStaff() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                profileRepository.refreshProfiles()
+            } catch (_: Exception) {
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }

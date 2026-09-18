@@ -39,8 +39,6 @@ interface ReminderRepository {
     suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) // Admin only check usually in VM
     suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String? = null)
     
-    suspend fun undoAction(auditId: String, performedBy: String)
-
     // Audit Trail & Management
     fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>>
     fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>>
@@ -57,7 +55,6 @@ interface ReminderRepository {
     
     // Legacy support
     suspend fun markCompleted(id: String, timestamp: Long = System.currentTimeMillis())
-    suspend fun insertReminder(reminder: ReminderEntity): String
     suspend fun transferReminders(duplicateId: String, masterId: String)
 }
 

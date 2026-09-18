@@ -11,8 +11,4 @@ interface WasteRepository {
     suspend fun deleteWaste(id: String, user: String)
     suspend fun refreshWaste()
     fun getWasteCount(): Flow<Int>
-
-    // Paginated access (large-data scalability pass). Additive - getAllWaste() above is
-    // unchanged.
-    suspend fun getAllWastePage(limit: Int, offset: Int): List<WasteRecord>
 }

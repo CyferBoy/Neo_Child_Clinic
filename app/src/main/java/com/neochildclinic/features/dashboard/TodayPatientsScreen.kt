@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
@@ -49,6 +50,7 @@ fun TodayPatientsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     var selectedTab by rememberSaveable {
         mutableStateOf(
             if (initialTab == "vaccination") TodayPatientTab.VACCINATION else TodayPatientTab.CONSULTATION
@@ -185,12 +187,17 @@ fun TodayPatientsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize()
             ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
                 if (pendingList.isEmpty() && visitedList.isEmpty()) {
                     item {
                         Box(
@@ -277,6 +284,7 @@ fun TodayPatientsScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

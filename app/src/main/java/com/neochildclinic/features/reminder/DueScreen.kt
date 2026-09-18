@@ -10,9 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,9 +77,13 @@ fun DueScreen(
                 modifier = Modifier.padding(paddingValues)
             ) {
                 if (uiState.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 8,
+                        cardShaped = true,
+                        spacing = 8.dp,
+                        contentPadding = PaddingValues(16.dp)
+                    )
                 } else {
                     DueTab(
                         patients = uiState.patients, 

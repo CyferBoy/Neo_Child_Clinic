@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.Patient
@@ -50,12 +51,14 @@ fun SearchScreen(
                 )
             }
         ) { paddingValues ->
-            Column(
+            AppPullToRefresh(
+                isRefreshing = uiState.isLoading,
+                onRefresh = viewModel::refresh,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                if (uiState.isLoading) {
+                if (uiState.isLoading && uiState.results.isEmpty()) {
                     SkeletonList(modifier = Modifier.fillMaxSize(), count = 8)
                 } else if (uiState.results.isEmpty() && query.isNotBlank()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -48,7 +48,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vaccinationDao(): VaccinationDao
     abstract fun dueReminderDao(): DueReminderDao
     abstract fun vaccineDao(): VaccineDao
-    abstract fun reminderAuditDao(): ReminderAuditDao
     abstract fun syncQueueDao(): SyncQueueDao
     abstract fun wasteDao(): WasteDao
     abstract fun widgetDueDao(): WidgetDueDao

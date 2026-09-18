@@ -15,6 +15,7 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.exceptions.RestException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.JsonObject
@@ -31,6 +32,11 @@ class SyncRepositoryImpl @Inject constructor(
 
     private val syncDao = database.syncQueueDao()
 
+    // At most one manual session refresh is allowed per processNextItems() run (used both
+    // by the batch-start prerequisite and by the per-item 401 retry). This keeps the app
+    // from consuming a freshly-rotated refresh token twice in a row.
+    private var batchRefreshAttempted = false
+
     companion object {
         // How long to wait for the SDK to finish loading a persisted session
         // (autoLoadFromStorage) before deciding whether a fresh background batch can
@@ -38,6 +44,12 @@ class SyncRepositoryImpl @Inject constructor(
         // offline boot never stalls sync waiting on a token-refresh that can't reach
         // the network. Mirrors AuthViewModel's own bounded session-status wait.
         private const val SESSION_RESOLVE_TIMEOUT_MS = 5_000L
+
+        // How much access-token lifetime must remain before a sync batch refreshes at
+        // all. Refreshing unnecessarily is what races the SDK's own rotating refresh job
+        // (see ensureAuthenticatedSession), so batches with a comfortably-valid token do
+        // no manual refresh whatsoever.
+        private const val SESSION_REFRESH_GRACE_MS = 60_000L
     }
 
     private val _syncState = MutableStateFlow(SyncState.IDLE)
@@ -81,6 +93,8 @@ class SyncRepositoryImpl @Inject constructor(
             staleBefore = com.neochildclinic.core.utils.PatientUtils.getIsoTimestampMinutesAgo(5)
         )
 
+        batchRefreshAttempted = false
+
         val pending = syncDao.getItemsByStatus(SyncStatus.PENDING.name)
         if (pending.isEmpty()) {
             _syncState.value = SyncState.IDLE
@@ -106,16 +120,19 @@ class SyncRepositoryImpl @Inject constructor(
             // Never push anonymous rows at an RLS-protected database. Leave the queue
             // pending so a later sync picks it up, instead of burning retries on RLS
             // rejections that can't succeed without an authenticated session.
-            if (sessionResolved) {
-                // Status settled on NotAuthenticated (or a failed initial refresh) - the
-                // user is genuinely logged out. Skip everything; do NOT schedule work, so
-                // we never retry-loop without a session. A manual/after-login sync handles it.
+            val genuinelyLoggedOut = sessionResolved && auth.sessionStatus.value !is SessionStatus.RefreshFailure
+            if (genuinelyLoggedOut) {
+                // Status settled on NotAuthenticated - the user is genuinely logged out.
+                // Skip everything; do NOT schedule work, so we never retry-loop without a
+                // session. A manual/after-login sync handles it.
                 android.util.Log.w("SyncRepository", "No active session; skipping sync batch")
             } else {
-                // Status was still Initializing when the bounded wait expired - the SDK was
-                // restoring/refreshing a saved session too slowly (cold start, network).
-                // This is transient: requeue one quiet, network-constrained background run
-                // (unique work, so no unbounded queue) instead of failing or pushing anonymously.
+                // Either the bounded wait expired while the SDK was still restoring the
+                // persisted session (cold start, network), or the SDK is mid-refresh after
+                // a (near-)expiry and reports RefreshFailure while it retries internally.
+                // Both are transient: requeue one quiet, network-constrained background run
+                // (unique work, so no unbounded queue) instead of failing or pushing
+                // anonymously.
                 android.util.Log.w(
                     "SyncRepository",
                     "Session still restoring after ${SESSION_RESOLVE_TIMEOUT_MS}ms; scheduling a background retry"
@@ -126,8 +143,26 @@ class SyncRepositoryImpl @Inject constructor(
             return
         }
 
-        runCatching { auth.refreshCurrentSession() }.onFailure {
-            android.util.Log.w("SyncRepository", "Session refresh before sync failed", it)
+        // Auth prerequisite: prove there is a usable authenticated session before any
+        // Supabase write, refreshing only when appropriate. Never swallows a refresh
+        // failure or pushes anonymous rows with a dead session.
+        when (ensureAuthenticatedSession()) {
+            SessionReadiness.USABLE -> Unit
+            SessionReadiness.RETRY_LATER -> {
+                // Refresh couldn't complete and no usable session exists (yet) - transient
+                // (concurrent SDK refresh, network). No DB writes; one quiet background
+                // retry via the scheduler's unique, backoff-bounded work.
+                android.util.Log.w("SyncRepository", "Session refresh deferred; scheduling a background retry")
+                syncManager.scheduleSync()
+                _syncState.value = SyncState.IDLE
+                return
+            }
+            SessionReadiness.LOGGED_OUT -> {
+                // The SDK has settled on NotAuthenticated. Never retry-loop without a session.
+                android.util.Log.w("SyncRepository", "Session became unavailable; skipping sync batch")
+                _syncState.value = SyncState.IDLE
+                return
+            }
         }
         
         // 1. Sort the queue to respect FK dependencies
@@ -147,6 +182,7 @@ class SyncRepositoryImpl @Inject constructor(
         val groups = sortedQueue.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }
 
         var hasError = false
+        var sessionTransient = false
 
         for ((groupId, groupItems) in groups) {
             try {
@@ -177,12 +213,21 @@ class SyncRepositoryImpl @Inject constructor(
                         uploadEntity(item, remoteConflictData)
                     } catch (e: Exception) {
                         if (!requiresSessionRefresh(e)) throw e
-                        auth.refreshCurrentSession()
+                        handleSessionRefreshOn401(e)
                         uploadEntity(item, remoteConflictData)
                     }
                     syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
                     syncDao.deleteItem(item)
                 }
+            } catch (e: SessionAuthTransientException) {
+                // An auth/timing problem, not a data one: once the SDK finishes its own
+                // refresh the same rows can sync, so leave them PENDING (never FAILED) and
+                // let the end-of-batch handler schedule one quieter background run.
+                for (item in groupItems) {
+                    syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                }
+                sessionTransient = true
+                android.util.Log.w("SyncRepository", "Group $groupId deferred: session refresh unavailable", e)
             } catch (e: Exception) {
                 hasError = true
                 android.util.Log.e("SyncRepository", "Group sync failed: $groupId", e)
@@ -199,9 +244,18 @@ class SyncRepositoryImpl @Inject constructor(
                 }
             }
         }
-        
+
+        if (sessionTransient) {
+            // A group was deferred because auth wasn't available. Don't report ERROR and
+            // don't recurse: leave the PENDING rows and let one quiet background run retry.
+            _syncState.value = SyncState.IDLE
+            syncManager.scheduleSync()
+            android.util.Log.w("SyncRepository", "Session refresh unavailable; scheduled a background retry")
+            return
+        }
+
         _syncState.value = if (hasError) SyncState.ERROR else SyncState.IDLE
-        
+
         // 3. Loop if more items arrived during processing
         if (syncDao.getPendingCountSync() > 0 && !hasError) {
             processNextItems()
@@ -222,6 +276,85 @@ class SyncRepositoryImpl @Inject constructor(
         }
         return false
     }
+
+    /**
+     * Auth prerequisite for a sync batch: prove there is a usable authenticated session
+     * BEFORE doing any Supabase write, refreshing only when actually appropriate.
+     *
+     * The SDK already refreshes on load (autoLoadFromStorage) and proactively at ~80% of
+     * the access-token lifetime (alwaysAutoRefresh is on by default). A manual
+     * refreshCurrentSession() on top of that races the SDK's own refresh job: GoTrue
+     * rotates refresh tokens on every refresh, so whichever caller loses that race receives
+     * a 400 "refresh_token_not_found" (GoTrue message "No refresh token found") - exactly
+     * what this app's background syncs used to surface. So: use the current token with no
+     * refresh while it is comfortably valid; defer to the SDK while a refresh is already
+     * running; refresh manually otherwise; and on a failed refresh classify the outcome
+     * from the SDK's re-inspected session status instead of swallowing the error.
+     */
+    private suspend fun ensureAuthenticatedSession(): SessionReadiness {
+        val session = auth.currentSessionOrNull()
+            ?: return when (auth.sessionStatus.value) {
+                is SessionStatus.NotAuthenticated -> SessionReadiness.LOGGED_OUT
+                else -> SessionReadiness.RETRY_LATER
+            }
+        val now = System.currentTimeMillis()
+        if (isSessionTokenUsable(session.expiresAt.toEpochMilliseconds(), now, SESSION_REFRESH_GRACE_MS)) {
+            return SessionReadiness.USABLE
+        }
+        if (auth.isAutoRefreshRunning) {
+            // The SDK is already refreshing this near-expiry token on its own schedule; a
+            // second concurrent refresh would consume the same token mid-rotation.
+            return SessionReadiness.RETRY_LATER
+        }
+        return try {
+            auth.refreshCurrentSession()
+            batchRefreshAttempted = true
+            SessionReadiness.USABLE
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Never swallow a refresh failure, and never keep pushing with a dead session.
+            classifySessionReadinessAfterFailedRefresh(
+                status = auth.sessionStatus.value,
+                nowMillis = System.currentTimeMillis(),
+                graceMillis = SESSION_REFRESH_GRACE_MS
+            )
+        }
+    }
+
+    /**
+     * Handles a 401 on an upload: at most one manual refresh per batch (see
+     * [batchRefreshAttempted]), then a single retry of the exact same queue item. A second
+     * 401 in the same run is rethrown so the item fails with its real error instead of
+     * churning the refresh token. When the SDK is already refreshing - or the refresh
+     * cannot yield a usable session - the batch is deferred as transient rather than
+     * marking data FAILED for an auth/timing problem.
+     */
+    private suspend fun handleSessionRefreshOn401(uploadError: Exception) {
+        if (batchRefreshAttempted) throw uploadError
+        if (auth.isAutoRefreshRunning) throw SessionAuthTransientException()
+        batchRefreshAttempted = true
+        try {
+            auth.refreshCurrentSession()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            when (classifySessionReadinessAfterFailedRefresh(
+                status = auth.sessionStatus.value,
+                nowMillis = System.currentTimeMillis(),
+                graceMillis = SESSION_REFRESH_GRACE_MS
+            )) {
+                SessionReadiness.USABLE -> Unit // the SDK installed a fresh session; retry below
+                SessionReadiness.LOGGED_OUT -> throw uploadError // fail this item only; do not loop
+                SessionReadiness.RETRY_LATER -> throw SessionAuthTransientException()
+            }
+        }
+    }
+
+    /** Internal marker: a batch must not write yet because auth isn't available. The
+     * caller keeps the rows PENDING and schedules one quiet background retry instead of
+     * marking data FAILED. */
+    private class SessionAuthTransientException : Exception("Session refresh temporarily unavailable")
 
     private fun buildSyncErrorDetails(error: Throwable): String {
         val reason = error.message?.takeIf { it.isNotBlank() } ?: "Sync failed"
@@ -764,3 +897,43 @@ internal suspend fun awaitSessionResolved(
     kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
         sessionStatus.first { it !is SessionStatus.Initializing }
     } != null
+
+// Outcome of the auth prerequisite check that every sync batch must clear before writing.
+internal enum class SessionReadiness {
+    /** An authenticated session exists and its access token is usable; proceed with sync. */
+    USABLE,
+
+    /** Auth isn't ready yet (SDK reload/refresh in progress, or a refresh temporarily
+     * failed): proceed later via one quiet background retry. */
+    RETRY_LATER,
+
+    /** The SDK has settled on NotAuthenticated: the user is genuinely logged out - never
+     * write to Supabase, and do not retry-loop. */
+    LOGGED_OUT
+}
+
+// True when the access token remains valid for at least graceMillis from nowMillis.
+// Deliberately skipping a refresh for a comfortably-valid token avoids consuming the same
+// GoTrue refresh token twice when the SDK's own auto-refresh job is alive
+// ("refresh_token_not_found" / "No refresh token found").
+internal fun isSessionTokenUsable(expiresAtEpochMillis: Long, nowMillis: Long, graceMillis: Long): Boolean =
+    expiresAtEpochMillis - nowMillis > graceMillis
+
+// Classifies the outcome of a refresh that failed after it was attempted, purely from the
+// SDK's re-inspected status. Preferring status.session keeps the decision aligned with
+// what the SDK will actually attach to the next PostgREST request.
+internal fun classifySessionReadinessAfterFailedRefresh(
+    status: SessionStatus,
+    nowMillis: Long,
+    graceMillis: Long
+): SessionReadiness = when (status) {
+    is SessionStatus.NotAuthenticated -> SessionReadiness.LOGGED_OUT
+    is SessionStatus.Initializing,
+    is SessionStatus.RefreshFailure -> SessionReadiness.RETRY_LATER
+    is SessionStatus.Authenticated ->
+        if (isSessionTokenUsable(status.session.expiresAt.toEpochMilliseconds(), nowMillis, graceMillis)) {
+            SessionReadiness.USABLE
+        } else {
+            SessionReadiness.RETRY_LATER
+        }
+}

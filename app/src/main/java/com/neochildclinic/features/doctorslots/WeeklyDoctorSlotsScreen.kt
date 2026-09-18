@@ -18,8 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DoctorDropdown
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.model.TimeRange
@@ -74,29 +76,34 @@ fun WeeklyDoctorSlotsScreen(
                 )
             }
         ) { paddingValues ->
-            if (uiState.isLoading) {
-                Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                return@Scaffold
-            }
-
-            if (uiState.allDoctors.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(paddingValues).padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text("No doctor accounts found.", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                }
-                return@Scaffold
-            }
-
-            Column(
+            val isRefreshing by viewModel.isRefreshing.collectAsState()
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refresh,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Spacer(Modifier.height(8.dp))
+                if (uiState.isLoading) {
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 6,
+                        cardShaped = true,
+                        contentPadding = PaddingValues(16.dp)
+                    )
+                } else if (uiState.allDoctors.isEmpty()) {
+                    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("No doctor accounts found.", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Spacer(Modifier.height(8.dp))
 
                 if (uiState.allDoctors.size > 1) {
                     DoctorDropdown(
@@ -164,6 +171,8 @@ fun WeeklyDoctorSlotsScreen(
                 }
 
                 Spacer(Modifier.height(80.dp))
+                }
+            }
             }
         }
     }

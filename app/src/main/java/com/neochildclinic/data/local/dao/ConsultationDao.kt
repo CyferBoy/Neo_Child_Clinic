@@ -28,8 +28,4 @@ interface ConsultationDao {
 
     @Query("DELETE FROM consultations WHERE id = :id")
     suspend fun deleteConsultation(id: String)
-
-
-    @Query("UPDATE consultations SET isSynced = 1 WHERE id = :id")
-    suspend fun markSynced(id: String)
 }

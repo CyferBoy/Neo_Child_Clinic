@@ -59,32 +59,8 @@ interface VaccinationDao {
     @Query("UPDATE patient_visits SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)
 
-    @Query("UPDATE patient_visits SET isSynced = 1 WHERE id = :id")
-    suspend fun markSynced(id: String)
-
     @Query("SELECT COUNT(*) FROM patient_visits WHERE nextDueDate = :date AND (status = 'ACTIVE' OR status = 'RESCHEDULED')")
     suspend fun getDueCount(date: String): Int
-
-    @Query("SELECT COUNT(*) FROM patient_visits WHERE dateGiven = :date AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getCountByDate(date: String): Flow<Int>
-
-    @Query("SELECT SUM(totalPaid) FROM patient_visits WHERE dateGiven = :date AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getRevenueByDate(date: String): Flow<Double?>
-
-    @Query("SELECT SUM(cashAmount) FROM patient_visits WHERE dateGiven = :date AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getCashByDate(date: String): Flow<Double?>
-
-    @Query("SELECT SUM(onlineAmount) FROM patient_visits WHERE dateGiven = :date AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getOnlineByDate(date: String): Flow<Double?>
-
-    @Query("SELECT COUNT(*) FROM patient_visits WHERE dateGiven LIKE :monthPattern AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getMonthlyCount(monthPattern: String): Flow<Int>
-
-    @Query("SELECT SUM(totalPaid) FROM patient_visits WHERE dateGiven LIKE :monthPattern AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getMonthlyRevenue(monthPattern: String): Flow<Double?>
-
-    @Query("SELECT vaccineNames FROM patient_visits WHERE dateGiven LIKE :monthPattern AND (status = 'COMPLETED' OR status = 'EXTERNAL')")
-    fun getVaccineNamesForMonth(monthPattern: String): Flow<List<String>>
 
     @Query("UPDATE patient_visits SET inventoryStatus = :status WHERE id = :id")
     suspend fun updateInventoryStatus(id: String, status: String)

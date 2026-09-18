@@ -8,11 +8,6 @@ import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.usecase.vaccination.DeleteVaccinationUseCase
 import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
 import com.neochildclinic.domain.usecase.vaccination.SaveVaccinationUseCase
-import com.neochildclinic.domain.usecase.inventory.ReconcileInventoryUseCase
-import com.neochildclinic.data.local.dao.VaccineDao
-import com.neochildclinic.data.local.dao.VaccinationDao
-import com.neochildclinic.data.local.dao.InventoryDeductionDao
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.domain.repository.PersonalReminderRepository
 import dagger.Module
 import dagger.Provides
@@ -75,14 +70,4 @@ object UseCaseModule {
         expenseRepository = expenseRepository,
         doctorAvailabilityRepository = doctorAvailabilityRepository
     )
-
-    @Provides
-    @Singleton
-    fun provideReconcileInventoryUseCase(
-        vaccinationDao: VaccinationDao,
-        vaccineDao: VaccineDao,
-        inventoryRepository: InventoryRepository,
-        inventoryDeductionDao: InventoryDeductionDao,
-        database: AppDatabase
-    ) = ReconcileInventoryUseCase(vaccinationDao, vaccineDao, inventoryRepository, inventoryDeductionDao, database)
 }

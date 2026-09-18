@@ -11,7 +11,6 @@ import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
-import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import java.io.FileOutputStream
@@ -22,13 +21,6 @@ object ReceiptPrinter {
         val jobName = "Receipt_${patient.name}_${vaccination.dateGiven}"
         startPrintJob(context, jobName) { canvas ->
             ReceiptFormatter.drawReceiptContent(context, canvas, patient, vaccination, doctorName)
-        }
-    }
-
-    fun printConsultationReceipt(context: Context, patient: Patient, consultation: Consultation, doctorName: String? = null) {
-        val jobName = "Consultation_${patient.name}_${consultation.date}"
-        startPrintJob(context, jobName) { canvas ->
-            ReceiptFormatter.drawConsultationContent(context, canvas, patient, consultation, doctorName)
         }
     }
 

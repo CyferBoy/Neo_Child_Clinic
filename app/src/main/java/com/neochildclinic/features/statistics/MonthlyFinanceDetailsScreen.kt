@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Patient
@@ -33,6 +35,8 @@ fun MonthlyFinanceDetailsScreen(
     val allTransactions by viewModel.transactions.collectAsState()
     val allVaccinations by viewModel.vaccinations.collectAsState()
     val patients by viewModel.patients.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     val filtered = remember(allTransactions, monthKey) {
         allTransactions.filter { transaction ->
@@ -106,61 +110,77 @@ fun MonthlyFinanceDetailsScreen(
                 )
             }
         ) { padding ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize().padding(padding)
             ) {
-                item {
-                    FinanceMonthSummary(
-                        revenue = monthStats.totalRevenue,
-                        cash = monthStats.cashTotal,
-                        online = monthStats.onlineTotal,
-                        cogsAndExpenses = monthStats.vaccineCost + monthStats.totalExpenses,
-                        netProfit = monthStats.netProfit,
-                        profitAvailable = monthStats.isProfitComplete
+                if (isLoading) {
+                    SkeletonList(
+                        modifier = Modifier.fillMaxSize(),
+                        count = 5,
+                        cardShaped = true,
+                        spacing = 12.dp,
+                        contentPadding = PaddingValues(16.dp)
                     )
-                }
-
-                if (!monthStats.isProfitComplete) {
+                } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                        ) {
-                            Text(
-                                "Net profit is unavailable because ${monthStats.missingCogsSnapshotCount} vaccination income transaction(s) are missing historical COGS data.",
-                                modifier = Modifier.padding(14.dp),
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
+                        FinanceMonthSummary(
+                            revenue = monthStats.totalRevenue,
+                            cash = monthStats.cashTotal,
+                            online = monthStats.onlineTotal,
+                            cogsAndExpenses = monthStats.vaccineCost + monthStats.totalExpenses,
+                            netProfit = monthStats.netProfit,
+                            profitAvailable = monthStats.isProfitComplete
+                        )
                     }
-                }
 
-                if (filtered.isEmpty()) {
-                    item {
-                        Card(Modifier.fillMaxWidth()) {
-                            Box(
-                                Modifier.fillMaxWidth().padding(28.dp),
-                                contentAlignment = Alignment.Center
+                    if (!monthStats.isProfitComplete) {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
                             ) {
                                 Text(
-                                    "No financial transactions found for this month",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    "Net profit is unavailable because ${monthStats.missingCogsSnapshotCount} vaccination income transaction(s) are missing historical COGS data.",
+                                    modifier = Modifier.padding(14.dp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall
                                 )
                             }
                         }
                     }
-                } else {
-                    items(filtered, key = { it.id }) { transaction ->
-                        FinanceTransactionCard(
-                            transaction = transaction,
-                            vaccination = transaction.visitId?.let { vaccinationById[it] },
-                            patient = transaction.patientId?.let { patientById[it] }
-                        )
+
+                    if (filtered.isEmpty()) {
+                        item {
+                            Card(Modifier.fillMaxWidth()) {
+                                Box(
+                                    Modifier.fillMaxWidth().padding(28.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "No financial transactions found for this month",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(filtered, key = { it.id }) { transaction ->
+                            FinanceTransactionCard(
+                                transaction = transaction,
+                                vaccination = transaction.visitId?.let { vaccinationById[it] },
+                                patient = transaction.patientId?.let { patientById[it] }
+                            )
+                        }
                     }
+                }
                 }
             }
         }

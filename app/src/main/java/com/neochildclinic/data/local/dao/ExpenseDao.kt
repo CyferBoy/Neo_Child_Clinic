@@ -18,12 +18,6 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE isDeleted = 0 ORDER BY expenseDate DESC")
     fun getAllExpenses(): Flow<List<ExpenseEntity>>
 
-    // Used by financial-statistics integration (task section 7/8): non-deleted expenses
-    // for a given expense_date window, so financial-year/monthly totals reflect
-    // expense_date (when the cost happened) rather than createdAt (when it was entered).
-    @Query("SELECT * FROM expenses WHERE isDeleted = 0 AND expenseDate BETWEEN :fromDate AND :toDate")
-    suspend fun getExpensesInDateRange(fromDate: String, toDate: String): List<ExpenseEntity>
-
     @Query("SELECT * FROM expenses WHERE isDeleted = 0")
     suspend fun getAllExpensesSnapshot(): List<ExpenseEntity>
 
@@ -57,9 +51,6 @@ interface ExpenseDao {
         limit: Int,
         offset: Int
     ): List<ExpenseEntity>
-
-    @Query("UPDATE expenses SET isSynced = 1, syncedAt = :syncedAt WHERE id = :id")
-    suspend fun markSynced(id: String, syncedAt: String)
 
     @Query("SELECT COUNT(*) FROM expenses WHERE isDeleted = 0")
     fun getExpenseCount(): Flow<Int>

@@ -20,7 +20,4 @@ interface ProfileDao {
 
     @Query("SELECT * FROM profiles WHERE email = :email LIMIT 1")
     suspend fun getProfileByEmail(email: String): ProfileEntity?
-
-    @Query("DELETE FROM profiles WHERE id = :id")
-    suspend fun deleteProfile(id: String)
 }

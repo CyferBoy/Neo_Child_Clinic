@@ -38,6 +38,7 @@ data class StockHistoryUiState(
     val toDate: String = "",
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
+    val isRefreshing: Boolean = false,
     val canLoadMore: Boolean = true,
     val error: String? = null
 ) {
@@ -52,6 +53,9 @@ class StockHistoryViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(StockHistoryUiState())
     val uiState: StateFlow<StockHistoryUiState> = _uiState.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -110,11 +114,42 @@ class StockHistoryViewModel @Inject constructor(
         loadPage(reset = true)
     }
 
-    fun refresh() = loadPage(reset = true)
-
     fun loadMore() {
-        if (_uiState.value.isLoadingMore || !_uiState.value.canLoadMore) return
+        if (_uiState.value.isLoadingMore || _uiState.value.isRefreshing || !_uiState.value.canLoadMore) return
         loadPage(reset = false)
+    }
+
+    fun refresh() {
+        val current = _uiState.value
+        if (current.isLoading || _isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                val page = inventoryRepository.getStockHistoryPage(
+                    vaccineId = current.selectedVaccineId,
+                    batchId = current.selectedBatchId,
+                    types = current.selectedTypeFilter.transactionTypes,
+                    fromDateIso = toIsoDateOnly(current.fromDate),
+                    toDateIso = toIsoDateOnly(current.toDate),
+                    limit = PAGE_SIZE,
+                    offset = 0,
+                    remoteOnly = true
+                )
+                _uiState.update {
+                    it.copy(
+                        transactions = page,
+                        isLoading = false,
+                        isLoadingMore = false,
+                        canLoadMore = page.size == PAGE_SIZE,
+                        error = null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Failed to refresh stock history") }
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
     }
 
     private fun loadPage(reset: Boolean) {

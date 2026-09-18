@@ -63,6 +63,7 @@ fun WasteScreen(
     WasteContent(
         uiState = uiState,
         onBack = onBack,
+        onRefresh = viewModel::refresh,
         onAddClick = { showAddDialog = true },
         onEditClick = { editingRecord = it },
         onDeleteRequest = { recordToDelete = it }
@@ -123,6 +124,7 @@ fun WasteScreen(
 private fun WasteContent(
     uiState: WasteUiState,
     onBack: () -> Unit,
+    onRefresh: () -> Unit,
     onAddClick: () -> Unit,
     onEditClick: (WasteRecord) -> Unit,
     onDeleteRequest: (WasteRecord) -> Unit
@@ -155,24 +157,36 @@ private fun WasteContent(
                 }
             }
         ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                if (uiState.isLoading && uiState.wasteRecords.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else if (uiState.wasteRecords.isEmpty()) {
-                    Text("No waste records found", modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(bottom = 88.dp, top = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(uiState.wasteRecords, key = { it.id }) { record ->
-                            WasteItemCard(
-                                record = record, 
-                                onEdit = { onEditClick(record) },
-                                onDelete = { onDeleteRequest(record) }, 
-                                modifier = Modifier.animateItem()
-                            )
+            AppPullToRefresh(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.padding(paddingValues).fillMaxSize()
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (uiState.isLoading && uiState.wasteRecords.isEmpty()) {
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 8,
+                            cardShaped = true,
+                            spacing = 8.dp,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
+                        )
+                    } else if (uiState.wasteRecords.isEmpty()) {
+                        Text("No waste records found", modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(bottom = 88.dp, top = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.wasteRecords, key = { it.id }) { record ->
+                                WasteItemCard(
+                                    record = record, 
+                                    onEdit = { onEditClick(record) },
+                                    onDelete = { onDeleteRequest(record) }, 
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }
@@ -386,6 +400,7 @@ private fun WastePreview() {
                 wasteRecords = listOf(WasteRecord("1", "v1", "b1", "BCG", "B123", "2025-01-01", "2024-01-01", "Expired", 1))
             ),
             onBack = {},
+            onRefresh = {},
             onAddClick = {},
             onEditClick = {},
             onDeleteRequest = {}

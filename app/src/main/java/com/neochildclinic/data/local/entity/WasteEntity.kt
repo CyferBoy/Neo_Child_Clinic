@@ -18,16 +18,16 @@ import kotlinx.serialization.Serializable
 )
 data class WasteEntity(
     @PrimaryKey val id: String,
-    val vaccineId: String,
-    val batchId: String,
-    val brandName: String,
-    val batchNumber: String,
-    val expiryDate: String,
-    val dateWasted: String,
+    @SerialName("vaccine_id") val vaccineId: String,
+    @SerialName("batch_id") val batchId: String,
+    @SerialName("brand_name") val brandName: String,
+    @SerialName("batch_number") val batchNumber: String,
+    @SerialName("expiry_date") val expiryDate: String,
+    @SerialName("date_wasted") val dateWasted: String,
     val reason: String,
     val quantity: Int,
-    val updatedAt: String = "",
-    val isSynced: Boolean = false,
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )

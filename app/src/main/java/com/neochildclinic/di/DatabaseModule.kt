@@ -4,7 +4,6 @@ import android.content.Context
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.PatientDao
 import com.neochildclinic.data.local.dao.DueReminderDao
-import com.neochildclinic.data.local.dao.ReminderAuditDao
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.VaccineDao
@@ -46,11 +45,6 @@ object DatabaseModule {
     @Provides
     fun provideDueReminderDao(database: AppDatabase): DueReminderDao {
         return database.dueReminderDao()
-    }
-
-    @Provides
-    fun provideReminderAuditDao(database: AppDatabase): ReminderAuditDao {
-        return database.reminderAuditDao()
     }
 
     @Provides

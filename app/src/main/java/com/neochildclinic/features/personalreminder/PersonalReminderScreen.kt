@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.features.reminder.FilterTabRow
 
@@ -79,9 +80,13 @@ fun PersonalReminderScreen(
                     }
 
                     if (uiState.isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 6,
+                            cardShaped = true,
+                            spacing = 8.dp,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                        )
                     } else if (list.isEmpty()) {
                         EmptyState(tab = uiState.selectedTab)
                     } else {

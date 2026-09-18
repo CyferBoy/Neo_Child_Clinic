@@ -107,13 +107,6 @@ interface InventoryRepository {
         transactionGroupId: String? = null
     )
 
-    suspend fun adjustStock(
-        batchId: String, 
-        newQuantity: Int, 
-        user: String, 
-        reason: String
-    )
-
     suspend fun transferPatientTransactions(duplicateId: String, masterId: String)
     suspend fun refreshInventory()
 

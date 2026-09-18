@@ -16,10 +16,6 @@ interface ExpenseRepository {
     suspend fun deleteExpense(id: String, user: String)
 
     suspend fun refreshExpenses()
-    fun getExpenseCount(): Flow<Int>
-
-    suspend fun getExpensesInDateRange(fromDate: String, toDate: String): List<Expense>
-
     suspend fun getFilteredExpensesPage(
         category: String? = null,
         paymentMethod: String? = null,

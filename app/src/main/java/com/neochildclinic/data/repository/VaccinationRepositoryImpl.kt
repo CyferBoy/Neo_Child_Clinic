@@ -361,46 +361,6 @@ class VaccinationRepositoryImpl @Inject constructor(
         WidgetUtils.updateWidget(appContext)
     }
 
-    override suspend fun markAsDone(id: String) {
-        database.withTransaction {
-            val current = vaccinationDao.getActiveVaccinationById(id)
-            if (current != null) {
-                val userName = sessionManager.getCurrentUserName()
-                val updated = current.copy(
-                    status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED, 
-                    isSynced = false,
-                    updatedBy = userName
-                )
-                vaccinationDao.insertVaccination(updated)
-                
-                syncRepository.enqueue(
-                    entityName = "VACCINATION",
-                    entityId = id,
-                    operation = SyncOperation.UPDATE,
-                    priority = SyncPriority.MEDIUM
-                )
-                
-                auditLogger.recordLog(
-                    module = "PATIENT",
-                    entityType = "VACCINATION",
-                    entityId = id,
-                    action = "COMPLETED",
-                    patientId = current.patientId,
-                    remarks = "Vaccines: ${current.vaccineNames}"
-                )
-            }
-        }
-        WidgetUtils.updateWidget(appContext)
-    }
-
-    override fun getTodayCount(date: String): Flow<Int> = vaccinationDao.getCountByDate(date)
-    override fun getTodayRevenue(date: String): Flow<Double?> = vaccinationDao.getRevenueByDate(date)
-    override fun getTodayCash(date: String): Flow<Double?> = vaccinationDao.getCashByDate(date)
-    override fun getTodayOnline(date: String): Flow<Double?> = vaccinationDao.getOnlineByDate(date)
-    override fun getMonthlyCount(pattern: String): Flow<Int> = vaccinationDao.getMonthlyCount(pattern)
-    override fun getMonthlyRevenue(pattern: String): Flow<Double?> = vaccinationDao.getMonthlyRevenue(pattern)
-    override fun getVaccineNamesForMonth(pattern: String): Flow<List<String>> = vaccinationDao.getVaccineNamesForMonth(pattern)
-
     override suspend fun transferVaccinations(duplicateId: String, masterId: String) {
         vaccinationDao.updatePatientId(duplicateId, masterId)
     }

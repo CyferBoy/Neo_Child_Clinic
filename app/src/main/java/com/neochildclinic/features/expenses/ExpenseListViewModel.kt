@@ -40,6 +40,7 @@ data class ExpenseListUiState(
     val canManage: Boolean = false,
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
+    val isRefreshing: Boolean = false,
     val canLoadMore: Boolean = true,
     val error: String? = null,
     val deletedMessage: String? = null
@@ -54,6 +55,9 @@ class ExpenseListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ExpenseListUiState())
     val uiState: StateFlow<ExpenseListUiState> = _uiState.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     init {
         loadPermission()
@@ -107,11 +111,42 @@ class ExpenseListViewModel @Inject constructor(
         loadPage(reset = true)
     }
 
-    fun refresh() = loadPage(reset = true)
-
     fun loadMore() {
-        if (_uiState.value.isLoadingMore || !_uiState.value.canLoadMore) return
+        if (_uiState.value.isLoadingMore || _isRefreshing.value || !_uiState.value.canLoadMore) return
         loadPage(reset = false)
+    }
+
+    fun refresh() {
+        if (_isRefreshing.value || _uiState.value.isLoading) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val state = _uiState.value
+            try {
+                val page = expenseRepository.getFilteredExpensesPage(
+                    category = state.categoryFilter?.name,
+                    paymentMethod = state.paymentMethodFilter?.name,
+                    fromDate = toIsoDate(state.fromDate),
+                    toDate = toIsoDate(state.toDate),
+                    query = state.query,
+                    sortBy = state.sort.sqlKey,
+                    limit = PAGE_SIZE,
+                    offset = 0
+                )
+                _uiState.update {
+                    it.copy(
+                        expenses = page,
+                        isLoading = false,
+                        isLoadingMore = false,
+                        canLoadMore = page.size == PAGE_SIZE,
+                        error = null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Failed to refresh expenses") }
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
     }
 
     // fromDate/toDate in state are display-format strings (DateDropdownPicker's format,

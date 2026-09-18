@@ -35,6 +35,7 @@ import javax.inject.Inject
 data class DashboardUiState(
     val patientCount: Int = 0,
     val lowStockCount: Int = 0,
+    val outOfStockCount: Int = 0,
     val borrowedCount: Int = 0,
     val dueTodayCount: Int = 0,
     val wasteCount: Int = 0,
@@ -76,6 +77,8 @@ class DashboardViewModel @Inject constructor(
 
     private val _allDoctors = MutableStateFlow<List<Profile>>(emptyList())
     private val _todoSlotsState = MutableStateFlow<SlotsUiState>(SlotsUiState.Idle)
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private var todoSlotLoadToken = 0
 
@@ -170,10 +173,9 @@ class DashboardViewModel @Inject constructor(
             dashboardRepository.getLowStockCount(),
             dashboardRepository.getBorrowedCount(),
             dashboardRepository.getDueCount(),
-            dashboardRepository.getWasteCount()
-        ) { p, low, borrowed, due, waste ->
-            listOf(p, low, borrowed, due, waste)
-        },
+            dashboardRepository.getWasteCount(),
+            dashboardRepository.getOutOfStockCount()
+        ) { values -> values.toList() },
         combine(
             syncRepository.syncState,
             syncRepository.getPendingCount(),
@@ -215,6 +217,7 @@ class DashboardViewModel @Inject constructor(
             borrowedCount = stats[2] as Int,
             dueTodayCount = stats[3] as Int,
             wasteCount = stats[4] as Int,
+            outOfStockCount = stats[5] as Int,
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
@@ -360,12 +363,15 @@ class DashboardViewModel @Inject constructor(
     fun deleteVaccination(id: String) { viewModelScope.launch { patientTodoRepository.deleteVaccination(id) } }
 
     fun refresh() {
+        if (_isRefreshing.value) return
         viewModelScope.launch {
+            _isRefreshing.value = true
             try {
                 dashboardRepository.refreshDashboardData()
             } catch (e: Exception) {
                 // Handle error
             }
+            _isRefreshing.value = false
         }
     }
 }

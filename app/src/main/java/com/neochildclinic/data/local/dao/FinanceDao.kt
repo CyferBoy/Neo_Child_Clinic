@@ -18,12 +18,6 @@ interface FinanceDao {
     @Query("SELECT * FROM finance_transactions ORDER BY COALESCE(transaction_date, substr(timestamp, 1, 10)) DESC, timestamp DESC")
     fun getAllTransactions(): Flow<List<FinanceEntity>>
 
-    @Query("SELECT * FROM finance_transactions WHERE patientId = :patientId ORDER BY COALESCE(transaction_date, substr(timestamp, 1, 10)) DESC, timestamp DESC")
-    fun getTransactionsForPatient(patientId: String): Flow<List<FinanceEntity>>
-
-    @Query("SELECT SUM(amount) FROM finance_transactions WHERE type = 'INCOME' AND transaction_date >= :start")
-    fun getDailyIncome(start: String): Flow<Double?>
-
     @Query("SELECT * FROM finance_transactions WHERE visitId = :visitId")
     suspend fun getTransactionsByVisitId(visitId: String): List<FinanceEntity>
 
@@ -83,8 +77,4 @@ interface FinanceDao {
 
     @Query("DELETE FROM finance_transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: String)
-
-
-    @Query("UPDATE finance_transactions SET isSynced = 1 WHERE id = :id")
-    suspend fun markSynced(id: String)
 }

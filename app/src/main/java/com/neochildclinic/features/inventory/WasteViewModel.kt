@@ -26,6 +26,7 @@ data class WasteUiState(
     val wasteRecords: List<WasteRecord> = emptyList(),
     val inventory: List<WasteInventoryItem> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null
 )
@@ -38,14 +39,16 @@ class WasteViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _isSaving = MutableStateFlow(false)
+    private val _isRefreshing = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<WasteUiState> = combine(
         wasteRepository.getAllWaste(),
         inventoryRepository.getInventoryItems(),
+        _isRefreshing,
         _isSaving,
         _error
-    ) { waste, inventory, saving, err ->
+    ) { waste, inventory, refreshing, saving, err ->
         val inventoryItems = inventory.flatMap { item ->
             item.batches.filter { it.remainingQuantity > 0 }.map { batch ->
                 WasteInventoryItem(
@@ -63,10 +66,23 @@ class WasteViewModel @Inject constructor(
             wasteRecords = waste,
             inventory = inventoryItems,
             isLoading = false,
+            isRefreshing = refreshing,
             isSaving = saving,
             error = err
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WasteUiState(isLoading = true))
+
+    fun refresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                wasteRepository.refreshWaste()
+                inventoryRepository.refreshInventory()
+            } catch (_: Exception) {}
+            _isRefreshing.value = false
+        }
+    }
 
     fun recordWaste(
         vaccineId: String,

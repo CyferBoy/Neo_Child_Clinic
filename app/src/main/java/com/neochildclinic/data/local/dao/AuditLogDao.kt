@@ -51,8 +51,4 @@ interface AuditLogDao {
         """
     )
     suspend fun getLogsBefore(lastTimestamp: String, lastId: String, limit: Int): List<AuditLogEntity>
-
-
-    @Query("UPDATE audit_logs SET isSynced = 1 WHERE id = :id")
-    suspend fun markSynced(id: String)
 }

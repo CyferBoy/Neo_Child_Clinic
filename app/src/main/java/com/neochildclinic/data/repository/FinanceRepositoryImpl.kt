@@ -58,15 +58,6 @@ class FinanceRepositoryImpl @Inject constructor(
         return financeDao.getAllTransactions()
     }
 
-    override fun getTransactionsForPatient(patientId: String): Flow<List<FinanceEntity>> {
-        return financeDao.getTransactionsForPatient(patientId)
-    }
-
-    override fun getDailyIncome(start: Long): Flow<Double?> {
-        val isoStart = com.neochildclinic.core.utils.PatientUtils.formatDate(java.util.Date(start))
-        return financeDao.getDailyIncome(isoStart)
-    }
-
     override suspend fun recordIncome(
         amount: Double,
         cashAmount: Double,
@@ -126,44 +117,6 @@ class FinanceRepositoryImpl @Inject constructor(
                 newValue = amount.toString(),
                 remarks = "Income of $amount recorded in $category",
                 transactionGroupId = transactionGroupId
-            )
-        }
-    }
-
-    override suspend fun recordExpense(
-        amount: Double,
-        category: String,
-        remarks: String?,
-        recordedBy: String
-    ) {
-        database.withTransaction {
-            val userName = sessionManager.getCurrentUserName()
-            val transaction = FinanceEntity(
-                type = "EXPENSE",
-                category = category,
-                amount = amount,
-                paymentMethod = "CASH",
-                remarks = remarks,
-                recordedBy = userName,
-                isSynced = false,
-                createdBy = userName,
-                updatedBy = userName
-            )
-            financeDao.insertTransaction(transaction)
-            syncRepository.enqueue(
-                entityName = "FINANCE",
-                entityId = transaction.id,
-                operation = SyncOperation.CREATE,
-                priority = SyncPriority.MEDIUM
-            )
-
-            auditLogger.recordLog(
-                module = "FINANCE",
-                entityType = "TRANSACTION",
-                entityId = transaction.id,
-                action = "EXPENSE_RECORDED",
-                newValue = amount.toString(),
-                remarks = "Expense of $amount recorded in $category"
             )
         }
     }

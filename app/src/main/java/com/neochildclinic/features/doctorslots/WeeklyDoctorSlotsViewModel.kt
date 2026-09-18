@@ -43,6 +43,23 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
 
     private val selectedDoctorId = MutableStateFlow<String?>(null)
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    fun refresh() {
+        if (_isRefreshing.value || _uiState.value.isLoading) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                repository.refresh()
+                profileRepository.refreshProfiles()
+            } catch (_: Exception) {
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
     init {
         viewModelScope.launch {
             val currentUserId = auth.currentSessionOrNull()?.user?.id

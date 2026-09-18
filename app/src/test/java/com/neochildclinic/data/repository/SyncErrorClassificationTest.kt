@@ -1,6 +1,8 @@
 package com.neochildclinic.data.repository
 
+import io.github.jan.supabase.auth.status.RefreshFailureCause
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.user.UserSession
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -82,5 +84,72 @@ class SyncErrorClassificationTest {
         assertFalse("Stuck Initializing status must time out as unresolved", awaitSessionResolved(status, 150L))
         val elapsed = System.currentTimeMillis() - started
         assertTrue("Wait must be bounded by the timeout", elapsed in 100L..1_500L)
+    }
+
+    // ---- Auth prerequisite for background sync (session readiness) ----
+
+    @Test
+    fun `access token well within grace period needs no manual refresh`() {
+        val now = System.currentTimeMillis()
+        assertTrue("A token valid for another hour must be used as-is", isSessionTokenUsable(now + 3_600_000L, now, 60_000L))
+    }
+
+    @Test
+    fun `access token at or under the grace threshold must defer`() {
+        val now = System.currentTimeMillis()
+        assertFalse("Exactly at the grace boundary is not comfortably usable", isSessionTokenUsable(now + 60_000L, now, 60_000L))
+        assertFalse(isSessionTokenUsable(now, now, 60_000L))
+        assertFalse("Expired tokens must refresh", isSessionTokenUsable(now - 60_000L, now, 60_000L))
+    }
+
+    @Test
+    fun `failed refresh with a still usable authenticated session can proceed`() {
+        val now = System.currentTimeMillis()
+        val session = UserSession(
+            accessToken = "access", refreshToken = "refresh", expiresIn = 3_600L, tokenType = "bearer"
+        )
+        assertEquals(
+            "A concurrent SDK refresh may already have installed a fresh session",
+            SessionReadiness.USABLE,
+            classifySessionReadinessAfterFailedRefresh(SessionStatus.Authenticated(session), now, 60_000L)
+        )
+    }
+
+    @Test
+    fun `failed refresh with an expiring authenticated session is deferred`() {
+        val now = System.currentTimeMillis()
+        val session = UserSession(
+            accessToken = "access", refreshToken = "refresh", expiresIn = 1L, tokenType = "bearer"
+        )
+        assertEquals(
+            SessionReadiness.RETRY_LATER,
+            classifySessionReadinessAfterFailedRefresh(SessionStatus.Authenticated(session), now, 60_000L)
+        )
+    }
+
+    @Test
+    fun `failed refresh while SDK still restoring or in RefreshFailure defers`() {
+        val now = System.currentTimeMillis()
+        assertEquals(
+            SessionReadiness.RETRY_LATER,
+            classifySessionReadinessAfterFailedRefresh(SessionStatus.Initializing, now, 60_000L)
+        )
+        assertEquals(
+            SessionReadiness.RETRY_LATER,
+            classifySessionReadinessAfterFailedRefresh(
+                SessionStatus.RefreshFailure(RefreshFailureCause.NetworkError(IllegalStateException("unreachable"))),
+                now,
+                60_000L
+            )
+        )
+    }
+
+    @Test
+    fun `failed refresh with logged out status means genuinely logged out`() {
+        val now = System.currentTimeMillis()
+        assertEquals(
+            SessionReadiness.LOGGED_OUT,
+            classifySessionReadinessAfterFailedRefresh(SessionStatus.NotAuthenticated(), now, 60_000L)
+        )
     }
 }

@@ -737,48 +737,6 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun adjustStock(batchId: String, newQuantity: Int, user: String, reason: String) {
-        database.withTransaction {
-            val batch = vaccineDao.getBatchById(batchId) ?: return@withTransaction
-            val diff = newQuantity - batch.remainingQuantity
-            val userName = sessionManager.getCurrentUserName()
-            
-            vaccineDao.updateBatch(batch.copy(
-                remainingQuantity = newQuantity, 
-                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-                updatedBy = userName
-            ))
-            
-            val transaction = InventoryTransactionEntity(
-                vaccineId = batch.vaccineId,
-                batchId = batchId,
-                transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT.name,
-                quantity = diff,
-                previousQuantity = batch.remainingQuantity,
-                currentQuantity = newQuantity,
-                user = userName,
-                notes = "Adjustment: $reason",
-                timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-                createdBy = userName,
-                updatedBy = userName
-            )
-            vaccineDao.insertTransaction(transaction)
-            
-            syncRepository.enqueue(
-                entityName = "INVENTORY_TRANSACTION",
-                entityId = transaction.transactionId,
-                operation = SyncOperation.CREATE,
-                priority = SyncPriority.MEDIUM
-            )
-            syncRepository.enqueue(
-                entityName = "BATCH",
-                entityId = batchId,
-                operation = SyncOperation.UPDATE,
-                priority = SyncPriority.MEDIUM
-            )
-        }
-    }
-
     override suspend fun returnBorrowedStock(
         originalBatchId: String,
         returnToBatchId: String,

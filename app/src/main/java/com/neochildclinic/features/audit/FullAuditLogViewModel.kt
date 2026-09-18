@@ -29,6 +29,7 @@ class FullAuditLogViewModel @Inject constructor(
     data class AuditLogUiState(
         val logs: List<AuditLogEntity> = emptyList(),
         val isLoading: Boolean = false,
+        val isRefreshing: Boolean = false,
         val isLoadingMore: Boolean = false,
         val hasMore: Boolean = true,
         val error: String? = null
@@ -37,33 +38,40 @@ class FullAuditLogViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AuditLogUiState())
     val uiState: StateFlow<AuditLogUiState> = _uiState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
         refresh()
     }
 
     fun refresh() {
-        if (_uiState.value.isLoading) return
+        val current = _uiState.value
+        if (current.isLoading || current.isRefreshing) return
+        val isInitialLoad = current.logs.isEmpty()
         viewModelScope.launch {
-            _uiState.value = AuditLogUiState(isLoading = true)
+            _isRefreshing.value = true
+            if (isInitialLoad) _uiState.value = current.copy(isLoading = true)
             try {
                 val firstPage = fetchPage(0)
                 _uiState.value = AuditLogUiState(
                     logs = firstPage,
                     isLoading = false,
-                    hasMore = firstPage.size == PAGE_SIZE
+                    hasMore = firstPage.size == PAGE_SIZE,
+                    error = null
                 )
             } catch (e: Exception) {
-                _uiState.value = AuditLogUiState(
-                    isLoading = false,
-                    error = e.message ?: "Unable to load audit logs"
-                )
+                // Refresh failures keep the existing rows on screen; only surface the error.
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Unable to load audit logs")
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }
 
     fun loadMore() {
         val state = _uiState.value
-        if (state.isLoading || state.isLoadingMore || !state.hasMore) return
+        if (state.isLoading || state.isRefreshing || state.isLoadingMore || !state.hasMore) return
 
         viewModelScope.launch {
             _uiState.value = state.copy(isLoadingMore = true, error = null)

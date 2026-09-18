@@ -29,6 +29,7 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import io.github.jan.supabase.storage.FileObject
+import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import com.neochildclinic.core.utils.PatientUtils.formatAgeYearsMonths
 import kotlinx.coroutines.launch
@@ -55,6 +56,8 @@ fun PatientDetailsContent(
     onUploadDocument: () -> Unit,
     onDeleteDocument: (String) -> Unit,
     onViewDocument: (String) -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     viewModel: PatientViewModel
 ) {
     val scope = rememberCoroutineScope()
@@ -68,15 +71,21 @@ fun PatientDetailsContent(
         )
     }
 
-    LazyColumn(
+    AppPullToRefresh(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 100.dp, top = 16.dp)
     ) {
-        item { PatientInfoSection(patient) }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 100.dp, top = 16.dp)
+        ) {
+            item { PatientInfoSection(patient) }
 
         item {
             HistorySegmentedButton(
@@ -153,6 +162,7 @@ fun PatientDetailsContent(
                     onDelete = { onDeleteDocument("${patient.id}/${doc.name}") }
                 )
             }
+        }
         }
     }
 }

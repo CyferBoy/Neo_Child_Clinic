@@ -104,7 +104,6 @@ dependencies {
     implementation(libs.supabase.realtime)
     implementation(libs.supabase.storage)
     implementation(libs.supabase.functions)
-    implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
@@ -140,7 +139,6 @@ dependencies {
 
     // Glance for Widget
     implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.datastore.preferences)
 
     // Hilt

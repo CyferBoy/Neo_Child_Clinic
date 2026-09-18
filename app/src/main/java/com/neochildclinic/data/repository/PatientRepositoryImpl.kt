@@ -9,9 +9,7 @@ import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.data.local.entity.toPatient
 import com.neochildclinic.data.local.entity.toEntity
-import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
@@ -220,24 +218,12 @@ class PatientRepositoryImpl @Inject constructor(
     override fun searchPatients(query: String): Flow<List<Patient>> =
         patientDao.searchPatients(query).map { list -> list.map { it.toPatient() } }
 
-    // Large-data scalability pass: keyset pagination over the patients table (see
-    // PatientDao.getPatientsAfter for why keyset rather than OFFSET). afterName/afterId
-    // null means "first page".
-    override suspend fun getPatientsPage(afterName: String?, afterId: String?, limit: Int): List<Patient> =
-        patientDao.getPatientsAfter(afterName ?: "", afterId ?: "", limit).map { it.toPatient() }
-
     override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
 
     override suspend fun getTotalPatientCount(): Int = patientDao.getTotalPatientCount()
 
     // NOTE: patient audit history is loaded online-only via PatientAuditLogPager now, not
     // through this repository - see PatientViewModel/PatientListViewModel.
-
-    override fun getPatientHistory(patientId: String): Flow<List<Vaccination>> {
-        return vaccinationDao.getVaccinationsForPatient(patientId).map { list ->
-            list.map { it.toVaccination() }
-        }
-    }
 
     override fun getNotes(patientId: String): Flow<List<PatientNotesEntity>> {
         return notesDao.getNotesForPatient(patientId)
@@ -259,21 +245,5 @@ class PatientRepositoryImpl @Inject constructor(
     override suspend fun deleteNote(noteId: String) {
         notesDao.deleteNote(noteId)
         syncRepository.enqueue("PATIENT_NOTE", noteId, SyncOperation.DELETE, SyncPriority.LOW)
-    }
-
-    override suspend fun refreshNotes() {
-        withContext(Dispatchers.IO) {
-            try {
-                val entities = postgrest.from("patient_notes").select().decodeList<PatientNotesEntity>()
-                database.withTransaction {
-                    for (remote in entities) {
-                        val local = notesDao.getNoteById(remote.id)
-                        if (local == null || local.isSynced) {
-                            notesDao.insertNote(remote.copy(isSynced = true))
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        }
     }
 }

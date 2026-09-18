@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 
@@ -121,13 +123,20 @@ fun StaffDetailsScreen(
                 )
             }
         ) { padding ->
-            if (staff == null) {
-                Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-            } else {
+            val isRefreshing by viewModel.isRefreshing.collectAsState()
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refreshStaff,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                if (staff == null) {
+                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(16.dp))
+                } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -200,6 +209,7 @@ fun StaffDetailsScreen(
                     }
                     
                     Spacer(Modifier.height(32.dp))
+                }
                 }
             }
         }

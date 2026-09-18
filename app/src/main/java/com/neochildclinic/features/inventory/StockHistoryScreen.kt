@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.utils.PatientUtils.formatDateTimeForDisplay
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
@@ -96,11 +97,19 @@ fun StockHistoryScreen(
                 )
 
                 AppPullToRefresh(
-                    isRefreshing = uiState.isLoading,
+                    isRefreshing = uiState.isRefreshing,
                     onRefresh = viewModel::refresh,
                     modifier = Modifier.weight(1f)
                 ) {
-                    if (!uiState.isLoading && uiState.transactions.isEmpty()) {
+                    if (uiState.isLoading && uiState.transactions.isEmpty()) {
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 8,
+                            cardShaped = true,
+                            spacing = 8.dp,
+                            contentPadding = PaddingValues(16.dp)
+                        )
+                    } else if (!uiState.isLoading && uiState.transactions.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
                                 if (filtersActive) "No stock movements match these filters" else "No stock movements yet",

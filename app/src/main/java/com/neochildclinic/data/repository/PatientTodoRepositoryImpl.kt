@@ -34,9 +34,6 @@ class PatientTodoRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getTodayConsultations(date: String): Flow<List<ConsultationTodoEntity>> = dao.getTodayConsultations(date)
-    override fun getTodayVaccinations(date: String): Flow<List<VaccinationTodoEntity>> = dao.getTodayVaccinations(date)
-
     override fun getConsultationsByDateAndStatus(date: String, status: String): Flow<List<ConsultationTodoEntity>> = dao.getConsultationsByDateAndStatus(date, status)
     override fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodoEntity>> = dao.getVaccinationsByDateAndStatus(date, status)
     override fun getDatesWithData(start: String, end: String): Flow<List<String>> = dao.getDatesWithData(start, end)

@@ -25,6 +25,7 @@ import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
 import com.neochildclinic.core.ui.SkeletonCard
+import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.features.dashboard.components.AppDrawer
 import com.neochildclinic.app.Routes
 import com.neochildclinic.core.designsystem.LocalCustomColors
@@ -264,7 +265,13 @@ fun DashboardScreen(
                         .padding(horizontal = 16.dp)
                 ) {
                     val isWideScreen = maxWidth > 600.dp
+                    val isRefreshing by dashboardViewModel.isRefreshing.collectAsState()
                     
+                    AppPullToRefresh(
+                        isRefreshing = isRefreshing,
+                        onRefresh = dashboardViewModel::refresh,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -298,6 +305,7 @@ fun DashboardScreen(
                         )
                         
                         Spacer(modifier = Modifier.height(24.dp))
+                    }
                     }
                 }
             }

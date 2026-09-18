@@ -38,21 +38,19 @@ class ClinicStatsManager @Inject constructor(
         val monthPattern = "% ${SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(today.time)}"
 
         return combine(
-            vaccinationRepository.getTodayCount(todayStr),
-            vaccinationRepository.getMonthlyCount(monthPattern),
             financeRepository.getAllTransactions(),
             reminderRepository.getDueList(), // Use full list to re-calculate stats consistently
             inventoryRepository.getInventoryItems(),
             vaccinationRepository.allVaccinations
         ) { args ->
             @Suppress("UNCHECKED_CAST")
-            val transactions = args[2] as List<com.neochildclinic.data.local.entity.FinanceEntity>
+            val transactions = args[0] as List<com.neochildclinic.data.local.entity.FinanceEntity>
             @Suppress("UNCHECKED_CAST")
-            val dueVaccinations = args[3] as List<com.neochildclinic.domain.model.Vaccination>
+            val dueVaccinations = args[1] as List<com.neochildclinic.domain.model.Vaccination>
             @Suppress("UNCHECKED_CAST")
-            val inventory = args[4] as List<InventoryItem>
+            val inventory = args[2] as List<InventoryItem>
             @Suppress("UNCHECKED_CAST")
-            val allVaccinations = args[5] as List<com.neochildclinic.domain.model.Vaccination>
+            val allVaccinations = args[3] as List<com.neochildclinic.domain.model.Vaccination>
             val validVaccinations = StatisticsUtils.filterValidVaccinations(allVaccinations)
             val todayCount = validVaccinations.count { it.dateGiven == todayStr }
             val monthLabel = SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(today.time)

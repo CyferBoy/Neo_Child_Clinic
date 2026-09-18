@@ -73,6 +73,7 @@ fun PatientDetailsScreen(
     val patientNotes by notesFlow.collectAsState(initial = emptyList())
     val doctorMap by viewModel.doctorMap.collectAsState()
     val vaccineMap by viewModel.vaccineMap.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     LaunchedEffect(patientId) {
         viewModel.loadDocuments(patientId)
@@ -373,6 +374,11 @@ fun PatientDetailsScreen(
                             val url = viewModel.getDocumentUrl(path)
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         }
+                    },
+                    isRefreshing = isRefreshing,
+                    onRefresh = {
+                        viewModel.refresh()
+                        viewModel.loadDocuments(patientId)
                     },
                     viewModel = viewModel
                 )

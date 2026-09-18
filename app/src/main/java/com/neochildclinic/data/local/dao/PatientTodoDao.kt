@@ -22,12 +22,6 @@ interface PatientTodoDao {
     @Query("UPDATE vaccination_todos SET status = :status, updated_at = :updatedAt WHERE id = :id")
     suspend fun updateVaccinationStatus(id: String, status: String, updatedAt: String)
 
-    @Query("SELECT * FROM consultation_todos WHERE todo_date = :date AND status = 'PENDING' ORDER BY name COLLATE NOCASE")
-    fun getTodayConsultations(date: String): Flow<List<ConsultationTodoEntity>>
-
-    @Query("SELECT * FROM vaccination_todos WHERE todo_date = :date AND status = 'PENDING' ORDER BY name COLLATE NOCASE")
-    fun getTodayVaccinations(date: String): Flow<List<VaccinationTodoEntity>>
-
     @Query("SELECT * FROM consultation_todos WHERE id = :id LIMIT 1")
     suspend fun getConsultationTodoById(id: String): ConsultationTodoEntity?
 
