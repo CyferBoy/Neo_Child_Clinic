@@ -18,7 +18,7 @@ bucket_name = "neo-child-clinic-backups"
 [[d1_databases]]
 binding = "DB"
 database_name = "neochildclinic-backups"
-database_id = "3feb9a4a-b42a-4b64-b4fe-07788ae2a203"
+database_id = "<YOUR_DATABASE_ID>"
 
 # Secrets (never put these here - set via `wrangler secret put <NAME>`):
 #   SUPABASE_JWT_SECRET - legacy HS256 signing secret (backward compatibility only).
