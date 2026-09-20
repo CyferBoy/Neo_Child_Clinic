@@ -41,7 +41,7 @@ private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: 
     }
 
 @Composable
-fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<ReminderEntity> = emptyList(), vaccines: List<InventoryItem> = emptyList()) {
+fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<ReminderEntity> = emptyList(), vaccines: List<InventoryItem> = emptyList(), onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
@@ -78,8 +78,9 @@ fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<
         selectedMonth = selectedMonth,
         availableYears = availableYears,
         onFilterModeChange = { filterMode = "FY ${it.takeLast(5)}"; fyQuarter = 0; selectedMonth = -1 },
-        onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
-        onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it }
+        onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
+        onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } },
+        onVaccineTypeClick = onVaccineTypeClick
     )
 }
 
@@ -97,7 +98,8 @@ private fun VaccinationsContent(
     availableYears: List<String>,
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
-    onMonthChange: (Int) -> Unit
+    onMonthChange: (Int) -> Unit,
+    onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }
 ) {
     var selectedSection by rememberSaveable { mutableIntStateOf(0) }
 
@@ -107,6 +109,8 @@ private fun VaccinationsContent(
             filterMode = filterMode,
             fyQuarter = fyQuarter,
             selectedMonth = selectedMonth,
+            quarterEnabled = filterMode != "Overall",
+            monthEnabled = filterMode != "Overall" && fyQuarter != 0,
             onFilterModeChange = onFilterModeChange,
             onQuarterChange = onQuarterChange,
             onMonthChange = onMonthChange
@@ -137,7 +141,7 @@ private fun VaccinationsContent(
         if (selectedSection == 0) {
             VaccineStatsSection(stats = stats)
         } else {
-            UpcomingVaccineNeedSection(reminders = vaccinationReminders, validVaccineIds = validVaccineIds)
+            UpcomingVaccineNeedSection(reminders = vaccinationReminders, validVaccineIds = validVaccineIds, onVaccineTypeClick = onVaccineTypeClick)
         }
     }
 }
@@ -239,7 +243,7 @@ private fun VaccinationSectionSelector(
 }
 
 @Composable
-private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVaccineIds: Set<String>) {
+private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVaccineIds: Set<String>, onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
     val stats = remember(reminders, validVaccineIds) {
         calculateUpcomingVaccineNeeds(reminders, validVaccineIds)
     }
@@ -266,10 +270,7 @@ private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVac
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp)
-                .clickable {
-                    expandedType = if (expanded) null else stat.type
-                },
+                .padding(vertical = 6.dp),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -283,7 +284,15 @@ private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVac
                     Text(
                         stat.type,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable {
+                            if (stat.brands.size == 1) {
+                                onVaccineTypeClick(stat.type, stat.brands.first().first)
+                            } else {
+                                expandedType = if (expanded) null else stat.type
+                            }
+                        },
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -296,7 +305,10 @@ private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVac
                         Icon(
                             if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (expanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable {
+                                expandedType = if (expanded) null else stat.type
+                            }
                         )
                     }
                 }
@@ -309,13 +321,15 @@ private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVac
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 5.dp),
+                                .padding(vertical = 5.dp)
+                                .clickable { onVaccineTypeClick(stat.type, brand) },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 brand,
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Text(
                                 count.toString(),
@@ -337,15 +351,19 @@ private fun FilterSection(
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
+    quarterEnabled: Boolean = true,
+    monthEnabled: Boolean = true,
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit
 ) {
+    val disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Financial Year Dropdown
         var yearExpanded by remember { mutableStateOf(false) }
         val currentFY = StatisticsUtils.displayFilterMode(filterMode)
         ExposedDropdownMenuBox(
@@ -364,62 +382,70 @@ private fun FilterSection(
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
             )
             ExposedDropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
+                DropdownMenuItem(text = { Text("Overall") }, onClick = { onFilterModeChange("Overall"); yearExpanded = false })
                 availableYears.forEach { year ->
-                    DropdownMenuItem(
-                        text = { Text(year) },
-                        onClick = { onFilterModeChange(year); yearExpanded = false }
-                    )
+                    DropdownMenuItem(text = { Text(year) }, onClick = { onFilterModeChange(year); yearExpanded = false })
                 }
             }
         }
 
-        // Quarter Dropdown
         var qExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
-            expanded = qExpanded,
-            onExpandedChange = { qExpanded = it },
+            expanded = qExpanded && quarterEnabled,
+            onExpandedChange = { if (quarterEnabled) qExpanded = it },
             modifier = Modifier.weight(0.9f)
         ) {
             OutlinedTextField(
                 value = if (fyQuarter == 0) "Quarter  All" else "Quarter  Q$fyQuarter",
                 onValueChange = {},
                 readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qExpanded) },
-                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                enabled = quarterEnabled,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qExpanded && quarterEnabled) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                    disabledContainerColor = disabledContainerColor,
+                    disabledTextColor = disabledTextColor
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.menuAnchor(),
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
             )
-            ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
-                DropdownMenuItem(text = { Text("All") }, onClick = { onQuarterChange(0); qExpanded = false })
-                (1..4).forEach { q ->
-                    DropdownMenuItem(text = { Text("Q$q") }, onClick = { onQuarterChange(q); qExpanded = false })
+            if (quarterEnabled) {
+                ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
+                    DropdownMenuItem(text = { Text("All") }, onClick = { onQuarterChange(0); qExpanded = false })
+                    (1..4).forEach { q ->
+                        DropdownMenuItem(text = { Text("Q$q") }, onClick = { onQuarterChange(q); qExpanded = false })
+                    }
                 }
             }
         }
 
-        // Month Dropdown
         var mExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
-            expanded = mExpanded,
-            onExpandedChange = { mExpanded = it },
+            expanded = mExpanded && monthEnabled,
+            onExpandedChange = { if (monthEnabled) mExpanded = it },
             modifier = Modifier.weight(0.8f)
         ) {
             OutlinedTextField(
                 value = if (selectedMonth == -1) "Month  All" else "Month  ${StatisticsUtils.monthNames[selectedMonth]}",
                 onValueChange = {},
                 readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mExpanded) },
-                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                enabled = monthEnabled,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mExpanded && monthEnabled) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                    disabledContainerColor = disabledContainerColor,
+                    disabledTextColor = disabledTextColor
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.menuAnchor(),
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
             )
-            ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
-                DropdownMenuItem(text = { Text("All") }, onClick = { onMonthChange(-1); mExpanded = false })
-                val months = if (fyQuarter == 0) (0..11).toList() else StatisticsUtils.fyQuarters[fyQuarter - 1].second
-                months.forEach { mIdx ->
-                    DropdownMenuItem(text = { Text(StatisticsUtils.monthNames[mIdx]) }, onClick = { onMonthChange(mIdx); mExpanded = false })
+            if (monthEnabled) {
+                ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
+                    DropdownMenuItem(text = { Text("All") }, onClick = { onMonthChange(-1); mExpanded = false })
+                    val months = if (fyQuarter == 0) (0..11).toList() else StatisticsUtils.fyQuarters[fyQuarter - 1].second
+                    months.forEach { mIdx ->
+                        DropdownMenuItem(text = { Text(StatisticsUtils.monthNames[mIdx]) }, onClick = { onMonthChange(mIdx); mExpanded = false })
+                    }
                 }
             }
         }

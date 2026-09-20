@@ -358,7 +358,14 @@ class ReminderRepositoryImpl @Inject constructor(
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
                 val userName = sessionManager.getCurrentUserName()
-                logReminderUndoableChange(existing, "COMPLETED", "Reminder marked done by $userName", transactionGroupId = transactionGroupId)
+                val patientName = patientDao.getPatientById(existing.patientId)?.name ?: "Unknown Patient"
+                val vaccineDisplay = existing.vaccineName.ifBlank { existing.type }
+                logReminderUndoableChange(
+                    existing,
+                    "COMPLETED",
+                    "Patient: $patientName, Vaccine: $vaccineDisplay, Completed by: $userName",
+                    transactionGroupId = transactionGroupId
+                )
                 dueReminderDao.moveDueToCompleted(existing.copy(updatedBy = userName), userName, "Reminder completed")
                 enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
 

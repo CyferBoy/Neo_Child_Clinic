@@ -12,6 +12,8 @@ object Routes {
     const val STATISTICS = "statistics"
     const val MONTHLY_FINANCE_DETAILS = "monthly_finance_details/{monthKey}"
     const val MILESTONE_PATIENTS = "milestone_patients/{milestoneKey}"
+    const val FULL_REPORT = "full_report"
+    const val VACCINE_DETAIL = "vaccine_detail/{type}/{brandName}"
     const val BORROWED = "borrowed"
     const val DUE = "due"
     const val WASTE = "waste"
@@ -47,7 +49,7 @@ object Routes {
     const val ADD_PERSONAL_REMINDER = "add_personal_reminder?patientId={patientId}"
     const val EDIT_PERSONAL_REMINDER = "edit_personal_reminder/{reminderId}"
     const val EXPENSES = "expenses"
-    const val WEEKLY_DOCTOR_SLOTS = "weekly_doctor_slots"
+    const val DOCTOR_TIMINGS = "doctor_timings"
     const val ADD_EXPENSE = "add_expense"
     const val EDIT_EXPENSE = "edit_expense/{expenseId}"
 }

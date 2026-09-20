@@ -14,6 +14,11 @@ val ChartPatients = Color(0xFF2196F3)
 val ChartConsultations = Color(0xFF9C27B0)
 val ChartVaccinations = Color(0xFF009688)
 val ChartRevenue = Color(0xFFFF9800)
+val ChartOnline = Color(0xFF3F51B5)
+val ChartCash = Color(0xFF4CAF50)
+val ChartNetProfit = Color(0xFFE91E63)
+val ChartCOGS = Color(0xFFFF5722)
+val ChartExpenses = Color(0xFF795548)
 
 // Dark Mode Palette
 val DarkPrimary = Color(0xFF92CCFF)

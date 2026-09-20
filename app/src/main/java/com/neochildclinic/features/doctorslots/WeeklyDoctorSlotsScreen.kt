@@ -24,17 +24,12 @@ import com.neochildclinic.core.ui.DoctorDropdown
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.domain.model.DoctorSlotException
+import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.model.TimeRange
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * Weekly Doctor Slots (req. 4-10): view/configure a doctor's normal recurring weekly
- * availability, plus date-specific exceptions. The "Edit Slot" button (top-right) is only
- * shown to admin/doctor (req. 5); the ViewModel also refuses writes from anyone else, so
- * this is enforced beyond just hiding the button (req. 19).
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeeklyDoctorSlotsScreen(
@@ -58,17 +53,10 @@ fun WeeklyDoctorSlotsScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("Weekly Doctor Slots") },
+                    title = { Text("Doctor Timings") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
-                        }
-                    },
-                    actions = {
-                        if (uiState.canManageSelectedDoctor) {
-                            TextButton(onClick = { viewModel.setEditMode(!uiState.isEditMode) }) {
-                                Text(if (uiState.isEditMode) "Done" else "Edit Slot")
-                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -98,97 +86,56 @@ fun WeeklyDoctorSlotsScreen(
                         Text("No doctor accounts found.", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                 } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Spacer(Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Spacer(Modifier.height(8.dp))
 
-                if (uiState.allDoctors.size > 1) {
-                    DoctorDropdown(
-                        doctors = uiState.allDoctors,
-                        selectedDoctor = uiState.selectedDoctor,
-                        onDoctorSelected = { viewModel.selectDoctor(it) }
-                    )
-                } else {
-                    Text(
-                        uiState.selectedDoctor?.displayName ?: "",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                HorizontalDivider()
-
-                Text("Weekly Availability", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                WeeklyDoctorSlotsViewModel.WEEKDAYS.forEach { (dayOfWeek, dayName) ->
-                    DaySlotSection(
-                        dayName = dayName,
-                        dayOfWeek = dayOfWeek,
-                        activeRanges = uiState.weeklySlots
-                            .filter { it.dayOfWeek == dayOfWeek }
-                            .map { it.timeRange }
-                            .toSet(),
-                        editable = uiState.isEditMode && uiState.canManageSelectedDoctor,
-                        onToggle = { range, enabled -> viewModel.toggleSlot(dayOfWeek, range, enabled) }
-                    )
-                }
-
-                HorizontalDivider()
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Date Exceptions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    if (uiState.isEditMode && uiState.canManageSelectedDoctor) {
-                        TextButton(onClick = { showAddExceptionDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Add Exception")
-                        }
-                    }
-                }
-
-                if (uiState.exceptions.isEmpty()) {
-                    Text(
-                        "No date exceptions configured.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    uiState.exceptions.sortedByDescending { it.exceptionDate }.forEach { exception ->
-                        ExceptionRow(
-                            exception = exception,
-                            weeklySlotLabel = uiState.weeklySlots.firstOrNull { it.id == exception.weeklySlotId }?.timeRange?.label(),
-                            canDelete = uiState.isEditMode && uiState.canManageSelectedDoctor,
-                            onDelete = { exceptionToDelete = exception }
+                        DoctorDropdown(
+                            doctors = uiState.allDoctors,
+                            selectedDoctor = uiState.selectedDoctor,
+                            onDoctorSelected = { viewModel.selectDoctor(it) }
                         )
+
+                        SegmentedControl(
+                            selectedTab = uiState.selectedTab,
+                            onTabSelected = { viewModel.selectTab(it) }
+                        )
+
+                        when (uiState.selectedTab) {
+                            0 -> WeeklySlotsTab(
+                                uiState = uiState,
+                                onAddSlot = { dayOfWeek, start, end -> viewModel.addWeeklySlot(dayOfWeek, start, end) },
+                                onRemoveSlot = { viewModel.removeWeeklySlot(it) },
+                                onToggleEditMode = { viewModel.setWeeklySlotsEditMode(it) }
+                            )
+                            1 -> UnavailabilityTab(
+                                uiState = uiState,
+                                onAddException = { showAddExceptionDialog = true },
+                                onDeleteException = { viewModel.deleteException(it) }
+                            )
+                        }
+
+                        Spacer(Modifier.height(80.dp))
                     }
                 }
-
-                Spacer(Modifier.height(80.dp))
-                }
-            }
             }
         }
     }
 
     if (showAddExceptionDialog) {
         AddExceptionDialog(
-            weeklySlots = uiState.weeklySlots,
             onDismiss = { showAddExceptionDialog = false },
             onAddFullDay = { date, reason ->
                 viewModel.addFullDayException(date, reason)
                 showAddExceptionDialog = false
             },
-            onAddSlot = { date, slotId, reason ->
-                viewModel.addSlotException(date, slotId, reason)
+            onAddCustomTime = { date, start, end, reason ->
+                viewModel.addCustomTimeException(date, start, end, reason)
                 showAddExceptionDialog = false
             }
         )
@@ -207,13 +154,74 @@ fun WeeklyDoctorSlotsScreen(
 }
 
 @Composable
+private fun SegmentedControl(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        SegmentedButton(
+            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+            onClick = { onTabSelected(0) },
+            selected = selectedTab == 0,
+            label = { Text("Weekly Slots") }
+        )
+        SegmentedButton(
+            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+            onClick = { onTabSelected(1) },
+            selected = selectedTab == 1,
+            label = { Text("Unavailability") }
+        )
+    }
+}
+
+@Composable
+private fun WeeklySlotsTab(
+    uiState: WeeklyDoctorSlotsUiState,
+    onAddSlot: (Int, Int, Int) -> Unit,
+    onRemoveSlot: (String) -> Unit,
+    onToggleEditMode: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Weekly Slots", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (uiState.canManageSelectedDoctor) {
+                TextButton(onClick = { onToggleEditMode(!uiState.isWeeklySlotsEditMode) }) {
+                    Text(if (uiState.isWeeklySlotsEditMode) "Done" else "Edit")
+                }
+            }
+        }
+
+        WeeklyDoctorSlotsViewModel.WEEKDAYS.forEach { (dayOfWeek, dayName) ->
+            DaySlotSection(
+                dayName = dayName,
+                dayOfWeek = dayOfWeek,
+                slots = uiState.weeklySlots.filter { it.dayOfWeek == dayOfWeek },
+                editable = uiState.isWeeklySlotsEditMode && uiState.canManageSelectedDoctor,
+                onAddSlot = onAddSlot,
+                onRemoveSlot = onRemoveSlot
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun DaySlotSection(
     dayName: String,
     dayOfWeek: Int,
-    activeRanges: Set<TimeRange>,
+    slots: List<DoctorWeeklySlot>,
     editable: Boolean,
-    onToggle: (TimeRange, Boolean) -> Unit
+    onAddSlot: (Int, Int, Int) -> Unit,
+    onRemoveSlot: (String) -> Unit
 ) {
+    var showTimePicker by remember { mutableStateOf(false) }
+    var timePickerTarget by remember { mutableStateOf(0) }
+    var pendingStart by remember { mutableIntStateOf(-1) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
@@ -222,31 +230,129 @@ private fun DaySlotSection(
             Text(dayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
 
-            if (!editable && activeRanges.isEmpty()) {
+            if (slots.isEmpty()) {
                 Text(
                     "No availability",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            } else {
+                slots.sortedBy { it.startMinute }.forEach { slot ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "\u2022 ${slot.timeRange.label()}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp)
+                        )
+                        if (editable) {
+                            IconButton(
+                                onClick = { onRemoveSlot(slot.id) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove slot",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
-            WeeklyDoctorSlotsViewModel.PREDEFINED_RANGES.forEach { range ->
-                val checked = activeRanges.contains(range)
-                if (editable) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Checkbox(checked = checked, onCheckedChange = { onToggle(range, it) })
-                        Text(range.label(), style = MaterialTheme.typography.bodyMedium)
-                    }
-                } else if (checked) {
-                    Text(
-                        "\u2022 ${range.label()}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp)
-                    )
+            if (editable) {
+                TextButton(
+                    onClick = { showTimePicker = true; timePickerTarget = 0; pendingStart = -1 },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add slot")
                 }
+            }
+        }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = 9,
+            initialMinute = 0,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = {
+                Text(if (pendingStart < 0) "Select Start Time" else "Select End Time")
+            },
+            text = {
+                TimePicker(state = timePickerState)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedMinute = timePickerState.hour * 60 + timePickerState.minute
+                    if (pendingStart < 0) {
+                        pendingStart = selectedMinute
+                        timePickerTarget = 1
+                    } else {
+                        if (selectedMinute > pendingStart) {
+                            onAddSlot(dayOfWeek, pendingStart, selectedMinute)
+                        }
+                        showTimePicker = false
+                    }
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun UnavailabilityTab(
+    uiState: WeeklyDoctorSlotsUiState,
+    onAddException: () -> Unit,
+    onDeleteException: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Unavailability", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (uiState.canManageSelectedDoctor) {
+                TextButton(onClick = onAddException) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add Exception")
+                }
+            }
+        }
+
+        if (uiState.exceptions.isEmpty()) {
+            Text(
+                "No exceptions configured.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            uiState.exceptions.sortedByDescending { it.exceptionDate }.forEach { exception ->
+                ExceptionRow(
+                    exception = exception,
+                    weeklySlotLabel = uiState.weeklySlots.firstOrNull { it.id == exception.weeklySlotId }?.timeRange?.label(),
+                    canDelete = uiState.canManageSelectedDoctor,
+                    onDelete = { onDeleteException(exception.id) }
+                )
             }
         }
     }
@@ -268,10 +374,11 @@ private fun ExceptionRow(
             Column {
                 Text(exception.exceptionDate, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    if (exception.exceptionType == SlotExceptionType.FULL_DAY) {
-                        "Entire day unavailable"
-                    } else {
-                        "${weeklySlotLabel ?: "Slot"} unavailable"
+                    when {
+                        exception.exceptionType == SlotExceptionType.FULL_DAY -> "Entire day unavailable"
+                        exception.timeRangeLabel != null -> "Unavailable ${exception.timeRangeLabel}"
+                        weeklySlotLabel != null -> "$weeklySlotLabel unavailable"
+                        else -> "Slot unavailable"
                     },
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -291,17 +398,18 @@ private fun ExceptionRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddExceptionDialog(
-    weeklySlots: List<com.neochildclinic.domain.model.DoctorWeeklySlot>,
     onDismiss: () -> Unit,
     onAddFullDay: (date: String, reason: String?) -> Unit,
-    onAddSlot: (date: String, slotId: String, reason: String?) -> Unit
+    onAddCustomTime: (date: String, startMinute: Int, endMinute: Int, reason: String?) -> Unit
 ) {
     val today = remember { SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()) }
     var date by remember { mutableStateOf(today) }
     var fullDay by remember { mutableStateOf(true) }
-    var selectedSlotId by remember { mutableStateOf<String?>(null) }
     var reason by remember { mutableStateOf("") }
-    var slotMenuExpanded by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+    var startMinute by remember { mutableIntStateOf(9 * 60) }
+    var endMinute by remember { mutableIntStateOf(10 * 60) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -315,30 +423,24 @@ private fun AddExceptionDialog(
                     Text("Entire day unavailable", modifier = Modifier.padding(start = 4.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = !fullDay, onClick = { fullDay = false }, enabled = weeklySlots.isNotEmpty())
-                    Text("Specific slot unavailable", modifier = Modifier.padding(start = 4.dp))
+                    RadioButton(selected = !fullDay, onClick = { fullDay = false })
+                    Text("Custom time unavailable", modifier = Modifier.padding(start = 4.dp))
                 }
 
                 if (!fullDay) {
-                    ExposedDropdownMenuBox(
-                        expanded = slotMenuExpanded,
-                        onExpandedChange = { slotMenuExpanded = !slotMenuExpanded }
-                    ) {
-                        OutlinedTextField(
-                            value = weeklySlots.firstOrNull { it.id == selectedSlotId }?.timeRange?.label() ?: "",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Slot") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = slotMenuExpanded) },
-                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(expanded = slotMenuExpanded, onDismissRequest = { slotMenuExpanded = false }) {
-                            weeklySlots.forEach { slot ->
-                                DropdownMenuItem(
-                                    text = { Text(slot.timeRange.label()) },
-                                    onClick = { selectedSlotId = slot.id; slotMenuExpanded = false }
-                                )
-                            }
+                    OutlinedTextField(
+                        value = TimeRange(startMinute, endMinute).label(),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Time Range") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { showStartTimePicker = true }) {
+                            Text("Start: ${TimeRange.formatMinuteOfDay(startMinute)}")
+                        }
+                        OutlinedButton(onClick = { showEndTimePicker = true }) {
+                            Text("End: ${TimeRange.formatMinuteOfDay(endMinute)}")
                         }
                     }
                 }
@@ -356,13 +458,65 @@ private fun AddExceptionDialog(
                 onClick = {
                     if (fullDay) {
                         onAddFullDay(date, reason)
-                    } else {
-                        selectedSlotId?.let { onAddSlot(date, it, reason) }
+                    } else if (endMinute > startMinute) {
+                        onAddCustomTime(date, startMinute, endMinute, reason)
                     }
                 },
-                enabled = fullDay || selectedSlotId != null
+                enabled = fullDay || endMinute > startMinute
             ) {
                 Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+
+    if (showStartTimePicker) {
+        TimePickerDialog(
+            initialHour = startMinute / 60,
+            initialMinute = startMinute % 60,
+            onDismiss = { showStartTimePicker = false },
+            onTimeSelected = { h, m ->
+                startMinute = h * 60 + m
+                showStartTimePicker = false
+            }
+        )
+    }
+
+    if (showEndTimePicker) {
+        TimePickerDialog(
+            initialHour = endMinute / 60,
+            initialMinute = endMinute % 60,
+            onDismiss = { showEndTimePicker = false },
+            onTimeSelected = { h, m ->
+                endMinute = h * 60 + m
+                showEndTimePicker = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onTimeSelected: (Int, Int) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = false
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Time") },
+        text = { TimePicker(state = timePickerState) },
+        confirmButton = {
+            TextButton(onClick = { onTimeSelected(timePickerState.hour, timePickerState.minute) }) {
+                Text("OK")
             }
         },
         dismissButton = {

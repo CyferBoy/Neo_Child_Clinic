@@ -65,8 +65,9 @@ fun DoctorWeeklySlot.toEntity(isSynced: Boolean = false) = DoctorWeeklySlotEntit
 
 /**
  * A date-specific override of a doctor's normal weekly availability. Either the whole
- * day is blocked (exceptionType = FULL_DAY, weeklySlotId null) or one specific weekly
- * slot is blocked on that date (exceptionType = SLOT, weeklySlotId required).
+ * day is blocked (exceptionType = FULL_DAY), a specific weekly slot is blocked
+ * (exceptionType = SLOT, weeklySlotId set), or a custom time period is blocked
+ * (exceptionType = SLOT, startMinute/endMinute set, weeklySlotId may be null).
  */
 @Serializable
 @Entity(
@@ -79,6 +80,8 @@ data class DoctorSlotExceptionEntity(
     @SerialName("exception_date") val exceptionDate: String,
     @SerialName("exception_type") val exceptionType: String,
     @SerialName("weekly_slot_id") val weeklySlotId: String? = null,
+    @SerialName("start_minute") @ColumnInfo(name = "start_minute") val startMinute: Int? = null,
+    @SerialName("end_minute") @ColumnInfo(name = "end_minute") val endMinute: Int? = null,
     val reason: String? = null,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
@@ -93,6 +96,8 @@ fun DoctorSlotExceptionEntity.toDomain() = DoctorSlotException(
     exceptionDate = exceptionDate,
     exceptionType = runCatching { SlotExceptionType.valueOf(exceptionType) }.getOrDefault(SlotExceptionType.FULL_DAY),
     weeklySlotId = weeklySlotId,
+    startMinute = startMinute,
+    endMinute = endMinute,
     reason = reason,
     createdAt = createdAt,
     updatedAt = updatedAt,
@@ -106,6 +111,8 @@ fun DoctorSlotException.toEntity(isSynced: Boolean = false) = DoctorSlotExceptio
     exceptionDate = exceptionDate,
     exceptionType = exceptionType.name,
     weeklySlotId = weeklySlotId,
+    startMinute = startMinute,
+    endMinute = endMinute,
     reason = reason,
     createdAt = createdAt,
     updatedAt = updatedAt,

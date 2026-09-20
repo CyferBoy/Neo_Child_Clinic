@@ -33,7 +33,6 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
-import com.neochildclinic.core.ui.AuditLogDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.ActionDropdownMenu
 import com.neochildclinic.core.ui.SkeletonList
@@ -56,7 +55,6 @@ fun PatientListScreen(
     val context = LocalContext.current
     
     var patientToDelete by remember { mutableStateOf<Patient?>(null) }
-    var patientForAuditLog by remember { mutableStateOf<Patient?>(null) }
     var showManualMergeDialog by rememberSaveable { mutableStateOf(false) }
 
     // Error handling
@@ -77,26 +75,6 @@ fun PatientListScreen(
         title = "Delete Patient",
         message = "Are you sure you want to delete ${patientToDelete?.name}? This will remove all their records."
     )
-
-    if (patientForAuditLog != null) {
-        val auditState by viewModel.auditLogPager.state.collectAsState()
-        LaunchedEffect(patientForAuditLog) {
-            patientForAuditLog?.let { viewModel.auditLogPager.load(it.id) }
-        }
-        AuditLogDialog(
-            show = true,
-            onDismiss = {
-                patientForAuditLog = null
-                viewModel.auditLogPager.clear()
-            },
-            logs = auditState.logs,
-            isLoading = auditState.isLoading,
-            isLoadingMore = auditState.isLoadingMore,
-            hasMore = auditState.hasMore,
-            error = auditState.error,
-            onLoadMore = { viewModel.auditLogPager.loadMore() }
-        )
-    }
 
     if (showManualMergeDialog && uiState.selectedPatients.size == 2) {
         ManualMergeDialog(
@@ -132,8 +110,7 @@ fun PatientListScreen(
         },
         onEditPatient = onEditPatient,
         onDeletePatient = { patientToDelete = it },
-        onToggleSelection = viewModel::toggleSelection,
-        onViewAuditLog = { patientForAuditLog = it }
+        onToggleSelection = viewModel::toggleSelection
     )
 }
 
@@ -153,8 +130,7 @@ private fun PatientListContent(
     onPatientLongClick: (Patient) -> Unit,
     onEditPatient: (String) -> Unit,
     onDeletePatient: (Patient) -> Unit,
-    onToggleSelection: (Patient) -> Unit,
-    onViewAuditLog: (Patient) -> Unit
+    onToggleSelection: (Patient) -> Unit
 ) {
     val customColors = LocalCustomColors.current
     Surface(
@@ -231,7 +207,6 @@ private fun PatientListContent(
                                 onEdit = { onEditPatient(patient.id) },
                                 onDelete = { onDeletePatient(patient) },
                                 onToggleSelection = { onToggleSelection(patient) },
-                                onViewAuditLog = { onViewAuditLog(patient) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -284,7 +259,6 @@ private fun PatientCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleSelection: () -> Unit,
-    onViewAuditLog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -354,8 +328,7 @@ private fun PatientCard(
                         onEdit = onEdit,
                         onDelete = onDelete,
                         onMerge = onLongClick,
-                        isAdmin = canEditOrDelete,
-                        onAuditLog = if (isAdmin) onViewAuditLog else null
+                        isAdmin = canEditOrDelete
                     )
                 }
             }
@@ -468,7 +441,6 @@ private fun PatientListPreview() {
             onEditPatient = {},
             onDeletePatient = {},
             onToggleSelection = {},
-            onViewAuditLog = {},
             onRefresh = {}
         )
     }

@@ -47,6 +47,8 @@ import com.neochildclinic.features.profile.ProfileScreen
 import com.neochildclinic.features.reminder.DueScreen
 import com.neochildclinic.features.statistics.MonthlyFinanceDetailsScreen
 import com.neochildclinic.features.statistics.MilestonePatientsScreen
+import com.neochildclinic.features.statistics.VaccineDetailScreen
+import com.neochildclinic.features.statistics.FullReportScreen
 import com.neochildclinic.features.statistics.StatisticsScreen
 import com.neochildclinic.features.inventory.AddVaccineScreen
 import com.neochildclinic.features.inventory.AddBatchScreen
@@ -143,7 +145,7 @@ fun AppNavigation(
                 onTodayPatients = { navController.navigate("today_patients") },
                 onPersonalReminders = { navController.navigate(Routes.PERSONAL_REMINDERS) },
                 onExpenses = { navController.navigate(Routes.EXPENSES) },
-                onDoctorSlots = { navController.navigate(Routes.WEEKLY_DOCTOR_SLOTS) },
+                onDoctorTimings = { navController.navigate(Routes.DOCTOR_TIMINGS) },
                 onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onSync = { navController.navigate(Routes.SYNC) },
@@ -406,6 +408,14 @@ fun AppNavigation(
                 },
                 onMilestoneClick = { milestoneKey ->
                     navController.navigate("milestone_patients/$milestoneKey")
+                },
+                onFullReportClick = {
+                    navController.navigate(Routes.FULL_REPORT)
+                },
+                onVaccineTypeClick = { type, brandName ->
+                    val encodedType = java.net.URLEncoder.encode(type, "UTF-8")
+                    val encodedBrand = java.net.URLEncoder.encode(brandName, "UTF-8")
+                    navController.navigate("vaccine_detail/$encodedType/$encodedBrand")
                 }
             )
         }
@@ -428,6 +438,29 @@ fun AppNavigation(
             val milestoneKey = backStackEntry.arguments?.getString("milestoneKey") ?: ""
             MilestonePatientsScreen(
                 milestoneKey = milestoneKey,
+                onBack = { navController.popBackStack() },
+                onPatientClick = { patientId ->
+                    navController.navigate("patient_details/$patientId")
+                }
+            )
+        }
+
+        composable(Routes.FULL_REPORT) {
+            FullReportScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Routes.VACCINE_DETAIL,
+            arguments = listOf(
+                navArgument("type") { type = NavType.StringType },
+                navArgument("brandName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val type = java.net.URLDecoder.decode(backStackEntry.arguments?.getString("type") ?: "", "UTF-8")
+            val brandName = java.net.URLDecoder.decode(backStackEntry.arguments?.getString("brandName") ?: "", "UTF-8")
+            VaccineDetailScreen(
+                type = type,
+                brandName = brandName,
                 onBack = { navController.popBackStack() },
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
@@ -561,7 +594,7 @@ fun AppNavigation(
             )
         }
 
-        composable(Routes.WEEKLY_DOCTOR_SLOTS) {
+        composable(Routes.DOCTOR_TIMINGS) {
             com.neochildclinic.features.doctorslots.WeeklyDoctorSlotsScreen(
                 onBack = { navController.popBackStack() }
             )

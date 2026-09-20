@@ -38,8 +38,12 @@ class GetAvailableSlotsUseCase @Inject constructor(
             .mapNotNull { it.weeklySlotId }
             .toSet()
 
+        val customTimeExceptions = exceptions
+            .filter { it.exceptionType == SlotExceptionType.SLOT && it.weeklySlotId == null && it.startMinute != null && it.endMinute != null }
+
         val available = weeklySlots
             .filterNot { it.id in blockedSlotIds }
+            .filterNot { slot -> customTimeExceptions.any { exc -> rangesOverlap(slot.startMinute, slot.endMinute, exc.startMinute!!, exc.endMinute!!) } }
             .sortedBy { it.startMinute }
             .map { AvailableSlot(it.id, it.doctorId, it.startMinute, it.endMinute) }
 
@@ -80,5 +84,9 @@ class GetAvailableSlotsUseCase @Inject constructor(
         val cal = java.util.Calendar.getInstance()
         cal.time = parsed
         return cal.get(java.util.Calendar.DAY_OF_WEEK) // Calendar.SUNDAY(1) .. Calendar.SATURDAY(7)
+    }
+
+    private fun rangesOverlap(aStart: Int, aEnd: Int, bStart: Int, bEnd: Int): Boolean {
+        return aStart < bEnd && bStart < aEnd
     }
 }

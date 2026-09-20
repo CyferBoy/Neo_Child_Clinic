@@ -63,7 +63,7 @@ enum class SlotExceptionType { FULL_DAY, SLOT }
 
 /**
  * A date-specific override of a doctor's normal weekly availability - either the entire
- * day is unavailable, or one specific weekly slot is unavailable on that date.
+ * day is unavailable, or a specific time period is unavailable on that date.
  */
 @Serializable
 data class DoctorSlotException(
@@ -72,12 +72,20 @@ data class DoctorSlotException(
     @SerialName("exception_date") val exceptionDate: String = "", // yyyy-MM-dd
     @SerialName("exception_type") val exceptionType: SlotExceptionType = SlotExceptionType.FULL_DAY,
     @SerialName("weekly_slot_id") val weeklySlotId: String? = null,
+    @SerialName("start_minute") val startMinute: Int? = null,
+    @SerialName("end_minute") val endMinute: Int? = null,
     val reason: String? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("created_by") val createdBy: String? = null,
     @SerialName("updated_by") val updatedBy: String? = null
-)
+) {
+    /** Human-readable label for the exception time range, if custom times are set. */
+    val timeRangeLabel: String?
+        get() = if (startMinute != null && endMinute != null) {
+            TimeRange(startMinute, endMinute).label()
+        } else null
+}
 
 /** A weekly slot resolved as actually bookable for one specific date. */
 data class AvailableSlot(

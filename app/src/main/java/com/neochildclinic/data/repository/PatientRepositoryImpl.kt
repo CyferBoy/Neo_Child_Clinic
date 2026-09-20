@@ -241,10 +241,23 @@ class PatientRepositoryImpl @Inject constructor(
         )
         notesDao.insertNote(note)
         syncRepository.enqueue("PATIENT_NOTE", note.id, SyncOperation.CREATE, SyncPriority.LOW)
+        auditLogger.recordLog(
+            module = "PATIENT",
+            entityType = "PATIENT_NOTE",
+            entityId = note.id,
+            action = "CREATED",
+            patientId = patientId
+        )
     }
 
     override suspend fun deleteNote(noteId: String) {
         notesDao.deleteNote(noteId)
         syncRepository.enqueue("PATIENT_NOTE", noteId, SyncOperation.DELETE, SyncPriority.LOW)
+        auditLogger.recordLog(
+            module = "PATIENT",
+            entityType = "PATIENT_NOTE",
+            entityId = noteId,
+            action = "DELETED"
+        )
     }
 }

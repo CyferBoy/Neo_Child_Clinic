@@ -203,12 +203,6 @@ class PatientListViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Patient audit history is online-only (see PatientAuditLogPager) - the dialog drives this
-     * directly via load()/loadMore()/clear() rather than through a Flow.
-     */
-    val auditLogPager = com.neochildclinic.features.audit.PatientAuditLogPager(postgrest, viewModelScope)
-
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true

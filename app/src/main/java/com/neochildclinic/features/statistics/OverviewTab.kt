@@ -29,7 +29,8 @@ import java.util.*
 fun OverviewTab(
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
-    financeTransactions: List<FinanceEntity>
+    financeTransactions: List<FinanceEntity>,
+    onFullReportClick: () -> Unit = {}
 ) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
@@ -54,38 +55,33 @@ fun OverviewTab(
         financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), filterMode, fyQuarter, selectedMonth) }
     }
 
-    // Previous period data for growth calculation
+    // Previous period data for growth calculation — skipped when Overall (no meaningful comparison)
+    val isOverall = filterMode == "Overall"
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
     }
-    val prevPatients = remember(patients, prevFilter, prevQuarter, prevMonth) {
-        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", prevFilter, prevQuarter, prevMonth) }
+    val prevPatients = remember(patients, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) emptyList() else patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", prevFilter, prevQuarter, prevMonth) }
     }
-    val prevVaccinations = remember(vaccinations, prevFilter, prevQuarter, prevMonth) {
-        StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
+    val prevVaccinations = remember(vaccinations, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) emptyList() else StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
     }
-    val prevTransactions = remember(financeTransactions, prevFilter, prevQuarter, prevMonth) {
-        financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
+    val prevTransactions = remember(financeTransactions, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) emptyList() else financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
     }
 
-    val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
-    
     val currentFinanceStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
         FinanceCalculator.calculateFinanceStats(filteredTransactions, allValidVaccinations, financeTransactions, filteredVaccinations)
     }
-    val prevFinanceStats = remember(prevTransactions, allValidVaccinations, prevVaccinations) {
-        FinanceCalculator.calculateFinanceStats(prevTransactions, allValidVaccinations, financeTransactions, prevVaccinations)
+    val prevFinanceStats = remember(prevTransactions, allValidVaccinations, prevVaccinations, isOverall) {
+        if (isOverall) FinanceStatsData(totalRevenue = 0.0)
+        else FinanceCalculator.calculateFinanceStats(prevTransactions, allValidVaccinations, financeTransactions, prevVaccinations)
     }
 
-    // Quick Overview Chart Data (Last 6 Months)
-    // Previously this re-filtered the FULL patients/vaccinations/transactions lists once
-    // per month (6x), re-parsing every date string each time and even re-running
-    // filterValidVaccinations() (itself a full-list pass) inside the loop - O(6*N) scans
-    // and O(6*N) date parses for a chart that only needs 6 numbers. Rewritten below to do
-    // a single pass over each list, bucketing by year/month, then just look up the 6
-    // months needed. allValidVaccinations is already computed above, so it's reused
-    // instead of being recomputed here.
-    val trendData = remember(patients, vaccinations, financeTransactions, allValidVaccinations) {
+    // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)
+    val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
+
+    val patientActivityData = remember(patients, vaccinations, financeTransactions, allValidVaccinations, filterMode, fyQuarter, selectedMonth) {
         val cal = Calendar.getInstance()
         val months = (0 until 6).reversed().map { monthOffset ->
             val tempCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -monthOffset) }
@@ -105,23 +101,68 @@ fun OverviewTab(
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
-        val vaccinationCounts = allValidVaccinations.asSequence()
+        val consultationCounts = allValidVaccinations.asSequence()
+            .filter { it.visitType.equals("CONSULTATION", ignoreCase = true) }
             .mapNotNull { yearMonthKey(it.dateGiven) }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
-        val revenueByMonth = financeTransactions.asSequence()
-            .filter { it.type.equals("INCOME", true) }
-            .mapNotNull { t -> yearMonthKey(FinanceCalculator.resolveReportingDate(t))?.let { it to t.amount } }
-            .filter { it.first in monthKeys }
-            .groupBy({ it.first }, { it.second })
-            .mapValues { (_, amounts) -> amounts.sum() }
+        val vaccinationCounts = allValidVaccinations.asSequence()
+            .filter { it.visitType.equals("VACCINATION", ignoreCase = true) }
+            .mapNotNull { yearMonthKey(it.dateGiven) }
+            .filter { it in monthKeys }
+            .groupingBy { it }.eachCount()
 
         months.map { (key, monthLabel) ->
-            val mPatients = (patientCounts[key] ?: 0).toFloat()
-            val mVaccinations = (vaccinationCounts[key] ?: 0).toFloat()
-            val mRevenue = ((revenueByMonth[key] ?: 0.0) / 1000.0).toFloat() // K-scale for revenue
-            ChartDataPoint(monthLabel, listOf(mPatients, mPatients * 1.2f, mVaccinations, mRevenue)) // Simulated Consultations as 1.2x Patients
+            ChartDataPoint(monthLabel, listOf(
+                (patientCounts[key] ?: 0).toFloat(),
+                (consultationCounts[key] ?: 0).toFloat(),
+                (vaccinationCounts[key] ?: 0).toFloat()
+            ))
+        }
+    }
+
+    // Quick Overview Chart Data — Financial Trend (last 6 months, filter-aware)
+    val financialTrendData = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
+        val cal = Calendar.getInstance()
+        val months = (0 until 6).reversed().map { monthOffset ->
+            val tempCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -monthOffset) }
+            val key = tempCal.get(Calendar.YEAR) * 12 + tempCal.get(Calendar.MONTH)
+            key to StatisticsUtils.monthNames[tempCal.get(Calendar.MONTH)]
+        }
+        val monthKeys = months.map { it.first }.toSet()
+
+        fun yearMonthKey(dateStr: String): Int? {
+            val d = PatientUtils.parseDate(dateStr) ?: return null
+            val c = Calendar.getInstance().apply { time = d }
+            return c.get(Calendar.YEAR) * 12 + c.get(Calendar.MONTH)
+        }
+
+        data class MonthFinance(val revenue: Double, val cash: Double, val online: Double)
+
+        val financeByMonth = mutableMapOf<Int, MonthFinance>()
+        financeTransactions.forEach { tx ->
+            val key = yearMonthKey(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
+            if (key !in monthKeys) return@forEach
+            if (!tx.type.equals("INCOME", true)) return@forEach
+            val existing = financeByMonth.getOrDefault(key, MonthFinance(0.0, 0.0, 0.0))
+            val amount = tx.amount.coerceAtLeast(0.0)
+            val cashAmt = if (tx.cashAmount > 0.0) tx.cashAmount else if (tx.paymentMethod.equals("CASH", true)) amount else 0.0
+            val onlineAmt = if (tx.onlineAmount > 0.0) tx.onlineAmount else if (tx.paymentMethod.equals("ONLINE", true)) amount else 0.0
+            financeByMonth[key] = existing.copy(
+                revenue = existing.revenue + amount,
+                cash = existing.cash + cashAmt,
+                online = existing.online + onlineAmt
+            )
+        }
+
+        months.map { (key, monthLabel) ->
+            val mf = financeByMonth[key] ?: MonthFinance(0.0, 0.0, 0.0)
+            ChartDataPoint(monthLabel, listOf(
+                (mf.revenue / 1000.0).toFloat(),
+                (mf.online / 1000.0).toFloat(),
+                (mf.cash / 1000.0).toFloat()
+            ))
         }
     }
 
@@ -131,8 +172,8 @@ fun OverviewTab(
         fyQuarter = fyQuarter,
         selectedMonth = selectedMonth,
         onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
-        onQuarterChange = { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 },
-        onMonthChange = { selectedMonth = if (selectedMonth == it) -1 else it },
+        onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
+        onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } },
         currentStats = currentFinanceStats,
         prevStats = prevFinanceStats,
         patientsCount = filteredPatients.size,
@@ -141,7 +182,9 @@ fun OverviewTab(
         prevVaccPatientsCount = prevVaccinations.map { it.patientId }.distinct().size,
         dosesCount = filteredVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
         prevDosesCount = prevVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
-        trendData = trendData
+        patientActivityData = patientActivityData,
+        financialTrendData = financialTrendData,
+        onFullReportClick = onFullReportClick
     )
 }
 
@@ -163,7 +206,9 @@ private fun OverviewContent(
     prevVaccPatientsCount: Int,
     dosesCount: Int,
     prevDosesCount: Int,
-    trendData: List<ChartDataPoint>
+    patientActivityData: List<ChartDataPoint>,
+    financialTrendData: List<ChartDataPoint>,
+    onFullReportClick: () -> Unit
 ) {
     val customColors = LocalCustomColors.current
     val fyOptions = remember(availableYears) { availableYears.reversed().map { "20$it" } }
@@ -179,6 +224,8 @@ private fun OverviewContent(
                 filterMode = filterMode,
                 fyQuarter = fyQuarter,
                 selectedMonth = selectedMonth,
+                quarterEnabled = filterMode != "Overall",
+                monthEnabled = filterMode != "Overall" && fyQuarter != 0,
                 onFilterModeChange = { onFilterModeChange("FY ${it.takeLast(5)}") },
                 onQuarterChange = onQuarterChange,
                 onMonthChange = onMonthChange
@@ -307,17 +354,24 @@ private fun OverviewContent(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 TrendChart(
-                    title = "Monthly Trend (Last 6 Months)",
-                    data = trendData,
-                    seriesLabels = listOf("Patients", "Consultations", "Vaccinations", "Revenue (₹K)"),
-                    seriesColors = listOf(ChartPatients, ChartConsultations, ChartVaccinations, ChartRevenue)
+                    title = "Patient Activity (Last 6 Months)",
+                    data = patientActivityData,
+                    seriesLabels = listOf("Patients", "Consultations", "Vaccinations"),
+                    seriesColors = listOf(ChartPatients, ChartConsultations, ChartVaccinations)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TrendChart(
+                    title = "Financial Trend (Last 6 Months, ₹K)",
+                    data = financialTrendData,
+                    seriesLabels = listOf("Revenue", "Online", "Cash"),
+                    seriesColors = listOf(ChartRevenue, ChartOnline, ChartCash)
                 )
             }
         }
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { /* Navigate to full report */ },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onFullReportClick() },
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -345,10 +399,15 @@ private fun FilterSection(
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
+    quarterEnabled: Boolean = true,
+    monthEnabled: Boolean = true,
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit
 ) {
+    val disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -372,6 +431,10 @@ private fun FilterSection(
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
             )
             ExposedDropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("Overall") },
+                    onClick = { onFilterModeChange("Overall"); yearExpanded = false }
+                )
                 availableYears.forEach { year ->
                     DropdownMenuItem(
                         text = { Text(year) },
@@ -384,24 +447,30 @@ private fun FilterSection(
         // Quarter Dropdown
         var qExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
-            expanded = qExpanded,
-            onExpandedChange = { qExpanded = it },
+            expanded = qExpanded && quarterEnabled,
+            onExpandedChange = { if (quarterEnabled) qExpanded = it },
             modifier = Modifier.weight(0.9f)
         ) {
             OutlinedTextField(
                 value = if (fyQuarter == 0) "Quarter  All" else "Quarter  Q$fyQuarter",
                 onValueChange = {},
                 readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qExpanded) },
-                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                enabled = quarterEnabled,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qExpanded && quarterEnabled) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                    disabledContainerColor = disabledContainerColor,
+                    disabledTextColor = disabledTextColor
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.menuAnchor(),
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
             )
-            ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
-                DropdownMenuItem(text = { Text("All") }, onClick = { onQuarterChange(0); qExpanded = false })
-                (1..4).forEach { q ->
-                    DropdownMenuItem(text = { Text("Q$q") }, onClick = { onQuarterChange(q); qExpanded = false })
+            if (quarterEnabled) {
+                ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
+                    DropdownMenuItem(text = { Text("All") }, onClick = { onQuarterChange(0); qExpanded = false })
+                    (1..4).forEach { q ->
+                        DropdownMenuItem(text = { Text("Q$q") }, onClick = { onQuarterChange(q); qExpanded = false })
+                    }
                 }
             }
         }
@@ -409,25 +478,31 @@ private fun FilterSection(
         // Month Dropdown
         var mExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
-            expanded = mExpanded,
-            onExpandedChange = { mExpanded = it },
+            expanded = mExpanded && monthEnabled,
+            onExpandedChange = { if (monthEnabled) mExpanded = it },
             modifier = Modifier.weight(0.8f)
         ) {
             OutlinedTextField(
                 value = if (selectedMonth == -1) "Month  All" else "Month  ${StatisticsUtils.monthNames[selectedMonth]}",
                 onValueChange = {},
                 readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mExpanded) },
-                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                enabled = monthEnabled,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mExpanded && monthEnabled) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                    disabledContainerColor = disabledContainerColor,
+                    disabledTextColor = disabledTextColor
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.menuAnchor(),
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
             )
-            ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
-                DropdownMenuItem(text = { Text("All") }, onClick = { onMonthChange(-1); mExpanded = false })
-                val months = if (fyQuarter == 0) (0..11).toList() else StatisticsUtils.fyQuarters[fyQuarter - 1].second
-                months.forEach { mIdx ->
-                    DropdownMenuItem(text = { Text(StatisticsUtils.monthNames[mIdx]) }, onClick = { onMonthChange(mIdx); mExpanded = false })
+            if (monthEnabled) {
+                ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
+                    DropdownMenuItem(text = { Text("All") }, onClick = { onMonthChange(-1); mExpanded = false })
+                    val months = if (fyQuarter == 0) (0..11).toList() else StatisticsUtils.fyQuarters[fyQuarter - 1].second
+                    months.forEach { mIdx ->
+                        DropdownMenuItem(text = { Text(StatisticsUtils.monthNames[mIdx]) }, onClick = { onMonthChange(mIdx); mExpanded = false })
+                    }
                 }
             }
         }

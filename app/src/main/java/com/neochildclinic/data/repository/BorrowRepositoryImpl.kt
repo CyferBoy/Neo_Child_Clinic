@@ -34,7 +34,8 @@ class BorrowRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val inventoryRepository: InventoryRepository,
     private val syncRepository: SyncRepository,
-    private val sessionManager: com.neochildclinic.core.session.SessionManager
+    private val sessionManager: com.neochildclinic.core.session.SessionManager,
+    private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : BorrowRepository {
 
     private val borrowDao = database.borrowDao()
@@ -80,18 +81,32 @@ class BorrowRepositoryImpl @Inject constructor(
                 operation = if (isNew) SyncOperation.CREATE else SyncOperation.UPDATE,
                 priority = SyncPriority.MEDIUM
             )
+
+            auditLogger.log(
+                module = "INVENTORY",
+                entityType = "BORROW",
+                entityId = entity.id,
+                action = if (isNew) "BORROW_CREATED" else "BORROW_UPDATED",
+                remarks = "${finalItem.vaccineName} x${finalItem.quantity}"
+            )
         }
     }
 
     override suspend fun deleteBorrowedItem(id: String) {
         database.withTransaction {
-            borrowDao.getRecordById(id)?.let { _ ->
+            borrowDao.getRecordById(id)?.let { record ->
                 borrowDao.deleteById(id)
                 syncRepository.enqueue(
                     entityName = "BORROW",
                     entityId = id,
                     operation = SyncOperation.DELETE,
                     priority = SyncPriority.MEDIUM
+                )
+                auditLogger.log(
+                    module = "INVENTORY",
+                    entityType = "BORROW",
+                    entityId = id,
+                    action = "BORROW_DELETED"
                 )
             }
         }
@@ -172,6 +187,14 @@ class BorrowRepositoryImpl @Inject constructor(
                     transactionGroupId = transactionGroupId
                 )
             }
+
+            auditLogger.log(
+                module = "INVENTORY",
+                entityType = "BORROW_RETURN",
+                entityId = entity.id,
+                action = "BORROW_RETURNED",
+                remarks = "${item.vaccineName} x${quantity} returned"
+            )
         }
     }
 

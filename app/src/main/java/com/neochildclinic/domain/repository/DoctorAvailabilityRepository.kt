@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface DoctorAvailabilityRepository {
 
-    /** Active weekly slots for a doctor, all days, for the Weekly Doctor Slots screen. */
+    /** Active weekly slots for a doctor, all days, for the Doctor Timings screen. */
     fun getWeeklySlots(doctorId: String): Flow<List<DoctorWeeklySlot>>
 
     /** Date exceptions for a doctor, for the Edit Slot exceptions list. */
@@ -22,11 +22,16 @@ interface DoctorAvailabilityRepository {
     suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot?
 
     /**
-     * Toggles one predefined weekly range on/off for a doctor+day (checkbox semantics for
-     * req. 4). Reuses the existing row (soft-activate) if this exact doctor/day/range was
-     * toggled off before, rather than creating a duplicate.
+     * Adds a new weekly slot for a doctor+day with the given start/end times.
+     * Creates a new row or reactivates a previously soft-deleted matching row.
      */
-    suspend fun setWeeklySlotEnabled(doctorId: String, dayOfWeek: Int, range: TimeRange, enabled: Boolean, actor: String?)
+    suspend fun addWeeklySlot(doctorId: String, dayOfWeek: Int, startMinute: Int, endMinute: Int, actor: String?)
+
+    /**
+     * Soft-deletes a weekly slot by deactivating it. Historical records referencing
+     * this slot's id via availabilitySlotId keep a resolvable reference.
+     */
+    suspend fun removeWeeklySlot(slotId: String, actor: String?)
 
     suspend fun addException(exception: DoctorSlotException, actor: String?)
     suspend fun deleteException(id: String, actor: String?)

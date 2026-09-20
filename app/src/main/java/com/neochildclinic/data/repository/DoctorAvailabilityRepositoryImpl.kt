@@ -10,7 +10,6 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
-import com.neochildclinic.domain.model.TimeRange
 import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
@@ -23,7 +22,8 @@ import javax.inject.Singleton
 class DoctorAvailabilityRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : DoctorAvailabilityRepository {
 
     private val dao = database.doctorAvailabilityDao()
@@ -43,46 +43,64 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     override suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot? =
         dao.getWeeklySlotById(id)?.toDomain()
 
-    override suspend fun setWeeklySlotEnabled(
+    override suspend fun addWeeklySlot(
         doctorId: String,
         dayOfWeek: Int,
-        range: TimeRange,
-        enabled: Boolean,
+        startMinute: Int,
+        endMinute: Int,
         actor: String?
     ) {
         val now = PatientUtils.getCurrentIsoTimestamp()
-        val existing = dao.findWeeklySlot(doctorId, dayOfWeek, range.startMinute, range.endMinute)
+        val existing = dao.findWeeklySlot(doctorId, dayOfWeek, startMinute, endMinute)
 
-        if (enabled) {
-            if (existing == null) {
-                val entity = DoctorWeeklySlotEntity(
-                    id = java.util.UUID.randomUUID().toString(),
-                    doctorId = doctorId,
-                    dayOfWeek = dayOfWeek,
-                    startMinute = range.startMinute,
-                    endMinute = range.endMinute,
-                    isActive = true,
-                    createdAt = now,
-                    updatedAt = now,
-                    isSynced = false,
-                    createdBy = actor,
-                    updatedBy = actor
-                )
-                dao.upsertWeeklySlot(entity)
-                syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
-            } else if (!existing.isActive) {
+        if (existing != null) {
+            if (!existing.isActive) {
                 dao.setWeeklySlotActive(existing.id, true, now, actor)
                 syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", existing.id, SyncOperation.UPDATE, SyncPriority.LOW)
+                auditLogger.log(
+                    module = "DOCTOR_TIMINGS",
+                    entityType = "WEEKLY_SLOT",
+                    entityId = existing.id,
+                    action = "SLOT_REACTIVATED",
+                    remarks = "Day $dayOfWeek, ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(endMinute)}"
+                )
             }
         } else {
-            // Soft-delete only (project convention): deactivate rather than physically
-            // remove, so any consultation/vaccination that already references this slot's
-            // id via availabilitySlotId can still resolve it for display.
-            if (existing != null && existing.isActive) {
-                dao.setWeeklySlotActive(existing.id, false, now, actor)
-                syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", existing.id, SyncOperation.UPDATE, SyncPriority.LOW)
-            }
+            val entity = DoctorWeeklySlotEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                doctorId = doctorId,
+                dayOfWeek = dayOfWeek,
+                startMinute = startMinute,
+                endMinute = endMinute,
+                isActive = true,
+                createdAt = now,
+                updatedAt = now,
+                isSynced = false,
+                createdBy = actor,
+                updatedBy = actor
+            )
+            dao.upsertWeeklySlot(entity)
+            syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
+            auditLogger.log(
+                module = "DOCTOR_TIMINGS",
+                entityType = "WEEKLY_SLOT",
+                entityId = entity.id,
+                action = "SLOT_CREATED",
+                remarks = "Day $dayOfWeek, ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(endMinute)}"
+            )
         }
+    }
+
+    override suspend fun removeWeeklySlot(slotId: String, actor: String?) {
+        val now = PatientUtils.getCurrentIsoTimestamp()
+        dao.setWeeklySlotActive(slotId, false, now, actor)
+        syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", slotId, SyncOperation.UPDATE, SyncPriority.LOW)
+        auditLogger.log(
+            module = "DOCTOR_TIMINGS",
+            entityType = "WEEKLY_SLOT",
+            entityId = slotId,
+            action = "SLOT_DELETED"
+        )
     }
 
     override suspend fun addException(exception: DoctorSlotException, actor: String?) {
@@ -95,11 +113,27 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         ).toEntity(isSynced = false)
         dao.upsertException(entity)
         syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
+        val timeDesc = if (exception.startMinute != null && exception.endMinute != null) {
+            "${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(exception.startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(exception.endMinute)}"
+        } else null
+        auditLogger.log(
+            module = "DOCTOR_TIMINGS",
+            entityType = "UNAVAILABILITY",
+            entityId = entity.id,
+            action = "EXCEPTION_CREATED",
+            remarks = "${exception.exceptionDate}${timeDesc?.let { ", $it" } ?: ""}"
+        )
     }
 
     override suspend fun deleteException(id: String, actor: String?) {
         dao.deleteException(id)
         syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPriority.LOW)
+        auditLogger.log(
+            module = "DOCTOR_TIMINGS",
+            entityType = "UNAVAILABILITY",
+            entityId = id,
+            action = "EXCEPTION_DELETED"
+        )
     }
 
     override suspend fun refresh() {
@@ -116,10 +150,6 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
                 if (local == null || local.isSynced) dao.upsertException(remote.copy(isSynced = true))
             }
         } catch (e: Exception) {
-            // Same "don't let one repository's refresh failure abort the whole
-            // RefreshDataUseCase chain" defensiveness as ExpenseRepositoryImpl - this
-            // table has no FK dependents in this refresh sequence, so a stale/missing
-            // local copy just means slightly outdated availability until the next sync.
             android.util.Log.e("DoctorAvailabilityRepo", "Refresh failed", e)
         }
     }

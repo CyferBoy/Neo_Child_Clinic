@@ -40,7 +40,9 @@ fun StatisticsScreen(
     hasAccess: Boolean = false,
     onBack: () -> Unit = {},
     onMonthClick: (String) -> Unit = {},
-    onMilestoneClick: (String) -> Unit = {}
+    onMilestoneClick: (String) -> Unit = {},
+    onFullReportClick: () -> Unit = {},
+    onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }
 ) {
     if (!hasAccess) {
         StatisticsAccessDeniedScreen(onBack = onBack)
@@ -62,6 +64,8 @@ fun StatisticsScreen(
         onBack = onBack,
         onMonthClick = onMonthClick,
         onMilestoneClick = onMilestoneClick,
+        onFullReportClick = onFullReportClick,
+        onVaccineTypeClick = onVaccineTypeClick,
         snackbarHostState = snackbarHostState
     )
 }
@@ -125,6 +129,8 @@ private fun StatisticsContent(
     onBack: () -> Unit,
     onMonthClick: (String) -> Unit,
     onMilestoneClick: (String) -> Unit,
+    onFullReportClick: () -> Unit,
+    onVaccineTypeClick: (String, String) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
     val tabs = listOf(
@@ -209,7 +215,9 @@ private fun StatisticsContent(
                     vaccinationReminders = uiState.vaccinationReminders,
                     expenses = uiState.expenses,
                     onMonthClick = onMonthClick,
-                    onMilestoneClick = onMilestoneClick
+                    onMilestoneClick = onMilestoneClick,
+                    onFullReportClick = onFullReportClick,
+                    onVaccineTypeClick = onVaccineTypeClick
                 )
             }
         }
@@ -268,12 +276,14 @@ private fun StatisticsTabContent(
     vaccinationReminders: List<ReminderEntity>,
     expenses: List<Expense>,
     onMonthClick: (String) -> Unit,
-    onMilestoneClick: (String) -> Unit
+    onMilestoneClick: (String) -> Unit,
+    onFullReportClick: () -> Unit,
+    onVaccineTypeClick: (String, String) -> Unit
 ) {
     when (selectedTab) {
-        0 -> OverviewTab(patients, vaccinations, financeTransactions)
+        0 -> OverviewTab(patients, vaccinations, financeTransactions, onFullReportClick = onFullReportClick)
         1 -> PatientsTab(patients, onMilestoneClick)
-        2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory)
+        2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory, onVaccineTypeClick = onVaccineTypeClick)
         3 -> FinanceTab(vaccinations, financeTransactions, expenses, onMonthClick)
         4 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Map coming soon", color = MaterialTheme.colorScheme.onSurfaceVariant)

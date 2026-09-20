@@ -76,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 27
+        const val DB_VERSION = 29
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -340,14 +340,16 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
-                // Remove soft delete: drop isDeleted column from expenses and
-                // is_deleted column from doctor_slot_exceptions, plus their indexes.
+                // Migration 27→28: drops soft-delete columns and adds
+                // start_minute/end_minute for free-form unavailability time ranges.
                 val migration27_28 = object : androidx.room.migration.Migration(27, 28) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("DROP INDEX IF EXISTS index_expenses_isDeleted")
                         db.execSQL("ALTER TABLE expenses DROP COLUMN isDeleted")
                         db.execSQL("DROP INDEX IF EXISTS index_doctor_slot_exceptions_isDeleted")
                         db.execSQL("ALTER TABLE doctor_slot_exceptions DROP COLUMN is_deleted")
+                        db.execSQL("ALTER TABLE doctor_slot_exceptions ADD COLUMN start_minute INTEGER DEFAULT NULL")
+                        db.execSQL("ALTER TABLE doctor_slot_exceptions ADD COLUMN end_minute INTEGER DEFAULT NULL")
                     }
                 }
 

@@ -20,56 +20,24 @@ import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MilestonePatientsScreen(
-    milestoneKey: String,
+fun VaccineDetailScreen(
+    type: String,
+    brandName: String,
     onBack: () -> Unit,
     onPatientClick: (String) -> Unit,
-    viewModel: MilestonePatientsViewModel = hiltViewModel()
+    viewModel: VaccineDetailViewModel = hiltViewModel()
 ) {
-    val patients by viewModel.patients.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
-    val label = remember(milestoneKey) { StatisticsUtils.milestoneLabelForKey(milestoneKey) ?: "" }
-
-    val today = remember { Calendar.getInstance() }
-    val windowEnd = remember { Calendar.getInstance().apply { add(Calendar.MONTH, 2) } }
-
-    // Same one-patient-one-milestone rule as the summary cards (PatientsTab), so the list
-    // shown here always matches the count on the card that opened it. "Older" has no
-    // milestone date from getNextAgeMilestone() (it only looks ahead) - those patients are
-    // identified the same way the summary card counts them, and sorted oldest DOB first as
-    // the natural analog of "earliest milestone date first".
-    val entries = remember(patients, label, milestoneKey) {
-        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
-        if (milestoneKey == "older") {
-            patients
-                .filter { PatientUtils.getNextAgeMilestone(it.dob, today, windowEnd) == null && PatientUtils.isOlderThanMonths(it.dob, 19, today) }
-                .mapNotNull { patient ->
-                    val birthMillis = PatientUtils.parseDate(patient.dob)?.time ?: return@mapNotNull null
-                    Quadruple(patient, birthMillis, "Older", null)
-                }
-                .sortedBy { it.second }
-        } else {
-            patients.mapNotNull { patient ->
-                val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
-                if (milestone.label != label) return@mapNotNull null
-                Quadruple(patient, milestone.date.timeInMillis, milestone.label, dateFormat.format(milestone.date.time))
-            }.sortedBy { it.second }
-        }
-    }
+    val uiState by viewModel.uiState.collectAsState()
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text(label) },
+                    title = { Text("$type — $brandName") },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
@@ -80,11 +48,11 @@ fun MilestonePatientsScreen(
             }
         ) { padding ->
             AppPullToRefresh(
-                isRefreshing = isRefreshing,
+                isRefreshing = uiState.isRefreshing,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize().padding(padding)
             ) {
-                if (isLoading) {
+                if (uiState.isLoading) {
                     SkeletonList(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
@@ -92,10 +60,10 @@ fun MilestonePatientsScreen(
                         spacing = 8.dp,
                         contentPadding = PaddingValues(16.dp)
                     )
-                } else if (entries.isEmpty()) {
+                } else if (uiState.entries.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            "No patients reaching this milestone in the next 2 months.",
+                            "No patients requiring this vaccine.",
                             modifier = Modifier.padding(24.dp),
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -107,30 +75,34 @@ fun MilestonePatientsScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(entries, key = { it.first.id }) { (patient, _, milestoneLabel, milestoneDate) ->
+                        items(uiState.entries, key = { "${it.reminder.id}_${it.brandName}" }) { entry ->
                             Card(
-                                modifier = Modifier.fillMaxWidth().clickable { onPatientClick(patient.id) },
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    entry.patient?.id?.let { onPatientClick(it) }
+                                },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(patient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        entry.patient?.name ?: "Unknown Patient",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        "DOB: ${PatientUtils.formatDateForDisplay(patient.dob)}",
+                                        "Next vaccine: ${entry.reminder.vaccineName}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    if (milestoneDate != null) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            "Milestone: $milestoneLabel — $milestoneDate",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        "Due: ${PatientUtils.formatDateForDisplay(entry.reminder.dueDate)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                             }
                         }
@@ -140,5 +112,3 @@ fun MilestonePatientsScreen(
         }
     }
 }
-
-private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

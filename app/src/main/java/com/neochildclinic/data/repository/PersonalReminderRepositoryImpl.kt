@@ -21,7 +21,8 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     database: AppDatabase,
     private val syncRepository: SyncRepository,
     private val postgrest: Postgrest,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : PersonalReminderRepository {
 
     private val dao: PersonalReminderDao = database.personalReminderDao()
@@ -48,6 +49,13 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             )
         )
         syncRepository.enqueue(ENTITY_NAME, reminder.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
+        auditLogger.log(
+            module = "REMINDER",
+            entityType = "PERSONAL_REMINDER",
+            entityId = reminder.id,
+            action = "CREATED",
+            remarks = reminder.title
+        )
     }
 
     override suspend fun updateReminder(reminder: PersonalReminderEntity) {
@@ -60,6 +68,13 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             )
         )
         syncRepository.enqueue(ENTITY_NAME, reminder.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        auditLogger.log(
+            module = "REMINDER",
+            entityType = "PERSONAL_REMINDER",
+            entityId = reminder.id,
+            action = "UPDATED",
+            remarks = reminder.title
+        )
     }
 
     // Every transition below is only ever invoked from an explicit user action in the
@@ -88,6 +103,13 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             )
         )
         syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        auditLogger.log(
+            module = "REMINDER",
+            entityType = "PERSONAL_REMINDER",
+            entityId = id,
+            action = "COMPLETED",
+            remarks = existing.title
+        )
     }
 
     override suspend fun cancel(id: String) {
@@ -104,6 +126,13 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             )
         )
         syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        auditLogger.log(
+            module = "REMINDER",
+            entityType = "PERSONAL_REMINDER",
+            entityId = id,
+            action = "CANCELLED",
+            remarks = existing.title
+        )
     }
 
     private suspend fun updateStatus(id: String, status: PersonalReminderStatus) {
@@ -118,11 +147,26 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             )
         )
         syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        auditLogger.log(
+            module = "REMINDER",
+            entityType = "PERSONAL_REMINDER",
+            entityId = id,
+            action = status.name,
+            remarks = existing.title
+        )
     }
 
     override suspend fun deleteReminder(id: String) {
+        val existing = dao.getById(id)
         dao.delete(id)
         syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+        auditLogger.log(
+            module = "REMINDER",
+            entityType = "PERSONAL_REMINDER",
+            entityId = id,
+            action = "DELETED",
+            remarks = existing?.title
+        )
     }
 
     override suspend fun refresh() {

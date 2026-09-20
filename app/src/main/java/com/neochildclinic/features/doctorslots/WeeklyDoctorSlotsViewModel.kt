@@ -4,10 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
-import com.neochildclinic.domain.model.PredefinedSlots
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.SlotExceptionType
-import com.neochildclinic.domain.model.TimeRange
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.domain.repository.ProfileRepository
@@ -21,10 +19,9 @@ data class WeeklyDoctorSlotsUiState(
     val allDoctors: List<Profile> = emptyList(),
     val selectedDoctor: Profile? = null,
     val currentUserRole: UserRole? = null,
-    // Admin: any doctor. Doctor: only themself, and the doctor picker is locked. Anyone
-    // else (receptionist etc.): view-only, no Edit Slot button (req. 5/6/7/8/19).
     val canManageSelectedDoctor: Boolean = false,
-    val isEditMode: Boolean = false,
+    val selectedTab: Int = 0,
+    val isWeeklySlotsEditMode: Boolean = false,
     val weeklySlots: List<DoctorWeeklySlot> = emptyList(),
     val exceptions: List<DoctorSlotException> = emptyList(),
     val isLoading: Boolean = true,
@@ -68,8 +65,6 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                 val doctors = profiles.filter { it.role == UserRole.doctor && it.isActive }.sortedBy { it.displayName }
 
                 val visibleDoctors = if (me?.role == UserRole.doctor) {
-                    // req. 7: a doctor may only view/edit their own slots - the picker on
-                    // this screen never offers another doctor's schedule to choose from.
                     doctors.filter { it.id == currentUserId }
                 } else {
                     doctors
@@ -87,7 +82,7 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                         isLoading = false
                     )
                 }
-                selectedDoctorId.value = defaultDoctor()
+                selectedDoctorId.value = defaultDoctor()?.id
             }
         }
 
@@ -104,51 +99,76 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun defaultDoctor(): String? = _uiState.value.selectedDoctor?.id
+    private fun defaultDoctor(): Profile? = _uiState.value.selectedDoctor
 
     fun selectDoctor(doctor: Profile) {
         val state = _uiState.value
         if (state.currentUserRole == UserRole.doctor && doctor.id != auth.currentSessionOrNull()?.user?.id) {
-            return // req. 7: enforced here too, not just by hiding the picker.
+            return
         }
         _uiState.update {
             it.copy(
                 selectedDoctor = doctor,
                 canManageSelectedDoctor = it.currentUserRole == UserRole.admin || it.currentUserRole == UserRole.doctor,
-                isEditMode = false
+                isWeeklySlotsEditMode = false
             )
         }
         selectedDoctorId.value = doctor.id
     }
 
-    fun setEditMode(enabled: Boolean) {
-        if (!_uiState.value.canManageSelectedDoctor) return
-        _uiState.update { it.copy(isEditMode = enabled) }
+    fun selectTab(tab: Int) {
+        _uiState.update { it.copy(selectedTab = tab, isWeeklySlotsEditMode = false) }
     }
 
-    /** Checkbox toggle for one predefined range on one weekday (req. 4). */
-    fun toggleSlot(dayOfWeek: Int, range: TimeRange, enabled: Boolean) {
+    fun setWeeklySlotsEditMode(enabled: Boolean) {
+        if (!_uiState.value.canManageSelectedDoctor) return
+        _uiState.update { it.copy(isWeeklySlotsEditMode = enabled) }
+    }
+
+    fun addWeeklySlot(dayOfWeek: Int, startMinute: Int, endMinute: Int) {
         val state = _uiState.value
         val doctor = state.selectedDoctor ?: return
         if (!state.canManageSelectedDoctor) return
         viewModelScope.launch {
             try {
-                repository.setWeeklySlotEnabled(doctor.id, dayOfWeek, range, enabled, actor = currentActor())
+                repository.addWeeklySlot(doctor.id, dayOfWeek, startMinute, endMinute, actor = currentActor())
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Unable to update slot.") }
+                _uiState.update { it.copy(error = e.message ?: "Unable to add slot.") }
+            }
+        }
+    }
+
+    fun removeWeeklySlot(slotId: String) {
+        if (!_uiState.value.canManageSelectedDoctor) return
+        viewModelScope.launch {
+            try {
+                repository.removeWeeklySlot(slotId, actor = currentActor())
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Unable to remove slot.") }
             }
         }
     }
 
     fun addFullDayException(date: String, reason: String?) {
-        addException(date, SlotExceptionType.FULL_DAY, null, reason)
+        addException(date, SlotExceptionType.FULL_DAY, null, null, null, reason)
+    }
+
+    fun addCustomTimeException(date: String, startMinute: Int, endMinute: Int, reason: String?) {
+        addException(date, SlotExceptionType.SLOT, null, startMinute, endMinute, reason)
     }
 
     fun addSlotException(date: String, weeklySlotId: String, reason: String?) {
-        addException(date, SlotExceptionType.SLOT, weeklySlotId, reason)
+        addException(date, SlotExceptionType.SLOT, weeklySlotId, null, null, reason)
     }
 
-    private fun addException(date: String, type: SlotExceptionType, weeklySlotId: String?, reason: String?) {
+    private fun addException(
+        date: String,
+        type: SlotExceptionType,
+        weeklySlotId: String?,
+        startMinute: Int?,
+        endMinute: Int?,
+        reason: String?
+    ) {
         val state = _uiState.value
         val doctor = state.selectedDoctor ?: return
         if (!state.canManageSelectedDoctor) return
@@ -160,6 +180,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                         exceptionDate = date,
                         exceptionType = type,
                         weeklySlotId = weeklySlotId,
+                        startMinute = startMinute,
+                        endMinute = endMinute,
                         reason = reason?.ifBlank { null }
                     ),
                     actor = currentActor()
@@ -188,7 +210,6 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
     private fun currentActor(): String? = auth.currentSessionOrNull()?.user?.email
 
     companion object {
-        val PREDEFINED_RANGES: List<TimeRange> = PredefinedSlots.ALL
         val WEEKDAYS: List<Pair<Int, String>> = listOf(
             java.util.Calendar.MONDAY to "Monday",
             java.util.Calendar.TUESDAY to "Tuesday",
