@@ -39,7 +39,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 29,
+    version = 30,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -76,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 29
+        const val DB_VERSION = 30
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
