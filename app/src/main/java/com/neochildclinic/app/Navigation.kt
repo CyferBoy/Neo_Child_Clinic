@@ -523,8 +523,11 @@ fun AppNavigation(
         composable(Routes.DUE) {
             DueScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToCompletedDismissed = {
-                    navController.navigate(Routes.COMPLETED_DISMISSED)
+                onNavigateToCompleted = {
+                    navController.navigate("completed_dismissed?tab=0")
+                },
+                onNavigateToDismissed = {
+                    navController.navigate("completed_dismissed?tab=1")
                 },
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
@@ -532,12 +535,14 @@ fun AppNavigation(
             )
         }
 
-        composable(Routes.COMPLETED_DISMISSED) {
+        composable("completed_dismissed?tab={tab}") { backStackEntry ->
+            val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
             CompletedDismissedScreen(
                 onBack = { navController.popBackStack() },
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
-                }
+                },
+                initialTab = tab
             )
         }
 

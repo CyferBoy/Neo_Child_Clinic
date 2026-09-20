@@ -269,7 +269,7 @@ fun PatientDetailsScreen(
                     title = { Text("Patient Details") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                         }
                     },
                     actions = {

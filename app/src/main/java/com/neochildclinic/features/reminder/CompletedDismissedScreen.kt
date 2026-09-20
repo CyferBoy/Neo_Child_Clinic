@@ -21,10 +21,11 @@ import com.neochildclinic.core.ui.DeleteConfirmationDialog
 fun CompletedDismissedScreen(
     onBack: () -> Unit,
     onPatientClick: (String) -> Unit,
+    initialTab: Int = 0,
     viewModel: CompletedDismissedViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var selectedTabIndex by remember { mutableIntStateOf(initialTab) }
     val tabs = listOf("Completed", "Dismissed")
     var vaccinationToRestore by remember { mutableStateOf<com.neochildclinic.domain.model.Vaccination?>(null) }
 

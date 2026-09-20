@@ -24,7 +24,7 @@ class DashboardRepositoryImpl @Inject constructor(
 
     override fun getLowStockCount(): Flow<Int> {
         return inventoryRepository.getInventoryItems().map { items ->
-            items.count { it.isLowStock }
+            items.count { it.isLowStock && !it.hasOutofStock }
         }
     }
 

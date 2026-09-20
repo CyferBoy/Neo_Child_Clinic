@@ -108,7 +108,6 @@ private fun VaccineInventoryContent(
     onDeleteVaccine: (InventoryItem) -> Unit
 ) {
     var isSearchActive by remember { mutableStateOf(false) }
-    var overflowExpanded by remember { mutableStateOf(false) }
     var fabExpanded by remember { mutableStateOf(false) }
 
     AppBackground {
@@ -128,21 +127,6 @@ private fun VaccineInventoryContent(
                         }
                         FilterButton(currentFilter = uiState.filter, onFilterSelected = onFilterChange)
                         SortButton(currentSort = uiState.sort, onSortSelected = onSortChange)
-                        Box {
-                            IconButton(onClick = { overflowExpanded = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More Options")
-                            }
-                            DropdownMenu(expanded = overflowExpanded, onDismissRequest = { overflowExpanded = false }) {
-                                DropdownMenuItem(
-                                    text = { Text("New Vaccine Type") },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        onAddVaccine()
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.Add, null) }
-                                )
-                            }
-                        }
                     }
                 )
             },

@@ -14,11 +14,10 @@ fun FilterTabRow(
     selectedFilter: String,
     onFilterChanged: (String) -> Unit
 ) {
-    ScrollableTabRow(
+    TabRow(
         selectedTabIndex = filters.indexOf(selectedFilter),
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.primary,
-        edgePadding = 0.dp,
         divider = {}
     ) {
         filters.forEach { filter ->

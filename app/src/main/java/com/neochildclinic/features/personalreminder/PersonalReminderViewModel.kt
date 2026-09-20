@@ -113,8 +113,14 @@ class PersonalReminderViewModel @Inject constructor(
 
     fun markReady(id: String) = viewModelScope.launch { repository.markReady(id) }
     fun markPending(id: String) = viewModelScope.launch { repository.markPending(id) }
-    fun markCompleted(id: String) = viewModelScope.launch { repository.markCompleted(id) }
-    fun cancel(id: String) = viewModelScope.launch { repository.cancel(id) }
+    fun markCompleted(id: String) = viewModelScope.launch {
+        repository.markCompleted(id)
+        _selectedTab.value = PersonalReminderTab.COMPLETED
+    }
+    fun cancel(id: String) = viewModelScope.launch {
+        repository.cancel(id)
+        _selectedTab.value = PersonalReminderTab.CANCELLED
+    }
     fun delete(id: String) = viewModelScope.launch {
         try {
             repository.deleteReminder(id)

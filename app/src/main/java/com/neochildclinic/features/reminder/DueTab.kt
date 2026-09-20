@@ -32,7 +32,8 @@ fun DueTab(
     onComplete: (Vaccination) -> Unit = {},
     onDismissReminder: (Vaccination, String) -> Unit = { _, _ -> },
     onReschedule: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
-    onNavigateToCompletedDismissed: () -> Unit = {},
+    onNavigateToCompleted: () -> Unit = {},
+    onNavigateToDismissed: () -> Unit = {},
     onPatientClick: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -50,7 +51,8 @@ fun DueTab(
             CompletedDismissedSummaryCards(
                 completedCount = stats.completedToday,
                 dismissedCount = stats.dismissedToday,
-                onClick = onNavigateToCompletedDismissed
+                onCompletedClick = onNavigateToCompleted,
+                onDismissedClick = onNavigateToDismissed
             )
             Spacer(modifier = Modifier.height(16.dp))
         }

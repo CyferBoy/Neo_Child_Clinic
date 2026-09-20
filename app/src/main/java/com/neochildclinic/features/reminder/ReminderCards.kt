@@ -32,14 +32,15 @@ import com.neochildclinic.domain.model.*
 fun CompletedDismissedSummaryCards(
     completedCount: Int,
     dismissedCount: Int,
-    onClick: () -> Unit
+    onCompletedClick: () -> Unit,
+    onDismissedClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Card(
-            onClick = onClick,
+            onClick = onCompletedClick,
             modifier = Modifier.weight(1f),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
@@ -66,7 +67,7 @@ fun CompletedDismissedSummaryCards(
         }
 
         Card(
-            onClick = onClick,
+            onClick = onDismissedClick,
             modifier = Modifier.weight(1f),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)

@@ -20,7 +20,8 @@ import com.neochildclinic.core.ui.SkeletonList
 @Composable
 fun DueScreen(
     onBack: () -> Unit,
-    onNavigateToCompletedDismissed: () -> Unit,
+    onNavigateToCompleted: () -> Unit,
+    onNavigateToDismissed: () -> Unit,
     onPatientClick: (String) -> Unit,
     viewModel: DueViewModel = hiltViewModel()
 ) {
@@ -96,7 +97,8 @@ fun DueScreen(
                         onComplete = viewModel::completeVaccination,
                         onDismissReminder = viewModel::dismissReminder,
                         onReschedule = viewModel::rescheduleVaccination,
-                        onNavigateToCompletedDismissed = onNavigateToCompletedDismissed,
+                        onNavigateToCompleted = onNavigateToCompleted,
+                        onNavigateToDismissed = onNavigateToDismissed,
                         onPatientClick = onPatientClick
                     )
                 }
