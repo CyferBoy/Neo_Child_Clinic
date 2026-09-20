@@ -163,7 +163,7 @@ class FullReportViewModel @Inject constructor(
             val quarterOffset = (fyQuarter - 1) * 3
 
             monthKeys = (0 until monthCount).map { offset ->
-                val rawMonth = 3 + quarterOffset + offset
+                val rawMonth = if (fyQuarter == 0) 3 + offset else 3 + quarterOffset + offset
                 val yearOffset = rawMonth / 12
                 val m = rawMonth % 12
                 val y = fyStartYear + yearOffset
