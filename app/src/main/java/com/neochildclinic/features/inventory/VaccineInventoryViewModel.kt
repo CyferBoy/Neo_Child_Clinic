@@ -89,7 +89,9 @@ class VaccineInventoryViewModel @Inject constructor(
             try {
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 inventoryRepository.deleteBatch(batchId, user)
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("VaccineInventoryVM", "Delete batch failed", e)
+            }
         }
     }
 

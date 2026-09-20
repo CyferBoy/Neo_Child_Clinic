@@ -10,13 +10,13 @@ interface DoctorAvailabilityRepository {
     /** Active weekly slots for a doctor, all days, for the Weekly Doctor Slots screen. */
     fun getWeeklySlots(doctorId: String): Flow<List<DoctorWeeklySlot>>
 
-    /** Non-deleted date exceptions for a doctor, for the Edit Slot exceptions list. */
+    /** Date exceptions for a doctor, for the Edit Slot exceptions list. */
     fun getExceptions(doctorId: String): Flow<List<DoctorSlotException>>
 
     /** Weekly slots active for the given doctor/day, used by the availability calculation. */
     suspend fun getActiveWeeklySlotsForDay(doctorId: String, dayOfWeek: Int): List<DoctorWeeklySlot>
 
-    /** Non-deleted exceptions for the given doctor/date, used by the availability calculation. */
+    /** Exceptions for the given doctor/date, used by the availability calculation. */
     suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotException>
 
     suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot?

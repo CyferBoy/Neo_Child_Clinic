@@ -115,5 +115,11 @@ class PersonalReminderViewModel @Inject constructor(
     fun markPending(id: String) = viewModelScope.launch { repository.markPending(id) }
     fun markCompleted(id: String) = viewModelScope.launch { repository.markCompleted(id) }
     fun cancel(id: String) = viewModelScope.launch { repository.cancel(id) }
-    fun delete(id: String) = viewModelScope.launch { repository.deleteReminder(id) }
+    fun delete(id: String) = viewModelScope.launch {
+        try {
+            repository.deleteReminder(id)
+        } catch (e: Exception) {
+            Log.e("PersonalReminderVM", "Delete reminder failed", e)
+        }
+    }
 }

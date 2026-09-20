@@ -80,10 +80,26 @@ class AuthViewModel @Inject constructor(
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
     init {
-        // Fetch profile if already logged in
+        // Mark loading immediately so the UI doesn't fall through to UserRole.nurse
+        // before the profile has been fetched. On cold start, auth.currentSessionOrNull()
+        // can return null briefly while Supabase resolves the stored session, causing
+        // the ?.let below to skip fetchProfile entirely — leaving isProfileLoading=false
+        // and the UI defaulting to nurse.
+        _isProfileLoading.value = true
         viewModelScope.launch {
-            auth.currentSessionOrNull()?.user?.id?.let { userId ->
+            val userId = auth.currentSessionOrNull()?.user?.id
+            if (userId != null) {
                 fetchProfile(userId)
+            } else {
+                // Session not yet resolved from storage — wait for it
+                val status = awaitResolvedSessionStatus()
+                val resolvedUserId = auth.currentSessionOrNull()?.user?.id
+                if (status is SessionStatus.Authenticated && resolvedUserId != null) {
+                    fetchProfile(resolvedUserId)
+                } else {
+                    // Offline or timed out — no profile available
+                    _isProfileLoading.value = false
+                }
             }
         }
     }

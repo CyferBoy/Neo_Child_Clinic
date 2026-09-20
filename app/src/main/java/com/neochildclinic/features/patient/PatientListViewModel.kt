@@ -253,7 +253,12 @@ class PatientListViewModel @Inject constructor(
 
     fun deletePatient(id: String) {
         viewModelScope.launch {
-            deletePatientUseCase(id)
+            try {
+                deletePatientUseCase(id)
+            } catch (e: Exception) {
+                Log.e("PatientListVM", "Delete patient failed", e)
+                _error.value = "Delete failed: ${e.message}"
+            }
         }
     }
 

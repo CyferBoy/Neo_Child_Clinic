@@ -50,8 +50,7 @@ class ExpenseDaoTest {
         category: String = "RENT",
         paymentMethod: String = "CASH",
         amountPaise: Long = 100000L,
-        title: String = "Sample expense",
-        isDeleted: Boolean = false
+        title: String = "Sample expense"
     ) = ExpenseEntity(
         id = id,
         expenseDate = date,
@@ -59,7 +58,6 @@ class ExpenseDaoTest {
         title = title,
         amountPaise = amountPaise,
         paymentMethod = paymentMethod,
-        isDeleted = isDeleted,
         isSynced = false
     )
 
@@ -91,21 +89,16 @@ class ExpenseDaoTest {
     }
 
     @Test
-    fun softDeletingAnExpense_hidesItFromListsButKeepsTheRow() = runBlocking {
+    fun deletingAnExpense_removesItPhysically() = runBlocking {
         val original = sample("e1", "2026-04-01")
         dao.insertExpense(original)
         assertEquals(1, dao.getAllExpenses().first().size)
 
-        dao.insertExpense(original.copy(isDeleted = true))
+        dao.deleteExpense("e1")
 
-        // Excluded from every "active" query...
         assertEquals(0, dao.getAllExpenses().first().size)
         assertEquals(0, dao.getExpenseCount().first())
-        // ...but the row itself still exists (soft delete, not a physical DELETE) - task
-        // section 5/20: "do not permanently delete synchronized records".
-        val stillPresent = dao.getExpenseById("e1")
-        assertNotNull(stillPresent)
-        assertTrue(stillPresent!!.isDeleted)
+        assertNull(dao.getExpenseById("e1"))
     }
 
     @Test

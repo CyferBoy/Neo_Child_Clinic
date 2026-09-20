@@ -10,9 +10,8 @@ interface ExpenseRepository {
     suspend fun addExpense(expense: Expense, user: String)
     suspend fun updateExpense(expense: Expense, user: String)
 
-    // Soft delete only (task section 5/20: "do not permanently delete synchronized
-    // records"). Marks isDeleted = true and re-syncs the row as an UPDATE, rather than
-    // physically removing it the way WasteRepository.deleteWaste does.
+    // Hard delete: physically removes the record locally and enqueues a DELETE sync to
+    // Supabase.
     suspend fun deleteExpense(id: String, user: String)
 
     suspend fun refreshExpenses()

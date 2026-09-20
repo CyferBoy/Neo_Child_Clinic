@@ -212,7 +212,11 @@ class BorrowedViewModel @Inject constructor(
 
     fun deleteBorrowedItem(id: String) {
         viewModelScope.launch {
-            borrowRepository.deleteBorrowedItem(id)
+            try {
+                borrowRepository.deleteBorrowedItem(id)
+            } catch (e: Exception) {
+                android.util.Log.e("BorrowedViewModel", "Delete borrowed item failed", e)
+            }
         }
     }
 }

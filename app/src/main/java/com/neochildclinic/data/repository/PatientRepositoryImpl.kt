@@ -121,8 +121,9 @@ class PatientRepositoryImpl @Inject constructor(
                                 }
                             }
 
-                            // Insert/Update only if local doesn't exist or is already synced
-                            if (existingLocal == null || existingLocal.isSynced) {
+                            // Insert/Update only if local doesn't exist or is already synced,
+                            // AND there's no pending DELETE in the sync queue
+                            if ((existingLocal == null || existingLocal.isSynced) && !database.syncQueueDao().isUnsynced("PATIENT", patient.id)) {
                                 patientDao.insertPatient(patient.copy(patientClinicId = localClinicId).toEntity(isSynced = true))
                             }
                         } catch (e: Exception) {
@@ -189,7 +190,7 @@ class PatientRepositoryImpl @Inject constructor(
             val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
 
             // 1. Delete Reminders (Children)
-            dueReminderDao.softDeleteRemindersForPatient(id)
+            dueReminderDao.deleteRemindersByPatientId(id)
             reminderIds.forEach {
                 syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
             }

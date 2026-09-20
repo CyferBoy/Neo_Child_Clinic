@@ -63,7 +63,6 @@ data class Expense(
     val paymentMethod: ExpensePaymentMethod,
     val referenceNumber: String? = null,
     val attachmentPath: String? = null,
-    val isDeleted: Boolean = false,
     val createdBy: String? = null,
     val updatedBy: String? = null,
     val createdAt: String? = null,

@@ -92,15 +92,14 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
             updatedAt = now,
             createdBy = exception.createdBy ?: actor,
             updatedBy = actor
-        ).toEntity(isSynced = false, isDeleted = false)
+        ).toEntity(isSynced = false)
         dao.upsertException(entity)
         syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
     }
 
     override suspend fun deleteException(id: String, actor: String?) {
-        val now = PatientUtils.getCurrentIsoTimestamp()
-        dao.markExceptionDeleted(id, now, actor)
-        syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.UPDATE, SyncPriority.LOW)
+        dao.deleteException(id)
+        syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPriority.LOW)
     }
 
     override suspend fun refresh() {

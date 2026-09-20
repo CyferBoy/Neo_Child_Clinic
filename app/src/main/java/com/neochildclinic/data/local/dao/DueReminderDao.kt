@@ -58,10 +58,10 @@ interface DueReminderDao {
     suspend fun deleteReminder(patientId: String, visitId: String, vaccineName: String, type: String)
 
     @Query("DELETE FROM reminders WHERE id = :id")
-    suspend fun softDeleteReminder(id: String)
+    suspend fun deleteReminderById(id: String)
 
     @Query("DELETE FROM reminders WHERE patientId = :patientId")
-    suspend fun softDeleteRemindersForPatient(patientId: String)
+    suspend fun deleteRemindersByPatientId(patientId: String)
 
     @Query("UPDATE reminders SET serverId = :serverId, isSynced = 1 WHERE id = :localId")
     suspend fun updateServerId(localId: String, serverId: String)

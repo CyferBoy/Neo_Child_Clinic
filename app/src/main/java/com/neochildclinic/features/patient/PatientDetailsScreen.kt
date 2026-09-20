@@ -89,6 +89,7 @@ fun PatientDetailsScreen(
 
     var selectedVaccinationForAction by remember { mutableStateOf<Vaccination?>(null) }
     var selectedConsultationForAction by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
+    var documentToDelete by remember { mutableStateOf<String?>(null) }
     val sheetState = rememberModalBottomSheetState()
     var showSheet by remember { mutableStateOf(false) }
 
@@ -145,6 +146,19 @@ fun PatientDetailsScreen(
         },
         title = "Delete Patient",
         message = "Are you sure you want to delete this patient? All vaccination history will be lost."
+    )
+
+    DeleteConfirmationDialog(
+        show = documentToDelete != null,
+        onDismiss = { documentToDelete = null },
+        onConfirm = {
+            documentToDelete?.let { path ->
+                viewModel.deleteDocument(path, patientId)
+            }
+            documentToDelete = null
+        },
+        title = "Delete Document",
+        message = "Are you sure you want to delete this document?"
     )
 
     if (showAuditLog) {
@@ -368,7 +382,7 @@ fun PatientDetailsScreen(
                     },
                     onOpenVaccinationDetails = { onViewVaccination(it.id) },
                     onUploadDocument = { launcher.launch("*/*") },
-                    onDeleteDocument = { viewModel.deleteDocument(it, patientId) },
+                    onDeleteDocument = { documentToDelete = it },
                     onViewDocument = { path ->
                         scope.launch {
                             val url = viewModel.getDocumentUrl(path)

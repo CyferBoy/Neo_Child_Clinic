@@ -95,7 +95,15 @@ fun AddVaccinationScreen(
                 ) {
                     PaddingValues(16.dp).let {
                         StandardButton(
-                            onClick = { viewModel.saveVaccination(editVaccineBatch = editVaccineBatch, editQuantity = editQuantity) },
+                            onClick = {
+                                viewModel.saveVaccination(
+                                    editGivenDate = editGivenDate,
+                                    editDoctor = editDoctor,
+                                    editVaccineBatch = editVaccineBatch,
+                                    editQuantity = editQuantity,
+                                    editNextVaccination = editNextVaccination
+                                )
+                            },
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
                             enabled = !isEdit || !uiState.isVaccinationLoading,
                             isLoading = uiState.isLoading
@@ -158,6 +166,12 @@ fun AddVaccinationScreen(
                             isError = uiState.doctorError
                         )
                         Spacer(Modifier.height(8.dp))
+                    }
+                    // The slot dropdown must be visible whenever the schedule is being
+                    // edited - including a date-only edit, where the Doctor list stays
+                    // hidden but the change has already cleared the recorded slot and the
+                    // save requires a new one.
+                    if (!isEdit || editDoctor || editGivenDate) {
                         AvailableSlotDropdown(
                             state = uiState.slotsState,
                             selectedSlot = uiState.selectedSlot,

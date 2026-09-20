@@ -502,7 +502,7 @@ class ReminderRepositoryImpl @Inject constructor(
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
                 logReminderUndoableChange(existing, "DELETED", "Deleted by $performedBy")
-                dueReminderDao.softDeleteReminder(existing.id)
+                dueReminderDao.deleteReminderById(existing.id)
                 enqueueReminderSync("REMINDERS", existing.id, SyncOperation.DELETE, SyncPriority.LOW)
             }
             triggerImmediateCheck()
@@ -570,6 +570,11 @@ class ReminderRepositoryImpl @Inject constructor(
                             remote.vaccineName,
                             remote.type
                         )
+                        
+                        // Skip if this reminder has a pending DELETE in the sync queue
+                        if (local != null && database.syncQueueDao().isUnsynced("REMINDERS", local.id)) {
+                            continue
+                        }
                         
                         if (local == null || local.isSynced) {
                             // Safe to overwrite or insert

@@ -71,7 +71,7 @@ fun DoctorWeeklySlot.toEntity(isSynced: Boolean = false) = DoctorWeeklySlotEntit
 @Serializable
 @Entity(
     tableName = "doctor_slot_exceptions",
-    indices = [Index("doctorId"), Index("exceptionDate"), Index("weeklySlotId"), Index("is_deleted")]
+    indices = [Index("doctorId"), Index("exceptionDate"), Index("weeklySlotId")]
 )
 data class DoctorSlotExceptionEntity(
     @PrimaryKey val id: String,
@@ -80,7 +80,6 @@ data class DoctorSlotExceptionEntity(
     @SerialName("exception_type") val exceptionType: String,
     @SerialName("weekly_slot_id") val weeklySlotId: String? = null,
     val reason: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted") val isDeleted: Boolean = false,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
@@ -101,14 +100,13 @@ fun DoctorSlotExceptionEntity.toDomain() = DoctorSlotException(
     updatedBy = updatedBy
 )
 
-fun DoctorSlotException.toEntity(isSynced: Boolean = false, isDeleted: Boolean = false) = DoctorSlotExceptionEntity(
+fun DoctorSlotException.toEntity(isSynced: Boolean = false) = DoctorSlotExceptionEntity(
     id = id,
     doctorId = doctorId,
     exceptionDate = exceptionDate,
     exceptionType = exceptionType.name,
     weeklySlotId = weeklySlotId,
     reason = reason,
-    isDeleted = isDeleted,
     createdAt = createdAt,
     updatedAt = updatedAt,
     isSynced = isSynced,

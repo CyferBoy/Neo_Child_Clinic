@@ -22,6 +22,7 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DoctorDropdown
 import com.neochildclinic.core.ui.SkeletonList
+import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.model.TimeRange
@@ -43,6 +44,7 @@ fun WeeklyDoctorSlotsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showAddExceptionDialog by remember { mutableStateOf(false) }
+    var exceptionToDelete by remember { mutableStateOf<DoctorSlotException?>(null) }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -165,7 +167,7 @@ fun WeeklyDoctorSlotsScreen(
                             exception = exception,
                             weeklySlotLabel = uiState.weeklySlots.firstOrNull { it.id == exception.weeklySlotId }?.timeRange?.label(),
                             canDelete = uiState.isEditMode && uiState.canManageSelectedDoctor,
-                            onDelete = { viewModel.deleteException(exception.id) }
+                            onDelete = { exceptionToDelete = exception }
                         )
                     }
                 }
@@ -191,6 +193,17 @@ fun WeeklyDoctorSlotsScreen(
             }
         )
     }
+
+    DeleteConfirmationDialog(
+        show = exceptionToDelete != null,
+        onDismiss = { exceptionToDelete = null },
+        onConfirm = {
+            exceptionToDelete?.let { viewModel.deleteException(it.id) }
+            exceptionToDelete = null
+        },
+        title = "Delete Exception",
+        message = "Are you sure you want to delete this date exception?"
+    )
 }
 
 @Composable

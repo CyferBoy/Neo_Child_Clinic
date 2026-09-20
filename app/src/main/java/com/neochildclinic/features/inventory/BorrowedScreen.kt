@@ -22,6 +22,7 @@ import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
+import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
@@ -38,6 +39,7 @@ fun BorrowedScreen(
     var editingItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
     var historyItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
     var returningItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
+    var itemToDelete by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
 
     // Outer Borrowed/Returned split, then the By/From type filter, then sort so
     // records needing attention (partially returned) surface first while still
@@ -78,7 +80,7 @@ fun BorrowedScreen(
             showAddDialog = true
         },
         onReturnRequest = { returningItem = it },
-        onDeleteRequest = { viewModel.deleteBorrowedItem(it.id) }
+        onDeleteRequest = { itemToDelete = it }
     )
 
     if (showAddDialog) {
@@ -119,6 +121,17 @@ fun BorrowedScreen(
             }
         )
     }
+
+    DeleteConfirmationDialog(
+        show = itemToDelete != null,
+        onDismiss = { itemToDelete = null },
+        onConfirm = {
+            itemToDelete?.let { viewModel.deleteBorrowedItem(it.id) }
+            itemToDelete = null
+        },
+        title = "Delete Borrowed Item",
+        message = "Are you sure you want to delete this borrowed item record?"
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

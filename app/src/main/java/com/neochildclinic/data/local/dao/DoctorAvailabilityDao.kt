@@ -30,10 +30,10 @@ interface DoctorAvailabilityDao {
 
     // ---- Date exceptions ----
 
-    @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId AND is_deleted = 0 ORDER BY exceptionDate DESC")
+    @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId ORDER BY exceptionDate DESC")
     fun getExceptionsForDoctor(doctorId: String): Flow<List<DoctorSlotExceptionEntity>>
 
-    @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId AND exceptionDate = :date AND is_deleted = 0")
+    @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId AND exceptionDate = :date")
     suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotExceptionEntity>
 
     @Query("SELECT * FROM doctor_slot_exceptions WHERE id = :id LIMIT 1")
@@ -42,6 +42,6 @@ interface DoctorAvailabilityDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertException(exception: DoctorSlotExceptionEntity)
 
-    @Query("UPDATE doctor_slot_exceptions SET is_deleted = 1, updated_at = :updatedAt, is_synced = 0, updated_by = :updatedBy WHERE id = :id")
-    suspend fun markExceptionDeleted(id: String, updatedAt: String, updatedBy: String?)
+    @Query("DELETE FROM doctor_slot_exceptions WHERE id = :id")
+    suspend fun deleteException(id: String)
 }

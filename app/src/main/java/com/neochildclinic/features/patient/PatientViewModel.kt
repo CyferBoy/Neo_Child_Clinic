@@ -197,6 +197,7 @@ class PatientViewModel @Inject constructor(
                 deletePatientUseCase(id)
                 onResult(true)
             } catch (e: Exception) {
+                android.util.Log.e("PatientVM", "Delete patient failed", e)
                 onResult(false)
             }
         }
@@ -223,6 +224,7 @@ class PatientViewModel @Inject constructor(
                 deleteVaccinationUseCase(id)
                 onResult(true)
             } catch (e: Exception) {
+                android.util.Log.e("PatientVM", "Delete vaccination failed", e)
                 onResult(false)
             }
         }
@@ -234,6 +236,7 @@ class PatientViewModel @Inject constructor(
                 consultationRepository.deleteConsultation(id)
                 onResult(true)
             } catch (e: Exception) {
+                android.util.Log.e("PatientVM", "Delete consultation failed", e)
                 onResult(false)
             }
         }

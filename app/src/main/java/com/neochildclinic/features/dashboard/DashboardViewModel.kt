@@ -359,8 +359,24 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun deleteConsultation(id: String) { viewModelScope.launch { patientTodoRepository.deleteConsultation(id) } }
-    fun deleteVaccination(id: String) { viewModelScope.launch { patientTodoRepository.deleteVaccination(id) } }
+    fun deleteConsultation(id: String) {
+        viewModelScope.launch {
+            try {
+                patientTodoRepository.deleteConsultation(id)
+            } catch (e: Exception) {
+                android.util.Log.e("DashboardVM", "Delete consultation failed", e)
+            }
+        }
+    }
+    fun deleteVaccination(id: String) {
+        viewModelScope.launch {
+            try {
+                patientTodoRepository.deleteVaccination(id)
+            } catch (e: Exception) {
+                android.util.Log.e("DashboardVM", "Delete vaccination failed", e)
+            }
+        }
+    }
 
     fun refresh() {
         if (_isRefreshing.value) return

@@ -39,7 +39,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 27,
+    version = 29,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -340,6 +340,17 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                // Remove soft delete: drop isDeleted column from expenses and
+                // is_deleted column from doctor_slot_exceptions, plus their indexes.
+                val migration27_28 = object : androidx.room.migration.Migration(27, 28) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("DROP INDEX IF EXISTS index_expenses_isDeleted")
+                        db.execSQL("ALTER TABLE expenses DROP COLUMN isDeleted")
+                        db.execSQL("DROP INDEX IF EXISTS index_doctor_slot_exceptions_isDeleted")
+                        db.execSQL("ALTER TABLE doctor_slot_exceptions DROP COLUMN is_deleted")
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -347,7 +358,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27)
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance

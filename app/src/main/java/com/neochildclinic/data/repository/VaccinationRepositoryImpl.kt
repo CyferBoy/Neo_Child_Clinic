@@ -106,7 +106,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                         }
 
                         val local = vaccinationDao.getVaccinationById(remote.id)
-                        if (local == null || local.isSynced) {
+                        if ((local == null || local.isSynced) && !database.syncQueueDao().isUnsynced("VACCINATION", remote.id)) {
                             vaccinationDao.insertVaccination(remote.copy(isSynced = true))
                             imported++
                         }
@@ -155,7 +155,10 @@ class VaccinationRepositoryImpl @Inject constructor(
             val totalItemsDownloaded = items.size
             var itemsImported = 0
             var itemsSkippedMissingVisit = 0
+            var itemsSkippedUnsyncedVisit = 0
             var itemsSkippedMissingCatalogRef = 0
+            var itemsHealed = 0
+            val acceptedByVisit = mutableMapOf<String, MutableSet<String>>()
 
             database.withTransaction {
                 for (remoteItem in items) {
@@ -163,6 +166,18 @@ class VaccinationRepositoryImpl @Inject constructor(
                     val visitExists = vaccinationDao.getVaccinationById(remoteItem.vaccinationId) != null
                     if (!visitExists) {
                         itemsSkippedMissingVisit++
+                        continue
+                    }
+
+                    // A visit with pending local changes is authoritative locally until it
+                    // has been pushed. Importing its remote items in that window resurrects
+                    // rows this device just deleted - e.g. a swapped-out vaccine, whose old
+                    // row is queued for DELETE but still present in the cloud copy - which is
+                    // why Edit Vaccination can end up showing both the old and the new
+                    // vaccine. Once the push lands, the remote copy no longer contains the
+                    // removed rows, so nothing is lost by skipping here.
+                    if (database.syncQueueDao().isUnsynced("VACCINATION", remoteItem.vaccinationId)) {
+                        itemsSkippedUnsyncedVisit++
                         continue
                     }
 
@@ -179,6 +194,23 @@ class VaccinationRepositoryImpl @Inject constructor(
 
                     vaccinationItemDao.insertItems(listOf(remoteItem))
                     itemsImported++
+                    acceptedByVisit.getOrPut(remoteItem.vaccinationId) { mutableSetOf() }.add(remoteItem.id)
+                }
+
+                // Self-heal: for visits whose local state is fully synced the remote item
+                // set is authoritative. A swapped-out vaccine that a previous pull
+                // resurrected while the DELETE was still queued (see the guard above) has no
+                // remote row anymore - drop the straggler.
+                for ((visitId, acceptedIds) in acceptedByVisit) {
+                    if (database.syncQueueDao().isUnsynced("VACCINATION", visitId)) continue
+                    val local = vaccinationItemDao.getItemsForVaccination(visitId).first()
+                    val resurrected = local.filter { it.id !in acceptedIds }
+                    if (resurrected.isEmpty()) continue
+                    vaccinationItemDao.deleteItemsForVaccination(visitId)
+                    vaccinationItemDao.insertItems(
+                        items.filter { it.vaccinationId == visitId && it.id in acceptedIds }
+                    )
+                    itemsHealed += resurrected.size
                 }
             }
 
@@ -187,7 +219,9 @@ class VaccinationRepositoryImpl @Inject constructor(
                 - Total Downloaded: $totalItemsDownloaded
                 - Successfully Imported: $itemsImported
                 - Skipped (Missing Visit Locally): $itemsSkippedMissingVisit
+                - Skipped (Visit Has Unsynced Local Changes): $itemsSkippedUnsyncedVisit
                 - Skipped (Missing Vaccine/Batch Locally): $itemsSkippedMissingCatalogRef
+                - Healed (Resurrected Rows Removed): $itemsHealed
             """.trimIndent())
         }
     }
@@ -296,7 +330,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             
             memoryCache.invalidateVaccination(id)
 
-            // Financial transactions are historical records and must remain after a clinical record is soft-deleted.
+            // Financial transactions are historical records and must remain after a clinical record is deleted.
             // 1. Identify batches used in this vaccination
             val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
             val user = sessionManager.getCurrentUserName()
@@ -326,7 +360,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             // fails with a foreign key violation (its originalVisitId no longer exists).
             val remindersForVisit = dueReminderDao.getRemindersByVisitId(id)
             for (reminder in remindersForVisit) {
-                dueReminderDao.softDeleteReminder(reminder.id)
+                dueReminderDao.deleteReminderById(reminder.id)
                 syncRepository.enqueue(
                     entityName = "REMINDERS",
                     entityId = reminder.id,

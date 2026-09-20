@@ -15,20 +15,19 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE id = :id LIMIT 1")
     suspend fun getExpenseById(id: String): ExpenseEntity?
 
-    @Query("SELECT * FROM expenses WHERE isDeleted = 0 ORDER BY expenseDate DESC")
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteExpense(id: String)
+
+    @Query("SELECT * FROM expenses ORDER BY expenseDate DESC")
     fun getAllExpenses(): Flow<List<ExpenseEntity>>
 
-    @Query("SELECT * FROM expenses WHERE isDeleted = 0")
+    @Query("SELECT * FROM expenses")
     suspend fun getAllExpensesSnapshot(): List<ExpenseEntity>
 
-    // List-screen filtering entirely in SQL (task section 15/5) - never loads the full
-    // table into memory. category/paymentMethod are matched against the enum name
-    // (see ExpenseEntity.category), null means "no filter for this field".
     @Query(
         """
         SELECT * FROM expenses
-        WHERE isDeleted = 0
-        AND (:category IS NULL OR category = :category)
+        WHERE (:category IS NULL OR category = :category)
         AND (:paymentMethod IS NULL OR paymentMethod = :paymentMethod)
         AND (:fromDate IS NULL OR expenseDate >= :fromDate)
         AND (:toDate IS NULL OR expenseDate <= :toDate)
@@ -52,6 +51,6 @@ interface ExpenseDao {
         offset: Int
     ): List<ExpenseEntity>
 
-    @Query("SELECT COUNT(*) FROM expenses WHERE isDeleted = 0")
+    @Query("SELECT COUNT(*) FROM expenses")
     fun getExpenseCount(): Flow<Int>
 }

@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.InventoryRepository
@@ -72,6 +73,7 @@ class VaccinationEditEngine @Inject constructor(
 
             if (inventoryChanged) {
                 applyInventoryDiff(original, updated, user)
+                reconcileInventoryDeductions(updated)
             }
 
             reconcileReminders(original.patientId, original.id, reminderSpecs, user, excludedReminderIds)
@@ -125,6 +127,27 @@ class VaccinationEditEngine @Inject constructor(
                     patientId = new.patientId
                 )
             }
+        }
+    }
+
+    // inventory_deductions is a local-only audit of what a visit took out of stock
+    // (see the create path in ClinicalVaccinationService). Edits never touched it, so a
+    // swapped-out batch left its old COMPLETED row behind and the patient's inventory
+    // dialog kept showing both the old and the new vaccine. Recreate the set from the
+    // final items whenever stock actually changed, mirroring the create-path rows.
+    private suspend fun reconcileInventoryDeductions(vaccination: Vaccination) {
+        database.inventoryDeductionDao().deleteForVaccination(vaccination.id)
+        vaccination.items.forEach { item ->
+            database.inventoryDeductionDao().insert(InventoryDeductionEntity(
+                vaccinationId = vaccination.id,
+                vaccineId = item.vaccineId,
+                vaccineName = item.vaccineName,
+                batchId = item.batchId,
+                quantity = item.quantity,
+                status = "COMPLETED",
+                errorMessage = null,
+                resolvedAt = System.currentTimeMillis()
+            ))
         }
     }
 

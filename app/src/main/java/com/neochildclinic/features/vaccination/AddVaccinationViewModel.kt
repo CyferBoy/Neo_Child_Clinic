@@ -531,22 +531,34 @@ class AddVaccinationViewModel @Inject constructor(
     }
 
     fun saveVaccination(
+        editGivenDate: Boolean = true,
+        editDoctor: Boolean = true,
         editVaccineBatch: Boolean = true,
-        editQuantity: Boolean = true
+        editQuantity: Boolean = true,
+        editNextVaccination: Boolean = true
     ) {
         val state = _uiState.value
         val patient = state.patient ?: return
 
-        if (state.selectedDoctor == null) {
-            _uiState.update { it.copy(doctorError = true, errorMessage = "Please select a doctor.") }
-            return
-        }
-        if (state.selectedSlot == null) {
-            _uiState.update { it.copy(slotError = true, errorMessage = "Please select an available slot.") }
-            return
-        }
-
         val isEdit = !state.existingVaccinationId.isNullOrBlank()
+        val editSchedule = editGivenDate || editDoctor
+
+        // Doctor + slot are only required when the schedule (date/doctor) is actually
+        // being edited. A payment-only edit must not fail because the recorded slot no
+        // longer resolves in the availability list, and when the Doctor checkbox stays
+        // off but the date is being edited the slot dropdown is shown while the doctor
+        // list is hidden - requiring a slot here is safe because the dropdown renders
+        // whenever editGivenDate is set (see AddVaccinationScreen).
+        if (!isEdit || editSchedule) {
+            if (state.selectedDoctor == null) {
+                _uiState.update { it.copy(doctorError = true, errorMessage = "Please select a doctor.") }
+                return
+            }
+            if (state.selectedSlot == null) {
+                _uiState.update { it.copy(slotError = true, errorMessage = "Please select an available slot.") }
+                return
+            }
+        }
 
         // Defense in depth: if this is an edit that isn't touching Vaccine & Batch, the save
         // path below relies on originalVaccinationItems (the persisted item snapshot from
@@ -572,52 +584,82 @@ class AddVaccinationViewModel @Inject constructor(
         var firstInvalidGroup: String? = null
         var firstInvalidItem: String? = null
 
-        nextGroups.forEach { group ->
-            if (group.dueDate.isBlank()) {
-                if (firstInvalidGroup == null) firstInvalidGroup = group.id
-            }
-            group.items.forEach { item ->
-                if (item.type.isBlank()) {
+        if (editNextVaccination) {
+            nextGroups.forEach { group ->
+                if (group.dueDate.isBlank()) {
                     if (firstInvalidGroup == null) firstInvalidGroup = group.id
-                    if (firstInvalidItem == null) firstInvalidItem = item.id
+                }
+                group.items.forEach { item ->
+                    if (item.type.isBlank()) {
+                        if (firstInvalidGroup == null) firstInvalidGroup = group.id
+                        if (firstInvalidItem == null) firstInvalidItem = item.id
+                    }
                 }
             }
-        }
 
-        if (firstInvalidGroup != null) {
-            _uiState.update { s ->
-                s.copy(
-                    errorMessage = "Each Next Vaccination entry requires a Type and Due Date.",
-                    nextVaccinationGroups = s.nextVaccinationGroups.map { g ->
-                        g.copy(items = g.items.map { it.copy(typeError = it.type.isBlank()) })
-                    }
-                )
+            if (firstInvalidGroup != null) {
+                _uiState.update { s ->
+                    s.copy(
+                        errorMessage = "Each Next Vaccination entry requires a Type and Due Date.",
+                        nextVaccinationGroups = s.nextVaccinationGroups.map { g ->
+                            g.copy(items = g.items.map { it.copy(typeError = it.type.isBlank()) })
+                        }
+                    )
+                }
+                return
             }
-            return
         }
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
             try {
-                // Revalidate (req. 17): another device may have changed this doctor's
-                // availability between loading slots and tapping Save.
-                val stillAvailable = getAvailableSlotsUseCase.isSlotStillAvailable(
-                    state.selectedDoctor.id, state.givenDate, state.selectedSlot.weeklySlotId
-                )
-                if (!stillAvailable) {
-                    _uiState.update { it.copy(isLoading = false, slotError = true, selectedSlot = null) }
-                    loadAvailableSlots()
-                    _uiState.update { it.copy(errorMessage = "That slot is no longer available. Please choose another.") }
-                    return@launch
-                }
-
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
                 val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
 
                 val existingVaccination = if (isEdit) {
                     vaccinationRepository.getVaccinationById(vaccinationId)
                 } else null
+
+                // Revalidate (req. 17): another device may have changed this doctor's
+                // availability between loading slots and tapping Save. Only meaningful
+                // when the schedule is edited (slot is guaranteed non-null there).
+                // Schedule section revalidation (req. 17) - only when the date/doctor is
+                // actually being edited (doctor + slot guaranteed non-null there).
+                if (!isEdit || editSchedule) {
+                    val stillAvailable = getAvailableSlotsUseCase.isSlotStillAvailable(
+                        state.selectedDoctor!!.id, state.givenDate, state.selectedSlot!!.weeklySlotId
+                    )
+                    if (!stillAvailable) {
+                        _uiState.update { it.copy(isLoading = false, slotError = true, selectedSlot = null) }
+                        loadAvailableSlots()
+                        _uiState.update { it.copy(errorMessage = "That slot is no longer available. Please choose another.") }
+                        return@launch
+                    }
+                }
+
+                // When the schedule section is untouched, carry the originally recorded
+                // doctor/slot through unchanged instead of diffing against a blanked
+                // selection - the original slot may not even be in the availability list
+                // anymore, and a payment-only edit must not rewrite the schedule.
+                val preserveOriginalSchedule = isEdit && !editSchedule
+                val doctorId = if (preserveOriginalSchedule) {
+                    (existingVaccination?.doctorId ?: "").ifBlank {
+                        state.selectedDoctor?.employeeId ?: state.selectedDoctor?.id ?: ""
+                    }
+                } else {
+                    state.selectedDoctor!!.employeeId ?: state.selectedDoctor!!.id
+                }
+                val performedBy = if (preserveOriginalSchedule) {
+                    existingVaccination?.performedBy ?: state.selectedDoctor?.displayName ?: ""
+                } else {
+                    state.selectedDoctor!!.displayName
+                }
+                val availabilitySlotId = if (preserveOriginalSchedule) {
+                    existingVaccination?.availabilitySlotId
+                } else {
+                    state.selectedSlot!!.weeklySlotId
+                }
 
                 val items = if (isEdit && !editVaccineBatch) {
                     originalVaccinationItems.mapIndexed { index, original ->
@@ -656,9 +698,9 @@ class AddVaccinationViewModel @Inject constructor(
                     totalPaid = state.totalAmount,
                     withFees = state.withFees,
                     doctorsAcc = state.doctorsAcc,
-                    doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
-                    performedBy = state.selectedDoctor.displayName,
-                    availabilitySlotId = state.selectedSlot.weeklySlotId,
+                    doctorId = doctorId,
+                    performedBy = performedBy,
+                    availabilitySlotId = availabilitySlotId,
                     items = items,
                     nextVaccinations = emptyList(),
                     status = com.neochildclinic.domain.model.ReminderStatus.COMPLETED

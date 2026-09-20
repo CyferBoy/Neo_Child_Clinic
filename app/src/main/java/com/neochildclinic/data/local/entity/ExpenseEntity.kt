@@ -12,8 +12,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * Completely separate table from vaccinations/consultations/inventory/finance_transactions
- * (task section 2, 20). Follows the same id/timestamp/soft-delete/accountability/sync
- * conventions already used elsewhere in this project (see PatientEntity, WasteEntity,
+ * (task section 2, 20). Follows the same id/timestamp/accountability/sync conventions
+ * already used elsewhere in this project (see PatientEntity, WasteEntity,
  * VaccineBatchEntity) rather than inventing a new convention:
  *  - id: client-generated UUID primary key (PatientEntity, WasteEntity, etc.)
  *  - created_by/updated_by: @ColumnInfo(name = "created_by"/"updated_by") snake_case,
@@ -21,9 +21,6 @@ import kotlinx.serialization.Serializable
  *    every other table.
  *  - createdAt/updatedAt: ISO-8601 strings via PatientUtils.getCurrentIsoTimestamp(),
  *    matching AuditLogEntity/InventoryTransactionEntity.
- *  - isDeleted: soft delete, matching the profiles.is_deleted convention (the app's only
- *    existing soft-delete precedent) - required here per task section 5/20 since expenses
- *    are financial/audit records that must not disappear from history once synced.
  *  - isSynced/syncedAt: offline-first sync bookkeeping, matching every other entity.
  *
  * amountPaise is a Long (integer paise, 1 rupee = 100 paise) - never Double/Float - per
@@ -38,8 +35,7 @@ import kotlinx.serialization.Serializable
         Index("expenseDate"),
         Index("category"),
         Index(name = "index_expenses_created_by", value = ["created_by"]),
-        Index("updatedAt"),
-        Index("isDeleted")
+        Index("updatedAt")
     ]
 )
 data class ExpenseEntity(
@@ -52,7 +48,6 @@ data class ExpenseEntity(
     @SerialName("payment_method") val paymentMethod: String,
     @SerialName("reference_number") val referenceNumber: String? = null,
     @SerialName("attachment_path") val attachmentPath: String? = null,
-    @SerialName("is_deleted") val isDeleted: Boolean = false,
     @SerialName("created_at") val createdAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("updated_at") val updatedAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
@@ -71,7 +66,6 @@ fun ExpenseEntity.toDomain() = Expense(
     paymentMethod = ExpensePaymentMethod.fromLabelOrName(paymentMethod),
     referenceNumber = referenceNumber,
     attachmentPath = attachmentPath,
-    isDeleted = isDeleted,
     createdBy = createdBy,
     updatedBy = updatedBy,
     createdAt = createdAt,
@@ -89,7 +83,6 @@ fun Expense.toEntity(isSynced: Boolean = false) = ExpenseEntity(
     paymentMethod = paymentMethod.name,
     referenceNumber = referenceNumber,
     attachmentPath = attachmentPath,
-    isDeleted = isDeleted,
     createdAt = createdAt ?: com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
     createdBy = createdBy,

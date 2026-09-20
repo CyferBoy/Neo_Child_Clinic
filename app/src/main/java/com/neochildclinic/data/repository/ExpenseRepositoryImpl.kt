@@ -97,22 +97,12 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun deleteExpense(id: String, user: String) {
         database.withTransaction {
             val existing = expenseDao.getExpenseById(id) ?: return@withTransaction
-            val userName = sessionManager.getCurrentUserName()
-            val updated = existing.copy(
-                isDeleted = true,
-                updatedBy = userName,
-                updatedAt = PatientUtils.getCurrentIsoTimestamp(),
-                isSynced = false
-            )
-            expenseDao.insertExpense(updated)
+            expenseDao.deleteExpense(id)
 
-            // Soft delete re-syncs as an UPDATE (is_deleted flips to true), not a DELETE -
-            // per task section 5/20, synchronized expense records are never physically
-            // removed. See ExpenseRepository.deleteExpense doc.
             syncRepository.enqueue(
                 entityName = "EXPENSE",
                 entityId = id,
-                operation = SyncOperation.UPDATE,
+                operation = SyncOperation.DELETE,
                 priority = SyncPriority.MEDIUM
             )
 
@@ -121,7 +111,7 @@ class ExpenseRepositoryImpl @Inject constructor(
                 entityType = "EXPENSE",
                 entityId = id,
                 action = "EXPENSE_DELETED",
-                remarks = "${existing.title} (${existing.category}) soft-deleted"
+                remarks = "${existing.title} (${existing.category}) deleted"
             )
         }
     }
