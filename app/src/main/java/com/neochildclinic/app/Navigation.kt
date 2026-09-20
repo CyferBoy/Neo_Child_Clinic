@@ -99,7 +99,7 @@ fun AppNavigation(
     if (startDest == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Image(
-                painter = painterResource(id = com.neochildclinic.R.drawable.logo),
+                painter = painterResource(id = com.neochildclinic.R.drawable.app_logo),
                 contentDescription = "Clinic Logo",
                 modifier = Modifier.size(140.dp)
             )
