@@ -282,7 +282,7 @@ private fun StatisticsTabContent(
 ) {
     when (selectedTab) {
         0 -> OverviewTab(patients, vaccinations, financeTransactions, onFullReportClick = onFullReportClick)
-        1 -> PatientsTab(patients, onMilestoneClick)
+        1 -> PatientsTab(patients, vaccinations, onMilestoneClick)
         2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory, onVaccineTypeClick = onVaccineTypeClick)
         3 -> FinanceTab(vaccinations, financeTransactions, expenses, onMonthClick)
         4 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

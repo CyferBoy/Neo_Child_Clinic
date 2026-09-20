@@ -22,7 +22,6 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.core.utils.PatientUtils
 import java.util.*
 
 @Composable
@@ -44,9 +43,14 @@ fun OverviewTab(
         )
     }
 
-    // Current period data
-    val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
-        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", filterMode, fyQuarter, selectedMonth) }
+    // Pre-compute effective registration dates for all patients
+    val effectiveRegDates = remember(patients, vaccinations) {
+        StatisticsDateUtils.computeEffectiveRegistrationDates(patients, StatisticsUtils.filterValidVaccinations(vaccinations))
+    }
+
+    // Current period data — patients use effective registration date
+    val filteredPatients = remember(patients, effectiveRegDates, filterMode, fyQuarter, selectedMonth) {
+        patients.filter { StatisticsUtils.isEffectiveDateInFilter(effectiveRegDates[it.id], filterMode, fyQuarter, selectedMonth) }
     }
     val filteredVaccinations = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
@@ -60,8 +64,8 @@ fun OverviewTab(
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
     }
-    val prevPatients = remember(patients, prevFilter, prevQuarter, prevMonth, isOverall) {
-        if (isOverall) emptyList() else patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", prevFilter, prevQuarter, prevMonth) }
+    val prevPatients = remember(patients, effectiveRegDates, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) emptyList() else patients.filter { StatisticsUtils.isEffectiveDateInFilter(effectiveRegDates[it.id], prevFilter, prevQuarter, prevMonth) }
     }
     val prevVaccinations = remember(vaccinations, prevFilter, prevQuarter, prevMonth, isOverall) {
         if (isOverall) emptyList() else StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) }
@@ -82,34 +86,30 @@ fun OverviewTab(
     }
 
     val patientActivityData = remember(patients, vaccinations, financeTransactions, allValidVaccinations, filterMode, fyQuarter, selectedMonth) {
-        val cal = Calendar.getInstance()
+        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
         val months = (0 until 6).reversed().map { monthOffset ->
-            val tempCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -monthOffset) }
-            val key = tempCal.get(Calendar.YEAR) * 12 + tempCal.get(Calendar.MONTH)
-            key to StatisticsUtils.monthNames[tempCal.get(Calendar.MONTH)]
+            var m = curMonth - monthOffset
+            var y = curYear
+            while (m < 0) { m += 12; y -= 1 }
+            val key = y * 12 + m
+            key to StatisticsUtils.monthNames[m]
         }
         val monthKeys = months.map { it.first }.toSet()
 
-        fun yearMonthKey(dateStr: String): Int? {
-            val d = PatientUtils.parseDate(dateStr) ?: return null
-            val c = Calendar.getInstance().apply { time = d }
-            return c.get(Calendar.YEAR) * 12 + c.get(Calendar.MONTH)
-        }
-
         val patientCounts = patients.asSequence()
-            .mapNotNull { yearMonthKey(it.registrationDate ?: "") }
+            .mapNotNull { effectiveRegDates[it.id]?.let { ed -> ed.year * 12 + (ed.monthValue - 1) } }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
         val consultationCounts = allValidVaccinations.asSequence()
             .filter { it.visitType.equals("CONSULTATION", ignoreCase = true) }
-            .mapNotNull { yearMonthKey(it.dateGiven) }
+            .mapNotNull { StatisticsDateUtils.monthKeyIST(it.dateGiven) }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
         val vaccinationCounts = allValidVaccinations.asSequence()
             .filter { it.visitType.equals("VACCINATION", ignoreCase = true) }
-            .mapNotNull { yearMonthKey(it.dateGiven) }
+            .mapNotNull { StatisticsDateUtils.monthKeyIST(it.dateGiven) }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
@@ -124,25 +124,21 @@ fun OverviewTab(
 
     // Quick Overview Chart Data — Financial Trend (last 6 months, filter-aware)
     val financialTrendData = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
-        val cal = Calendar.getInstance()
+        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
         val months = (0 until 6).reversed().map { monthOffset ->
-            val tempCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -monthOffset) }
-            val key = tempCal.get(Calendar.YEAR) * 12 + tempCal.get(Calendar.MONTH)
-            key to StatisticsUtils.monthNames[tempCal.get(Calendar.MONTH)]
+            var m = curMonth - monthOffset
+            var y = curYear
+            while (m < 0) { m += 12; y -= 1 }
+            val key = y * 12 + m
+            key to StatisticsUtils.monthNames[m]
         }
         val monthKeys = months.map { it.first }.toSet()
-
-        fun yearMonthKey(dateStr: String): Int? {
-            val d = PatientUtils.parseDate(dateStr) ?: return null
-            val c = Calendar.getInstance().apply { time = d }
-            return c.get(Calendar.YEAR) * 12 + c.get(Calendar.MONTH)
-        }
 
         data class MonthFinance(val revenue: Double, val cash: Double, val online: Double)
 
         val financeByMonth = mutableMapOf<Int, MonthFinance>()
         financeTransactions.forEach { tx ->
-            val key = yearMonthKey(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
+            val key = StatisticsDateUtils.monthKeyIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
             if (key !in monthKeys) return@forEach
             if (!tx.type.equals("INCOME", true)) return@forEach
             val existing = financeByMonth.getOrDefault(key, MonthFinance(0.0, 0.0, 0.0))

@@ -17,39 +17,52 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.PatientUtils
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalDate
 
 @Composable
-fun PatientsTab(patients: List<Patient>, onMilestoneClick: (String) -> Unit = {}) {
+fun PatientsTab(patients: List<Patient>, allVisits: List<Vaccination>, onMilestoneClick: (String) -> Unit = {}) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
-    val availableYears = remember(patients) { StatisticsUtils.getAvailableFinancialYears(patients.map { it.registrationDate ?: "" }) }
-    
-    // Current period
-    val filteredPatients = remember(patients, filterMode, fyQuarter, selectedMonth) {
-        patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", filterMode, fyQuarter, selectedMonth) }
+
+    val effectiveRegDates = remember(patients, allVisits) {
+        StatisticsDateUtils.computeEffectiveRegistrationDates(patients, allVisits)
     }
-    
-    // Previous period
+
+    val availableYears = remember(effectiveRegDates) {
+        StatisticsUtils.getAvailableFinancialYears(
+            effectiveRegDates.values.filterNotNull().map { StatisticsDateUtils.formatDateIST(it) }
+        )
+    }
+
+    val filteredPatients = remember(patients, effectiveRegDates, filterMode, fyQuarter, selectedMonth) {
+        patients.filter {
+            StatisticsUtils.isEffectiveDateInFilter(effectiveRegDates[it.id], filterMode, fyQuarter, selectedMonth)
+        }
+    }
+
     val isOverall = filterMode == "Overall"
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
     }
-    val prevPatients = remember(patients, prevFilter, prevQuarter, prevMonth, isOverall) {
-        if (isOverall) emptyList() else patients.filter { StatisticsUtils.isDateInFilter(it.registrationDate ?: "", prevFilter, prevQuarter, prevMonth) }
+    val prevPatients = remember(patients, effectiveRegDates, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) emptyList() else patients.filter {
+            StatisticsUtils.isEffectiveDateInFilter(effectiveRegDates[it.id], prevFilter, prevQuarter, prevMonth)
+        }
     }
 
-    val patientStats = remember(filteredPatients, patients) { calculatePatientStats(filteredPatients, patients) }
-    val prevPatientStats = remember(prevPatients, patients) { calculatePatientStats(prevPatients, patients) }
+    val patientStats = remember(filteredPatients, patients, effectiveRegDates) {
+        calculatePatientStats(filteredPatients, patients, effectiveRegDates)
+    }
+    val prevPatientStats = remember(prevPatients, patients, effectiveRegDates) {
+        calculatePatientStats(prevPatients, patients, effectiveRegDates)
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(16.dp)) {
         FilterSection(
@@ -63,7 +76,7 @@ fun PatientsTab(patients: List<Patient>, onMilestoneClick: (String) -> Unit = {}
             onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
             onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } }
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
         PatientsContent(
             patients = filteredPatients,
@@ -110,9 +123,9 @@ private fun PatientsContent(
                 growthPercentage = StatisticsUtils.calculateGrowth(stats.newPatientsInPeriod.toDouble(), prevStats.newPatientsInPeriod.toDouble())
             )
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         SummaryCard(
             modifier = Modifier.fillMaxWidth(),
             title = "Registered Today",
@@ -123,7 +136,7 @@ private fun PatientsContent(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         GenderDistributionCard(stats = stats)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -161,7 +174,6 @@ private fun SimpleGenderChart(stats: PatientAnalyticsData) {
     }
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        // Simple visualization
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             GenderLegendItem("Male", stats.maleCount, Color(0xFF2196F3), total)
             GenderLegendItem("Female", stats.femaleCount, Color(0xFFE91E63), total)
@@ -186,7 +198,7 @@ private fun GenderLegendItem(label: String, count: Int, color: Color, total: Flo
 private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: Int) {
     Text("Age Group Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(16.dp))
-    
+
     ageGroups.forEach { (label, count) ->
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -208,16 +220,9 @@ private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: I
 
 @Composable
 private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneClick: (String) -> Unit) {
-    val today = remember { Calendar.getInstance() }
-    val windowEnd = remember { Calendar.getInstance().apply { add(Calendar.MONTH, 2) } }
+    val today = StatisticsDateUtils.todayIST()
+    val windowEnd = (today.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH, 2) }
 
-    // Every patient contributes to at most one card. Patients with an upcoming milestone in
-    // the 2-month window get their single next milestone via PatientUtils.getNextAgeMilestone()
-    // (so "16-17 Months" naturally stays one combined bucket). getNextAgeMilestone() only
-    // looks ahead, so it correctly returns null for patients already past the last defined
-    // milestone (18 Months) too - those patients fall into the separate "Older" bucket
-    // instead, using the 19-month threshold to avoid double-counting anyone still within
-    // the 18-month window.
     val counts = remember(patients) {
         val map = mutableMapOf<String, Int>()
         patients.forEach { patient ->
@@ -244,7 +249,6 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneCli
                     onClick = { onMilestoneClick(key) }
                 )
             }
-            // Keep card widths consistent on the final, shorter row.
             repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -396,18 +400,20 @@ private data class PatientAnalyticsData(
     val ageGroups: Map<String, Int>
 )
 
-private fun calculatePatientStats(patients: List<Patient>, allPatients: List<Patient>): PatientAnalyticsData {
-    val todayStr = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
+private fun calculatePatientStats(patients: List<Patient>, allPatients: List<Patient>, effectiveRegDates: Map<String, LocalDate?>): PatientAnalyticsData {
+    val todayIST = StatisticsDateUtils.todayISTString()
 
     var male = 0
     var female = 0
     var other = 0
     var unknown = 0
-    
+
     val ageMap = mutableMapOf(
         "0-6 Weeks" to 0, ">6-14 Weeks" to 0, ">14 Weeks-9 Months" to 0,
         ">9-18 Months" to 0, ">18m-5y" to 0, "Above 5y" to 0, "Invalid / Unknown" to 0
     )
+
+    val todayCal = StatisticsDateUtils.todayIST()
 
     patients.forEach { p ->
         when {
@@ -421,29 +427,32 @@ private fun calculatePatientStats(patients: List<Patient>, allPatients: List<Pat
         if (dob == null) {
             ageMap["Invalid / Unknown"] = ageMap["Invalid / Unknown"]!! + 1
         } else {
-            val dobCal = Calendar.getInstance().apply { time = dob }
-            val now = Calendar.getInstance()
-            if (dobCal.after(now)) {
+            val dobCal = java.util.Calendar.getInstance().apply { time = dob }
+            if (dobCal.after(todayCal)) {
                 ageMap["Invalid / Unknown"] = ageMap["Invalid / Unknown"]!! + 1
             } else {
-                val sixWeeks = (dobCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 42) }
-                val fourteenWeeks = (dobCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 98) }
-                val nineMonths = (dobCal.clone() as Calendar).apply { add(Calendar.MONTH, 9) }
-                val eighteenMonths = (dobCal.clone() as Calendar).apply { add(Calendar.MONTH, 18) }
-                val fiveYears = (dobCal.clone() as Calendar).apply { add(Calendar.YEAR, 5) }
+                val sixWeeks = (dobCal.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, 42) }
+                val fourteenWeeks = (dobCal.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, 98) }
+                val nineMonths = (dobCal.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH, 9) }
+                val eighteenMonths = (dobCal.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH, 18) }
+                val fiveYears = (dobCal.clone() as java.util.Calendar).apply { add(java.util.Calendar.YEAR, 5) }
                 when {
-                    !now.after(sixWeeks) -> ageMap["0-6 Weeks"] = ageMap["0-6 Weeks"]!! + 1
-                    !now.after(fourteenWeeks) -> ageMap[">6-14 Weeks"] = ageMap[">6-14 Weeks"]!! + 1
-                    !now.after(nineMonths) -> ageMap[">14 Weeks-9 Months"] = ageMap[">14 Weeks-9 Months"]!! + 1
-                    !now.after(eighteenMonths) -> ageMap[">9-18 Months"] = ageMap[">9-18 Months"]!! + 1
-                    !now.after(fiveYears) -> ageMap[">18m-5y"] = ageMap[">18m-5y"]!! + 1
+                    !todayCal.after(sixWeeks) -> ageMap["0-6 Weeks"] = ageMap["0-6 Weeks"]!! + 1
+                    !todayCal.after(fourteenWeeks) -> ageMap[">6-14 Weeks"] = ageMap[">6-14 Weeks"]!! + 1
+                    !todayCal.after(nineMonths) -> ageMap[">14 Weeks-9 Months"] = ageMap[">14 Weeks-9 Months"]!! + 1
+                    !todayCal.after(eighteenMonths) -> ageMap[">9-18 Months"] = ageMap[">9-18 Months"]!! + 1
+                    !todayCal.after(fiveYears) -> ageMap[">18m-5y"] = ageMap[">18m-5y"]!! + 1
                     else -> ageMap["Above 5y"] = ageMap["Above 5y"]!! + 1
                 }
             }
         }
     }
 
-    val newTodayAll = allPatients.count { it.registrationDate == todayStr }
+    // "Registered Today" uses effective registration date in IST
+    val newTodayAll = allPatients.count { effDate ->
+        val ed = effectiveRegDates[effDate.id]
+        ed != null && StatisticsDateUtils.formatDateIST(ed) == todayIST
+    }
     val inPeriod = patients.size
 
     return PatientAnalyticsData(newTodayAll, inPeriod, male, female, other, unknown, ageMap)

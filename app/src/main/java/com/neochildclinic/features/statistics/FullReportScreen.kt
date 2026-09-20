@@ -28,6 +28,7 @@ fun FullReportScreen(
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
+    var chartMode by rememberSaveable { mutableStateOf(ChartMode.BAR) }
 
     LaunchedEffect(filterMode, fyQuarter, selectedMonth) {
         viewModel.updateFilter(filterMode, fyQuarter, selectedMonth)
@@ -70,6 +71,16 @@ fun FullReportScreen(
                 }
 
                 item {
+                    ChartModeToggle(
+                        chartMode = chartMode,
+                        onModeSelected = {
+                            chartMode = it
+                            viewModel.setChartMode(it)
+                        }
+                    )
+                }
+
+                item {
                     if (uiState.isLoading) {
                         Column {
                             SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 280.dp)
@@ -80,42 +91,61 @@ fun FullReportScreen(
                         }
                     } else {
                         val labels = uiState.dataPoints.map { it.label }
+                        val isLine = chartMode == ChartMode.LINE
                         Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
                             BarLineChart(
-                                title = "Patient Activity — ${uiState.periodLabel}",
+                                title = "Patient Activity \u2014 ${uiState.periodLabel}",
                                 labels = labels,
                                 series = listOf(
-                                    BarLineSeries("Patients", uiState.dataPoints.map { it.patients }, ChartPatients),
-                                    BarLineSeries("Consultations", uiState.dataPoints.map { it.consultations }, ChartConsultations),
-                                    BarLineSeries("Vaccinations", uiState.dataPoints.map { it.vaccinations }, ChartVaccinations, isLine = true)
+                                    BarLineSeries("Patients", uiState.dataPoints.map { it.patients }, ChartPatients, isLine = isLine),
+                                    BarLineSeries("Consultations", uiState.dataPoints.map { it.consultations }, ChartConsultations, isLine = isLine),
+                                    BarLineSeries("Vaccinations", uiState.dataPoints.map { it.vaccinations }, ChartVaccinations, isLine = isLine)
                                 )
                             )
 
                             BarLineChart(
-                                title = "Financial Overview — ${uiState.periodLabel}",
+                                title = "Financial Overview \u2014 ${uiState.periodLabel}",
                                 labels = labels,
                                 series = listOf(
-                                    BarLineSeries("Revenue", uiState.dataPoints.map { it.revenue }, ChartRevenue),
-                                    BarLineSeries("Online", uiState.dataPoints.map { it.online }, ChartOnline),
-                                    BarLineSeries("Cash", uiState.dataPoints.map { it.cash }, ChartCash),
-                                    BarLineSeries("Net Profit", uiState.dataPoints.map { it.netProfit }, ChartNetProfit, isLine = true)
+                                    BarLineSeries("Revenue", uiState.dataPoints.map { it.revenue }, ChartRevenue, isLine = isLine),
+                                    BarLineSeries("Online", uiState.dataPoints.map { it.online }, ChartOnline, isLine = isLine),
+                                    BarLineSeries("Cash", uiState.dataPoints.map { it.cash }, ChartCash, isLine = isLine),
+                                    BarLineSeries("Net Profit", uiState.dataPoints.map { it.netProfit }, ChartNetProfit, isLine = isLine)
                                 )
                             )
 
                             BarLineChart(
-                                title = "Financial Breakdown — ${uiState.periodLabel}",
+                                title = "Financial Breakdown \u2014 ${uiState.periodLabel}",
                                 labels = labels,
                                 series = listOf(
-                                    BarLineSeries("Revenue", uiState.dataPoints.map { it.revenue }, ChartRevenue),
-                                    BarLineSeries("COGS", uiState.dataPoints.map { it.cogs }, ChartCOGS),
-                                    BarLineSeries("Expenses", uiState.dataPoints.map { it.expenses }, ChartExpenses),
-                                    BarLineSeries("Net Profit", uiState.dataPoints.map { it.netProfit }, ChartNetProfit, isLine = true)
+                                    BarLineSeries("Revenue", uiState.dataPoints.map { it.revenue }, ChartRevenue, isLine = isLine),
+                                    BarLineSeries("COGS", uiState.dataPoints.map { it.cogs }, ChartCOGS, isLine = isLine),
+                                    BarLineSeries("Expenses", uiState.dataPoints.map { it.expenses }, ChartExpenses, isLine = isLine),
+                                    BarLineSeries("Net Profit", uiState.dataPoints.map { it.netProfit }, ChartNetProfit, isLine = isLine)
                                 )
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ChartModeToggle(
+    chartMode: ChartMode,
+    onModeSelected: (ChartMode) -> Unit
+) {
+    val options = listOf("Bar" to ChartMode.BAR, "Line" to ChartMode.LINE)
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (label, mode) ->
+            SegmentedButton(
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                onClick = { onModeSelected(mode) },
+                selected = chartMode == mode,
+                label = { Text(label) }
+            )
         }
     }
 }
