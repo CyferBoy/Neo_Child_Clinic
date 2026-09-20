@@ -82,12 +82,13 @@ class BorrowRepositoryImpl @Inject constructor(
                 priority = SyncPriority.MEDIUM
             )
 
+            val vaccineName = inventoryRepository.getVaccineById(finalItem.vaccineId)?.let { "${it.type} (${it.brandName})" } ?: finalItem.vaccineId
             auditLogger.log(
                 module = "INVENTORY",
                 entityType = "BORROW",
                 entityId = entity.id,
                 action = if (isNew) "BORROW_CREATED" else "BORROW_UPDATED",
-                remarks = "${finalItem.vaccineName} x${finalItem.quantity}"
+                remarks = "$vaccineName x${finalItem.quantity}"
             )
         }
     }

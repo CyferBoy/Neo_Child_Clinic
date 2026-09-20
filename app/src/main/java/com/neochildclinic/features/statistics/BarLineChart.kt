@@ -80,8 +80,8 @@ fun BarLineChart(
             }
         }
 
-        val barSeries = series.filter { !s -> s.isLine }
-        val lineSeries = series.filter { s -> s.isLine }
+        val barSeries = series.filter { !it.isLine }
+        val lineSeries = series.filter { it.isLine }
         val allValues = series.flatMap { it.values }
         val maxVal = allValues.maxOrNull()?.coerceAtLeast(0.01f) ?: 1f
         val barCount = barSeries.size

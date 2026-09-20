@@ -54,7 +54,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             entityType = "PERSONAL_REMINDER",
             entityId = reminder.id,
             action = "CREATED",
-            remarks = reminder.title
+            remarks = "${reminder.patientName} - ${reminder.vaccineLabel ?: "Other"}"
         )
     }
 
@@ -73,7 +73,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             entityType = "PERSONAL_REMINDER",
             entityId = reminder.id,
             action = "UPDATED",
-            remarks = reminder.title
+            remarks = "${reminder.patientName} - ${reminder.vaccineLabel ?: "Other"}"
         )
     }
 
@@ -108,7 +108,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             entityType = "PERSONAL_REMINDER",
             entityId = id,
             action = "COMPLETED",
-            remarks = existing.title
+            remarks = "${existing.patientName} - ${existing.vaccineLabel ?: "Other"}"
         )
     }
 
@@ -131,7 +131,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             entityType = "PERSONAL_REMINDER",
             entityId = id,
             action = "CANCELLED",
-            remarks = existing.title
+            remarks = "${existing.patientName} - ${existing.vaccineLabel ?: "Other"}"
         )
     }
 
@@ -152,7 +152,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             entityType = "PERSONAL_REMINDER",
             entityId = id,
             action = status.name,
-            remarks = existing.title
+            remarks = "${existing.patientName} - ${existing.vaccineLabel ?: "Other"}"
         )
     }
 
@@ -165,7 +165,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
             entityType = "PERSONAL_REMINDER",
             entityId = id,
             action = "DELETED",
-            remarks = existing?.title
+            remarks = existing?.let { "${it.patientName} - ${it.vaccineLabel ?: "Other"}" }
         )
     }
 

@@ -70,16 +70,16 @@ fun OverviewTab(
         if (isOverall) emptyList() else financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
     }
 
+    // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)
+    val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
+
     val currentFinanceStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
         FinanceCalculator.calculateFinanceStats(filteredTransactions, allValidVaccinations, financeTransactions, filteredVaccinations)
     }
     val prevFinanceStats = remember(prevTransactions, allValidVaccinations, prevVaccinations, isOverall) {
-        if (isOverall) FinanceStatsData(totalRevenue = 0.0)
+        if (isOverall) FinanceStatsData(totalRevenue = 0.0, cashTotal = 0.0, onlineTotal = 0.0, totalExpenses = 0.0, vaccineCost = 0.0, grossProfit = 0.0, netProfit = 0.0)
         else FinanceCalculator.calculateFinanceStats(prevTransactions, allValidVaccinations, financeTransactions, prevVaccinations)
     }
-
-    // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)
-    val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
 
     val patientActivityData = remember(patients, vaccinations, financeTransactions, allValidVaccinations, filterMode, fyQuarter, selectedMonth) {
         val cal = Calendar.getInstance()
