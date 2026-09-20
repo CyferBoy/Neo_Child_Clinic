@@ -61,6 +61,7 @@ fun FullReportScreen(
             ) {
                 item {
                     FullReportFilterSection(
+                        availableYears = uiState.availableFinancialYears,
                         filterMode = filterMode,
                         fyQuarter = fyQuarter,
                         selectedMonth = selectedMonth,
@@ -153,6 +154,7 @@ private fun ChartModeToggle(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullReportFilterSection(
+    availableYears: List<String>,
     filterMode: String,
     fyQuarter: Int,
     selectedMonth: Int,
@@ -187,7 +189,7 @@ private fun FullReportFilterSection(
             )
             ExposedDropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
                 DropdownMenuItem(text = { Text("Overall") }, onClick = { onFilterModeChange("Overall"); yearExpanded = false })
-                val years = listOf("25-26", "24-25", "23-24")
+                val years = availableYears
                 years.forEach { year ->
                     DropdownMenuItem(text = { Text("20$year") }, onClick = { onFilterModeChange("FY $year"); yearExpanded = false })
                 }

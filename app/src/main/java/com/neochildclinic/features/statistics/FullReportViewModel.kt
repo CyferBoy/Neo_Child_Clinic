@@ -39,7 +39,8 @@ data class FullReportUiState(
     val isRefreshing: Boolean = false,
     val isDaily: Boolean = false,
     val periodLabel: String = "",
-    val chartMode: ChartMode = ChartMode.BAR
+    val chartMode: ChartMode = ChartMode.BAR,
+    val availableFinancialYears: List<String> = emptyList()
 )
 
 @HiltViewModel
@@ -125,10 +126,16 @@ class FullReportViewModel @Inject constructor(
         val validVaccinations = StatisticsUtils.filterValidVaccinations(vaccinations)
         val isDaily = filterMode != "Overall" && fyQuarter != 0 && selectedMonth != -1
 
+        val allDates = patients.mapNotNull { it.registrationDate } +
+                validVaccinations.map { it.dateGiven } +
+                transactions.map { FinanceCalculator.resolveReportingDate(it) } +
+                expenses.map { it.expenseDate }
+        val availableYears = StatisticsUtils.getAvailableFinancialYears(allDates).sorted().reversed()
+
         return if (isDaily) {
-            computeDaily(patients, validVaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode)
+            computeDaily(patients, validVaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode, availableYears)
         } else {
-            computeMonthly(patients, validVaccinations, transactions, expenses, filterMode, fyQuarter, chartMode)
+            computeMonthly(patients, validVaccinations, transactions, expenses, filterMode, fyQuarter, chartMode, availableYears)
         }
     }
 
@@ -139,7 +146,8 @@ class FullReportViewModel @Inject constructor(
         expenses: List<Expense>,
         filterMode: String,
         fyQuarter: Int,
-        chartMode: ChartMode
+        chartMode: ChartMode,
+        availableYears: List<String>
     ): FullReportUiState {
         val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, validVaccinations)
 
@@ -231,7 +239,7 @@ class FullReportViewModel @Inject constructor(
             )
         }
 
-        return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = false, periodLabel = periodLabel, chartMode = chartMode)
+        return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = false, periodLabel = periodLabel, chartMode = chartMode, availableFinancialYears = availableYears)
     }
 
     private fun computeDaily(
@@ -242,7 +250,8 @@ class FullReportViewModel @Inject constructor(
         filterMode: String,
         fyQuarter: Int,
         selectedMonth: Int,
-        chartMode: ChartMode
+        chartMode: ChartMode,
+        availableYears: List<String>
     ): FullReportUiState {
         val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, validVaccinations)
 
@@ -317,6 +326,6 @@ class FullReportViewModel @Inject constructor(
             )
         }
 
-        return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = true, periodLabel = "$monthName $targetYear (Daily)", chartMode = chartMode)
+        return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = true, periodLabel = "$monthName $targetYear (Daily)", chartMode = chartMode, availableFinancialYears = availableYears)
     }
 }
