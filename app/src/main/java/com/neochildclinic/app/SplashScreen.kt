@@ -184,24 +184,18 @@ private fun SplashScreenTexts(
             right = nameLayoutWidth * nameClipProgress.coerceIn(0f, 1f),
             bottom = textHeight + arcMaxOffset
         ) {
-            nameResult.multiPara.forEach { paragraph ->
-                var charX = nameStartX
-                for (i in paragraph.runs.indices) {
-                    val run = paragraph.runs[i]
-                    val runText = run.text
-                    for (ch in runText) {
-                        val charResult = nameMeasurer.measure(ch.toString(), nameStyle)
-                        val charWidth = charResult.size.width.toFloat()
-                        val normalizedPos = if (nameWidth > 0f) (charX - nameStartX) / nameWidth else 0f
-                        val yOffset = 4f * arcMaxOffset * (normalizedPos - 0.5f) * (normalizedPos - 0.5f) - arcMaxOffset
+            var charX = nameStartX
+            for (ch in nameText) {
+                val charResult = nameMeasurer.measure(ch.toString(), nameStyle)
+                val charWidth = charResult.size.width.toFloat()
+                val normalizedPos = if (nameWidth > 0f) (charX - nameStartX) / nameWidth else 0f
+                val yOffset = 4f * arcMaxOffset * (normalizedPos - 0.5f) * (normalizedPos - 0.5f) - arcMaxOffset
 
-                        drawText(
-                            textLayoutResult = charResult,
-                            topLeft = Offset(charX, yOffset)
-                        )
-                        charX += charWidth
-                    }
-                }
+                drawText(
+                    textLayoutResult = charResult,
+                    topLeft = Offset(charX, yOffset)
+                )
+                charX += charWidth
             }
         }
 
