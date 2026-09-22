@@ -86,7 +86,19 @@ android {
     }
 }
 
+// Print full lint text report on CI when lintDebug fails (no workflow-scope PAT for workflow edits).
+tasks.matching { it.name == "lintDebug" || it.name == "lint" }.configureEach {
+    doLast {
+        val reports = fileTree(layout.buildDirectory) { include("**/lint-results*.txt") }
+        if (!reports.isEmpty) {
+            println("===== FULL LINT TEXT REPORT =====")
+            reports.forEach { println(it.readText()) }
+        }
+    }
+}
+
 dependencies {
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
