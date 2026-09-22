@@ -23,14 +23,14 @@ internal fun Calendar.toLocalDate(): LocalDate =
 
 internal fun Calendar.startOfDay(): Calendar {
     val zone = timeZone.toZoneId()
-    return Calendar.from(toInstant().atZone(zone).toLocalDate().atStartOfDay(zone))
+    val zdt = toInstant().atZone(zone).toLocalDate().atStartOfDay(zone)
+    return Calendar.getInstance(timeZone).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
 }
 
 internal fun Calendar.endOfDay(): Calendar {
     val zone = timeZone.toZoneId()
-    return Calendar.from(
-        toInstant().atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).minusNanos(1)
-    )
+    val zdt = toInstant().atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).minusNanos(1)
+    return Calendar.getInstance(timeZone).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
 }
 
 object PatientUtils {
@@ -78,7 +78,12 @@ object PatientUtils {
         return definitions.mapNotNull { (label, calculator) ->
             val date = calculator(birth)
             if (date.isAfter(start) && !date.isAfter(end)) {
-                AgeMilestone(label, Calendar.from(date.atStartOfDay(ZoneId.systemDefault())))
+                AgeMilestone(
+                    label,
+                    Calendar.getInstance().apply {
+                        timeInMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    }
+                )
             } else {
                 null
             }
