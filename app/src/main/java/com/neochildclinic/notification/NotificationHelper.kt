@@ -81,6 +81,14 @@ class NotificationHelper @Inject constructor(
         }
     }
 
+    private fun notify(id: Int, notification: android.app.Notification) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        try {
+            NotificationManagerCompat.from(context).notify(id, notification)
+        } catch (_: SecurityException) {
+        }
+    }
+
     fun showDailySummary(dueToday: Int, overdue: Int, lowStock: Int) {
         if (dueToday == 0 && overdue == 0 && lowStock == 0) return
 
@@ -110,7 +118,7 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        NotificationManagerCompat.from(context).notify(SUMMARY_ID, builder.build())
+        notify(SUMMARY_ID, builder.build())
     }
 
     fun showLowStockAlert(vaccineName: String, remaining: Int) {
@@ -133,7 +141,7 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        NotificationManagerCompat.from(context).notify(vaccineName.hashCode(), builder.build())
+        notify(vaccineName.hashCode(), builder.build())
     }
 
     fun showSyncAlert(error: String) {
@@ -144,7 +152,7 @@ class NotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
 
-        NotificationManagerCompat.from(context).notify(SYNC_ALERT_ID, builder.build())
+        notify(SYNC_ALERT_ID, builder.build())
     }
 
 
@@ -169,7 +177,7 @@ class NotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-        NotificationManagerCompat.from(context).notify(PERSONAL_REMINDER_BASE_ID + (id.hashCode() and 0x7fffffff) % 100000, builder.build())
+        notify(PERSONAL_REMINDER_BASE_ID + (id.hashCode() and 0x7fffffff) % 100000, builder.build())
     }
 
     fun showUpdateNotification(versionName: String, mandatory: Boolean) {
@@ -200,7 +208,7 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        NotificationManagerCompat.from(context).notify(APP_UPDATE_ID, builder.build())
+        notify(APP_UPDATE_ID, builder.build())
     }
 
     fun showUpdateInstallFailed(reason: String) {
@@ -225,7 +233,7 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        NotificationManagerCompat.from(context).notify(APP_UPDATE_ID, builder.build())
+        notify(APP_UPDATE_ID, builder.build())
     }
 
     fun cancelSummaryNotification() {
