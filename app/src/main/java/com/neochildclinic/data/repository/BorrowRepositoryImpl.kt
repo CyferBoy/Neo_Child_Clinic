@@ -13,7 +13,6 @@ import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
-import com.neochildclinic.domain.repository.BorrowRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.NewBatchInfo
 import com.neochildclinic.domain.repository.SyncRepository
@@ -23,7 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,7 +36,7 @@ class BorrowRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
-) : BorrowRepository {
+) {
 
     private val borrowDao = database.borrowDao()
     private val borrowReturnDao = database.borrowReturnDao()
@@ -47,16 +47,16 @@ class BorrowRepositoryImpl @Inject constructor(
         private const val TAG = "BorrowRepository"
     }
 
-    override fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>> =
+    fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>> =
         borrowDao.getActiveBorrows().map { list -> list.map { it.toDomain() } }
 
-    override fun getReturnedRecords(): Flow<List<BorrowedVaccine>> =
+    fun getReturnedRecords(): Flow<List<BorrowedVaccine>> =
         borrowDao.getReturnedBorrows().map { list -> list.map { it.toDomain() } }
 
-    override fun getReturnRecords(): Flow<List<BorrowReturnRecord>> =
+    fun getReturnRecords(): Flow<List<BorrowReturnRecord>> =
         borrowReturnDao.getAllReturns().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun saveBorrowedItem(item: BorrowedVaccine) {
+    suspend fun saveBorrowedItem(item: BorrowedVaccine) {
         database.withTransaction {
             val user = sessionManager.getCurrentUserName()
             val isNew = item.id.isEmpty()
@@ -93,7 +93,7 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteBorrowedItem(id: String) {
+    suspend fun deleteBorrowedItem(id: String) {
         database.withTransaction {
             borrowDao.getRecordById(id)?.let { record ->
                 borrowDao.deleteById(id)
@@ -113,16 +113,16 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun submitReturn(
+    suspend fun submitReturn(
         item: BorrowedDisplayItem,
         quantity: Int,
         batchId: String,
         notes: String?,
-        newBatchInfo: NewBatchInfo?
+        newBatchInfo: NewBatchInfo? = null
     ) {
         database.withTransaction {
             val user = sessionManager.getCurrentUserName()
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+            val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
             val transactionGroupId = UUID.randomUUID().toString()
 
             val effectiveBatchId = if (newBatchInfo != null) {
@@ -199,7 +199,7 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshBorrows() {
+    suspend fun refreshBorrows() {
         withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Refreshing borrow records from Supabase...")

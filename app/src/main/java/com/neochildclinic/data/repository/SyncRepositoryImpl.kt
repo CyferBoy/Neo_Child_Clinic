@@ -9,7 +9,6 @@ import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.model.SyncStatus
 import com.neochildclinic.core.model.SyncErrorDetails
 import com.neochildclinic.domain.manager.SyncManager
-import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
@@ -28,7 +27,7 @@ class SyncRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncManager: SyncManager,
     private val auth: Auth
-) : SyncRepository {
+) {
 
     private val syncDao = database.syncQueueDao()
 
@@ -53,14 +52,14 @@ class SyncRepositoryImpl @Inject constructor(
     }
 
     private val _syncState = MutableStateFlow(SyncState.IDLE)
-    override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
-    override suspend fun enqueue(
+    suspend fun enqueue(
         entityName: String,
         entityId: String,
         operation: SyncOperation,
-        priority: SyncPriority,
-        transactionGroupId: String?
+        priority: SyncPriority = SyncPriority.MEDIUM,
+        transactionGroupId: String? = null
     ) {
         if (entityId.isBlank() || (entityId == "kotlin.Unit") || (entityId == "Unit") || (entityId == "null")) {
             return
@@ -78,16 +77,16 @@ class SyncRepositoryImpl @Inject constructor(
         syncManager.scheduleSync()
     }
 
-    override fun getPendingCount(): Flow<Int> = syncDao.getPendingCount()
+    fun getPendingCount(): Flow<Int> = syncDao.getPendingCount()
 
-    override fun getSyncQueue(): Flow<List<SyncItem>> = 
+    fun getSyncQueue(): Flow<List<SyncItem>> = 
         syncDao.getAllItems().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun clearSyncedItems() {
+    suspend fun clearSyncedItems() {
         syncDao.clearSynced()
     }
 
-    override suspend fun processNextItems() {
+    suspend fun processNextItems() {
         syncDao.cleanCorruptedItems()
         syncDao.requeueStaleSyncingItems(
             staleBefore = com.neochildclinic.core.utils.PatientUtils.getIsoTimestampMinutesAgo(5)
@@ -216,6 +215,7 @@ class SyncRepositoryImpl @Inject constructor(
                         handleSessionRefreshOn401(e)
                         uploadEntity(item, remoteConflictData)
                     }
+                    markUploaded(item)
                     syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
                     syncDao.deleteItem(item)
                 }
@@ -262,6 +262,43 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
+
+    // After a successful upload, flip the local row's isSynced so pull guards of the form
+    // (local == null || local.isSynced) stop permanently skipping remote updates for it.
+    // Tables without an isSynced column (profiles/vaccines/vaccine_batches/
+    // vaccination_items) rely on queue-only guards and are skipped here. DELETE ops are
+    // skipped: the local row is already gone.
+    private suspend fun markUploaded(item: SyncQueueEntity) {
+        if (item.operation == SyncOperation.DELETE.name) return
+        val (table, pk, col) = when (item.entityName) {
+            "PATIENT" -> Triple("patients", "id", "isSynced")
+            "VACCINATION", "VISIT" -> Triple("patient_visits", "id", "isSynced")
+            "WASTE" -> Triple("waste_records", "id", "isSynced")
+            "REMINDERS" -> Triple("reminders", "id", "isSynced")
+            "TRANSACTION", "INVENTORY_TRANSACTION" -> Triple("inventory_transactions", "transactionId", "isSynced")
+            "PATIENT_NOTE" -> Triple("patient_notes", "id", "isSynced")
+            "FINANCE" -> Triple("finance_transactions", "id", "isSynced")
+            "EXPENSE" -> Triple("expenses", "id", "isSynced")
+            "BORROW" -> Triple("borrow_records", "id", "isSynced")
+            "BORROW_RETURN" -> Triple("borrow_returns", "id", "is_synced")
+            "AUDIT_LOG" -> Triple("audit_logs", "id", "isSynced")
+            "CONSULTATION" -> Triple("consultations", "id", "isSynced")
+            "CONSULTATION_TODO" -> Triple("consultation_todos", "id", "is_synced")
+            "VACCINATION_TODO" -> Triple("vaccination_todos", "id", "is_synced")
+            "PERSONAL_REMINDER" -> Triple("personal_vaccine_reminders", "id", "is_synced")
+            "DOCTOR_WEEKLY_SLOT" -> Triple("doctor_weekly_slots", "id", "is_synced")
+            "DOCTOR_SLOT_EXCEPTION" -> Triple("doctor_slot_exceptions", "id", "is_synced")
+            else -> return
+        }
+        try {
+            database.openHelper.writableDatabase.execSQL(
+                "UPDATE $table SET $col = 1 WHERE $pk = ?",
+                arrayOf(item.entityId)
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("SyncRepository", "Failed to mark $table.${item.entityId} synced", e)
+        }
+    }
 
     // True only for a *session/token* problem that one refresh + retry can fix. Uses the
     // actual HTTP status where supabase-kt surfaced one: an expired/invalid JWT is a
@@ -362,13 +399,12 @@ class SyncRepositoryImpl @Inject constructor(
 
         repeat(8) {
             val throwable = current ?: return@repeat
-            val response = invokeGetter(throwable, "getResponse")
-            if (response != null) {
-                val request = invokeGetter(response, "getRequest")
-                val url = sanitizeUrl(invokeGetter(request, "getUrl")?.toString())
-                val requestHeaders = extractSafeHeaders(invokeGetter(request, "getHeaders"))
+            if (throwable is io.ktor.client.plugins.ResponseException) {
+                val response = throwable.response
+                val url = sanitizeUrl(response.request.url.toString())
+                val requestHeaders = extractSafeHeaders(response.request.headers)
                     .mapKeys { "Request-${it.key}" }
-                val responseHeaders = extractSafeHeaders(invokeGetter(response, "getHeaders"))
+                val responseHeaders = extractSafeHeaders(response.headers)
                     .mapKeys { "Response-${it.key}" }
                 return SyncErrorDetails(
                     reason = reason,
@@ -382,18 +418,7 @@ class SyncRepositoryImpl @Inject constructor(
         return SyncErrorDetails(reason = reason).encode()
     }
 
-    private fun invokeGetter(target: Any?, methodName: String): Any? {
-        if (target == null) return null
-        return runCatching {
-            target.javaClass.methods
-                .firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }
-                ?.invoke(target)
-        }.getOrNull()
-    }
-
-    private fun extractSafeHeaders(headersObject: Any?): Map<String, String> {
-        if (headersObject == null) return emptyMap()
-
+    private fun extractSafeHeaders(headers: io.ktor.http.Headers): Map<String, String> {
         // Fail-closed allowlist: only header names known to be non-sensitive are ever
         // stored. A denylist would silently start leaking anything new the HTTP client
         // adds in a future version (e.g. a new auth-adjacent header) until someone
@@ -404,23 +429,10 @@ class SyncRepositoryImpl @Inject constructor(
             "x-request-id", "retry-after", "accept", "accept-encoding"
         )
 
-        val entries = runCatching {
-            val entriesMethod = headersObject.javaClass.methods
-                .firstOrNull { it.name == "entries" && it.parameterTypes.isEmpty() }
-            @Suppress("UNCHECKED_CAST")
-            entriesMethod?.invoke(headersObject) as? Iterable<Any?>
-        }.getOrNull() ?: return emptyMap()
-
         return buildMap {
-            entries.forEach { entry ->
-                val pair = entry as? Pair<*, *>
-                val name = pair?.first?.toString() ?: return@forEach
+            headers.entries().forEach { (name, values) ->
                 if (name.lowercase() !in safeNames) return@forEach
-                val value = when (val raw = pair.second) {
-                    is Iterable<*> -> raw.joinToString(",")
-                    else -> raw?.toString().orEmpty()
-                }
-                put(name, value)
+                put(name, values.joinToString(","))
             }
         }
     }
@@ -843,7 +855,7 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun retryFailedItems() {
+    suspend fun retryFailedItems() {
         val failed = syncDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
             syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
@@ -851,18 +863,18 @@ class SyncRepositoryImpl @Inject constructor(
         syncManager.scheduleSync()
     }
 
-    override suspend fun deleteQueueItem(queueId: Long) {
+    suspend fun deleteQueueItem(queueId: Long) {
         syncDao.getItemById(queueId)?.let { item ->
             syncDao.deleteItem(item)
         }
     }
 
-    override suspend fun retryItem(queueId: Long) {
+    suspend fun retryItem(queueId: Long) {
         syncDao.updateStatus(queueId, SyncStatus.PENDING.name)
         syncManager.scheduleSync()
     }
 
-    override suspend fun deleteAllFailed() {
+    suspend fun deleteAllFailed() {
         val failed = syncDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
             syncDao.deleteItem(item)

@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
@@ -30,7 +30,7 @@ data class VaccineDetailUiState(
 class VaccineDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     reminderRepository: ReminderRepository,
-    getPatientsUseCase: GetPatientsUseCase,
+    patientRepository: PatientRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -46,7 +46,7 @@ class VaccineDetailViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 reminderRepository.getAllReminders(),
-                getPatientsUseCase()
+                patientRepository.allPatients
             ) { reminders, patients ->
                 val patientMap = patients.associateBy { it.id }
                 val active = reminders.filter {

@@ -1,23 +1,22 @@
 package com.neochildclinic.features.doctorslots
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DoctorDropdown
@@ -27,7 +26,8 @@ import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.model.TimeRange
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,33 +37,18 @@ fun WeeklyDoctorSlotsScreen(
     viewModel: WeeklyDoctorSlotsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
     var showAddExceptionDialog by remember { mutableStateOf(false) }
     var exceptionToDelete by remember { mutableStateOf<DoctorSlotException?>(null) }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearError()
-        }
-    }
+    MessageEffect(uiState.error) { viewModel.clearError() }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Doctor Timings") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
             }
         ) { paddingValues ->
@@ -403,7 +388,7 @@ private fun AddExceptionDialog(
     onAddFullDay: (date: String, reason: String?) -> Unit,
     onAddCustomTime: (date: String, startMinute: Int, endMinute: Int, reason: String?) -> Unit
 ) {
-    val today = remember { SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()) }
+    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
     var date by remember { mutableStateOf(today) }
     var fullDay by remember { mutableStateOf(true) }
     var reason by remember { mutableStateOf("") }

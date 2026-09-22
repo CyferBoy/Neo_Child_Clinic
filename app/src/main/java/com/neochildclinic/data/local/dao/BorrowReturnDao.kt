@@ -19,11 +19,6 @@ interface BorrowReturnDao {
     @Query("SELECT * FROM borrow_returns")
     fun getAllReturns(): Flow<List<BorrowReturnEntity>>
 
-    // --- Pagination (large-data scalability pass) --- additive, existing Flow method
-    // above is untouched.
-    @Query("SELECT * FROM borrow_returns ORDER BY returned_date DESC, created_at DESC LIMIT :limit OFFSET :offset")
-    suspend fun getAllReturnsPage(limit: Int, offset: Int): List<BorrowReturnEntity>
-
     @Query("SELECT * FROM borrow_returns WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): BorrowReturnEntity?
 

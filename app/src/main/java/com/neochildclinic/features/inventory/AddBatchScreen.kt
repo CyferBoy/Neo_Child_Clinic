@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,7 +16,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.DateDropdownPicker
+import com.neochildclinic.core.ui.MessageEffect
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
 
@@ -72,34 +72,20 @@ fun AddBatchScreen(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.resetState()
-        }
-    }
+    MessageEffect(uiState.error) { viewModel.resetState() }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = {
                         Column {
                             Text(if (batchId != null) "Edit Batch" else "Add Batch")
                             Text(brandName, style = MaterialTheme.typography.labelMedium)
                         }
                     },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
             }
         ) { padding ->

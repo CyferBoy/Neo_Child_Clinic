@@ -4,19 +4,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.UserRole
 
@@ -31,36 +30,24 @@ fun EditStaffScreen(
     val staff = remember(uiState.staffList, staffId) {
         uiState.staffList.find { it.id == staffId }
     }
-    val context = LocalContext.current
 
     var name by rememberSaveable(staff) { mutableStateOf(staff?.displayName ?: "") }
     var phone by rememberSaveable(staff) { mutableStateOf(staff?.phoneNumber ?: "") }
     var selectedRole by remember(staff) { mutableStateOf(staff?.role ?: UserRole.nurse) }
 
-    LaunchedEffect(uiState.success, uiState.error) {
-        uiState.success?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            viewModel.clearMessages()
-            onBack()
-        }
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearMessages()
-        }
+    MessageEffect(uiState.success, Toast.LENGTH_SHORT) {
+        viewModel.clearMessages()
+        onBack()
     }
+    MessageEffect(uiState.error) { viewModel.clearMessages() }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Edit Staff") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background, titleContentColor = MaterialTheme.colorScheme.onBackground, navigationIconContentColor = MaterialTheme.colorScheme.onBackground)
+                    onBack = onBack
                 )
             }
         ) { padding ->

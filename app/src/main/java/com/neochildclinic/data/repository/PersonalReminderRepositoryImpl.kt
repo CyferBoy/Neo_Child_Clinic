@@ -9,7 +9,6 @@ import com.neochildclinic.data.local.dao.PersonalReminderDao
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.PersonalReminderStatus
-import com.neochildclinic.domain.repository.PersonalReminderRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +22,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val sessionManager: SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
-) : PersonalReminderRepository {
+) {
 
     private val dao: PersonalReminderDao = database.personalReminderDao()
 
@@ -31,12 +30,12 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         private const val ENTITY_NAME = "PERSONAL_REMINDER"
     }
 
-    override fun getActiveReminders(): Flow<List<PersonalReminderEntity>> = dao.getActiveReminders()
-    override fun getCompletedReminders(): Flow<List<PersonalReminderEntity>> = dao.getCompletedReminders()
-    override fun getCancelledReminders(): Flow<List<PersonalReminderEntity>> = dao.getCancelledReminders()
-    override suspend fun getById(id: String): PersonalReminderEntity? = dao.getById(id)
+    fun getActiveReminders(): Flow<List<PersonalReminderEntity>> = dao.getActiveReminders()
+    fun getCompletedReminders(): Flow<List<PersonalReminderEntity>> = dao.getCompletedReminders()
+    fun getCancelledReminders(): Flow<List<PersonalReminderEntity>> = dao.getCancelledReminders()
+    suspend fun getById(id: String): PersonalReminderEntity? = dao.getById(id)
 
-    override suspend fun createReminder(reminder: PersonalReminderEntity) {
+    suspend fun createReminder(reminder: PersonalReminderEntity) {
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
         dao.insert(
@@ -58,7 +57,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun updateReminder(reminder: PersonalReminderEntity) {
+    suspend fun updateReminder(reminder: PersonalReminderEntity) {
         val userName = sessionManager.getCurrentUserName()
         dao.insert(
             reminder.copy(
@@ -81,15 +80,15 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     // UI (see PersonalReminderViewModel) - nothing in this repository infers a status
     // change from vaccination, payment, or inventory activity.
 
-    override suspend fun markReady(id: String) {
+    suspend fun markReady(id: String) {
         updateStatus(id, PersonalReminderStatus.READY)
     }
 
-    override suspend fun markPending(id: String) {
+    suspend fun markPending(id: String) {
         updateStatus(id, PersonalReminderStatus.PENDING)
     }
 
-    override suspend fun markCompleted(id: String) {
+    suspend fun markCompleted(id: String) {
         val existing = dao.getById(id) ?: return
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
@@ -112,7 +111,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun cancel(id: String) {
+    suspend fun cancel(id: String) {
         val existing = dao.getById(id) ?: return
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
@@ -156,7 +155,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun deleteReminder(id: String) {
+    suspend fun deleteReminder(id: String) {
         val existing = dao.getById(id)
         dao.delete(id)
         syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIUM)
@@ -169,7 +168,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun refresh() {
+    suspend fun refresh() {
         try {
             val remote = postgrest.from("personal_vaccine_reminders").select()
                 .decodeList<PersonalReminderEntity>()

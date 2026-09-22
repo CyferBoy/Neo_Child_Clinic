@@ -1,7 +1,7 @@
 package com.neochildclinic.core.utils
 
-import java.util.*
-import java.util.concurrent.TimeUnit
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 object InventoryUtils {
 
@@ -10,13 +10,7 @@ object InventoryUtils {
      */
     fun isExpired(expiryDateStr: String): Boolean {
         val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-        return expiryDate.before(today)
+        return expiryDate.toLocalDate().isBefore(LocalDate.now())
     }
 
     /**
@@ -32,22 +26,7 @@ object InventoryUtils {
         val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
         val referenceDate = PatientUtils.parseDate(referenceDateStr) ?: return isExpired(expiryDateStr)
 
-        val normalizedExpiry = Calendar.getInstance().apply {
-            time = expiryDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-        val normalizedReference = Calendar.getInstance().apply {
-            time = referenceDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-
-        return normalizedExpiry.before(normalizedReference)
+        return expiryDate.toLocalDate().isBefore(referenceDate.toLocalDate())
     }
 
     /**
@@ -55,42 +34,17 @@ object InventoryUtils {
      */
     fun isExpiringToday(expiryDateStr: String): Boolean {
         val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        
-        val target = Calendar.getInstance().apply {
-            time = expiryDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        
-        return today.timeInMillis == target.timeInMillis
+        return expiryDate.toLocalDate() == LocalDate.now()
     }
 
     /**
      * Checks if a batch is expiring within the next 30 days.
      */
     fun isNearExpiry(expiryDateStr: String, thresholdDays: Int = 30): Boolean {
-        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
-        
         if (isExpired(expiryDateStr) || isExpiringToday(expiryDateStr)) return false
-        
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-        
-        val diffInMs = expiryDate.time - today.time
-        val diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMs)
-        
+
+        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
+        val diffInDays = ChronoUnit.DAYS.between(LocalDate.now(), expiryDate.toLocalDate())
         return diffInDays <= thresholdDays
     }
 
@@ -99,14 +53,6 @@ object InventoryUtils {
      */
     fun getDaysUntilExpiry(expiryDateStr: String): Long {
         val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return 0
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-        
-        val diffInMs = expiryDate.time - today.time
-        return TimeUnit.MILLISECONDS.toDays(diffInMs)
+        return ChronoUnit.DAYS.between(LocalDate.now(), expiryDate.toLocalDate())
     }
 }

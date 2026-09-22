@@ -3,7 +3,6 @@ package com.neochildclinic.features.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -11,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.ui.BackTopAppBar
 
 @Composable
 fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
@@ -68,13 +68,10 @@ fun SettingsDivider() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDetailTopBar(title: String, onBack: () -> Unit) {
-    TopAppBar(
+    BackTopAppBar(
         title = { Text(title) },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-        }
+        onBack = onBack,
+        colors = TopAppBarDefaults.topAppBarColors()
     )
 }
 
@@ -103,20 +100,6 @@ fun SettingSwitch(
             }
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
-    }
-}
-
-@Composable
-fun SettingItem(label: String, value: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, color = androidx.compose.ui.graphics.Color.Transparent) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
-            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-        }
     }
 }
 

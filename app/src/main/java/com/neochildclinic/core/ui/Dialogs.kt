@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,8 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import java.text.SimpleDateFormat
-import java.util.*
+import com.neochildclinic.features.audit.AuditLogItem
 
 /**
  * Standardized Delete Confirmation Dialog to maintain UI consistency across the app.
@@ -170,53 +168,5 @@ fun AuditLogDialog(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AuditLogItem(log: AuditLogEntity) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()) }
-    val timeString = remember(log.timestamp) { 
-        val date = com.neochildclinic.core.utils.PatientUtils.parseDate(log.timestamp) ?: Date(0)
-        dateFormat.format(date)
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = log.action,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = timeString,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        Text(
-            text = "by ${log.user}",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium
-        )
-
-        if (!log.remarks.isNullOrBlank()) {
-            Text(
-                text = log.remarks,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-        
-        HorizontalDivider(
-            modifier = Modifier.padding(top = 8.dp),
-            thickness = 0.5.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
     }
 }

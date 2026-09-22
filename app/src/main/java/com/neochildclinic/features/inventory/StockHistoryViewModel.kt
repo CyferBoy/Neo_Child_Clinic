@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -193,7 +194,8 @@ class StockHistoryViewModel @Inject constructor(
     private fun toIsoDateOnly(displayDate: String): String? {
         if (displayDate.isBlank()) return null
         val date = PatientUtils.parseDate(displayDate) ?: return null
-        return SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(date)
+        return date.toInstant().atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
     }
 
     fun clearError() {

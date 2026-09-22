@@ -10,7 +10,8 @@ import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 
@@ -93,7 +94,7 @@ class AddBatchViewModel @Inject constructor(
                     inventoryRepository.updateBatch(updated, user)
                 } else {
                     val newBatchId = UUID.randomUUID().toString()
-                    val today = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
+                    val today = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
                     val batch = VaccineBatchEntity(
                         batchId = newBatchId,
                         vaccineId = vaccineId,

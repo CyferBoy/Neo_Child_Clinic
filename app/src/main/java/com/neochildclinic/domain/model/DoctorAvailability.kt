@@ -24,40 +24,10 @@ data class TimeRange(val startMinute: Int, val endMinute: Int) {
 }
 
 /**
- * Fixed catalog of selectable weekly-availability ranges (req. 4: "predefined time-range
- * options", not free-text/individual appointment times). Two-hour blocks covering a normal
- * clinic day; admins/doctors pick which of these apply to which weekday.
- */
-object PredefinedSlots {
-    val ALL: List<TimeRange> = listOf(
-        TimeRange(9 * 60, 11 * 60),   // 9 AM - 11 AM
-        TimeRange(11 * 60, 13 * 60),  // 11 AM - 1 PM
-        TimeRange(13 * 60, 15 * 60),  // 1 PM - 3 PM
-        TimeRange(15 * 60, 17 * 60),  // 3 PM - 5 PM
-        TimeRange(17 * 60, 19 * 60),  // 5 PM - 7 PM
-        TimeRange(19 * 60, 21 * 60),  // 7 PM - 9 PM
-    )
-}
-
-/**
  * A doctor's normal recurring weekly availability block.
  * dayOfWeek follows java.util.Calendar.DAY_OF_WEEK: Sunday=1 ... Saturday=7.
  */
-@Serializable
-data class DoctorWeeklySlot(
-    val id: String = java.util.UUID.randomUUID().toString(),
-    @SerialName("doctor_id") val doctorId: String = "",
-    @SerialName("day_of_week") val dayOfWeek: Int = 1,
-    @SerialName("start_minute") val startMinute: Int = 0,
-    @SerialName("end_minute") val endMinute: Int = 0,
-    @SerialName("is_active") val isActive: Boolean = true,
-    @SerialName("created_at") val createdAt: String = "",
-    @SerialName("updated_at") val updatedAt: String = "",
-    @SerialName("created_by") val createdBy: String? = null,
-    @SerialName("updated_by") val updatedBy: String? = null
-) {
-    val timeRange: TimeRange get() = TimeRange(startMinute, endMinute)
-}
+typealias DoctorWeeklySlot = com.neochildclinic.data.local.entity.DoctorWeeklySlotEntity
 
 enum class SlotExceptionType { FULL_DAY, SLOT }
 

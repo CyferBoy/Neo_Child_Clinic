@@ -7,7 +7,7 @@ import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ReminderStats
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
@@ -29,7 +29,7 @@ data class DueUiState(
 
 @HiltViewModel
 class DueViewModel @Inject constructor(
-    private val getPatientsUseCase: GetPatientsUseCase,
+    private val patientRepository: PatientRepository,
     private val reminderRepository: ReminderRepository,
     private val auth: Auth
 ) : ViewModel() {
@@ -63,7 +63,7 @@ class DueViewModel @Inject constructor(
             }
 
     val uiState: StateFlow<DueUiState> = combine(
-        getPatientsUseCase(),
+        patientRepository.allPatients,
         selectedDueFlow,
         activeDueFlow,
         _selectedFilter,

@@ -7,7 +7,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.neochildclinic.notification.ReminderScheduler
 import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.worker.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
@@ -33,7 +33,7 @@ class NeoChildApp : Application(), Configuration.Provider {
     lateinit var financeRepository: FinanceRepository
 
     @Inject
-    lateinit var getVaccinationsUseCase: GetVaccinationsUseCase
+    lateinit var vaccinationRepository: VaccinationRepository
 
     @Inject
     lateinit var backupAutoScheduler: com.neochildclinic.data.manager.BackupAutoScheduler
@@ -80,7 +80,7 @@ class NeoChildApp : Application(), Configuration.Provider {
         }
         scope.launch {
             try {
-                val vaccinations = getVaccinationsUseCase().first()
+                val vaccinations = vaccinationRepository.allVaccinations.first()
                 financeRepository.migrateLegacyVaccinationCogs(vaccinations)
             } catch (e: Exception) {
                 Log.e(TAG, "Unable to migrate historical finance COGS snapshots", e)

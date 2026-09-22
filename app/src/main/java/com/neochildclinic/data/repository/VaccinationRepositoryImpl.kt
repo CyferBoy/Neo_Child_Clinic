@@ -11,7 +11,6 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
@@ -20,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class VaccinationRepositoryImpl @Inject constructor(
@@ -30,9 +28,8 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val inventoryRepository: InventoryRepository,
     private val auditLogger: AuditLogger,
-    private val memoryCache: MemoryCache,
     @ApplicationContext private val appContext: Context
-) : VaccinationRepository {
+) {
 
     private val vaccinationDao = database.vaccinationDao()
     private val vaccinationItemDao = database.vaccinationItemDao()
@@ -42,44 +39,40 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val dueReminderDao = database.dueReminderDao()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override val allVaccinations: Flow<List<Vaccination>> = 
+    val allVaccinations: Flow<List<Vaccination>> = 
         vaccinationDao.getAllVaccinations().flatMapLatest { list ->
             if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
             val flows = list.map { entity ->
                 vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
-                    entity.toVaccination().copy(items = items.map { it.toDomain() })
+                    entity.toVaccination().copy(items = items)
                 }
             }
             combine(flows) { it.toList() }
         }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override fun getVaccinationsForPatient(patientId: String): Flow<List<Vaccination>> = 
+    fun getVaccinationsForPatient(patientId: String): Flow<List<Vaccination>> =
         vaccinationDao.getVaccinationsForPatient(patientId).flatMapLatest { list ->
             if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
             val flows = list.map { entity ->
                 vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
-                    entity.toVaccination().copy(items = items.map { it.toDomain() })
+                    entity.toVaccination().copy(items = items)
                 }
             }
             combine(flows) { it.toList() }
         }
 
-    override fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
+    fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
         vaccinationDao.getVaccinationCardsForPatient(patientId)
 
-    override suspend fun getVaccinationById(id: String): Vaccination? {
-        memoryCache.getVaccination(id)?.let { return it }
-        return withContext(Dispatchers.IO) {
+    suspend fun getVaccinationById(id: String): Vaccination? =
+        withContext(Dispatchers.IO) {
             val entity = vaccinationDao.getVaccinationById(id) ?: return@withContext null
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
-            entity.toVaccination().copy(items = items.map { it.toDomain() }).also {
-                memoryCache.putVaccination(it)
-            }
+            entity.toVaccination().copy(items = items)
         }
-    }
 
-    override suspend fun refreshVaccinations() {
+    suspend fun refreshVaccinations() {
         withContext(Dispatchers.IO) {
             try {
                 val entities = postgrest.from("patient_visits").select().decodeList<VisitEntity>()
@@ -129,7 +122,7 @@ class VaccinationRepositoryImpl @Inject constructor(
 
     // Pure network fetch, no local writes - safe to run in parallel with other
     // startup sync tasks (e.g. inventory) without any ordering dependency.
-    override suspend fun fetchRemoteVaccinationItems(): List<VaccinationItemEntity> =
+    suspend fun fetchRemoteVaccinationItems(): List<VaccinationItemEntity> =
         withContext(Dispatchers.IO) {
             try {
                 postgrest.from("vaccination_items").select().decodeList<VaccinationItemEntity>()
@@ -150,7 +143,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     // than crashing the whole transaction, and it will not be retried until the next
     // full refresh. Calling this before inventory sync has completed will skip
     // everything on a fresh install/cleared data.
-    override suspend fun applyDownloadedVaccinationItems(items: List<VaccinationItemEntity>) {
+    suspend fun applyDownloadedVaccinationItems(items: List<VaccinationItemEntity>) {
         withContext(Dispatchers.IO) {
             val totalItemsDownloaded = items.size
             var itemsImported = 0
@@ -226,7 +219,7 @@ class VaccinationRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String?) {
+    suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String? = null) {
         database.withTransaction {
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
 
@@ -256,12 +249,12 @@ class VaccinationRepositoryImpl @Inject constructor(
 
                 if (matching != null) {
                     usedExistingIds += matching.id
-                    incoming.toEntity().copy(
+                    incoming.copy(
                         id = matching.id,
                         vaccinationId = vaccination.id
                     )
                 } else {
-                    incoming.toEntity().copy(
+                    incoming.copy(
                         id = incoming.id.ifBlank { java.util.UUID.randomUUID().toString() },
                         vaccinationId = vaccination.id
                     )
@@ -274,8 +267,6 @@ class VaccinationRepositoryImpl @Inject constructor(
 
             vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
             vaccinationItemDao.insertItems(itemEntities)
-
-            memoryCache.putVaccination(vaccination.copy(items = itemEntities.map { it.toDomain() }))
 
             val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
             syncRepository.enqueue(
@@ -324,11 +315,9 @@ class VaccinationRepositoryImpl @Inject constructor(
         WidgetUtils.updateWidget(appContext)
     }
 
-    override suspend fun deleteVaccination(id: String) {
+    suspend fun deleteVaccination(id: String) {
         database.withTransaction {
             val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction
-            
-            memoryCache.invalidateVaccination(id)
 
             // Financial transactions are historical records and must remain after a clinical record is deleted.
             // 1. Identify batches used in this vaccination
@@ -379,23 +368,19 @@ class VaccinationRepositoryImpl @Inject constructor(
                 priority = SyncPriority.MEDIUM
             )
             
-            try {
-                auditLogger.recordLog(
-                    module = "PATIENT",
-                    entityType = "VACCINATION",
-                    entityId = id,
-                    action = "DELETED",
-                    patientId = existing.patientId,
-                    remarks = "Vaccines: ${existing.vaccineNames}"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("VaccinationRepo", "Audit log failed but deletion proceeded", e)
-            }
+            auditLogger.recordLog(
+                module = "PATIENT",
+                entityType = "VACCINATION",
+                entityId = id,
+                action = "DELETED",
+                patientId = existing.patientId,
+                remarks = "Vaccines: ${existing.vaccineNames}"
+            )
         }
         WidgetUtils.updateWidget(appContext)
     }
 
-    override suspend fun transferVaccinations(duplicateId: String, masterId: String) {
+    suspend fun transferVaccinations(duplicateId: String, masterId: String) {
         vaccinationDao.updatePatientId(duplicateId, masterId)
     }
 }

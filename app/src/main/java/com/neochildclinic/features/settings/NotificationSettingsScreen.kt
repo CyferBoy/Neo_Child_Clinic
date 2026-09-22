@@ -3,7 +3,6 @@ package com.neochildclinic.features.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +30,14 @@ fun NotificationSettingsScreen(onBack: () -> Unit, viewModel: NotificationSettin
                                     "Sends tasks overview at 08:00 AM",
                                     s.dailySummaryEnabled
                                 ) { viewModel.updateSettings(s.copy(dailySummaryEnabled = it)) }
-                                SettingItem("Summary Time", s.reminderTime) { }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Summary Time", style = MaterialTheme.typography.bodyLarge)
+                                    Text(s.reminderTime, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         }
                     }

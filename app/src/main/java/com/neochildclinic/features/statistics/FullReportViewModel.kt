@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.ExpenseRepository
@@ -45,8 +45,8 @@ data class FullReportUiState(
 
 @HiltViewModel
 class FullReportViewModel @Inject constructor(
-    getPatientsUseCase: GetPatientsUseCase,
-    getVaccinationsUseCase: GetVaccinationsUseCase,
+    patientRepository: PatientRepository,
+    vaccinationRepository: VaccinationRepository,
     financeRepository: FinanceRepository,
     expenseRepository: ExpenseRepository,
     private val refreshDataUseCase: RefreshDataUseCase
@@ -63,8 +63,8 @@ class FullReportViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                getPatientsUseCase(),
-                getVaccinationsUseCase(),
+                patientRepository.allPatients,
+                vaccinationRepository.allVaccinations,
                 financeRepository.getAllTransactions(),
                 expenseRepository.getAllExpenses(),
                 _filterMode,

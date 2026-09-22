@@ -6,7 +6,6 @@ import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.DeviceRepository
-import com.neochildclinic.data.cache.MemoryCache
 import com.neochildclinic.core.utils.metadataString
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
@@ -27,8 +26,7 @@ class AuthViewModel @Inject constructor(
     private val auth: Auth,
     private val profileRepository: ProfileRepository,
     private val deviceRepository: DeviceRepository,
-    private val syncManager: SyncManager,
-    private val memoryCache: MemoryCache
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
     companion object {
@@ -210,7 +208,6 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            memoryCache.clearAll()
             deviceRepository.deactivateCurrentDevice()
             auth.signOut()
             _profile.value = null

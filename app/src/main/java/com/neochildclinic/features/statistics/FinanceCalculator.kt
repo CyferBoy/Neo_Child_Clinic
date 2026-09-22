@@ -1,6 +1,7 @@
 package com.neochildclinic.features.statistics
 
 import com.neochildclinic.core.utils.PatientUtils
+import com.neochildclinic.core.utils.startOfDay
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar
@@ -297,11 +298,7 @@ object FinanceCalculator {
     private fun monthStart(date: Date): Calendar = Calendar.getInstance().apply {
         time = date
         set(Calendar.DAY_OF_MONTH, 1)
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
+    }.startOfDay()
 
     private val MONTH_NAMES = listOf(
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",

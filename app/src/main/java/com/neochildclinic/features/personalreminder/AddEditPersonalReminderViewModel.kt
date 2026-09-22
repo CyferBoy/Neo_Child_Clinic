@@ -14,7 +14,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 
@@ -266,6 +267,6 @@ class AddEditPersonalReminderViewModel @Inject constructor(
 
     companion object {
         /** Today's date pre-formatted for the reminder-date field default. */
-        fun todayFormatted(): String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
+        fun todayFormatted(): String = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
     }
 }

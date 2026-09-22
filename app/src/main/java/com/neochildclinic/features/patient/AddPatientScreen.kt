@@ -9,7 +9,9 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.PatientUtils.calculateDetailedAge
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Composable
@@ -90,7 +92,8 @@ fun AddPatientScreen(
                 "Months" -> cal.add(Calendar.MONTH, -value)
                 "Weeks" -> cal.add(Calendar.WEEK_OF_YEAR, -value)
             }
-            dob = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(cal.time)
+            dob = cal.toInstant().atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
         },
         ageUnit = ageUnit,
         onAgeUnitChange = { newUnit ->
@@ -102,7 +105,8 @@ fun AddPatientScreen(
                 "Months" -> cal.add(Calendar.MONTH, -value)
                 "Weeks" -> cal.add(Calendar.WEEK_OF_YEAR, -value)
             }
-            dob = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(cal.time)
+            dob = cal.toInstant().atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
         },
         gender = gender,
         onGenderChange = { gender = it },
@@ -123,7 +127,7 @@ fun AddPatientScreen(
                     dob = dob,
                     gender = gender,
                     address = address,
-                    registrationDate = if (isEditMode) registrationDate else SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
+                    registrationDate = if (isEditMode) registrationDate else LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
                 )
 
                 viewModel.savePatient(patient) {

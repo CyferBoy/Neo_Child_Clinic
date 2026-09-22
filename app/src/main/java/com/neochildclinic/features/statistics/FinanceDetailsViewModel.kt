@@ -6,7 +6,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.repository.VaccinationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,13 +22,13 @@ import javax.inject.Inject
 class FinanceDetailsViewModel @Inject constructor(
     financeRepository: FinanceRepository,
     patientRepository: PatientRepository,
-    getVaccinationsUseCase: GetVaccinationsUseCase,
+    vaccinationRepository: VaccinationRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
     private val transactionsFlow = financeRepository.getAllTransactions()
     private val patientsFlow = patientRepository.allPatients
-    private val vaccinationsFlow = getVaccinationsUseCase()
+    private val vaccinationsFlow = vaccinationRepository.allVaccinations
 
     val transactions: StateFlow<List<FinanceEntity>> = transactionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

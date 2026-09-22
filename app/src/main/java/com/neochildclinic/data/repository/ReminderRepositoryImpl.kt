@@ -6,7 +6,6 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ReminderStats
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.notification.ReminderScheduler
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,7 +43,7 @@ class ReminderRepositoryImpl @Inject constructor(
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     @ApplicationContext private val context: Context
-) : ReminderRepository {
+) {
 
     private val json = Json { 
         ignoreUnknownKeys = true 
@@ -93,9 +91,9 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getDueList(
-        searchQuery: String,
-        filterStatus: List<ReminderStatus>?
+    fun getDueList(
+        searchQuery: String = "",
+        filterStatus: List<ReminderStatus>? = null
     ): Flow<List<Vaccination>> = getProcessedDueFlow().map { (processed, patientEntities) ->
         val patientMap = patientEntities.associateBy { it.id }
         
@@ -116,7 +114,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getDashboardStats(): Flow<ReminderStats> = combine(
+    fun getDashboardStats(): Flow<ReminderStats> = combine(
         vaccinationDao.getAllVaccinations(),
         dueReminderDao.getAllReminders(),
         patientDao.getAllPatients()
@@ -228,16 +226,16 @@ class ReminderRepositoryImpl @Inject constructor(
         syncRepository.enqueue(entityName, reminderId, operation, priority, transactionGroupId)
     }
 
-    override suspend fun saveNextVaccination(
+    suspend fun saveNextVaccination(
         patientId: String,
         originalVisitId: String,
         type: String,
         vaccineNames: List<String>,
-        nxtVaccineId: List<String>,
+        nxtVaccineId: List<String> = emptyList(),
         dueDate: String,
         notes: String,
-        priority: String,
-        reminderEnabled: Boolean,
+        priority: String = "NORMAL",
+        reminderEnabled: Boolean = true,
         performedBy: String
     ) {
         // A Next Vaccination may be type-only, or may contain one/many vaccines.
@@ -353,7 +351,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String?, transactionGroupId: String?) {
+    suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? = null, transactionGroupId: String? = null) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -374,7 +372,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String) {
+    suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -395,7 +393,7 @@ class ReminderRepositoryImpl @Inject constructor(
     }
 
 
-    override suspend fun cancelNextVaccinationVaccine(
+    suspend fun cancelNextVaccinationVaccine(
         reminder: ReminderEntity,
         vaccineId: String,
         reason: String,
@@ -436,7 +434,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
+    suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -450,7 +448,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String) {
+    suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -470,7 +468,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String?) {
+    suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String? = null) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -504,7 +502,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
+    suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -516,20 +514,20 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
+    fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
         return dueReminderDao.getDueRemindersForPatient(patientId)
     }
 
 
-    override fun getAllReminders(): Flow<List<ReminderEntity>> = dueReminderDao.getAllReminders()
+    fun getAllReminders(): Flow<List<ReminderEntity>> = dueReminderDao.getAllReminders()
 
-    override suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
+    suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
         return dueReminderDao.getRemindersByVisitId(visitId)
     }
 
-    override suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
+    suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
 
-    override fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
+    fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
         return auditLogDao.getLogsForPatient(patientId).map { logs ->
             logs.map { log ->
                 ReminderAuditEntity(
@@ -552,7 +550,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshReminders() {
+    suspend fun refreshReminders() {
         withContext(Dispatchers.IO) {
             try {
                 val entities = postgrest.from("reminders").select().decodeList<RemoteReminder>()
@@ -601,7 +599,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markCompleted(id: String, timestamp: Long) {
+    suspend fun markCompleted(id: String, timestamp: Long = System.currentTimeMillis()) {
         withContext(Dispatchers.IO) {
             val existing = dueReminderDao.getReminderById(id)
             if (existing != null) {
@@ -611,11 +609,11 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun transferReminders(duplicateId: String, masterId: String) {
+    suspend fun transferReminders(duplicateId: String, masterId: String) {
         dueReminderDao.updatePatientId(duplicateId, masterId)
     }
 
-    override fun triggerImmediateCheck() {
+    fun triggerImmediateCheck() {
         reminderScheduler.runNow()
         WidgetUtils.updateWidget(context)
     }

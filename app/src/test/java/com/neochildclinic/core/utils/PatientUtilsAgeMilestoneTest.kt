@@ -19,14 +19,6 @@ class PatientUtilsAgeMilestoneTest {
     }
 
     @Test
-    fun exactAgeUsesYearsMonthsDays() {
-        assertEquals(
-            "0 years 11 months 7 days",
-            PatientUtils.calculateExactAge("2025-09-18", calendar("2026-08-25"))
-        )
-    }
-
-    @Test
     fun nextMilestoneChoosesOnlyEarliestUpcoming() {
         val result = PatientUtils.getNextAgeMilestone(
             "2025-09-25",
@@ -86,6 +78,5 @@ class PatientUtilsAgeMilestoneTest {
     @Test
     fun invalidDobIsIgnored() {
         assertNull(PatientUtils.getNextAgeMilestone("not-a-date", calendar("2026-08-25"), calendar("2026-10-25")))
-        assertNull(PatientUtils.calculateExactAge("not-a-date", calendar("2026-08-25")))
     }
 }

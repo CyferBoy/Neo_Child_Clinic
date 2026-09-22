@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,6 +12,53 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.Alignment
+
+@Composable
+fun EmptyState(message: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(message, color = color)
+    }
+}
+
+@Composable
+fun MessageEffect(message: String?, duration: Int = Toast.LENGTH_LONG, onShown: () -> Unit = {}) {
+    val context = LocalContext.current
+    LaunchedEffect(message) {
+        if (message != null) {
+            Toast.makeText(context, message, duration).show()
+            onShown()
+        }
+    }
+}
+
+@Composable
+fun BackTopAppBar(
+    title: @Composable () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.background,
+        titleContentColor = MaterialTheme.colorScheme.onBackground,
+        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+    )
+) {
+    TopAppBar(
+        title = title,
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        },
+        actions = actions,
+        scrollBehavior = scrollBehavior,
+        modifier = modifier,
+        colors = colors
+    )
+}
 
 /**
  * Standardized Button with width constraints for better UI on large screens.

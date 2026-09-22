@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
-import java.text.SimpleDateFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -159,7 +160,10 @@ class AddExpenseViewModel @Inject constructor(
                 // string comparison in SQL only sorts/range-filters correctly on ISO dates
                 // (see ExpenseDao.getFilteredExpensesPage).
                 val isoDate = PatientUtils.parseDate(state.expenseDate)
-                    ?.let { SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(it) }
+                    ?.let {
+                        it.toInstant().atZone(ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+                    }
                     ?: state.expenseDate
                 val expense = Expense(
                     id = state.expenseId,

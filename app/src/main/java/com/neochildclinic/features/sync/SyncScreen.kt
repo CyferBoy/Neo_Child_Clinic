@@ -22,6 +22,8 @@ import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.model.SyncItem
 import com.neochildclinic.core.model.SyncStatus
 import com.neochildclinic.core.model.SyncErrorDetails
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -331,6 +333,7 @@ fun getStatusColor(status: SyncStatus): Color = when (status) {
 }
 
 private fun formatDateForDisplay(date: Date): String {
-    val sdf = java.text.SimpleDateFormat("dd MMM, HH:mm:ss", Locale.getDefault())
-    return sdf.format(date)
+    return DateTimeFormatter.ofPattern("dd MMM, HH:mm:ss", Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
+        .format(date.toInstant())
 }

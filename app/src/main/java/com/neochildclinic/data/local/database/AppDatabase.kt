@@ -353,6 +353,45 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                // 23→24: no-op. Commit 0e67fb9 bumped 22→24 in one step; its only schema
+                // change (expenses table) is already created by migration22_23, so devices
+                // at 23 have nothing left to apply before 24_25.
+                val migration23_24 = object : androidx.room.migration.Migration(23, 24) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
+                }
+
+                // start_minute/end_minute were retroactively added to migration27_28 (b37fa48)
+                // and version later jumped to 30 (dae2354) with no 28→29 / 29→30 migrations.
+                // Devices at 28/29 therefore crash (or, with destructive fallback, wipe).
+                // This shared guard is called from BOTH migrations so every historical path
+                // (old 27_28 without cols, new 27_28 with cols, at 28 or at 29) ends with
+                // exactly the two columns, added at most once.
+                fun addSlotMinuteColumnsIfMissing(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    val cols = mutableSetOf<String>()
+                    db.query("PRAGMA table_info(doctor_slot_exceptions)").use { c ->
+                        val nameIdx = c.getColumnIndex("name")
+                        while (c.moveToNext()) c.getString(nameIdx)?.let { cols.add(it) }
+                    }
+                    if ("start_minute" !in cols) {
+                        db.execSQL("ALTER TABLE doctor_slot_exceptions ADD COLUMN start_minute INTEGER DEFAULT NULL")
+                    }
+                    if ("end_minute" !in cols) {
+                        db.execSQL("ALTER TABLE doctor_slot_exceptions ADD COLUMN end_minute INTEGER DEFAULT NULL")
+                    }
+                }
+
+                val migration28_29 = object : androidx.room.migration.Migration(28, 29) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        addSlotMinuteColumnsIfMissing(db)
+                    }
+                }
+
+                val migration29_30 = object : androidx.room.migration.Migration(29, 30) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        addSlotMinuteColumnsIfMissing(db)
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -360,8 +399,14 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28)
-                .fallbackToDestructiveMigration(dropAllTables = true)
+                .addMigrations(
+                    migration17_18, migration18_19, migration19_20, migration20_21,
+                    migration21_22, migration22_23, migration23_24, migration24_25,
+                    migration25_26, migration26_27, migration27_28, migration28_29,
+                    migration29_30
+                )
+                // No destructive fallback: a future missing migration must crash loudly,
+                // never silently wipe a clinic's local patient data.
                 .build()
                 INSTANCE = instance
                 instance

@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.FinanceRepository
@@ -37,8 +37,8 @@ data class StatisticsUiState(
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
-    private val getPatientsUseCase: GetPatientsUseCase,
-    private val getVaccinationsUseCase: GetVaccinationsUseCase,
+    private val patientRepository: PatientRepository,
+    private val vaccinationRepository: VaccinationRepository,
     private val inventoryRepository: InventoryRepository,
     private val financeRepository: FinanceRepository,
     private val reminderRepository: ReminderRepository,
@@ -54,8 +54,8 @@ class StatisticsViewModel @Inject constructor(
 
     val uiState: StateFlow<StatisticsUiState> = combine(
         listOf(
-            getPatientsUseCase(),
-            getVaccinationsUseCase(),
+            patientRepository.allPatients,
+            vaccinationRepository.allVaccinations,
             inventoryRepository.getInventoryItems(),
             financeRepository.getAllTransactions(),
             reminderRepository.getAllReminders(),

@@ -29,6 +29,7 @@ import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonCard
 import kotlinx.coroutines.launch
 import androidx.compose.material3.SnackbarHost
@@ -75,13 +76,10 @@ fun StatisticsScreen(
 private fun StatisticsAccessDeniedScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            BackTopAppBar(
                 title = { Text("Statistics") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                onBack = onBack,
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { paddingValues ->

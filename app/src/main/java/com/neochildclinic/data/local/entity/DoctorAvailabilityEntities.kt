@@ -5,8 +5,8 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.DoctorSlotException
-import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.SlotExceptionType
+import com.neochildclinic.domain.model.TimeRange
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -34,34 +34,9 @@ data class DoctorWeeklySlotEntity(
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
-
-fun DoctorWeeklySlotEntity.toDomain() = DoctorWeeklySlot(
-    id = id,
-    doctorId = doctorId,
-    dayOfWeek = dayOfWeek,
-    startMinute = startMinute,
-    endMinute = endMinute,
-    isActive = isActive,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    createdBy = createdBy,
-    updatedBy = updatedBy
-)
-
-fun DoctorWeeklySlot.toEntity(isSynced: Boolean = false) = DoctorWeeklySlotEntity(
-    id = id,
-    doctorId = doctorId,
-    dayOfWeek = dayOfWeek,
-    startMinute = startMinute,
-    endMinute = endMinute,
-    isActive = isActive,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    isSynced = isSynced,
-    createdBy = createdBy,
-    updatedBy = updatedBy
-)
+) {
+    val timeRange: TimeRange get() = TimeRange(startMinute, endMinute)
+}
 
 /**
  * A date-specific override of a doctor's normal weekly availability. Either the whole

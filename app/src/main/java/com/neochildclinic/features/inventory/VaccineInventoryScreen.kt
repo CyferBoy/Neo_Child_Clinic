@@ -202,9 +202,7 @@ private fun VaccineInventoryContent(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     )
                 } else if (uiState.inventory.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(if (searchQuery.isEmpty()) "No inventory found" else "No results found")
-                    }
+                    EmptyState(if (searchQuery.isEmpty()) "No inventory found" else "No results found")
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),

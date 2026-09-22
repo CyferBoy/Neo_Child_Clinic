@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -18,11 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.EmptyState
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
@@ -43,24 +43,13 @@ fun ExpenseListScreen(
     viewModel: ExpenseListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
     var isSearchActive by remember { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
     var selectedExpense by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearError()
-        }
-    }
-    LaunchedEffect(uiState.deletedMessage) {
-        uiState.deletedMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            viewModel.clearDeletedMessage()
-        }
-    }
+    MessageEffect(uiState.error) { viewModel.clearError() }
+    MessageEffect(uiState.deletedMessage, Toast.LENGTH_SHORT) { viewModel.clearDeletedMessage() }
 
     val filtersActive = uiState.categoryFilter != null || uiState.paymentMethodFilter != null ||
         uiState.fromDate.isNotBlank() || uiState.toDate.isNotBlank()
@@ -108,12 +97,9 @@ fun ExpenseListScreen(
                             contentPadding = PaddingValues(16.dp)
                         )
                     } else if (!uiState.isLoading && uiState.expenses.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                if (filtersActive || uiState.query.isNotBlank()) "No expenses match these filters" else "No expenses recorded yet",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        EmptyState(
+                            if (filtersActive || uiState.query.isNotBlank()) "No expenses match these filters" else "No expenses recorded yet"
+                        )
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),

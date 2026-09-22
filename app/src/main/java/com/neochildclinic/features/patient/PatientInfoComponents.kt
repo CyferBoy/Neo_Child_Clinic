@@ -33,7 +33,8 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import com.neochildclinic.core.utils.PatientUtils.formatAgeYearsMonths
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Composable
@@ -432,7 +433,9 @@ fun DocumentCard(doc: FileObject, onView: () -> Unit, onDelete: () -> Unit) {
 fun ClinicalNoteCard(note: PatientNotesEntity) {
     val dateDisplay = remember(note.timestamp) { 
         val date = com.neochildclinic.core.utils.PatientUtils.parseDate(note.timestamp) ?: Date(0)
-        SimpleDateFormat("dd MMM yyyy, hh:mm:ss a", Locale.ENGLISH).format(date)
+        DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm:ss a", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+            .format(date.toInstant())
     }
     Card(
         modifier = Modifier.fillMaxWidth(),

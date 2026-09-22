@@ -21,7 +21,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 
@@ -58,7 +59,7 @@ data class AddVaccinationUiState(
     val slotsState: SlotsUiState = SlotsUiState.Idle,
     val selectedSlot: AvailableSlot? = null,
     val slotError: Boolean = false,
-    val givenDate: String = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()),
+    val givenDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
     val nextVaccinationGroups: List<NextVaccinationGroup> = emptyList(),
     val cashAmount: String = "0",

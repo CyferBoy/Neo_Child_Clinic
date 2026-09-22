@@ -5,11 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.core.utils.metadataString
 import com.neochildclinic.data.local.entity.toVaccination
-import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
@@ -18,14 +14,8 @@ import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.DocumentRepository
 import io.github.jan.supabase.storage.FileObject
-import com.neochildclinic.domain.usecase.patient.DeletePatientUseCase
-import com.neochildclinic.domain.usecase.patient.GetPatientByIdUseCase
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
-import com.neochildclinic.domain.usecase.patient.SavePatientUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.domain.usecase.vaccination.DeleteVaccinationUseCase
 import com.neochildclinic.core.utils.PatientUtils
-import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -39,12 +29,7 @@ data class PatientVaccinationCardData(
 
 @HiltViewModel
 class PatientViewModel @Inject constructor(
-    private val getPatientsUseCase: GetPatientsUseCase,
-    private val getPatientByIdUseCase: GetPatientByIdUseCase,
     private val vaccinationRepository: VaccinationRepository,
-    private val savePatientUseCase: SavePatientUseCase,
-    private val deletePatientUseCase: DeletePatientUseCase,
-    private val deleteVaccinationUseCase: DeleteVaccinationUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
     private val consultationRepository: ConsultationRepository,
@@ -52,7 +37,6 @@ class PatientViewModel @Inject constructor(
     private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
     private val documentRepository: DocumentRepository,
     private val database: AppDatabase,
-    private val auth: Auth,
     private val postgrest: Postgrest
 ) : ViewModel() {
 
@@ -95,14 +79,10 @@ class PatientViewModel @Inject constructor(
     val allPatients: StateFlow<List<Patient>>
     val doctorMap: StateFlow<Map<String, String>>
     val vaccineMap: StateFlow<Map<String, String>>
-    
-    private val _profile = MutableStateFlow<Profile?>(null)
-    val currentProfile: StateFlow<Profile?> = _profile.asStateFlow()
 
     init {
-        fetchProfile()
         // State Streams
-        allPatients = getPatientsUseCase().stateIn(
+        allPatients = patientRepository.allPatients.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = emptyList()
@@ -126,60 +106,6 @@ class PatientViewModel @Inject constructor(
 
     }
 
-    private fun fetchProfile() {
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
-        
-        viewModelScope.launch {
-            try {
-                val profile = postgrest.from("profiles").select {
-                    filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Profile>()
-
-                val authLastLogin = currentUser.lastSignInAt?.toString()
-
-                if (profile != null) {
-                    if (profile.lastLogin != authLastLogin) {
-                        val updatedProfile = profile.copy(lastLogin = authLastLogin)
-                        postgrest.from("profiles").update(updatedProfile) {
-                            filter { eq("id", profile.id) }
-                        }
-                        _profile.value = updatedProfile
-                    } else {
-                        _profile.value = profile
-                    }
-                } else {
-                    val email = currentUser.email
-                    if (email != null) {
-                        var profileByEmail = postgrest.from("profiles").select {
-                            filter { eq("email", email) }
-                        }.decodeSingleOrNull<Profile>()
-                        
-                        if (profileByEmail != null) {
-                            if (profileByEmail.lastLogin != authLastLogin) {
-                                profileByEmail = profileByEmail.copy(lastLogin = authLastLogin)
-                                postgrest.from("profiles").update(profileByEmail) {
-                                    filter { eq("id", profileByEmail.id) }
-                                }
-                            }
-                            _profile.value = profileByEmail
-                            return@launch
-                        }
-                    }
-
-                    _profile.value = Profile(
-                        id = currentUser.id,
-                        email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("name").metadataString() ?: currentUser.email?.substringBefore("@") ?: "User",
-                        phoneNumber = currentUser.userMetadata?.get("phone_number").metadataString() ?: "",
-                        employeeId = currentUser.userMetadata?.get("employee_id").metadataString(),
-                        role = UserRole.nurse,
-                        lastLogin = authLastLogin
-                    )
-                }
-            } catch (_: Exception) { }
-        }
-    }
-
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
@@ -194,7 +120,7 @@ class PatientViewModel @Inject constructor(
     fun deletePatient(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                deletePatientUseCase(id)
+                patientRepository.deletePatient(id)
                 onResult(true)
             } catch (e: Exception) {
                 android.util.Log.e("PatientVM", "Delete patient failed", e)
@@ -204,13 +130,16 @@ class PatientViewModel @Inject constructor(
     }
 
     suspend fun getPatientById(id: String): Patient? {
-        return getPatientByIdUseCase(id)
+        return patientRepository.getPatientById(id)
     }
 
     fun savePatient(patient: Patient, onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
-                savePatientUseCase(patient)
+                if (patient.name.isBlank() || patient.dob.isBlank()) {
+                    throw IllegalArgumentException("Patient name and Date of Birth are required.")
+                }
+                patientRepository.addPatient(patient)
                 onComplete()
             } catch (e: Exception) {
                 // Handle validation or save error
@@ -221,7 +150,7 @@ class PatientViewModel @Inject constructor(
     fun deleteVaccination(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                deleteVaccinationUseCase(id)
+                vaccinationRepository.deleteVaccination(id)
                 onResult(true)
             } catch (e: Exception) {
                 android.util.Log.e("PatientVM", "Delete vaccination failed", e)
@@ -269,7 +198,7 @@ class PatientViewModel @Inject constructor(
                     .map { snapshot ->
                         PatientVaccinationCardData(
                             vaccination = snapshot.visit.toVaccination().copy(
-                                items = snapshot.items.map { it.toDomain() }
+                                items = snapshot.items
                             ),
                             reminders = snapshot.reminders
                         )

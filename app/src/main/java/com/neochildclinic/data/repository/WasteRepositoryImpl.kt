@@ -2,18 +2,14 @@ package com.neochildclinic.data.repository
 
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.domain.model.WasteRecord
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.domain.repository.WasteRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -27,25 +23,26 @@ class WasteRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) : WasteRepository {
+) {
 
     private val wasteDao = database.wasteDao()
     private val syncQueueDao = database.syncQueueDao()
 
-    override fun getAllWaste(): Flow<List<WasteRecord>> = 
-        wasteDao.getAllWaste().map { list -> list.map { it.toDomain() } }
+    fun getAllWaste(): Flow<List<WasteRecord>> =
+        wasteDao.getAllWaste()
 
-    override suspend fun getWasteById(id: String): WasteRecord? =
-        wasteDao.getWasteById(id)?.toDomain()
+    suspend fun getWasteById(id: String): WasteRecord? =
+        wasteDao.getWasteById(id)
 
-    override suspend fun recordWaste(record: WasteRecord, user: String) {
+    suspend fun recordWaste(record: WasteRecord, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             // 1. Save Locally
             wasteDao.insertWaste(record.copy(
                 createdBy = userName,
-                updatedBy = userName
-            ).toEntity(isSynced = false))
+                updatedBy = userName,
+                updatedAt = record.updatedAt.ifEmpty { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
+            ))
 
             // 2. Deduct Inventory from the specific batch
             inventoryRepository.deductStockFromBatch(
@@ -74,7 +71,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateWaste(oldRecord: WasteRecord, newRecord: WasteRecord, user: String) {
+    suspend fun updateWaste(oldRecord: WasteRecord, newRecord: WasteRecord, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             // 1. Restore old stock
@@ -98,8 +95,9 @@ class WasteRepositoryImpl @Inject constructor(
             // 3. Update Waste Record
             wasteDao.insertWaste(newRecord.copy(
                 createdBy = oldRecord.createdBy ?: userName,
-                updatedBy = userName
-            ).toEntity(isSynced = false))
+                updatedBy = userName,
+                updatedAt = newRecord.updatedAt.ifEmpty { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
+            ))
 
             auditLogger.log(
                 module = "INVENTORY",
@@ -119,9 +117,9 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteWaste(id: String, user: String) {
+    suspend fun deleteWaste(id: String, user: String) {
         database.withTransaction {
-            val record = wasteDao.getWasteById(id)?.toDomain() ?: return@withTransaction
+            val record = wasteDao.getWasteById(id) ?: return@withTransaction
             val userName = sessionManager.getCurrentUserName()
 
             // 1. Restore stock
@@ -146,14 +144,17 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshWaste() {
+    suspend fun refreshWaste() {
         withContext(Dispatchers.IO) {
             try {
                 val wasteRecords = postgrest.from("waste_records").select().decodeList<WasteRecord>()
                 database.withTransaction {
                     for (remote in wasteRecords) {
                         if (!syncQueueDao.isUnsynced("WASTE", remote.id)) {
-                            wasteDao.insertWaste(remote.toEntity(isSynced = true))
+                            wasteDao.insertWaste(remote.copy(
+                                isSynced = true,
+                                updatedAt = remote.updatedAt.ifEmpty { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
+                            ))
                         }
                     }
                 }
@@ -163,7 +164,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getWasteCount(): Flow<Int> = wasteDao.getWasteCount()
+    fun getWasteCount(): Flow<Int> = wasteDao.getWasteCount()
 
     private fun mapReasonToTransactionType(reason: String): InventoryTransactionType {
         return when (reason.lowercase()) {

@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -29,7 +28,8 @@ import com.neochildclinic.core.ui.*
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 private val WASTE_REASONS = listOf(
@@ -53,12 +53,7 @@ fun WasteScreen(
     
     val context = LocalContext.current
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            viewModel.clearError()
-        }
-    }
+    MessageEffect(uiState.error, Toast.LENGTH_SHORT) { viewModel.clearError() }
 
     WasteContent(
         uiState = uiState,
@@ -133,18 +128,9 @@ private fun WasteContent(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Waste Records") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
             },
             floatingActionButton = {
@@ -261,7 +247,7 @@ private fun WasteEntryDialog(
     var batchNumber by rememberSaveable { mutableStateOf(record?.batchNumber ?: "") }
     var expiryDate by rememberSaveable { mutableStateOf(record?.expiryDate ?: "") }
     
-    val today = remember { SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()) }
+    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
     var dateWasted by rememberSaveable { mutableStateOf(record?.dateWasted ?: today) }
     var reason by rememberSaveable { mutableStateOf(record?.reason ?: WASTE_REASONS[0]) }
     var quantityStr by rememberSaveable { mutableStateOf(record?.quantity?.toString() ?: "1") }

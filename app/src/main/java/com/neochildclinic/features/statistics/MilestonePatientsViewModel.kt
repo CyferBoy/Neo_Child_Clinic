@@ -3,7 +3,7 @@ package com.neochildclinic.features.statistics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +17,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MilestonePatientsViewModel @Inject constructor(
-    getPatientsUseCase: GetPatientsUseCase,
+    patientRepository: PatientRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -27,7 +27,7 @@ class MilestonePatientsViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    val patients: StateFlow<List<Patient>> = getPatientsUseCase()
+    val patients: StateFlow<List<Patient>> = patientRepository.allPatients
         .onEach { _isLoading.value = false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

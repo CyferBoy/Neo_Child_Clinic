@@ -4,7 +4,6 @@ import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
-import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.features.statistics.FinanceCalculator
 import com.neochildclinic.domain.repository.SyncRepository
@@ -26,7 +25,7 @@ class FinanceRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) : FinanceRepository {
+) {
 
     /**
      * Deterministic row id for a visit's VACCINATION income transaction. Each visit is only
@@ -51,14 +50,15 @@ class FinanceRepositoryImpl @Inject constructor(
         if (dateGiven.isNullOrBlank()) return null
         
         val parsed = com.neochildclinic.core.utils.PatientUtils.parseDate(dateGiven) ?: return null
-        return java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(parsed)
+        return parsed.toInstant().atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH))
     }
 
-    override fun getAllTransactions(): Flow<List<FinanceEntity>> {
+    fun getAllTransactions(): Flow<List<FinanceEntity>> {
         return financeDao.getAllTransactions()
     }
 
-    override suspend fun recordIncome(
+    suspend fun recordIncome(
         amount: Double,
         cashAmount: Double,
         onlineAmount: Double,
@@ -67,7 +67,7 @@ class FinanceRepositoryImpl @Inject constructor(
         visitId: String?,
         remarks: String?,
         recordedBy: String,
-        transactionGroupId: String?
+        transactionGroupId: String? = null
     ) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
@@ -121,7 +121,7 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateConsultationIncome(
+    suspend fun updateConsultationIncome(
         visitId: String,
         consultationId: String,
         originalAmount: Double,
@@ -132,7 +132,7 @@ class FinanceRepositoryImpl @Inject constructor(
         onlineAmount: Double,
         remarks: String?,
         recordedBy: String,
-        transactionGroupId: String?
+        transactionGroupId: String? = null
     ) {
         database.withTransaction {
             val consultationTransactions = financeDao.getTransactionsByVisitId(visitId)
@@ -233,14 +233,14 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateIncomeForVisit(
+    suspend fun updateIncomeForVisit(
         visitId: String,
         amount: Double,
         cashAmount: Double,
         onlineAmount: Double,
         remarks: String?,
         recordedBy: String,
-        transactionGroupId: String?
+        transactionGroupId: String? = null
     ) {
         database.withTransaction {
             val transactions = financeDao.getTransactionsByVisitId(visitId)
@@ -334,7 +334,7 @@ class FinanceRepositoryImpl @Inject constructor(
     }
 
 
-    override suspend fun migrateLegacyVaccinationCogs(vaccinations: List<Vaccination>) {
+    suspend fun migrateLegacyVaccinationCogs(vaccinations: List<Vaccination>) {
         database.withTransaction {
             val validById = vaccinations.associateBy { it.id }
             val transactions = financeDao.getAllTransactionsSnapshot()
@@ -369,7 +369,7 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshTransactions() {
+    suspend fun refreshTransactions() {
         withContext(Dispatchers.IO) {
             try {
                 val transactions = postgrest.from("finance_transactions").select().decodeList<FinanceEntity>()
@@ -385,7 +385,8 @@ class FinanceRepositoryImpl @Inject constructor(
                             val visit = visitDao.getVaccinationById(visitId)
                             if (visit != null) {
                                 val visitDate = com.neochildclinic.core.utils.PatientUtils.parseDate(visit.dateGiven)?.let {
-                                    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(it)
+                                    it.toInstant().atZone(java.time.ZoneId.systemDefault())
+                                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH))
                                 }
                                 if (visitDate != null && remote.transactionDate != visitDate) {
                                     normalizedRemote = remote.copy(transactionDate = visitDate)

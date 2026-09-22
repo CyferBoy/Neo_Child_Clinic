@@ -1,9 +1,10 @@
 package com.neochildclinic.features.statistics
 
 import com.neochildclinic.core.utils.PatientUtils
+import com.neochildclinic.core.utils.toLocalDate
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import java.text.SimpleDateFormat
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -32,9 +33,9 @@ object StatisticsDateUtils {
      * Get today's date string in IST as "d MMM yyyy" (app display format).
      */
     fun todayISTString(): String {
-        val sdf = SimpleDateFormat("d MMM yyyy", Locale.ENGLISH)
-        sdf.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
-        return sdf.format(java.util.Date())
+        return DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+            .withZone(IST)
+            .format(Instant.now())
     }
 
     /**
@@ -53,12 +54,7 @@ object StatisticsDateUtils {
     fun parseDateOnly(dateStr: String): LocalDate? {
         if (dateStr.isBlank()) return null
         val date = PatientUtils.parseDate(dateStr) ?: return null
-        val cal = Calendar.getInstance().apply { time = date }
-        return LocalDate.of(
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH)
-        )
+        return date.toLocalDate()
     }
 
     /**

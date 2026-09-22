@@ -3,6 +3,8 @@ package com.neochildclinic.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+typealias VaccinationItem = com.neochildclinic.data.local.entity.VaccinationItemEntity
+
 @Serializable
 data class Vaccination(
     val id: String = "",
@@ -49,20 +51,6 @@ data class Vaccination(
     val nxtVaccineNames: List<String> get() = nextVaccinations.flatMap { it.vaccineNames }
     val nextDueDate: String get() = nextVaccinations.minByOrNull { it.dueDate }?.dueDate ?: ""
 }
-
-@Serializable
-data class VaccinationItem(
-    val id: String = "",
-    @SerialName("vaccination_id") val vaccinationId: String = "",
-    @SerialName("vaccine_id") val vaccineId: String = "",
-    @SerialName("vaccine_name") val vaccineName: String = "",
-    @SerialName("batch_id") val batchId: String = "",
-    @SerialName("batch_number") val batchNumber: String = "",
-    @SerialName("expiry_date") val expiryDate: String = "",
-    val quantity: Int = 1,
-    val mrp: Double = 0.0,
-    @SerialName("net_rate") val netRate: Double = 0.0
-)
 
 @Serializable
 data class NextVaccinationSummary(

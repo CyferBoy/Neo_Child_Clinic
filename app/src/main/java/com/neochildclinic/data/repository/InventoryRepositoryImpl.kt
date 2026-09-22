@@ -11,7 +11,6 @@ import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import io.github.jan.supabase.postgrest.Postgrest
@@ -24,7 +23,6 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class InventoryRepositoryImpl @Inject constructor(
@@ -33,9 +31,8 @@ class InventoryRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val settingsManager: NotificationSettingsManager,
-    private val memoryCache: MemoryCache,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) : InventoryRepository {
+) {
 
     private val vaccineDao = database.vaccineDao()
     private val syncQueueDao = database.syncQueueDao()
@@ -61,10 +58,10 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getInventoryItems(
-        query: String,
-        filter: InventoryFilter,
-        sort: InventorySort
+    fun getInventoryItems(
+        query: String = "",
+        filter: InventoryFilter = InventoryFilter.ALL,
+        sort: InventorySort = InventorySort.ALPHABETICAL
     ): Flow<List<InventoryItem>> {
         return combine(
             vaccineDao.getAllVaccines(),
@@ -132,24 +129,22 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 
+    fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 
         vaccineDao.getBatchesByVaccine(vaccineId).map { batches ->
             batches.sortedBy { parseDate(it.expiryDate) }
         }
 
-    override fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>> = 
+    fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>> = 
         vaccineDao.getTransactionsForVaccine(vaccineId)
 
-    override suspend fun getBatchById(batchId: String): VaccineBatchEntity? {
-        memoryCache.getBatch(batchId)?.let { return it }
-        return vaccineDao.getBatchById(batchId)?.also { memoryCache.putBatch(it) }
-    }
+    suspend fun getBatchById(batchId: String): VaccineBatchEntity? =
+        vaccineDao.getBatchById(batchId)
 
-    override suspend fun getVaccineById(vaccineId: String): VaccineEntity? {
+    suspend fun getVaccineById(vaccineId: String): VaccineEntity? {
         return vaccineDao.getVaccineById(vaccineId)
     }
 
-    override suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
+    suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             val entity = vaccine.copy(
@@ -158,21 +153,17 @@ class InventoryRepositoryImpl @Inject constructor(
             )
             vaccineDao.insertVaccine(entity)
             syncRepository.enqueue("VACCINE", entity.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
-            try {
-                auditLogger.recordLog(
-                    module = "VACCINE",
-                    entityType = "VACCINE",
-                    entityId = vaccine.id,
-                    action = "CREATED",
-                    remarks = "Vaccine Definition: ${vaccine.brandName}"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-            }
+            auditLogger.recordLog(
+                module = "VACCINE",
+                entityType = "VACCINE",
+                entityId = vaccine.id,
+                action = "CREATED",
+                remarks = "Vaccine Definition: ${vaccine.brandName}"
+            )
         }
     }
 
-    override suspend fun updateVaccine(vaccine: VaccineEntity, user: String) {
+    suspend fun updateVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
             val existing = vaccineDao.getVaccineById(vaccine.id)
             val userName = sessionManager.getCurrentUserName()
@@ -183,24 +174,20 @@ class InventoryRepositoryImpl @Inject constructor(
             )
             vaccineDao.updateVaccine(updated)
             syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-            try {
-                auditLogger.recordLog(
-                    module = "VACCINE",
-                    entityType = "VACCINE",
-                    entityId = vaccine.id,
-                    action = "UPDATED",
-                    remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-            }
+            auditLogger.recordLog(
+                module = "VACCINE",
+                entityType = "VACCINE",
+                entityId = vaccine.id,
+                action = "UPDATED",
+                remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
+            )
         }
     }
 
-    override suspend fun addBatch(
+    suspend fun addBatch(
         batch: VaccineBatchEntity,
         user: String,
-        transactionGroupId: String?
+        transactionGroupId: String? = null
     ) {
         database.withTransaction {
             val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
@@ -212,7 +199,6 @@ class InventoryRepositoryImpl @Inject constructor(
                 updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             )
             vaccineDao.insertBatch(entityWithAudit)
-            memoryCache.putBatch(entityWithAudit)
 
             val transaction = InventoryTransactionEntity(
                 vaccineId = batch.vaccineId,
@@ -229,24 +215,20 @@ class InventoryRepositoryImpl @Inject constructor(
             )
             vaccineDao.insertTransaction(transaction)
 
-            try {
-                auditLogger.recordLog(
-                    module = "INVENTORY",
-                    entityType = "BATCH",
-                    entityId = batch.batchId,
-                    action = "CREATED",
-                    remarks = "Vaccine: ${vaccine.brandName}, Batch: ${batch.batchNumber}, Qty: ${batch.purchaseQuantity}"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-            }
+            auditLogger.recordLog(
+                module = "INVENTORY",
+                entityType = "BATCH",
+                entityId = batch.batchId,
+                action = "CREATED",
+                remarks = "Vaccine: ${vaccine.brandName}, Batch: ${batch.batchNumber}, Qty: ${batch.purchaseQuantity}"
+            )
             val groupId = transactionGroupId ?: UUID.randomUUID().toString()
             syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
             syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
         }
     }
 
-    override suspend fun addStockBatch(
+    suspend fun addStockBatch(
         entriesByVaccine: Map<String, List<VaccineBatchEntity>>,
         user: String
     ) {
@@ -326,15 +308,15 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getStockHistoryPage(
-        vaccineId: String?,
-        batchId: String?,
-        types: List<InventoryTransactionType>,
-        fromDateIso: String?,
-        toDateIso: String?,
-        limit: Int,
-        offset: Int,
-        remoteOnly: Boolean
+    suspend fun getStockHistoryPage(
+        vaccineId: String? = null,
+        batchId: String? = null,
+        types: List<InventoryTransactionType> = emptyList(),
+        fromDateIso: String? = null,
+        toDateIso: String? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+        remoteOnly: Boolean = true
     ): List<InventoryTransactionEntity> {
         if (!remoteOnly) {
             return vaccineDao.getFilteredTransactionsPage(
@@ -364,7 +346,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String?) {
+    suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String? = null) {
         database.withTransaction {
             val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return@withTransaction
             val diff = batch.remainingQuantity - oldBatch.remainingQuantity
@@ -400,17 +382,13 @@ class InventoryRepositoryImpl @Inject constructor(
                 )
             }
 
-            try {
-                auditLogger.recordLog(
-                    module = "INVENTORY",
-                    entityType = "BATCH",
-                    entityId = batch.batchId,
-                    action = "UPDATED",
-                    remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-            }
+            auditLogger.recordLog(
+                module = "INVENTORY",
+                entityType = "BATCH",
+                entityId = batch.batchId,
+                action = "UPDATED",
+                remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
+            )
 
             syncRepository.enqueue(
                 entityName = "BATCH",
@@ -421,12 +399,11 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteBatch(batchId: String, user: String) {
+    suspend fun deleteBatch(batchId: String, user: String) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: return@withTransaction
 
             vaccineDao.deleteBatch(batchId)
-            memoryCache.invalidateBatch(batchId)
 
             val userName = sessionManager.getCurrentUserName()
             vaccineDao.insertTransaction(InventoryTransactionEntity(
@@ -442,22 +419,18 @@ class InventoryRepositoryImpl @Inject constructor(
                 updatedBy = userName
             ))
 
-            try {
-                auditLogger.recordLog(
-                    module = "INVENTORY",
-                    entityType = "BATCH",
-                    entityId = batchId,
-                    action = "DELETED",
-                    remarks = "Batch: ${batch.batchNumber}, Removed Qty: ${batch.remainingQuantity}"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-            }
+            auditLogger.recordLog(
+                module = "INVENTORY",
+                entityType = "BATCH",
+                entityId = batchId,
+                action = "DELETED",
+                remarks = "Batch: ${batch.batchNumber}, Removed Qty: ${batch.remainingQuantity}"
+            )
             syncRepository.enqueue("BATCH", batchId, SyncOperation.DELETE, SyncPriority.MEDIUM)
         }
     }
 
-    override suspend fun deleteVaccine(vaccineId: String, user: String) {
+    suspend fun deleteVaccine(vaccineId: String, user: String) {
         database.withTransaction {
             val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@withTransaction
             
@@ -480,28 +453,24 @@ class InventoryRepositoryImpl @Inject constructor(
                 // Permanent Delete
                 vaccineDao.deleteVaccine(vaccineId)
                 syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
-                try {
-                    auditLogger.recordLog(
-                        module = "VACCINE",
-                        entityType = "VACCINE",
-                        entityId = vaccineId,
-                        action = "DELETED_PERMANENTLY",
-                        remarks = "Vaccine: ${vaccine.brandName}"
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e("InventoryRepo", "Audit log failed: ${e.message}")
-                }
+                auditLogger.recordLog(
+                    module = "VACCINE",
+                    entityType = "VACCINE",
+                    entityId = vaccineId,
+                    action = "DELETED_PERMANENTLY",
+                    remarks = "Vaccine: ${vaccine.brandName}"
+                )
             }
         }
     }
 
-    override suspend fun deductStock(
+    suspend fun deductStock(
         vaccineId: String,
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        visitId: String?,
-        patientId: String?
+        visitId: String? = null,
+        patientId: String? = null
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
         database.withTransaction {
@@ -567,16 +536,16 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deductStockFromBatch(
+    suspend fun deductStockFromBatch(
         batchId: String,
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        visitId: String?,
-        patientId: String?,
-        notes: String?,
-        allowExpired: Boolean,
-        givenDate: String?
+        visitId: String? = null,
+        patientId: String? = null,
+        notes: String? = null,
+        allowExpired: Boolean = false,
+        givenDate: String? = null
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -630,12 +599,12 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addStockToBatch(
+    suspend fun addStockToBatch(
         batchId: String,
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        notes: String?
+        notes: String? = null
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -689,12 +658,12 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun reverseDeduction(
+    suspend fun reverseDeduction(
         batchId: String,
         quantity: Int,
         user: String,
-        visitId: String?,
-        patientId: String?
+        visitId: String? = null,
+        patientId: String? = null
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -737,13 +706,13 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun returnBorrowedStock(
+    suspend fun returnBorrowedStock(
         originalBatchId: String,
         returnToBatchId: String,
         quantity: Int,
         user: String,
-        notes: String?,
-        transactionGroupId: String?
+        notes: String? = null,
+        transactionGroupId: String? = null
     ) {
         database.withTransaction {
             val targetBatch = vaccineDao.getBatchById(returnToBatchId) ?: throw IllegalStateException("Batch not found")
@@ -807,11 +776,11 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
+    suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
         vaccineDao.updatePatientIdInTransactions(duplicateId, masterId)
     }
 
-    override suspend fun refreshInventory() {
+    suspend fun refreshInventory() {
         withContext(Dispatchers.IO) {
             try {
                 val vaccines = postgrest.from("vaccines").select().decodeList<VaccineEntity>()

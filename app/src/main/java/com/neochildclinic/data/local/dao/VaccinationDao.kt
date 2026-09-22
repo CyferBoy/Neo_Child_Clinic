@@ -13,16 +13,6 @@ interface VaccinationDao {
     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
     fun getVaccinationsForPatient(patientId: String): Flow<List<VisitEntity>>
 
-    // --- Pagination (large-data scalability pass) ---
-    // patient_visits grows with every visit (not just every patient), so getAllVaccinations()
-    // is the fastest-growing unbounded list in the app. Additive - existing Flow methods
-    // above are untouched for backward compatibility.
-    @Query("SELECT * FROM patient_visits ORDER BY dateGiven DESC, id ASC LIMIT :limit OFFSET :offset")
-    suspend fun getAllVaccinationsPage(limit: Int, offset: Int): List<VisitEntity>
-
-    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC, id ASC LIMIT :limit OFFSET :offset")
-    suspend fun getVaccinationsForPatientPage(patientId: String, limit: Int, offset: Int): List<VisitEntity>
-
     @Transaction
     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>

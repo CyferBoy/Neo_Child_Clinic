@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
@@ -200,7 +200,7 @@ class AddStockViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
                 val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
-                val today = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date())
+                val today = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
 
                 val entriesByVaccine = sections
                     .filter { it.vaccineId.isNotBlank() }

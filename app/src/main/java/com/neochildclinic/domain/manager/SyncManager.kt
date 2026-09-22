@@ -1,7 +1,5 @@
 package com.neochildclinic.domain.manager
 
-interface SyncManager {
-    fun scheduleSync()
-    fun scheduleImmediateSync()
-    fun cancelAllSync()
-}
+import com.neochildclinic.data.manager.SyncManagerImpl
+
+typealias SyncManager = SyncManagerImpl

@@ -16,7 +16,6 @@ import com.neochildclinic.data.local.entity.BackupHistoryType
 import com.neochildclinic.data.local.entity.BackupLocation
 import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.BackupRepository
 import com.neochildclinic.features.settings.BackupSettingsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
@@ -40,7 +39,7 @@ class BackupRepositoryImpl @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val backupSettingsManager: BackupSettingsManager,
     private val auth: Auth
-) : BackupRepository {
+) {
 
     private val backupDao = database.backupDao()
     private val collector = BackupCollector(backupDao)
@@ -49,10 +48,10 @@ class BackupRepositoryImpl @Inject constructor(
 
     // ============================================================== Local export ====
 
-    override suspend fun exportBackupToUri(
+    suspend fun exportBackupToUri(
         uri: Uri,
         password: CharArray,
-        onProgress: suspend (BackupProgress) -> Unit
+        onProgress: suspend (BackupProgress) -> Unit = {}
     ): BackupOperationResult = withContext(Dispatchers.IO) {
         try {
             runCatching {
@@ -84,7 +83,7 @@ class BackupRepositoryImpl @Inject constructor(
 
     // ============================================================== Local import ====
 
-    override suspend fun peekBackupFromUri(uri: Uri, password: CharArray): BackupValidationResult =
+    suspend fun peekBackupFromUri(uri: Uri, password: CharArray): BackupValidationResult =
         withContext(Dispatchers.IO) {
             try {
                 val bytes = readBytesFromUri(uri) ?: return@withContext BackupValidationResult.Invalid(
@@ -103,11 +102,11 @@ class BackupRepositoryImpl @Inject constructor(
             }
         }
 
-    override suspend fun restoreBackupFromUri(
+    suspend fun restoreBackupFromUri(
         uri: Uri,
         password: CharArray,
         mode: RestoreMode,
-        onProgress: suspend (BackupProgress) -> Unit
+        onProgress: suspend (BackupProgress) -> Unit = {}
     ): BackupOperationResult = withContext(Dispatchers.IO) {
         try {
             runCatching {
@@ -137,7 +136,7 @@ class BackupRepositoryImpl @Inject constructor(
     private suspend fun performRestore(
         envelope: BackupEnvelope,
         mode: RestoreMode,
-        onProgress: suspend (BackupProgress) -> Unit
+        onProgress: suspend (BackupProgress) -> Unit = {}
     ): BackupRestorer.Outcome {
         onProgress(BackupProgress.Stage("Creating safety backup..."))
         try {
@@ -172,11 +171,11 @@ class BackupRepositoryImpl @Inject constructor(
 
     // ==================================================================== Cloud ====
 
-    override suspend fun isCloudConfigured(): Boolean = cloudApi.isConfigured()
+    suspend fun isCloudConfigured(): Boolean = cloudApi.isConfigured()
 
-    override suspend fun cloudBackupNow(
+    suspend fun cloudBackupNow(
         password: CharArray,
-        onProgress: suspend (BackupProgress) -> Unit
+        onProgress: suspend (BackupProgress) -> Unit = {}
     ): BackupOperationResult = withContext(Dispatchers.IO) {
         try {
             runCatching {
@@ -220,12 +219,12 @@ class BackupRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun listCloudBackups(): Result<List<CloudBackupMetadata>> = withContext(Dispatchers.IO) {
+    suspend fun listCloudBackups(): Result<List<CloudBackupMetadata>> = withContext(Dispatchers.IO) {
         if (!cloudApi.isConfigured()) return@withContext Result.failure(BackupException.Failed("Cloud backup is not configured"))
         runCatching { cloudApi.list() }
     }
 
-    override suspend fun peekCloudBackup(backupId: String, password: CharArray): BackupValidationResult =
+    suspend fun peekCloudBackup(backupId: String, password: CharArray): BackupValidationResult =
         withContext(Dispatchers.IO) {
             try {
                 if (!networkMonitor.isOnline.first()) return@withContext BackupValidationResult.Invalid(
@@ -245,11 +244,11 @@ class BackupRepositoryImpl @Inject constructor(
             }
         }
 
-    override suspend fun cloudRestore(
+    suspend fun cloudRestore(
         backupId: String,
         password: CharArray,
         mode: RestoreMode,
-        onProgress: suspend (BackupProgress) -> Unit
+        onProgress: suspend (BackupProgress) -> Unit = {}
     ): BackupOperationResult = withContext(Dispatchers.IO) {
         try {
             runCatching {
@@ -277,19 +276,19 @@ class BackupRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteCloudBackup(backupId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun deleteCloudBackup(backupId: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching { cloudApi.delete(backupId) }
     }
 
     // ================================================================= History ====
 
-    override fun observeHistory(): Flow<List<BackupHistoryEntity>> = backupDao.observeHistory()
+    fun observeHistory(): Flow<List<BackupHistoryEntity>> = backupDao.observeHistory()
 
     // ============================================================== Automatic ====
 
-    override suspend fun getAutoBackupSettings(): AutoBackupSettings = backupSettingsManager.getSettings()
+    suspend fun getAutoBackupSettings(): AutoBackupSettings = backupSettingsManager.getSettings()
 
-    override suspend fun enableAutomaticBackup(password: CharArray, settings: AutoBackupSettings) {
+    suspend fun enableAutomaticBackup(password: CharArray, settings: AutoBackupSettings) {
         try {
             // EncryptedSharedPreferences (SecurityUtils) only accepts String - this is the
             // one unavoidable String boundary in this feature, since Automatic Backup must
@@ -301,19 +300,19 @@ class BackupRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateAutomaticBackupSettings(settings: AutoBackupSettings) {
+    suspend fun updateAutomaticBackupSettings(settings: AutoBackupSettings) {
         val current = backupSettingsManager.getSettings()
         backupSettingsManager.updateSettings(settings.copy(enabled = current.enabled))
     }
 
-    override suspend fun disableAutomaticBackup() {
+    suspend fun disableAutomaticBackup() {
         backupSettingsManager.updateSettings(backupSettingsManager.getSettings().copy(enabled = false))
         SecurityUtils.clearBackupPassword(context)
     }
 
     /** Called by AutoBackupWorker. Never prompts for anything - uses the password stored
      * when the user enabled Automatic Backup. */
-    override suspend fun performAutomaticBackup(): BackupOperationResult = withContext(Dispatchers.IO) {
+    suspend fun performAutomaticBackup(): BackupOperationResult = withContext(Dispatchers.IO) {
         val settings = backupSettingsManager.getSettings()
         if (!settings.enabled) return@withContext BackupOperationResult(false, userMessage = "Automatic backup is disabled")
         val storedPassword = SecurityUtils.getBackupPassword(context)
@@ -363,9 +362,9 @@ class BackupRepositoryImpl @Inject constructor(
 
     // ================================================================== Safety ====
 
-    override suspend fun hasSafetyBackup(): Boolean = withContext(Dispatchers.IO) { safetyStore.exists() }
+    suspend fun hasSafetyBackup(): Boolean = withContext(Dispatchers.IO) { safetyStore.exists() }
 
-    override suspend fun restoreSafetyBackup(onProgress: suspend (BackupProgress) -> Unit): BackupOperationResult =
+    suspend fun restoreSafetyBackup(onProgress: suspend (BackupProgress) -> Unit = {}): BackupOperationResult =
         withContext(Dispatchers.IO) {
             runCatching {
                 val bytes = safetyStore.read() ?: throw BackupException.Corrupted("No safety backup is available")

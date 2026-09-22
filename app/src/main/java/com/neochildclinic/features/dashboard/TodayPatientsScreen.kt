@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,12 +23,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import android.content.Intent
 import android.net.Uri
@@ -108,15 +106,18 @@ fun TodayPatientsScreen(
     }
 
     val displayMonthYear = remember(selectedDate) {
-        val calendar = Calendar.getInstance()
-        calendar.time = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(selectedDate) ?: Date()
-        SimpleDateFormat("MMMM yyyy", Locale.ENGLISH).format(calendar.time)
+        val date = try {
+            java.time.LocalDate.parse(selectedDate, DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+        } catch (_: java.time.format.DateTimeParseException) {
+            java.time.LocalDate.now()
+        }
+        date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH))
     }
 
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(customColors.bgOffWhite)) {
-                TopAppBar(
+                BackTopAppBar(
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -130,11 +131,7 @@ fun TodayPatientsScreen(
                             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                         }
                     },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
+                    onBack = onBack,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = customColors.bgOffWhite,
                         titleContentColor = customColors.iconColor,
@@ -355,73 +352,39 @@ fun TodayPatientsScreen(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun MonthYearPickerDialog(
     currentDate: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH) }
-    val calendar = remember {
-        Calendar.getInstance().apply {
-            time = sdf.parse(currentDate) ?: Date()
+    val isoFmt = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH) }
+    val initial = remember(currentDate) {
+        try {
+            java.time.LocalDate.parse(currentDate, isoFmt)
+        } catch (_: java.time.format.DateTimeParseException) {
+            java.time.LocalDate.now()
         }
     }
-
-    var selectedMonth by remember { mutableIntStateOf(calendar.get(Calendar.MONTH)) }
-    var selectedYear by remember { mutableIntStateOf(calendar.get(Calendar.YEAR)) }
-
-    val months = remember {
-        listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-    }
-    val years = remember { (2020..2030).toList() }
-
-    AlertDialog(
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initial.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+    )
+    DatePickerDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Month & Year") },
-        text = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                var monthExpanded by remember { mutableStateOf(false) }
-                var yearExpanded by remember { mutableStateOf(false) }
-
-                Box(modifier = Modifier.weight(1.5f)) {
-                    OutlinedButton(onClick = { monthExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(months[selectedMonth])
-                    }
-                    DropdownMenu(expanded = monthExpanded, onDismissRequest = { monthExpanded = false }) {
-                        months.forEachIndexed { index, name ->
-                            DropdownMenuItem(text = { Text(name) }, onClick = { selectedMonth = index; monthExpanded = false })
-                        }
-                    }
-                }
-
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedButton(onClick = { yearExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(selectedYear.toString())
-                    }
-                    DropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
-                        years.forEach { year ->
-                            DropdownMenuItem(text = { Text(year.toString()) }, onClick = { selectedYear = year; yearExpanded = false })
-                        }
-                    }
-                }
-            }
-        },
         confirmButton = {
             TextButton(onClick = {
-                val newCal = Calendar.getInstance()
-                newCal.set(Calendar.YEAR, selectedYear)
-                newCal.set(Calendar.MONTH, selectedMonth)
-                newCal.set(Calendar.DAY_OF_MONTH, 1)
-                onConfirm(sdf.format(newCal.time))
+                val date = state.selectedDateMillis?.let {
+                    java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                } ?: initial
+                onConfirm(date.withDayOfMonth(1).format(isoFmt))
             }) { Text("Confirm") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
-    )
+    ) {
+        DatePicker(state = state)
+    }
 }
 
 @Composable
@@ -667,20 +630,23 @@ private fun HorizontalDateSelector(
     datesWithData: Set<String>,
     onDateSelected: (String) -> Unit
 ) {
-    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH) }
-    val dayFormat = remember { SimpleDateFormat("EEE", Locale.ENGLISH) }
-    val dateFormat = remember { SimpleDateFormat("d", Locale.ENGLISH) }
+    val isoFmt = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH) }
+    val dayFormat = remember { DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH) }
+    val dateFormat = remember { DateTimeFormatter.ofPattern("d", Locale.ENGLISH) }
 
     val daysInMonth = remember(selectedDate) {
-        val calendar = Calendar.getInstance()
-        calendar.time = sdf.parse(selectedDate) ?: Date()
-        val currentMonth = calendar.get(Calendar.MONTH)
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        
-        val days = mutableListOf<Date>()
-        while (calendar.get(Calendar.MONTH) == currentMonth) {
-            days.add(calendar.time)
-            calendar.add(Calendar.DAY_OF_MONTH, 1)
+        val selected = try {
+            java.time.LocalDate.parse(selectedDate, isoFmt)
+        } catch (_: java.time.format.DateTimeParseException) {
+            java.time.LocalDate.now()
+        }
+        val currentMonth = selected.monthValue
+        var cursor = selected.withDayOfMonth(1)
+
+        val days = mutableListOf<java.time.LocalDate>()
+        while (cursor.monthValue == currentMonth) {
+            days.add(cursor)
+            cursor = cursor.plusDays(1)
         }
         days
     }
@@ -688,7 +654,7 @@ private fun HorizontalDateSelector(
     val listState = rememberLazyListState()
     
     LaunchedEffect(selectedDate) {
-        val selectedIdx = daysInMonth.indexOfFirst { sdf.format(it) == selectedDate }
+        val selectedIdx = daysInMonth.indexOfFirst { it.format(isoFmt) == selectedDate }
         if (selectedIdx >= 0) {
             listState.animateScrollToItem(selectedIdx)
         }
@@ -703,13 +669,13 @@ private fun HorizontalDateSelector(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(daysInMonth) { date ->
-            val dateStr = sdf.format(date)
+            val dateStr = date.format(isoFmt)
             val isSelected = dateStr == selectedDate
             val hasData = datesWithData.contains(dateStr)
 
             DateItem(
-                dayName = dayFormat.format(date),
-                dayDate = dateFormat.format(date),
+                dayName = date.format(dayFormat),
+                dayDate = date.format(dateFormat),
                 isSelected = isSelected,
                 hasData = hasData,
                 onClick = { onDateSelected(dateStr) }

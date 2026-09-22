@@ -1,6 +1,5 @@
 package com.neochildclinic.features.inventory
 
-import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.FilterAltOff
 import androidx.compose.material3.*
@@ -16,11 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.EmptyState
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.DateDropdownPicker
@@ -37,15 +37,9 @@ fun StockHistoryScreen(
     viewModel: StockHistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
     var showFilters by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearError()
-        }
-    }
+    MessageEffect(uiState.error) { viewModel.clearError() }
 
 
     val filtersActive = uiState.selectedVaccineId != null || uiState.selectedBatchId != null ||
@@ -56,13 +50,9 @@ fun StockHistoryScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Stock History") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
+                    onBack = onBack,
                     actions = {
                         IconButton(onClick = { showFilters = !showFilters }) {
                             Icon(
@@ -71,12 +61,7 @@ fun StockHistoryScreen(
                                 tint = if (filtersActive) MaterialTheme.colorScheme.primary else LocalContentColor.current
                             )
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    }
                 )
             }
         ) { padding ->
@@ -110,12 +95,9 @@ fun StockHistoryScreen(
                             contentPadding = PaddingValues(16.dp)
                         )
                     } else if (!uiState.isLoading && uiState.transactions.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                if (filtersActive) "No stock movements match these filters" else "No stock movements yet",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        EmptyState(
+                            if (filtersActive) "No stock movements match these filters" else "No stock movements yet"
+                        )
                     } else {
                         val listState = rememberLazyListState()
 

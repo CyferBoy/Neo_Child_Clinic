@@ -8,7 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.DateDropdownPicker
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Composable
@@ -16,9 +17,11 @@ fun RescheduleDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String, String) -> Unit
 ) {
-    val sdf = remember { SimpleDateFormat("d MMM yyyy", Locale.ENGLISH) }
-    val today = remember { sdf.format(Date()) }
-    
+    val fmt = remember { DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH) }
+    val today = remember { LocalDate.now().format(fmt) }
+
+    fun parse(s: String): LocalDate? = try { LocalDate.parse(s, fmt) } catch (_: Exception) { null }
+
     var newDueDate by remember { mutableStateOf(today) }
     var reminderDate by remember { mutableStateOf(today) }
     var reason by remember { mutableStateOf("") }
@@ -37,9 +40,9 @@ fun RescheduleDialog(
                     onDateSelected = { 
                         newDueDate = it
                         // If reminder date is now after due date, pull it back
-                        val due = sdf.parse(it)
-                        val rem = sdf.parse(reminderDate)
-                        if (due != null && rem != null && rem.after(due)) {
+                        val due = parse(it)
+                        val rem = parse(reminderDate)
+                        if (due != null && rem != null && rem.isAfter(due)) {
                             reminderDate = it
                         }
                     }
@@ -50,9 +53,9 @@ fun RescheduleDialog(
                     currentDate = reminderDate,
                     onDateSelected = { 
                         // Validation: Reminder date cannot be after due date
-                        val due = sdf.parse(newDueDate)
-                        val rem = sdf.parse(it)
-                        if (due != null && rem != null && !rem.after(due)) {
+                        val due = parse(newDueDate)
+                        val rem = parse(it)
+                        if (due != null && rem != null && !rem.isAfter(due)) {
                             reminderDate = it
                         } else {
                             // Show error or snap to due date

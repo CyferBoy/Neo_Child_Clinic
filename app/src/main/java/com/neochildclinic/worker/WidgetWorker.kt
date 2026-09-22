@@ -80,11 +80,12 @@ class WidgetWorker @AssistedInject constructor(
         // already knows every format the app stores dates in, so reuse it here too.
         val date = PatientUtils.parseDate(value) ?: return value
 
-        val dateYear = java.util.Calendar.getInstance().apply { time = date }.get(java.util.Calendar.YEAR)
-        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val dateYear = date.toInstant().atZone(java.time.ZoneId.systemDefault()).year
+        val currentYear = java.time.LocalDate.now().year
 
         // Same year as today -> "15 Jun". Different year -> "15 Jun 25".
         val pattern = if (dateYear == currentYear) "d MMM" else "d MMM yy"
-        return java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH).format(date)
+        return date.toInstant().atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.ENGLISH))
     }
 }

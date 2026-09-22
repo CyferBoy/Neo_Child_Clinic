@@ -2,9 +2,35 @@ package com.neochildclinic.core.utils
 
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.ReminderStatus
 import java.text.SimpleDateFormat
-import java.util.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Date
+import java.util.Locale
+import java.util.Optional
+
+internal fun Date.toLocalDate(): LocalDate =
+    toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+
+internal fun Calendar.toLocalDate(): LocalDate =
+    toInstant().atZone(timeZone.toZoneId()).toLocalDate()
+
+internal fun Calendar.startOfDay(): Calendar {
+    val zone = timeZone.toZoneId()
+    return Calendar.from(toInstant().atZone(zone).toLocalDate().atStartOfDay(zone))
+}
+
+internal fun Calendar.endOfDay(): Calendar {
+    val zone = timeZone.toZoneId()
+    return Calendar.from(
+        toInstant().atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).minusNanos(1)
+    )
+}
 
 object PatientUtils {
 
@@ -19,45 +45,6 @@ object PatientUtils {
     private const val DATE_PARSE_CACHE_LIMIT = 5000
 
     /**
-     * Returns an exact calendar age in the form "X years Y months Z days".
-     * Date arithmetic is calendar based rather than an approximation from milliseconds.
-     */
-    fun calculateExactAge(dob: String, onDate: Calendar = Calendar.getInstance()): String? {
-        val birthDate = parseDate(dob) ?: return null
-        val birth = Calendar.getInstance().apply {
-            time = birthDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val today = (onDate.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        if (birth.after(today)) return null
-
-        var years = today.get(Calendar.YEAR) - birth.get(Calendar.YEAR)
-        var months = today.get(Calendar.MONTH) - birth.get(Calendar.MONTH)
-        var days = today.get(Calendar.DAY_OF_MONTH) - birth.get(Calendar.DAY_OF_MONTH)
-
-        if (days < 0) {
-            months--
-            val previousMonth = (today.clone() as Calendar).apply {
-                add(Calendar.MONTH, -1)
-            }
-            days += previousMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
-        }
-        if (months < 0) {
-            years--
-            months += 12
-        }
-        return "$years years $months months $days days"
-    }
-
-    /**
      * Calculates the next requested age milestone within the supplied calendar window.
      * Each patient receives only their earliest upcoming milestone.
      */
@@ -67,45 +54,33 @@ object PatientUtils {
         windowEnd: Calendar = (Calendar.getInstance()).apply { add(Calendar.MONTH, 2) }
     ): AgeMilestone? {
         val birthDate = parseDate(dob) ?: return null
-        val birth = Calendar.getInstance().apply {
-            time = birthDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val start = (fromDate.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val end = (windowEnd.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 23)
-            set(Calendar.MINUTE, 59)
-            set(Calendar.SECOND, 59)
-            set(Calendar.MILLISECOND, 999)
-        }
-        if (birth.after(start)) return null
+        val birth = birthDate.toLocalDate()
+        val start = fromDate.toLocalDate()
+        val end = windowEnd.toLocalDate()
+        if (birth.isAfter(start)) return null
 
         val definitions = listOf(
-            "6 Weeks" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 42) } },
-            "10 Weeks" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 70) } },
-            "14 Weeks" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 98) } },
-            "6 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 6) } },
-            "7 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 7) } },
-            "9 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 9) } },
-            "12 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 12) } },
-            "13 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 13) } },
-            "15 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 15) } },
-            "16–17 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 16) } },
-            "16–17 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 17) } },
-            "18 Months" to { c: Calendar -> (c.clone() as Calendar).apply { add(Calendar.MONTH, 18) } }
+            "6 Weeks" to { d: LocalDate -> d.plusDays(42) },
+            "10 Weeks" to { d: LocalDate -> d.plusDays(70) },
+            "14 Weeks" to { d: LocalDate -> d.plusDays(98) },
+            "6 Months" to { d: LocalDate -> d.plusMonths(6) },
+            "7 Months" to { d: LocalDate -> d.plusMonths(7) },
+            "9 Months" to { d: LocalDate -> d.plusMonths(9) },
+            "12 Months" to { d: LocalDate -> d.plusMonths(12) },
+            "13 Months" to { d: LocalDate -> d.plusMonths(13) },
+            "15 Months" to { d: LocalDate -> d.plusMonths(15) },
+            "16–17 Months" to { d: LocalDate -> d.plusMonths(16) },
+            "16–17 Months" to { d: LocalDate -> d.plusMonths(17) },
+            "18 Months" to { d: LocalDate -> d.plusMonths(18) }
         )
 
         return definitions.mapNotNull { (label, calculator) ->
             val date = calculator(birth)
-            if (date.after(start) && !date.after(end)) AgeMilestone(label, date) else null
+            if (date.isAfter(start) && !date.isAfter(end)) {
+                AgeMilestone(label, Calendar.from(date.atStartOfDay(ZoneId.systemDefault())))
+            } else {
+                null
+            }
         }.minByOrNull { it.date.timeInMillis }
     }
 
@@ -119,52 +94,30 @@ object PatientUtils {
      */
     fun isOlderThanMonths(dob: String, months: Int, onDate: Calendar = Calendar.getInstance()): Boolean {
         val birthDate = parseDate(dob) ?: return false
-        val birth = Calendar.getInstance().apply {
-            time = birthDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val threshold = (birth.clone() as Calendar).apply { add(Calendar.MONTH, months) }
-        val today = (onDate.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        return !threshold.after(today)
+        val birth = birthDate.toLocalDate()
+        val threshold = birth.plusMonths(months.toLong())
+        val today = onDate.toLocalDate()
+        return !threshold.isAfter(today)
     }
-    
+
     /**
      * Returns "<years> year(s) <months> month(s)" (e.g. "1 year 0 months", "0 years 3
      * months") for the Patient Details screen's DOB/age display. Reuses the same
-     * calendar-based day-borrow diff already used by calculateAgeLabel()/
-     * calculateExactAge() (and the shared parseDate() cache), but always renders both
+     * calendar-based day-borrow diff already used by calculateAgeLabel()
+     * (and the shared parseDate() cache), but always renders both
      * the year and month component - rather than omitting a zero part or switching to
      * a weeks-based label for infants - to match that screen's fixed display format.
      * Returns null for an unparseable or future dob, same as the other age helpers.
      */
     fun formatAgeYearsMonths(dob: String, onDate: Calendar = Calendar.getInstance()): String? {
         val birthDate = parseDate(dob) ?: return null
-        val birth = Calendar.getInstance().apply {
-            time = birthDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val today = (onDate.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        if (birth.after(today)) return null
+        val birth = birthDate.toLocalDate()
+        val today = onDate.toLocalDate()
+        if (birth.isAfter(today)) return null
 
-        var years = today.get(Calendar.YEAR) - birth.get(Calendar.YEAR)
-        var months = today.get(Calendar.MONTH) - birth.get(Calendar.MONTH)
-        if (today.get(Calendar.DAY_OF_MONTH) < birth.get(Calendar.DAY_OF_MONTH)) {
+        var years = today.year - birth.year
+        var months = today.monthValue - birth.monthValue
+        if (today.dayOfMonth < birth.dayOfMonth) {
             months--
         }
         if (months < 0) {
@@ -184,17 +137,16 @@ object PatientUtils {
     fun calculateAgeLabel(dob: String): String? {
         try {
             val birthDate = parseDate(dob) ?: return null
-            val today = Calendar.getInstance()
-            val birth = Calendar.getInstance()
-            birth.time = birthDate
+            val today = LocalDate.now()
+            val birth = birthDate.toLocalDate()
 
-            var years = today[Calendar.YEAR] - birth[Calendar.YEAR]
-            var months = today[Calendar.MONTH] - birth[Calendar.MONTH]
-            
-            if (today[Calendar.DAY_OF_MONTH] < birth[Calendar.DAY_OF_MONTH]) {
+            var years = today.year - birth.year
+            var months = today.monthValue - birth.monthValue
+
+            if (today.dayOfMonth < birth.dayOfMonth) {
                 months--
             }
-            
+
             if (months < 0) {
                 years--
                 months += 12
@@ -209,8 +161,7 @@ object PatientUtils {
                 }
                 months > 0 -> "$months months"
                 else -> {
-                    val diffMs = today.timeInMillis - birth.timeInMillis
-                    val diffDays = (diffMs / (1000 * 60 * 60 * 24)).toInt()
+                    val diffDays = ChronoUnit.DAYS.between(birth, today).toInt()
                     val weeks = diffDays / 7
                     if (weeks <= 1) "1 week" else "$weeks weeks"
                 }
@@ -227,27 +178,25 @@ object PatientUtils {
     fun calculateDetailedAge(dob: String): Pair<Int, String> {
         try {
             val birthDate = parseDate(dob) ?: return 0 to "Years"
-            val today = Calendar.getInstance()
-            val birth = Calendar.getInstance()
-            birth.time = birthDate
+            val today = LocalDate.now()
+            val birth = birthDate.toLocalDate()
 
-            val diffMs = today.timeInMillis - birth.timeInMillis
-            val diffDays = (diffMs / (1000 * 60 * 60 * 24)).toInt()
+            val diffDays = ChronoUnit.DAYS.between(birth, today).toInt()
 
             if (diffDays < 30) {
                 val weeks = diffDays / 7
                 return if (weeks > 0) weeks to "Weeks" else 0 to "Weeks"
             }
-            
-            val years = today[Calendar.YEAR] - birth[Calendar.YEAR]
-            val months = today[Calendar.MONTH] - birth[Calendar.MONTH]
+
+            val years = today.year - birth.year
+            val months = today.monthValue - birth.monthValue
             val totalMonths = (years * 12) + months
-            
+
             return if (totalMonths < 12) {
                 totalMonths to "Months"
             } else {
                 var ageYears = years
-                if (today[Calendar.DAY_OF_YEAR] < birth[Calendar.DAY_OF_YEAR]) {
+                if (today.dayOfYear < birth.dayOfYear) {
                     ageYears--
                 }
                 ageYears to "Years"
@@ -281,6 +230,8 @@ object PatientUtils {
         // ParsePosition) is the exact same underlying parse logic (same prefix-matching
         // behavior, same precedence semantics) but returns null on failure instead of
         // throwing, so behavior is unchanged and failed attempts are cheap.
+        // KEEP this one SimpleDateFormat: DateTimeFormatter is strict about trailing
+        // text and cannot reproduce prefix-match parsing for mixed legacy formats.
         val formats = listOf(
             "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
             "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
@@ -314,7 +265,9 @@ object PatientUtils {
     fun formatDateTimeForDisplay(isoString: String): String {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
-        return SimpleDateFormat("MMM d, yyyy HH:mm:ss", Locale.getDefault()).format(date)
+        return DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm:ss", Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+            .format(date.toInstant())
     }
 
     /**
@@ -327,23 +280,28 @@ object PatientUtils {
     fun formatDateTimeIST(isoString: String): String {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
-        val sdf = SimpleDateFormat("MMM d, yyyy hh:mm:ss a", Locale.ENGLISH)
-        sdf.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
-        return "${sdf.format(date)} IST"
+        val formatted = DateTimeFormatter.ofPattern("MMM d, yyyy hh:mm:ss a", Locale.ENGLISH)
+            .withZone(ZoneId.of("Asia/Kolkata"))
+            .format(date.toInstant())
+        return "$formatted IST"
     }
 
     /**
      * Formats a Date object to the standard app display format.
      */
     fun formatDate(date: Date): String {
-        return SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(date)
+        return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+            .format(date.toInstant())
     }
 
     /**
      * Formats a timestamp to date and time.
      */
     fun formatDateTime(date: Date): String {
-        return SimpleDateFormat("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH).format(date)
+        return DateTimeFormatter.ofPattern("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+            .format(date.toInstant())
     }
 
     /**
@@ -351,25 +309,27 @@ object PatientUtils {
      */
     fun formatDateForDisplay(dateStr: String): String {
         val date = parseDate(dateStr) ?: return dateStr
-        return SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(date)
+        return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+            .format(date.toInstant())
     }
 
     /**
      * Returns current time in ISO 8601 format.
      */
     fun getCurrentIsoTimestamp(): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
-        return sdf.format(Date())
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+            .format(Instant.now())
     }
 
     /**
      * Returns ISO 8601 timestamp for some minutes ago.
      */
     fun getIsoTimestampMinutesAgo(minutes: Int): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.MINUTE, -minutes)
-        return sdf.format(cal.time)
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+            .format(Instant.now().minus(minutes.toLong(), ChronoUnit.MINUTES))
     }
 
     /**
@@ -397,93 +357,31 @@ object PatientUtils {
     }
 
     /**
-     * Legacy Logic: A vaccination is "actually pending" if:
-     * 1. isDone is false
-     * 2. There is NO other vaccination record for the same patient that was given AFTER this record's dateGiven.
-     *    (If a patient visits and a record is added, it supercedes all previous reminders/pending items).
-     */
-    fun getPendingVaccinations(allVaccinations: List<Vaccination>): List<Vaccination> {
-        return allVaccinations.filter { v ->
-            if (v.status != ReminderStatus.ACTIVE) return@filter false
-            if (v.nextDueDate.isBlank()) return@filter false
-            
-            val thisDateGiven = parseDate(v.dateGiven)
-            
-            // Check if any record for the same patient has a strictly later dateGiven
-            val hasNewerRecord = allVaccinations.any { other ->
-                if (other.id == v.id || other.patientId != v.patientId) return@any false
-                val otherDateGiven = parseDate(other.dateGiven)
-                otherDateGiven != null && thisDateGiven != null && otherDateGiven.after(thisDateGiven)
-            }
-            
-            !hasNewerRecord
-        }
-    }
-
-    /**
      * Unified Logic: Filters pending vaccinations based on a string filter (e.g., "Overdue", "Today").
      */
     fun filterVaccinationsByPeriod(
         pendingVaccinations: List<Vaccination>,
         filter: String,
     ): List<Vaccination> {
-        val now = Calendar.getInstance()
-
-        fun startOfDay(cal: Calendar): Calendar = (cal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        fun endOfDay(cal: Calendar): Calendar = (cal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 23)
-            set(Calendar.MINUTE, 59)
-            set(Calendar.SECOND, 59)
-            set(Calendar.MILLISECOND, 999)
-        }
-
-        val todayStart = startOfDay(now)
-        val todayEnd = endOfDay(now)
-
-        // Use the device locale's calendar week boundaries.
-        val weekStart = startOfDay(now).apply {
-            val daysFromWeekStart =
-                (get(Calendar.DAY_OF_WEEK) - firstDayOfWeek + 7) % 7
-            add(Calendar.DAY_OF_YEAR, -daysFromWeekStart)
-        }
-        val weekEnd = endOfDay(weekStart).apply {
-            add(Calendar.DAY_OF_YEAR, 6)
-        }
-
-        val monthStart = startOfDay(now).apply {
-            set(Calendar.DAY_OF_MONTH, 1)
-        }
-        val monthEnd = endOfDay(now).apply {
-            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
-        }
+        val today = LocalDate.now()
+        val tomorrow = today.plusDays(1)
+        val weekStart = today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+        val weekEnd = weekStart.plusDays(6)
+        val monthStart = today.withDayOfMonth(1)
+        val monthEnd = today.withDayOfMonth(today.lengthOfMonth())
 
         return pendingVaccinations.filter { v ->
-            val date = parseDate(v.nextDueDate)
+            val date = parseDate(v.nextDueDate)?.toLocalDate()
             if (date == null) {
                 filter == "All"
             } else {
-                val dateCal = Calendar.getInstance().apply {
-                    time = date
-                }
                 when (filter) {
-                    "Overdue" -> dateCal.before(todayStart)
-                    "Today" -> !dateCal.before(todayStart) && !dateCal.after(todayEnd)
-                    "Tomorrow" -> {
-                        val tomorrowStart = (todayStart.clone() as Calendar).apply {
-                            add(Calendar.DAY_OF_YEAR, 1)
-                        }
-                        val tomorrowEnd = endOfDay(tomorrowStart)
-                        !dateCal.before(tomorrowStart) && !dateCal.after(tomorrowEnd)
-                    }
-                    "This Week" -> !dateCal.before(weekStart) && !dateCal.after(weekEnd)
-                    "Month" -> !dateCal.before(monthStart) && !dateCal.after(monthEnd)
-                    "Upcoming" -> dateCal.after(weekEnd)
+                    "Overdue" -> date.isBefore(today)
+                    "Today" -> date == today
+                    "Tomorrow" -> date == tomorrow
+                    "This Week" -> !date.isBefore(weekStart) && !date.isAfter(weekEnd)
+                    "Month" -> !date.isBefore(monthStart) && !date.isAfter(monthEnd)
+                    "Upcoming" -> date.isAfter(weekEnd)
                     "All" -> true
                     else -> true
                 }

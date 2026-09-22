@@ -3,12 +3,11 @@ package com.neochildclinic.features.patient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.usecase.patient.DeletePatientUseCase
 import com.neochildclinic.domain.usecase.patient.MergePatientsUseCase
 import com.neochildclinic.domain.usecase.patient.SearchPatientsUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.usecase.vaccination.GetVaccinationsUseCase
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.Profile
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
@@ -45,8 +44,7 @@ data class PatientListUiState(
 
 @HiltViewModel
 class PatientListViewModel @Inject constructor(
-    private val getVaccinationsUseCase: GetVaccinationsUseCase,
-    private val deletePatientUseCase: DeletePatientUseCase,
+    private val vaccinationRepository: VaccinationRepository,
     private val mergePatientsUseCase: MergePatientsUseCase,
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
@@ -76,7 +74,7 @@ class PatientListViewModel @Inject constructor(
     val uiState: StateFlow<PatientListUiState> = combine(
         _debouncedSearchQuery.flatMapLatest { searchPatientsUseCase(it) },
         _sortOption,
-        getVaccinationsUseCase(),
+        vaccinationRepository.allVaccinations,
         combine(_isMergeSelectionMode, _selectedPatients, _isMerging, _error, _isRefreshing) { mode, selected, merging, err, refreshing ->
             RefreshState(mode, selected, merging, err, refreshing)
         },
@@ -248,7 +246,7 @@ class PatientListViewModel @Inject constructor(
     fun deletePatient(id: String) {
         viewModelScope.launch {
             try {
-                deletePatientUseCase(id)
+                patientRepository.deletePatient(id)
             } catch (e: Exception) {
                 Log.e("PatientListVM", "Delete patient failed", e)
                 _error.value = "Delete failed: ${e.message}"

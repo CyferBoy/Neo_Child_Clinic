@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.usecase.patient.GetPatientsUseCase
+import com.neochildclinic.domain.repository.PatientRepository
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -20,7 +20,7 @@ data class CompletedDismissedUiState(
 
 @HiltViewModel
 class CompletedDismissedViewModel @Inject constructor(
-    private val getPatientsUseCase: GetPatientsUseCase,
+    private val patientRepository: PatientRepository,
     private val reminderRepository: ReminderRepository,
     private val auth: Auth
 ) : ViewModel() {
@@ -28,7 +28,7 @@ class CompletedDismissedViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
 
     val uiState: StateFlow<CompletedDismissedUiState> = combine(
-        getPatientsUseCase(),
+        patientRepository.allPatients,
         reminderRepository.getDueList("", listOf(ReminderStatus.COMPLETED, ReminderStatus.DISMISSED)),
         _isRefreshing
     ) { args ->

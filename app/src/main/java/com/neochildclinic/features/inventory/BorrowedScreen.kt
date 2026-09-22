@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -21,12 +20,14 @@ import com.neochildclinic.core.model.BorrowedVaccine
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Composable
@@ -155,18 +156,9 @@ private fun BorrowedContent(
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Borrowed Vaccines") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
                 TabRow(
                     selectedTabIndex = mainTabIndex,
@@ -280,7 +272,7 @@ fun BorrowedEditDialog(
     var vaccineSearch by rememberSaveable { mutableStateOf(item?.vaccineName ?: "") }
     var batchId by rememberSaveable { mutableStateOf(item?.record?.batchId ?: "") }
     var batchNumber by rememberSaveable { mutableStateOf(item?.batchNumber ?: "") }
-    var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
+    var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))) }
     var quantity by rememberSaveable { mutableStateOf(item?.borrowedQuantity ?: 1) }
     var type by rememberSaveable { mutableStateOf(item?.type ?: defaultType) }
 

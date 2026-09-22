@@ -70,20 +70,21 @@ class GetAvailableSlotsUseCase @Inject constructor(
     // what was actually configured on the Weekly Doctor Slots screen. Accept both
     // formats here instead of touching every call site's date convention.
     private fun dayOfWeekFor(date: String): Int? {
-        // SimpleDateFormat isn't thread-safe, so create fresh instances per call rather
-        // than caching them on this class (which Hilt may hand out beyond one coroutine).
-        fun parseWith(pattern: String): java.util.Date? {
-            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH)
-            sdf.isLenient = false
-            return runCatching { sdf.parse(date) }.getOrNull()
+        val formatters = listOf(
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH),
+            java.time.format.DateTimeFormatter.ofPattern(
+                com.neochildclinic.core.constants.Constants.DATE_FORMAT,
+                java.util.Locale.ENGLISH
+            )
+        )
+        for (formatter in formatters) {
+            try {
+                val parsed = java.time.LocalDate.parse(date, formatter)
+                return parsed.dayOfWeek.value % 7 + 1 // Calendar.SUNDAY(1) .. Calendar.SATURDAY(7)
+            } catch (_: java.time.format.DateTimeParseException) {
+            }
         }
-
-        val parsed = parseWith("yyyy-MM-dd")
-            ?: parseWith(com.neochildclinic.core.constants.Constants.DATE_FORMAT)
-            ?: return null
-        val cal = java.util.Calendar.getInstance()
-        cal.time = parsed
-        return cal.get(java.util.Calendar.DAY_OF_WEEK) // Calendar.SUNDAY(1) .. Calendar.SATURDAY(7)
+        return null
     }
 
     private fun rangesOverlap(aStart: Int, aEnd: Int, bStart: Int, bEnd: Int): Boolean {

@@ -7,7 +7,8 @@ import androidx.core.graphics.drawable.toBitmap
 import com.neochildclinic.R
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import java.text.SimpleDateFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlin.text.get
 
@@ -128,7 +129,9 @@ object ReceiptFormatter {
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         canvas.drawText("Date: ${vaccination.dateGiven}", pageWidth - MARGIN, 87f, paint)
         
-        val timeStr = SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
+        val timeStr = DateTimeFormatter.ofPattern("hh:mm:ss a", Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+            .format(java.time.Instant.now())
         canvas.drawText("Time: $timeStr", pageWidth - MARGIN, 99f, paint)
         
         paint.textAlign = Paint.Align.LEFT

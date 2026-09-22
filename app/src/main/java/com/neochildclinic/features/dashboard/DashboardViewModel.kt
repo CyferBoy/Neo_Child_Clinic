@@ -4,19 +4,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.DashboardRepository
+import com.neochildclinic.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.PatientTodoRepository
 import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
+import com.neochildclinic.core.utils.DateClassifier
+import com.neochildclinic.core.utils.DateCategory
 import io.github.jan.supabase.auth.Auth
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import com.neochildclinic.domain.model.Patient
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.SyncState
@@ -64,11 +69,14 @@ data class DashboardUiState(
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val dashboardRepository: DashboardRepository,
     private val syncRepository: SyncRepository,
     private val networkMonitor: NetworkMonitor,
     private val patientRepository: PatientRepository,
     private val patientTodoRepository: PatientTodoRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val reminderRepository: ReminderRepository,
+    private val wasteRepository: WasteRepository,
+    private val borrowRepository: BorrowRepository,
     private val realtime: Realtime,
     private val profileRepository: ProfileRepository,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
@@ -82,7 +90,7 @@ class DashboardViewModel @Inject constructor(
 
     private var todoSlotLoadToken = 0
 
-    private val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+    private val todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
     private val _selectedDate = MutableStateFlow(todayStr)
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
@@ -169,12 +177,12 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         combine(
-            dashboardRepository.getPatientCount(),
-            dashboardRepository.getLowStockCount(),
-            dashboardRepository.getBorrowedCount(),
-            dashboardRepository.getDueCount(),
-            dashboardRepository.getWasteCount(),
-            dashboardRepository.getOutOfStockCount()
+            patientCount(),
+            lowStockCount(),
+            borrowedCount(),
+            dueCount(),
+            wasteCount(),
+            outOfStockCount()
         ) { values -> values.toList() },
         combine(
             syncRepository.syncState,
@@ -195,14 +203,15 @@ class DashboardViewModel @Inject constructor(
         },
         combine(
             _selectedDate.flatMapLatest { date ->
-                val calendar = java.util.Calendar.getInstance()
-                calendar.time = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(date) ?: Date()
-                calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
-                val start = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(calendar.time)
-                calendar.add(java.util.Calendar.MONTH, 1)
-                calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
-                val end = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(calendar.time)
-                patientTodoRepository.getDatesWithData(start, end).map { it.toSet() }
+                val selected = try {
+                    java.time.LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+                } catch (_: java.time.format.DateTimeParseException) {
+                    java.time.LocalDate.now()
+                }
+                val start = selected.withDayOfMonth(1)
+                val end = start.plusMonths(1).minusDays(1)
+                val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH)
+                patientTodoRepository.getDatesWithData(start.format(fmt), end.format(fmt)).map { it.toSet() }
             },
             patientRepository.allPatients,
             _allDoctors,
@@ -378,12 +387,34 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private fun patientCount(): Flow<Int> = patientRepository.getPatientCount()
+
+    private fun lowStockCount(): Flow<Int> = inventoryRepository.getInventoryItems().map { items ->
+        items.count { it.isLowStock && !it.hasOutofStock }
+    }
+
+    private fun outOfStockCount(): Flow<Int> = inventoryRepository.getInventoryItems().map { items ->
+        items.count { it.hasOutofStock }
+    }
+
+    private fun borrowedCount(): Flow<Int> = borrowRepository.getActiveBorrowedRecords().map { it.size }
+
+    private fun dueCount(): Flow<Int> = reminderRepository.getDueList().map { list ->
+        val todayCal = DateClassifier.getTodayStart()
+        list.count {
+            val cat = DateClassifier.classify(it.nextDueDate, todayCal)
+            cat is DateCategory.Today
+        }
+    }
+
+    private fun wasteCount(): Flow<Int> = wasteRepository.getWasteCount()
+
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                dashboardRepository.refreshDashboardData()
+                syncRepository.processNextItems()
             } catch (e: Exception) {
                 // Handle error
             }

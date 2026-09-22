@@ -3,7 +3,6 @@ package com.neochildclinic.core.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,109 +12,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.constants.Constants
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
-/**
- * Dropdown menu typically used for item actions like Edit and Delete.
- */
-@Composable
-fun ActionDropdownMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onPrint: (() -> Unit)? = null,
-    onDownload: (() -> Unit)? = null,
-    onMerge: (() -> Unit)? = null,
-    onEditRole: (() -> Unit)? = null,
-    onAuditLog: (() -> Unit)? = null,
-    isAdmin: Boolean = true,
-    editText: String = "Edit"
-) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss
-    ) {
-        if (onAuditLog != null) {
-            DropdownMenuItem(
-                text = { Text("View Audit Log") },
-                onClick = {
-                    onDismiss()
-                    onAuditLog()
-                },
-                leadingIcon = { Icon(Icons.Default.History, contentDescription = null) }
-            )
-        }
-        if (onPrint != null) {
-            DropdownMenuItem(
-                text = { Text("Print Receipt") },
-                onClick = {
-                    onDismiss()
-                    onPrint()
-                },
-                leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) }
-            )
-        }
-        if (onDownload != null) {
-            DropdownMenuItem(
-                text = { Text("Download Receipt") },
-                onClick = {
-                    onDismiss()
-                    onDownload()
-                },
-                leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) }
-            )
-        }
-        
-        if (isAdmin) {
-            DropdownMenuItem(
-                text = { Text(editText) },
-                onClick = {
-                    onDismiss()
-                    onEdit()
-                },
-                leadingIcon = { Icon(if (editText == "Edit") Icons.Default.Edit else Icons.Default.LockReset, contentDescription = null) }
-            )
-        }
-
-        if (onEditRole != null && isAdmin) {
-            DropdownMenuItem(
-                text = { Text("Change Role") },
-                onClick = {
-                    onDismiss()
-                    onEditRole()
-                },
-                leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) }
-            )
-        }
-        if (onMerge != null) {
-            DropdownMenuItem(
-                text = { Text("Merge") },
-                onClick = {
-                    onDismiss()
-                    onMerge()
-                },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = null) }
-            )
-        }
-
-        if (isAdmin) {
-            DropdownMenuItem(
-                text = { Text("Delete") },
-                onClick = {
-                    onDismiss()
-                    onDelete()
-                },
-                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
-            )
-        }
-    }
-}
-
-/**
- * Dropdown-style date picker that allows selecting Day, Month, and Year.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateDropdownPicker(
@@ -124,23 +24,15 @@ fun DateDropdownPicker(
     onDateSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val calendar = Calendar.getInstance()
-    
-    // Parse current date or use today
-    if (currentDate.isNotEmpty()) {
-        try {
-            val date = SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).parse(currentDate)
-            if (date != null) calendar.time = date
-        } catch (_: Exception) {}
+    var showPicker by remember { mutableStateOf(false) }
+    val formatter = remember { DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH) }
+    val initialMillis = remember(currentDate) {
+        if (currentDate.isEmpty()) null
+        else try {
+            LocalDate.parse(currentDate, formatter)
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } catch (_: Exception) { null }
     }
-
-    val day = calendar[Calendar.DAY_OF_MONTH]
-    val month = calendar[Calendar.MONTH]
-    val year = calendar[Calendar.YEAR]
-
-    var expandedDay by remember { mutableStateOf(false) }
-    var expandedMonth by remember { mutableStateOf(false) }
-    var expandedYear by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (label.isNotEmpty()) {
@@ -152,197 +44,73 @@ fun DateDropdownPicker(
                 modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            // Day Dropdown
-            Box(modifier = Modifier.weight(1f)) {
-                OutlinedCard(
-                    onClick = { expandedDay = true },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = CardDefaults.outlinedCardBorder(enabled = true).copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(
-                            if (expandedDay) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (currentDate.isEmpty()) "Day" else day.toString(), 
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (currentDate.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
-                        )
-                        Icon(
-                            Icons.Default.DateRange, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-                DropdownMenu(
-                    expanded = expandedDay, 
-                    onDismissRequest = { expandedDay = false },
-                    modifier = Modifier.heightIn(max = 280.dp)
-                ) {
-                    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-                    (1..daysInMonth).forEach { d ->
-                        DropdownMenuItem(text = { Text(d.toString()) }, onClick = {
-                            calendar[Calendar.DAY_OF_MONTH] = d
-                            onDateSelected(SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(calendar.time))
-                            expandedDay = false
-                        })
-                    }
-                }
+        OutlinedCard(
+            onClick = { showPicker = true },
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = CardDefaults.outlinedCardBorder(enabled = true).copy(
+                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outline)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = currentDate.ifEmpty { "Select date" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (currentDate.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    Icons.Default.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
+        }
+    }
 
-            // Month Dropdown
-            Box(modifier = Modifier.weight(1.5f)) {
-                val months = SimpleDateFormat("MMM", Locale.ENGLISH).let { fmt ->
-                    (0..11).map { m ->
-                        // Set DAY_OF_MONTH to 1 before setting MONTH - otherwise today's
-                        // day-of-month (e.g. 29-31) can overflow into the next month for any
-                        // target month with fewer days (e.g. Feb 29 in a non-leap year rolls
-                        // over to Mar 1), making that month's label render wrong (e.g. "Feb"
-                        // showing as "Mar").
-                        val cal = Calendar.getInstance().apply {
-                            set(Calendar.DAY_OF_MONTH, 1)
-                            set(Calendar.MONTH, m)
-                        }
-                        fmt.format(cal.time)
+    if (showPicker) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        val date = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                        onDateSelected(date.format(formatter))
                     }
-                }
-                OutlinedCard(
-                    onClick = { expandedMonth = true },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = CardDefaults.outlinedCardBorder(enabled = true).copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(
-                            if (expandedMonth) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (currentDate.isEmpty()) "Month" else months[month], 
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (currentDate.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
-                        )
-                        Icon(
-                            Icons.Default.DateRange, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-                DropdownMenu(expanded = expandedMonth, onDismissRequest = { expandedMonth = false }) {
-                    months.forEachIndexed { index, m ->
-                        DropdownMenuItem(text = { Text(m) }, onClick = {
-                            // Clamp the day first - otherwise a day that doesn't exist in the
-                            // target month (e.g. the 31st, or the 29th of Feb in a non-leap
-                            // year) silently rolls the date over into the *following* month
-                            // instead of landing on the month the user actually tapped.
-                            val probe = Calendar.getInstance().apply {
-                                time = calendar.time
-                                set(Calendar.DAY_OF_MONTH, 1)
-                                set(Calendar.MONTH, index)
-                            }
-                            val maxDay = probe.getActualMaximum(Calendar.DAY_OF_MONTH)
-                            calendar[Calendar.DAY_OF_MONTH] = minOf(calendar[Calendar.DAY_OF_MONTH], maxDay)
-                            calendar[Calendar.MONTH] = index
-                            onDateSelected(SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(calendar.time))
-                            expandedMonth = false
-                        })
-                    }
-                }
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
             }
-
-            // Year Dropdown
-            Box(modifier = Modifier.weight(1.5f)) {
-                OutlinedCard(
-                    onClick = { expandedYear = true },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = CardDefaults.outlinedCardBorder(enabled = true).copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(
-                            if (expandedYear) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (currentDate.isEmpty()) "Year" else year.toString(), 
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (currentDate.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
-                        )
-                        Icon(
-                            Icons.Default.DateRange, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-                DropdownMenu(
-                    expanded = expandedYear, 
-                    onDismissRequest = { expandedYear = false },
-                    modifier = Modifier.heightIn(max = 280.dp)
-                ) {
-                    val currentYear = Calendar.getInstance()[Calendar.YEAR]
-                    // Create list of years from 10 years in future to 100 years ago.
-                    // We reverse the order so the most relevant (current) years are at the TOP.
-                    ((currentYear + 10) downTo (currentYear - 100)).forEach { y ->
-                        DropdownMenuItem(text = { Text(y.toString()) }, onClick = {
-                            // Same day-overflow guard as the month picker - e.g. Feb 29
-                            // rolling into March when the chosen year isn't a leap year.
-                            val probe = Calendar.getInstance().apply {
-                                time = calendar.time
-                                set(Calendar.DAY_OF_MONTH, 1)
-                                set(Calendar.YEAR, y)
-                            }
-                            val maxDay = probe.getActualMaximum(Calendar.DAY_OF_MONTH)
-                            calendar[Calendar.DAY_OF_MONTH] = minOf(calendar[Calendar.DAY_OF_MONTH], maxDay)
-                            calendar[Calendar.YEAR] = y
-                            onDateSelected(SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(calendar.time))
-                            expandedYear = false
-                        })
-                    }
-                }
-            }
+        ) {
+            DatePicker(state = state)
         }
     }
 }
 
 /**
- * Material 3 Outlined Exposed Dropdown Menu for Doctor selection.
+ * Material 3 Outlined Exposed Dropdown Menu over an arbitrary item type.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DueVaccinationTypeDropdown(
-    types: List<String>,
-    selectedType: String,
-    onTypeSelected: (String) -> Unit,
+fun <T> SelectDropdown(
+    items: List<T>,
+    selected: T?,
+    onItemSelected: (T) -> Unit,
+    itemLabel: (T) -> String,
+    label: String,
     modifier: Modifier = Modifier,
-    label: String = "Type *",
-    isError: Boolean = false
+    isError: Boolean = false,
+    errorText: String = ""
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -352,7 +120,7 @@ fun DueVaccinationTypeDropdown(
         modifier = modifier.fillMaxWidth()
     ) {
         OutlinedTextField(
-            value = selectedType,
+            value = selected?.let(itemLabel) ?: "",
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
@@ -363,7 +131,7 @@ fun DueVaccinationTypeDropdown(
                 .fillMaxWidth(),
             isError = isError,
             supportingText = if (isError) {
-                { Text("Type selection is mandatory") }
+                { Text(errorText) }
             } else null
         )
 
@@ -371,11 +139,11 @@ fun DueVaccinationTypeDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            types.forEach { type ->
+            items.forEach { item ->
                 DropdownMenuItem(
-                    text = { Text(type) },
+                    text = { Text(itemLabel(item)) },
                     onClick = {
-                        onTypeSelected(type)
+                        onItemSelected(item)
                         expanded = false
                     }
                 )
@@ -496,43 +264,13 @@ fun DoctorDropdown(
     onDoctorSelected: (com.neochildclinic.domain.model.Profile) -> Unit,
     modifier: Modifier = Modifier,
     isError: Boolean = false
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier.fillMaxWidth()
-    ) {
-        OutlinedTextField(
-            value = selectedDoctor?.displayName ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Select Doctor") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
-                .fillMaxWidth(),
-            isError = isError,
-            supportingText = if (isError) {
-                { Text("Doctor selection is mandatory") }
-            } else null
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            doctors.forEach { doctor ->
-                DropdownMenuItem(
-                    text = { Text(doctor.displayName) },
-                    onClick = {
-                        onDoctorSelected(doctor)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
+) = SelectDropdown(
+    items = doctors,
+    selected = selectedDoctor,
+    onItemSelected = onDoctorSelected,
+    itemLabel = { it.displayName },
+    label = "Select Doctor",
+    modifier = modifier,
+    isError = isError,
+    errorText = "Doctor selection is mandatory"
+)

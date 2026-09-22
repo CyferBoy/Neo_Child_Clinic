@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,10 +15,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
-import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
 
@@ -46,7 +45,7 @@ fun MilestonePatientsScreen(
     // identified the same way the summary card counts them, and sorted oldest DOB first as
     // the natural analog of "earliest milestone date first".
     val entries = remember(patients, label, milestoneKey) {
-        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
+        val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
         if (milestoneKey == "older") {
             patients
                 .filter { PatientUtils.getNextAgeMilestone(it.dob, today, windowEnd) == null && PatientUtils.isOlderThanMonths(it.dob, 19, today) }
@@ -59,7 +58,7 @@ fun MilestonePatientsScreen(
             patients.mapNotNull { patient ->
                 val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
                 if (milestone.label != label) return@mapNotNull null
-                Quadruple(patient, milestone.date.timeInMillis, milestone.label, dateFormat.format(milestone.date.time))
+                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.systemDefault()).format(dateFormat))
             }.sortedBy { it.second }
         }
     }
@@ -68,14 +67,9 @@ fun MilestonePatientsScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text(label) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
             }
         ) { padding ->

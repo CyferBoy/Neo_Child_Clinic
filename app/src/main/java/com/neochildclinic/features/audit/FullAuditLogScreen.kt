@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.EmptyState
+import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
@@ -33,18 +34,9 @@ fun FullAuditLogScreen(
     AppBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Clinic Audit Logs") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
             }
         ) { paddingValues ->
@@ -62,13 +54,9 @@ fun FullAuditLogScreen(
                         contentPadding = PaddingValues(16.dp)
                     )
                 } else if (uiState.error != null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
-                    }
+                    EmptyState("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
                 } else if (uiState.logs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No audit logs found", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    EmptyState("No audit logs found")
                 } else {
                     val listState = rememberLazyListState()
 

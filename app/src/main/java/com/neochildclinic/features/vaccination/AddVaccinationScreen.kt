@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -73,17 +72,13 @@ fun AddVaccinationScreen(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text(if (isEdit) "Edit Vaccination" else "Add Vaccination") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
-                        }
-                    },
+                    onBack = onBack,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
             },
@@ -657,12 +652,14 @@ private fun NextVaccinationItemRow(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Type Dropdown
             Box(modifier = Modifier.weight(1f)) {
-                DueVaccinationTypeDropdown(
-                    types = availableTypes,
-                    selectedType = item.type,
-                    onTypeSelected = onTypeSelected,
+                SelectDropdown(
+                    items = availableTypes,
+                    selected = item.type,
+                    onItemSelected = onTypeSelected,
+                    itemLabel = { it },
                     label = "Type*",
-                    isError = item.typeError
+                    isError = item.typeError,
+                    errorText = "Type selection is mandatory"
                 )
             }
 

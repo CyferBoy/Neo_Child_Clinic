@@ -1,10 +1,10 @@
 package com.neochildclinic.data.repository
 
 import com.neochildclinic.data.local.dao.ProfileDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -13,32 +13,32 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.neochildclinic.data.cache.MemoryCache
 
 @Singleton
 class ProfileRepositoryImpl @Inject constructor(
     private val profileDao: ProfileDao,
+    private val syncQueueDao: SyncQueueDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
-    private val memoryCache: MemoryCache
-) : ProfileRepository {
+    private val syncRepository: SyncRepository
+) {
 
-    override val allProfiles: Flow<List<Profile>> = 
+    val allProfiles: Flow<List<Profile>> = 
         profileDao.getAllProfiles().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getProfileById(id: String): Profile? {
-        memoryCache.getProfile(id)?.let { return it }
-        return profileDao.getProfileById(id)?.toDomain()?.also { memoryCache.putProfile(it) }
-    }
+    suspend fun getProfileById(id: String): Profile? =
+        profileDao.getProfileById(id)?.toDomain()
 
-    override suspend fun fetchProfileFromRemote(id: String): Profile? {
+    suspend fun fetchProfileFromRemote(id: String): Profile? {
         return try {
             postgrest.from("profiles")
                 .select { filter { eq("id", id); eq("is_deleted", false) } }
                 .decodeSingleOrNull<Profile>()
                 ?.also {
-                    profileDao.insertProfile(it.toEntity())
-                    memoryCache.putProfile(it)
+                    // profiles has no isSynced column - the queue is the only local-pending
+                    // signal. Never clobber a row that still has a local edit waiting to upload.
+                    if (!syncQueueDao.isUnsynced("PROFILE", it.id)) {
+                        profileDao.insertProfile(it.toEntity())
+                    }
                 }
         } catch (e: Exception) {
             android.util.Log.e("ProfileRepo", "Failed to fetch profile $id from remote", e)
@@ -46,21 +46,21 @@ class ProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshProfiles() {
+    suspend fun refreshProfiles() {
         try {
             val profiles = postgrest.from("profiles").select { filter { eq("is_deleted", false) } }.decodeList<Profile>()
             profiles.forEach { profile ->
-                profileDao.insertProfile(profile.toEntity())
-                memoryCache.putProfile(profile)
+                if (!syncQueueDao.isUnsynced("PROFILE", profile.id)) {
+                    profileDao.insertProfile(profile.toEntity())
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("ProfileRepo", "Failed to refresh profiles", e)
         }
     }
 
-    override suspend fun updateProfile(profile: Profile) {
+    suspend fun updateProfile(profile: Profile) {
         profileDao.insertProfile(profile.toEntity())
-        memoryCache.putProfile(profile)
         syncRepository.enqueue(
             entityName = "PROFILE",
             entityId = profile.id,
@@ -69,8 +69,7 @@ class ProfileRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun saveLocalProfile(profile: Profile) {
+    suspend fun saveLocalProfile(profile: Profile) {
         profileDao.insertProfile(profile.toEntity())
-        memoryCache.putProfile(profile)
     }
 }

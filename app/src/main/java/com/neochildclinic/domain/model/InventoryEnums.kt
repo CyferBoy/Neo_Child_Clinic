@@ -12,23 +12,17 @@ enum class InventoryTransactionType {
     CONTAMINATED,
     OTHER,
     MANUAL_ADJUSTMENT,
-    ADJUSTMENT,
     REVERSAL
 }
 
 enum class InventoryStatus {
-    PENDING,
     COMPLETED,
     PARTIAL,
-    FAILED,
-    SKIPPED
+    FAILED
 }
 
 enum class BatchStatus {
-    ACTIVE,
-    EXPIRED,
-    USED,
-    DELETED
+    ACTIVE
 }
 
 enum class InventoryFilter { ALL, LOW_STOCK, NEAR_EXPIRY, EXPIRED, OUT_OF_STOCK, HIDDEN, AVAILABLE }
@@ -51,7 +45,6 @@ fun InventoryTransactionType.displayLabel(): String = when (this) {
     InventoryTransactionType.CONTAMINATED -> "Waste \u2013 Contaminated"
     InventoryTransactionType.OTHER -> "Waste \u2013 Other"
     InventoryTransactionType.MANUAL_ADJUSTMENT -> "Manual Adjustment"
-    InventoryTransactionType.ADJUSTMENT -> "Adjustment"
     InventoryTransactionType.REVERSAL -> "Reversal (Correction)"
 }
 
@@ -86,8 +79,7 @@ enum class StockHistoryTypeFilter(val label: String) {
                 InventoryTransactionType.OTHER
             )
             ADJUSTMENT -> listOf(
-                InventoryTransactionType.MANUAL_ADJUSTMENT,
-                InventoryTransactionType.ADJUSTMENT
+                InventoryTransactionType.MANUAL_ADJUSTMENT
             )
             REVERSAL -> listOf(InventoryTransactionType.REVERSAL)
         }

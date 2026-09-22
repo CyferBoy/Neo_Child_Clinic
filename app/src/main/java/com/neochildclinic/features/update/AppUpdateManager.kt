@@ -364,11 +364,6 @@ class AppUpdateManager @Inject constructor(
                         // tapping Cancel while installing) has no effect on this loop - a
                         // raw blocking InputStream.read() doesn't observe coroutine
                         // cancellation on its own, so the download would keep running to
-                        // completion in the background.
-                        // Without this, cancelling the ViewModel's install Job (e.g.
-                        // tapping Cancel while installing) has no effect on this loop - a
-                        // raw blocking InputStream.read() doesn't observe coroutine
-                        // cancellation on its own, so the download would keep running to
                         // completion in the background. downloadWithResume() is a suspend
                         // function called from inside withContext(Dispatchers.IO){} rather
                         // than lexically nested in it, so (unlike a bare ensureActive()

@@ -10,7 +10,8 @@ import com.neochildclinic.features.statistics.FinanceCalculator
 import com.neochildclinic.features.statistics.StatisticsUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import java.text.SimpleDateFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,9 +34,11 @@ class ClinicStatsManager @Inject constructor(
     fun getClinicStats(): Flow<ClinicStats> {
         val today = Calendar.getInstance()
         val todayStr = PatientUtils.formatDate(today.time)
-        
+        val monthFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+
         // Month pattern for SQLite LIKE: "% May 2026"
-        val monthPattern = "% ${SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(today.time)}"
+        val monthPattern = "% ${monthFormatter.format(today.time.toInstant())}"
 
         return combine(
             financeRepository.getAllTransactions(),
@@ -53,10 +56,10 @@ class ClinicStatsManager @Inject constructor(
             val allVaccinations = args[3] as List<com.neochildclinic.domain.model.Vaccination>
             val validVaccinations = StatisticsUtils.filterValidVaccinations(allVaccinations)
             val todayCount = validVaccinations.count { it.dateGiven == todayStr }
-            val monthLabel = SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(today.time)
+            val monthLabel = monthFormatter.format(today.time.toInstant())
             val monthlyCount = validVaccinations.count {
                 val date = PatientUtils.parseDate(it.dateGiven)
-                date != null && SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(date) == monthLabel
+                date != null && monthFormatter.format(date.toInstant()) == monthLabel
             }
 
             val todayTransactions = transactions.filter { tx ->
@@ -67,7 +70,7 @@ class ClinicStatsManager @Inject constructor(
             val todayCash = todayFinance.cashTotal
             val todayOnline = todayFinance.onlineTotal
             val monthlyTransactions = transactions.filter { tx ->
-                PatientUtils.parseDate(tx.timestamp)?.let { d -> SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(d) == monthLabel } == true
+                PatientUtils.parseDate(tx.timestamp)?.let { d -> monthFormatter.format(d.toInstant()) == monthLabel } == true
             }
             val monthlyFinance = FinanceCalculator.calculateFinanceStats(monthlyTransactions, allVaccinations, transactions)
             val monthlyRevenue = monthlyFinance.totalRevenue
@@ -104,12 +107,14 @@ class ClinicStatsManager @Inject constructor(
         monthPattern: String
     ): List<Pair<String, Int>> {
         val monthLabel = monthPattern.removePrefix("% ").trim()
+        val monthFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
         val counts = mutableMapOf<String, Int>()
         vaccinations
             .filter { it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED || it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL || it.source.equals("EXTERNAL", true) }
             .filter { vaccination ->
                 val date = PatientUtils.parseDate(vaccination.dateGiven)
-                date != null && SimpleDateFormat("MMM yyyy", Locale.ENGLISH).format(date) == monthLabel
+                date != null && monthFormatter.format(date.toInstant()) == monthLabel
             }
             .forEach { vaccination ->
                 vaccination.items.forEachIndexed { index, item ->

@@ -7,18 +7,19 @@ import androidx.work.WorkerParameters
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
 import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.usecase.statistics.GetClinicStatsUseCase
+import com.neochildclinic.domain.manager.ClinicStatsManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @HiltWorker
 class DailySummaryWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val getClinicStatsUseCase: GetClinicStatsUseCase,
+    private val statsManager: ClinicStatsManager,
     private val inventoryRepository: InventoryRepository,
     private val settingsManager: NotificationSettingsManager,
     private val notificationHelper: NotificationHelper
@@ -26,11 +27,11 @@ class DailySummaryWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val settings = settingsManager.settingsFlow.first()
-        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+        val todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
 
         // 1. Daily Summary Logic
         if (settings.dailySummaryEnabled && settings.lastSummarySentDate != todayStr) {
-            val stats = getClinicStatsUseCase().first()
+            val stats = statsManager.getClinicStats().first()
             
             if (stats.dueToday > 0 || stats.overdue > 0 || stats.lowStockCount > 0) {
                 notificationHelper.showDailySummary(stats.dueToday, stats.overdue, stats.lowStockCount)

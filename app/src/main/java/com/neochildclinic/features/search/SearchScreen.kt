@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.EmptyState
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
@@ -61,9 +62,7 @@ fun SearchScreen(
                 if (uiState.isLoading && uiState.results.isEmpty()) {
                     SkeletonList(modifier = Modifier.fillMaxSize(), count = 8)
                 } else if (uiState.results.isEmpty() && query.isNotBlank()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No results found for \"$query\"", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    EmptyState("No results found for \"$query\"")
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),

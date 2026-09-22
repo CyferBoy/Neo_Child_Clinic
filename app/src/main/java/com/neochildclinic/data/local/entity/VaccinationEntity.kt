@@ -132,16 +132,3 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = run {
     nextDueDate = ""
     )
 }
-
-fun VaccinationItem.toEntity() = VaccinationItemEntity(
-    id = if (id.isBlank()) java.util.UUID.randomUUID().toString() else id,
-    vaccinationId = vaccinationId,
-    vaccineId = vaccineId,
-    vaccineName = vaccineName,
-    batchId = batchId,
-    batchNumber = batchNumber,
-    quantity = quantity,
-    mrp = mrp,
-    netRate = netRate,
-    expiryDate = expiryDate
-)

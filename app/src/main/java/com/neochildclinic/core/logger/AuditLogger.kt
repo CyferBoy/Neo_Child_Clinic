@@ -56,36 +56,38 @@ class AuditLogger @Inject constructor(
         remarks: String? = null,
         transactionGroupId: String? = null
     ) {
-        val userLabel = sessionManager.getCurrentUserName()
-        val timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-        val device = "${Build.MANUFACTURER} ${Build.MODEL}"
+        try {
+            val userLabel = sessionManager.getCurrentUserName()
+            val timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            val device = "${Build.MANUFACTURER} ${Build.MODEL}"
 
-        val logEntity = AuditLogEntity(
-            timestamp = timestamp,
-            user = userLabel,
-            module = module,
-            entityType = entityType,
-            entityId = entityId,
-            action = action,
-            oldValue = oldValue,
-            newValue = newValue,
-            remarks = remarks,
-            device = device,
-            patientId = patientId,
-            isSynced = false
-        )
+            val logEntity = AuditLogEntity(
+                timestamp = timestamp,
+                user = userLabel,
+                module = module,
+                entityType = entityType,
+                entityId = entityId,
+                action = action,
+                oldValue = oldValue,
+                newValue = newValue,
+                remarks = remarks,
+                device = device,
+                patientId = patientId,
+                isSynced = false
+            )
 
-        // 1. Local Log (Blocking in suspend context)
-        auditLogDao.insertLog(logEntity)
+            auditLogDao.insertLog(logEntity)
 
-        // 2. Queue for Sync
-        syncRepository.enqueue(
-            entityName = "AUDIT_LOG",
-            entityId = logEntity.id,
-            operation = SyncOperation.CREATE,
-            priority = SyncPriority.LOW,
-            transactionGroupId = transactionGroupId
-        )
+            syncRepository.enqueue(
+                entityName = "AUDIT_LOG",
+                entityId = logEntity.id,
+                operation = SyncOperation.CREATE,
+                priority = SyncPriority.LOW,
+                transactionGroupId = transactionGroupId
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("AuditLogger", "Audit log failed: ${e.message}")
+        }
     }
 
     /**

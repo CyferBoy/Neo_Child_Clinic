@@ -1,6 +1,5 @@
 package com.neochildclinic.features.patient
 
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -12,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,11 +30,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.MessageEffect
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
-import com.neochildclinic.core.ui.ActionDropdownMenu
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.utils.PatientUtils.calculateAgeLabel
@@ -52,18 +52,11 @@ fun PatientListScreen(
     val staff by viewModel.currentStaff.collectAsState()
     val isAdmin = staff?.role == UserRole.admin
     val canEditOrDelete = isAdmin || staff?.role == UserRole.doctor
-    val context = LocalContext.current
     
     var patientToDelete by remember { mutableStateOf<Patient?>(null) }
     var showManualMergeDialog by rememberSaveable { mutableStateOf(false) }
 
-    // Error handling
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearError()
-        }
-    }
+    MessageEffect(uiState.error) { viewModel.clearError() }
 
     DeleteConfirmationDialog(
         show = patientToDelete != null,
@@ -322,14 +315,27 @@ private fun PatientCard(
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = customColors.textBlue)
                     }
-                    ActionDropdownMenu(
-                        expanded = menuExpanded,
-                        onDismiss = { menuExpanded = false },
-                        onEdit = onEdit,
-                        onDelete = onDelete,
-                        onMerge = onLongClick,
-                        isAdmin = canEditOrDelete
-                    )
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        if (canEditOrDelete) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                onClick = { menuExpanded = false; onEdit() },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Merge") },
+                            onClick = { menuExpanded = false; onLongClick() },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = null) }
+                        )
+                        if (canEditOrDelete) {
+                            DropdownMenuItem(
+                                text = { Text("Delete") },
+                                onClick = { menuExpanded = false; onDelete() },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                            )
+                        }
+                    }
                 }
             }
         }

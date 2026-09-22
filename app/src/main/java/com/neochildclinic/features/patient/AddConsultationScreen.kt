@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -22,7 +19,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.Patient
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +34,7 @@ fun AddConsultationScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     
-    val today = remember { SimpleDateFormat(Constants.DATE_FORMAT, Locale.ENGLISH).format(Date()) }
+    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
     var date by rememberSaveable { mutableStateOf(today) }
     var cashAmount by rememberSaveable { mutableStateOf("") }
     var onlineAmount by rememberSaveable { mutableStateOf("") }
@@ -80,29 +78,15 @@ fun AddConsultationScreen(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.resetState()
-        }
-    }
+    MessageEffect(uiState.error) { viewModel.resetState() }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text(if (consultationId.isNullOrBlank()) "Add Consultation" else "Edit Consultation") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    onBack = onBack
                 )
             },
             bottomBar = {

@@ -1,7 +1,7 @@
 package com.neochildclinic.core.utils
 
-import java.util.*
-import java.util.concurrent.TimeUnit
+import java.time.temporal.ChronoUnit
+import java.util.Calendar
 
 sealed class DateCategory {
     data class Overdue(val days: Int) : DateCategory()
@@ -15,12 +15,7 @@ object DateClassifier {
     /**
      * Helper to get a normalized Calendar at start of day.
      */
-    fun getTodayStart(): Calendar = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
+    fun getTodayStart(): Calendar = Calendar.getInstance().startOfDay()
 
     /**
      * Classifies a date string into clinic-friendly categories.
@@ -29,17 +24,10 @@ object DateClassifier {
      */
     fun classify(dateStr: String, todayStart: Calendar = getTodayStart()): DateCategory {
         val targetDate = PatientUtils.parseDate(dateStr) ?: return DateCategory.Future(dateStr)
-        
-        val target = Calendar.getInstance().apply {
-            time = targetDate
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
 
-        val diffMs = target.timeInMillis - todayStart.timeInMillis
-        val diffDays = TimeUnit.MILLISECONDS.toDays(diffMs).toInt()
+        val target = targetDate.toLocalDate()
+        val today = todayStart.toLocalDate()
+        val diffDays = ChronoUnit.DAYS.between(today, target).toInt()
 
         return when {
             // A date before today is strictly overdue. There is no grace-period

@@ -61,6 +61,17 @@ import com.neochildclinic.features.inventory.VaccineInventoryScreen
 import com.neochildclinic.features.inventory.WasteScreen
 import com.neochildclinic.features.reminder.CompletedDismissedScreen
 
+private fun androidx.navigation.NavBackStackEntry.stringArg(key: String, default: String = ""): String =
+    arguments?.getString(key) ?: default
+
+private fun androidx.navigation.NavBackStackEntry.nullableStringArg(key: String): String? =
+    arguments?.getString(key)
+
+@Composable
+private fun AdminGuard(userRole: UserRole?, onBack: () -> Unit, content: @Composable () -> Unit) {
+    if (userRole == UserRole.admin) content() else AccessDeniedScreen(onBack)
+}
+
 @Composable
 fun AppNavigation(
     navController: androidx.navigation.NavHostController = rememberNavController(),
@@ -74,6 +85,7 @@ fun AppNavigation(
     // the dashboard/drawer itself). Falling through to UserRole.nurse here too early
     // was part of the same intermittent-nurse-view bug.
     val userRole = authProfile?.role ?: if (isProfileLoading) null else UserRole.nurse
+    val goBack: () -> Unit = { navController.popBackStack() }
 
     // The Supabase SDK resolves any session saved to disk asynchronously. Reading
     // currentUser synchronously here would race that resolution and randomly send
@@ -162,7 +174,7 @@ fun AppNavigation(
             val settingsViewModel: com.neochildclinic.features.settings.SettingsViewModel = hiltViewModel()
             SettingsScreen(
                 viewModel = settingsViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onNotifications = { navController.navigate(Routes.NOTIFICATION_SETTINGS) },
                 onInventory = { navController.navigate(Routes.INVENTORY_SETTINGS) },
                 onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
@@ -175,40 +187,40 @@ fun AppNavigation(
         }
 
         composable(Routes.NOTIFICATION_SETTINGS) {
-            NotificationSettingsScreen(onBack = { navController.popBackStack() })
+            NotificationSettingsScreen(onBack = goBack)
         }
 
         composable(Routes.INVENTORY_SETTINGS) {
-            InventorySettingsScreen(onBack = { navController.popBackStack() })
+            InventorySettingsScreen(onBack = goBack)
         }
 
         composable(Routes.BACKUP_SETTINGS) {
-            BackupSettingsScreen(onBack = { navController.popBackStack() })
+            BackupSettingsScreen(onBack = goBack)
         }
 
         composable(Routes.SECURITY_SETTINGS) {
-            SecuritySettingsScreen(onBack = { navController.popBackStack() })
+            SecuritySettingsScreen(onBack = goBack)
         }
 
         composable(Routes.HELP_SUPPORT) {
-            HelpSupportScreen(onBack = { navController.popBackStack() })
+            HelpSupportScreen(onBack = goBack)
         }
 
         composable(Routes.PRIVACY_POLICY) {
-            PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            PrivacyPolicyScreen(onBack = goBack)
         }
 
         composable(Routes.TERMS_OF_SERVICE) {
-            TermsOfServiceScreen(onBack = { navController.popBackStack() })
+            TermsOfServiceScreen(onBack = goBack)
         }
 
         composable(Routes.APP_UPDATE) {
-            AppUpdateScreen(onBack = { navController.popBackStack() }, viewModel = appUpdateViewModel)
+            AppUpdateScreen(onBack = goBack, viewModel = appUpdateViewModel)
         }
 
         composable(Routes.PROFILE) {
             ProfileScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate(Routes.LOGIN) {
@@ -220,26 +232,24 @@ fun AppNavigation(
 
         composable(Routes.SYNC) {
             SyncScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 isAdmin = userRole == UserRole.admin
             )
         }
 
         composable(Routes.AUDIT_LOGS) {
-            FullAuditLogScreen(onBack = { navController.popBackStack() })
+            FullAuditLogScreen(onBack = goBack)
         }
 
         composable(Routes.MANAGE_STAFF) {
-            if (userRole == UserRole.admin) {
+            AdminGuard(userRole, goBack) {
                 ManageStaffScreen(
-                    onBack = { navController.popBackStack() },
+                    onBack = goBack,
                     onAddStaff = { navController.navigate(Routes.ADD_STAFF) },
                     onStaffClick = { staffId ->
                         navController.navigate("staff_details/$staffId")
                     }
                 )
-            } else {
-                AccessDeniedScreen { navController.popBackStack() }
             }
         }
 
@@ -247,23 +257,19 @@ fun AppNavigation(
             route = Routes.STAFF_DETAILS,
             arguments = listOf(navArgument("staffId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val staffId = backStackEntry.arguments?.getString("staffId") ?: ""
-            if (userRole == UserRole.admin) {
+            val staffId = backStackEntry.stringArg("staffId")
+            AdminGuard(userRole, goBack) {
                 StaffDetailsScreen(
                     staffId = staffId,
-                    onBack = { navController.popBackStack() },
+                    onBack = goBack,
                     onEdit = { id -> navController.navigate("edit_staff/$id") }
                 )
-            } else {
-                AccessDeniedScreen { navController.popBackStack() }
             }
         }
 
         composable(Routes.ADD_STAFF) {
-            if (userRole == UserRole.admin) {
-                AddStaffScreen(onBack = { navController.popBackStack() })
-            } else {
-                AccessDeniedScreen { navController.popBackStack() }
+            AdminGuard(userRole, goBack) {
+                AddStaffScreen(onBack = goBack)
             }
         }
 
@@ -271,20 +277,18 @@ fun AppNavigation(
             route = Routes.EDIT_STAFF,
             arguments = listOf(navArgument("staffId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val staffId = backStackEntry.arguments?.getString("staffId") ?: ""
-            if (userRole == UserRole.admin) {
+            val staffId = backStackEntry.stringArg("staffId")
+            AdminGuard(userRole, goBack) {
                 EditStaffScreen(
                     staffId = staffId,
-                    onBack = { navController.popBackStack() }
+                    onBack = goBack
                 )
-            } else {
-                AccessDeniedScreen { navController.popBackStack() }
             }
         }
 
         composable(Routes.SEARCH) {
             SearchScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
                 }
@@ -293,7 +297,7 @@ fun AppNavigation(
 
         composable(Routes.ADD_PATIENT) {
             AddPatientScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onNavigateToDetails = { patientId ->
                     navController.navigate("patient_details/$patientId") {
                         popUpTo(Routes.ADD_PATIENT) { inclusive = true }
@@ -305,7 +309,7 @@ fun AppNavigation(
 
         composable(Routes.PATIENT_LIST) {
             PatientListScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onAddPatient = { navController.navigate(Routes.ADD_PATIENT) },
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
@@ -320,10 +324,10 @@ fun AppNavigation(
             route = Routes.PATIENT_DETAILS,
             arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
+            val patientId = backStackEntry.stringArg("patientId")
             PatientDetailsScreen(
                 patientId = patientId,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onAddVaccine = { id ->
                     navController.navigate("add_vaccine/$id")
                 },
@@ -346,10 +350,10 @@ fun AppNavigation(
             route = Routes.EDIT_PATIENT,
             arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val patientId = backStackEntry.arguments?.getString("patientId")
+            val patientId = backStackEntry.nullableStringArg("patientId")
             AddPatientScreen(
                 patientId = patientId,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onNavigateToDetails = { id ->
                     navController.navigate("patient_details/$id") {
                         popUpTo(Routes.EDIT_PATIENT) { inclusive = true }
@@ -363,16 +367,16 @@ fun AppNavigation(
             route = Routes.EDIT_VACCINATION,
             arguments = listOf(navArgument("vaccinationId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val vaccinationId = backStackEntry.arguments?.getString("vaccinationId")
+            val vaccinationId = backStackEntry.nullableStringArg("vaccinationId")
             AddVaccinationScreen(
                 vaccinationId = vaccinationId,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
         composable(Routes.VACCINE_INVENTORY) {
             VaccineInventoryScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onAddVaccine = { navController.navigate(Routes.ADD_VACCINE_DEFINITION) },
                 onEditVaccine = { id ->
                     navController.navigate("edit_vaccine_definition/$id")
@@ -389,18 +393,18 @@ fun AppNavigation(
         }
 
         composable(Routes.ADD_VACCINE_STOCK) {
-            AddStockScreen(onBack = { navController.popBackStack() })
+            AddStockScreen(onBack = goBack)
         }
 
         composable(Routes.STOCK_HISTORY) {
-            StockHistoryScreen(onBack = { navController.popBackStack() })
+            StockHistoryScreen(onBack = goBack)
         }
 
         composable(Routes.STATISTICS) {
             val hasStatisticsAccess = userRole == UserRole.admin || userRole == UserRole.doctor
             StatisticsScreen(
                 hasAccess = hasStatisticsAccess,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onMonthClick = { monthKey ->
                     navController.navigate("monthly_finance_details/$monthKey")
                 },
@@ -422,10 +426,10 @@ fun AppNavigation(
             route = Routes.MONTHLY_FINANCE_DETAILS,
             arguments = listOf(navArgument("monthKey") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val monthKey = backStackEntry.arguments?.getString("monthKey") ?: ""
+            val monthKey = backStackEntry.stringArg("monthKey")
             MonthlyFinanceDetailsScreen(
                 monthKey = monthKey,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -433,10 +437,10 @@ fun AppNavigation(
             route = Routes.MILESTONE_PATIENTS,
             arguments = listOf(navArgument("milestoneKey") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val milestoneKey = backStackEntry.arguments?.getString("milestoneKey") ?: ""
+            val milestoneKey = backStackEntry.stringArg("milestoneKey")
             MilestonePatientsScreen(
                 milestoneKey = milestoneKey,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
                 }
@@ -444,7 +448,7 @@ fun AppNavigation(
         }
 
         composable(Routes.FULL_REPORT) {
-            FullReportScreen(onBack = { navController.popBackStack() })
+            FullReportScreen(onBack = goBack)
         }
 
         composable(
@@ -454,12 +458,12 @@ fun AppNavigation(
                 navArgument("brandName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val type = java.net.URLDecoder.decode(backStackEntry.arguments?.getString("type") ?: "", "UTF-8")
-            val brandName = java.net.URLDecoder.decode(backStackEntry.arguments?.getString("brandName") ?: "", "UTF-8")
+            val type = java.net.URLDecoder.decode(backStackEntry.stringArg("type"), "UTF-8")
+            val brandName = java.net.URLDecoder.decode(backStackEntry.stringArg("brandName"), "UTF-8")
             VaccineDetailScreen(
                 type = type,
                 brandName = brandName,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
                 }
@@ -467,17 +471,17 @@ fun AppNavigation(
         }
 
         composable(Routes.ADD_VACCINE_DEFINITION) {
-            AddVaccineScreen(onBack = { navController.popBackStack() })
+            AddVaccineScreen(onBack = goBack)
         }
 
         composable(
             route = Routes.EDIT_VACCINE_DEFINITION,
             arguments = listOf(navArgument("vaccineId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val vaccineId = backStackEntry.arguments?.getString("vaccineId")
+            val vaccineId = backStackEntry.nullableStringArg("vaccineId")
             AddVaccineScreen(
                 vaccineId = vaccineId,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -488,12 +492,12 @@ fun AppNavigation(
                 navArgument("brandName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val vaccineId = backStackEntry.arguments?.getString("vaccineId") ?: ""
-            val brandName = backStackEntry.arguments?.getString("brandName") ?: ""
+            val vaccineId = backStackEntry.stringArg("vaccineId")
+            val brandName = backStackEntry.stringArg("brandName")
             AddBatchScreen(
                 vaccineId = vaccineId,
                 brandName = brandName,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -505,24 +509,24 @@ fun AppNavigation(
                 navArgument("brandName") { type = NavType.StringType; nullable = true }
             )
         ) { backStackEntry ->
-            val batchId = backStackEntry.arguments?.getString("batchId")
-            val vaccineId = backStackEntry.arguments?.getString("vaccineId") ?: ""
-            val brandName = backStackEntry.arguments?.getString("brandName") ?: ""
+            val batchId = backStackEntry.nullableStringArg("batchId")
+            val vaccineId = backStackEntry.stringArg("vaccineId")
+            val brandName = backStackEntry.stringArg("brandName")
             AddBatchScreen(
                 batchId = batchId,
                 vaccineId = vaccineId,
                 brandName = brandName,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
         composable(Routes.BORROWED) {
-            BorrowedScreen(onBack = { navController.popBackStack() })
+            BorrowedScreen(onBack = goBack)
         }
 
         composable(Routes.DUE) {
             DueScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onNavigateToCompleted = {
                     navController.navigate("completed_dismissed?tab=0")
                 },
@@ -538,7 +542,7 @@ fun AppNavigation(
         composable("completed_dismissed?tab={tab}") { backStackEntry ->
             val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
             CompletedDismissedScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onPatientClick = { patientId ->
                     navController.navigate("patient_details/$patientId")
                 },
@@ -547,12 +551,12 @@ fun AppNavigation(
         }
 
         composable(Routes.WASTE) {
-            WasteScreen(onBack = { navController.popBackStack() })
+            WasteScreen(onBack = goBack)
         }
 
         composable(Routes.PERSONAL_REMINDERS) {
             com.neochildclinic.features.personalreminder.PersonalReminderScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onAddReminder = { navController.navigate("add_personal_reminder") },
                 onEditReminder = { reminderId ->
                     navController.navigate("edit_personal_reminder/$reminderId")
@@ -567,12 +571,12 @@ fun AppNavigation(
             route = Routes.ADD_PERSONAL_REMINDER,
             arguments = listOf(navArgument("patientId") { type = NavType.StringType; nullable = true })
         ) { backStackEntry ->
-            val patientId = backStackEntry.arguments?.getString("patientId")
+            val patientId = backStackEntry.nullableStringArg("patientId")
             com.neochildclinic.features.personalreminder.AddEditPersonalReminderScreen(
                 reminderId = null,
                 prefillPatientId = patientId,
-                onBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
+                onBack = goBack,
+                onSaved = goBack
             )
         }
 
@@ -580,18 +584,18 @@ fun AppNavigation(
             route = Routes.EDIT_PERSONAL_REMINDER,
             arguments = listOf(navArgument("reminderId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val reminderId = backStackEntry.arguments?.getString("reminderId") ?: ""
+            val reminderId = backStackEntry.stringArg("reminderId")
             com.neochildclinic.features.personalreminder.AddEditPersonalReminderScreen(
                 reminderId = reminderId,
                 prefillPatientId = null,
-                onBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
+                onBack = goBack,
+                onSaved = goBack
             )
         }
 
         composable(Routes.EXPENSES) {
             com.neochildclinic.features.expenses.ExpenseListScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onAddExpense = { navController.navigate(Routes.ADD_EXPENSE) },
                 onEditExpense = { expenseId -> navController.navigate("edit_expense/$expenseId") }
             )
@@ -599,14 +603,14 @@ fun AppNavigation(
 
         composable(Routes.DOCTOR_TIMINGS) {
             com.neochildclinic.features.doctorslots.WeeklyDoctorSlotsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
         composable(Routes.ADD_EXPENSE) {
             com.neochildclinic.features.expenses.AddExpenseScreen(
                 expenseId = null,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -614,10 +618,10 @@ fun AppNavigation(
             route = Routes.EDIT_EXPENSE,
             arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val expenseId = backStackEntry.arguments?.getString("expenseId")
+            val expenseId = backStackEntry.nullableStringArg("expenseId")
             com.neochildclinic.features.expenses.AddExpenseScreen(
                 expenseId = expenseId,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -631,9 +635,9 @@ fun AppNavigation(
             val dashboardViewModel: com.neochildclinic.features.dashboard.DashboardViewModel = hiltViewModel()
             TodayPatientsScreen(
                 viewModel = dashboardViewModel,
-                initialTab = backStackEntry.arguments?.getString("tab"),
-                highlightId = backStackEntry.arguments?.getString("highlightId"),
-                onBack = { navController.popBackStack() }
+                initialTab = backStackEntry.nullableStringArg("tab"),
+                highlightId = backStackEntry.nullableStringArg("highlightId"),
+                onBack = goBack
             )
         }
 
@@ -641,10 +645,10 @@ fun AppNavigation(
             route = Routes.ADD_CONSULTATION,
             arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
+            val patientId = backStackEntry.stringArg("patientId")
             AddConsultationScreen(
                 patientId = patientId,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -652,11 +656,11 @@ fun AppNavigation(
             route = Routes.EDIT_CONSULTATION,
             arguments = listOf(navArgument("consultationId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val consultationId = backStackEntry.arguments?.getString("consultationId") ?: ""
+            val consultationId = backStackEntry.stringArg("consultationId")
             AddConsultationScreen(
                 patientId = "",
                 consultationId = consultationId,
-                onBack = { navController.popBackStack() }
+                onBack = goBack
             )
         }
 
@@ -664,10 +668,10 @@ fun AppNavigation(
             route = Routes.ADD_VACCINE_FOR_PATIENT,
             arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val patientId = backStackEntry.arguments?.getString("patientId") ?: ""
+            val patientId = backStackEntry.stringArg("patientId")
             AddVaccinationScreen(
                 patientId = patientId,
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
             )
         }
     }

@@ -6,7 +6,6 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.BatchStatus
-import com.neochildclinic.domain.model.Vaccine
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -96,15 +95,4 @@ data class InventoryTransactionEntity(
     @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
-
-// Mappers for compatibility
-fun VaccineEntity.toVaccine(totalStock: Int = 0) = Vaccine(
-    id = id,
-    type = type,
-    brandName = brandName,
-    companyName = companyName,
-    stock = totalStock,
-    mrp = mrp,
-    netRate = netRate
 )

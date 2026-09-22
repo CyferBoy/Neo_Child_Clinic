@@ -8,7 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.ui.*
+import com.neochildclinic.features.dashboard.AuthViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,9 +36,10 @@ fun PatientDetailsScreen(
     onEditPatient: (String) -> Unit = {},
     viewModel: PatientViewModel = hiltViewModel()
 ) {
+    val authViewModel: AuthViewModel = hiltViewModel()
     val allPatients by viewModel.allPatients.collectAsState()
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
-    val profile by viewModel.currentProfile.collectAsState()
+    val profile by authViewModel.profile.collectAsState()
     val isAdmin = profile?.role == UserRole.admin
     val canEditOrDelete = isAdmin || profile?.role == UserRole.doctor
     val context = LocalContext.current
@@ -205,7 +206,7 @@ fun PatientDetailsScreen(
                         modifier = Modifier.clickable {
                             showSheet = false
                             val doctorName = doctorMap[selectedVaccinationForAction!!.doctorId] ?: selectedVaccinationForAction!!.performedBy
-                            com.neochildclinic.core.utils.ReceiptManager.printReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
+                            com.neochildclinic.core.utils.ReceiptPrinter.printReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
                         }
                     )
                     ListItem(
@@ -215,7 +216,7 @@ fun PatientDetailsScreen(
                             showSheet = false
                             scope.launch {
                                 val doctorName = doctorMap[selectedVaccinationForAction!!.doctorId] ?: selectedVaccinationForAction!!.performedBy
-                                com.neochildclinic.core.utils.ReceiptManager.downloadReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
+                                com.neochildclinic.core.utils.ReceiptGenerator.downloadReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
                             }
                         }
                     )
@@ -265,13 +266,9 @@ fun PatientDetailsScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                BackTopAppBar(
                     title = { Text("Patient Details") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                        }
-                    },
+                    onBack = onBack,
                     actions = {
                         Box {
                             IconButton(onClick = { menuExpanded = true }) {
@@ -311,11 +308,7 @@ fun PatientDetailsScreen(
                                 }
                             }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    }
                 )
             },
             floatingActionButton = {

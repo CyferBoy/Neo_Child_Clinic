@@ -2,7 +2,6 @@ package com.neochildclinic.data.manager
 
 import android.content.Context
 import androidx.work.*
-import com.neochildclinic.domain.manager.SyncManager
 import com.neochildclinic.worker.SyncWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -12,11 +11,11 @@ import javax.inject.Singleton
 @Singleton
 class SyncManagerImpl @Inject constructor(
     @ApplicationContext private val context: Context
-) : SyncManager {
+) {
 
     private val workManager = WorkManager.getInstance(context)
 
-    override fun scheduleSync() {
+    fun scheduleSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -38,7 +37,7 @@ class SyncManagerImpl @Inject constructor(
         )
     }
 
-    override fun scheduleImmediateSync() {
+    fun scheduleImmediateSync() {
         val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .addTag("IMMEDIATE_SYNC")
@@ -51,7 +50,7 @@ class SyncManagerImpl @Inject constructor(
         )
     }
 
-    override fun cancelAllSync() {
+    fun cancelAllSync() {
         workManager.cancelAllWorkByTag("SYNC_JOB")
         workManager.cancelUniqueWork("AUTOMATIC_SYNC")
     }

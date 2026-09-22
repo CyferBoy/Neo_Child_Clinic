@@ -11,7 +11,6 @@ import com.neochildclinic.data.local.entity.ExpenseEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.Dispatchers
@@ -28,18 +27,18 @@ class ExpenseRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: SessionManager
-) : ExpenseRepository {
+) {
 
     private val expenseDao = database.expenseDao()
     private val syncQueueDao = database.syncQueueDao()
 
-    override fun getAllExpenses(): Flow<List<Expense>> =
+    fun getAllExpenses(): Flow<List<Expense>> =
         expenseDao.getAllExpenses().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getExpenseById(id: String): Expense? =
+    suspend fun getExpenseById(id: String): Expense? =
         expenseDao.getExpenseById(id)?.toDomain()
 
-    override suspend fun addExpense(expense: Expense, user: String) {
+    suspend fun addExpense(expense: Expense, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             val entity = expense.copy(createdBy = userName, updatedBy = userName)
@@ -64,7 +63,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateExpense(expense: Expense, user: String) {
+    suspend fun updateExpense(expense: Expense, user: String) {
         database.withTransaction {
             val existing = expenseDao.getExpenseById(expense.id)
             val userName = sessionManager.getCurrentUserName()
@@ -94,7 +93,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteExpense(id: String, user: String) {
+    suspend fun deleteExpense(id: String, user: String) {
         database.withTransaction {
             val existing = expenseDao.getExpenseById(id) ?: return@withTransaction
             expenseDao.deleteExpense(id)
@@ -116,7 +115,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshExpenses() {
+    suspend fun refreshExpenses() {
         withContext(Dispatchers.IO) {
             try {
                 val remoteExpenses = postgrest.from("expenses").select().decodeList<ExpenseEntity>()
@@ -133,15 +132,15 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getFilteredExpensesPage(
-        category: String?,
-        paymentMethod: String?,
-        fromDate: String?,
-        toDate: String?,
-        query: String?,
-        sortBy: String,
-        limit: Int,
-        offset: Int
+    suspend fun getFilteredExpensesPage(
+        category: String? = null,
+        paymentMethod: String? = null,
+        fromDate: String? = null,
+        toDate: String? = null,
+        query: String? = null,
+        sortBy: String = "DATE_DESC",
+        limit: Int = 50,
+        offset: Int = 0
     ): List<Expense> {
         return expenseDao.getFilteredExpensesPage(
             category = category,
