@@ -86,13 +86,16 @@ private fun FinanceTableRow(data: FinanceSummaryItem, previous: FinanceSummaryIt
                 color = if (data.netProfit >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
             )
             Text(
-                improvement?.let { String.format(Locale.getDefault(), "%+.1f%%", it) } ?: "N/A",
+                improvement?.let { improvementLabel(it) } ?: "N/A",
                 style = MaterialTheme.typography.labelSmall,
                 color = if ((improvement ?: 0.0) >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
             )
         }
     }
 }
+
+private fun improvementLabel(value: Double): String =
+    String.format(Locale.getDefault(), "%+.1f%%", value)
 
 @Composable
 private fun FinanceTableTotalRow(dataList: List<FinanceSummaryItem>) {

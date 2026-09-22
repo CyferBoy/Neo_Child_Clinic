@@ -255,8 +255,7 @@ private fun FinanceTransactionCard(
 ) {
     val isIncome = transaction.type.equals("INCOME", ignoreCase = true)
     val accent = MaterialTheme.colorScheme.primary
-    val category = transaction.category.replace('_', ' ').lowercase(Locale.getDefault())
-        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+    val category = categoryLabel(transaction.category)
     val patientName = patient?.name?.takeIf { it.isNotBlank() }
         ?: vaccination?.patientName?.takeIf { it.isNotBlank() }
         ?: transaction.remarks?.substringBefore("[COGS_SNAPSHOT:")?.trim()?.takeIf { it.isNotBlank() }
@@ -329,14 +328,17 @@ private fun FinanceTransactionCard(
     }
 }
 
+private fun categoryLabel(raw: String): String =
+    raw.replace('_', ' ').lowercase(Locale.getDefault())
+        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+
 private fun paymentModeLabel(transaction: FinanceEntity): String {
     return when {
         transaction.paymentMethod.equals("MIXED", true) ||
             (transaction.cashAmount > 0 && transaction.onlineAmount > 0) -> "Cash + Online"
         transaction.paymentMethod.equals("CASH", true) || transaction.cashAmount > 0 -> "Cash"
         transaction.paymentMethod.equals("ONLINE", true) || transaction.onlineAmount > 0 -> "Online"
-        transaction.paymentMethod.isNotBlank() -> transaction.paymentMethod.replace('_', ' ').lowercase(Locale.getDefault())
-            .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+        transaction.paymentMethod.isNotBlank() -> categoryLabel(transaction.paymentMethod)
         else -> "—"
     }
 }
