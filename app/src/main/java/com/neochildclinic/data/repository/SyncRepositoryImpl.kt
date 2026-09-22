@@ -401,8 +401,8 @@ class SyncRepositoryImpl @Inject constructor(
             val throwable = current ?: return@repeat
             if (throwable is io.ktor.client.plugins.ResponseException) {
                 val response = throwable.response
-                val url = sanitizeUrl(response.request.url.toString())
-                val requestHeaders = extractSafeHeaders(response.request.headers)
+                val url = sanitizeUrl(response.call.request.url.toString())
+                val requestHeaders = extractSafeHeaders(response.call.request.headers)
                     .mapKeys { "Request-${it.key}" }
                 val responseHeaders = extractSafeHeaders(response.headers)
                     .mapKeys { "Response-${it.key}" }

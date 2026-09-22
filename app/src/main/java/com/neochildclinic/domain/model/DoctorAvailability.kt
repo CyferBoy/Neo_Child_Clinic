@@ -2,6 +2,7 @@ package com.neochildclinic.domain.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.util.Calendar
 
 /**
  * A broad availability time range (e.g. "3 PM - 5 PM"), stored as structured start/end

@@ -23,6 +23,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.utils.PatientUtils
 import java.time.LocalDate
+import java.util.Calendar
 
 @Composable
 fun PatientsTab(patients: List<Patient>, allVisits: List<Vaccination>, onMilestoneClick: (String) -> Unit = {}) {

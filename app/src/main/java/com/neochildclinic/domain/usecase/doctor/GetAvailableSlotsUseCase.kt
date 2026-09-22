@@ -4,6 +4,7 @@ import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
+import java.util.Calendar
 import javax.inject.Inject
 
 /**

@@ -33,6 +33,7 @@ fun MessageEffect(message: String?, duration: Int = Toast.LENGTH_LONG, onShown: 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackTopAppBar(
     title: @Composable () -> Unit,
