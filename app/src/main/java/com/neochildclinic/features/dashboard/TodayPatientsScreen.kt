@@ -5,8 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -180,6 +183,25 @@ fun TodayPatientsScreen(
                     shape = SegmentedButtonDefaults.itemShape(1, 2),
                     modifier = Modifier.weight(1f)
                 ) { Text("Vaccination") }
+            }
+
+            // Dynamic slot filter: one segment per available slot for the selected date
+            // (0/1 slots -> hidden, 2+ -> shown). Labels and count come from existing
+            // availability/booking data; the row scrolls instead of shrinking/clipping
+            // when there are many segments.
+            if (uiState.slotSegments.size >= 2) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SingleChoiceSegmentedButtonRow(
+                    Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    uiState.slotSegments.forEachIndexed { index, segment ->
+                        SegmentedButton(
+                            selected = uiState.selectedSlotKey == segment.key,
+                            onClick = { viewModel.setSelectedSlot(segment.key) },
+                            shape = SegmentedButtonDefaults.itemShape(index, uiState.slotSegments.size)
+                        ) { Text(segment.label) }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -710,10 +732,19 @@ private fun DateItem(
         ) {
             Text(dayName, fontSize = 10.sp, fontWeight = FontWeight.Normal)
             Text(dayDate, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            if (!hasData) {
-                Text("x", fontSize = 10.sp, color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.Red)
-            } else {
-                Spacer(modifier = Modifier.height(10.dp))
+            // Selected date stays blue (above). Unselected dates with data get a green
+            // dot; unselected dates without data get nothing (normal appearance).
+            Box(
+                modifier = Modifier.height(10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (hasData && !isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(SuccessGreen, CircleShape)
+                    )
+                }
             }
         }
     }

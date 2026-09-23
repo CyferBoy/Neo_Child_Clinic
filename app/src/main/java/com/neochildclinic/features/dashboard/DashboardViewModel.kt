@@ -11,7 +11,10 @@ import com.neochildclinic.data.repository.PatientTodoRepositoryImpl
 import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import com.neochildclinic.data.repository.ReminderRepositoryImpl
 import com.neochildclinic.data.repository.WasteRepositoryImpl
+import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
+import com.neochildclinic.domain.model.DoctorAvailabilityResult
+import com.neochildclinic.domain.model.TimeRange
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
 import com.neochildclinic.core.utils.DateClassifier
@@ -60,8 +63,45 @@ data class DashboardUiState(
     // add the patient to today's list; the notification simply broadcasts to all doctors
     // in that case, same as before this feature existed.
     val allDoctors: List<Profile> = emptyList(),
-    val todoSlotsState: SlotsUiState = SlotsUiState.Idle
+    val todoSlotsState: SlotsUiState = SlotsUiState.Idle,
+    // Dynamic slot filter segments for the selected date (derived from doctor
+    // availability + the day's bookings - never hard-coded). The control is shown
+    // only when there are 2+ segments; selectedSlotKey is null when filtering is off.
+    val slotSegments: List<SlotSegment> = emptyList(),
+    val selectedSlotKey: String? = null
 )
+
+/** One dynamic segment of the Today's Patient slot filter. */
+data class SlotSegment(val key: String, val label: String)
+
+/**
+ * Pure rules for the dynamic slot control - covered by TodaySlotFilterTest.
+ * effectiveKey == null means "no filtering" (0 or 1 available slots).
+ */
+object TodaySlotFilter {
+    fun key(range: TimeRange): String = "${range.startMinute}-${range.endMinute}"
+
+    /** Distinct time ranges (availability + booked), sorted by start time, as segments. */
+    fun segments(availability: List<TimeRange>, booked: List<TimeRange>): List<SlotSegment> =
+        (availability + booked)
+            .distinctBy { it.startMinute to it.endMinute }
+            .sortedBy { it.startMinute }
+            .map { SlotSegment(key(it), it.label()) }
+
+    /** Auto-select the first segment when 2+ exist; keep a still-valid prior selection. */
+    fun effectiveKey(segments: List<SlotSegment>, selected: String?): String? = when {
+        segments.size < 2 -> null
+        selected != null && segments.any { it.key == selected } -> selected
+        else -> segments.first().key
+    }
+
+    fun passes(effectiveKey: String?, ranges: Map<String, TimeRange>, slotId: String?): Boolean {
+        val want = effectiveKey ?: return true
+        if (slotId.isNullOrBlank()) return true
+        val range = ranges[slotId] ?: return true
+        return key(range) == want
+    }
+}
 
 /**
  * Orchestrates Dashboard data using unified data streams.
@@ -79,13 +119,23 @@ class DashboardViewModel @Inject constructor(
     private val realtime: Realtime,
     private val profileRepository: ProfileRepositoryImpl,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
+    private val doctorAvailabilityRepository: DoctorAvailabilityRepositoryImpl,
     private val auth: Auth,
 ) : ViewModel() {
 
     private val _allDoctors = MutableStateFlow<List<Profile>>(emptyList())
     private val _todoSlotsState = MutableStateFlow<SlotsUiState>(SlotsUiState.Idle)
+    private val _selectedSlotKey = MutableStateFlow<String?>(null)
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private data class SlotFilterState(
+        val segments: List<SlotSegment> = emptyList(),
+        val ranges: Map<String, TimeRange> = emptyMap(),
+        val effectiveKey: String? = null
+    )
+
+    private data class TodoBundle(val todos: List<Any>, val slots: SlotFilterState)
 
     private var todoSlotLoadToken = 0
 
@@ -123,6 +173,48 @@ class DashboardViewModel @Inject constructor(
 
     fun clearTodoSlots() {
         _todoSlotsState.value = SlotsUiState.Idle
+    }
+
+    fun setSelectedSlot(key: String) {
+        _selectedSlotKey.value = key
+    }
+
+    /**
+     * Resolves the dynamic slot filter inputs for one date: segments come from every
+     * active doctor's availability (GetAvailableSlotsUseCase - the same source the
+     * add/edit dialogs use) plus any range already booked that day (so a patient whose
+     * slot is exception-blocked still has a reachable segment), and ranges resolve each
+     * of the day's availabilitySlotIds to its time range for list filtering.
+     */
+    private suspend fun computeSlotFilter(
+        todos: List<Any>,
+        doctors: List<Profile>,
+        selectedKey: String?,
+        date: String
+    ): SlotFilterState = try {
+        val availability = doctors.flatMap { doctor ->
+            (getAvailableSlotsUseCase(doctor.id, date) as? DoctorAvailabilityResult.Available)
+                ?.slots.orEmpty()
+        }.map { TimeRange(it.startMinute, it.endMinute) }
+
+        val slotIds = buildSet {
+            (todos[0] as List<ConsultationTodoEntity>).forEach { add(it.availabilitySlotId) }
+            (todos[1] as List<VaccinationTodoEntity>).forEach { add(it.availabilitySlotId) }
+            (todos[2] as List<ConsultationTodoEntity>).forEach { add(it.availabilitySlotId) }
+            (todos[3] as List<VaccinationTodoEntity>).forEach { add(it.availabilitySlotId) }
+        }.filterNotNull().filter { it.isNotBlank() }
+
+        val ranges = slotIds.mapNotNull { id ->
+            doctorAvailabilityRepository.getWeeklySlotById(id)?.timeRange?.let { id to it }
+        }.toMap()
+
+        val segments = TodaySlotFilter.segments(availability, ranges.values.toList())
+        SlotFilterState(segments, ranges, TodaySlotFilter.effectiveKey(segments, selectedKey))
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // A slot-lookup failure must never take the patient list down with it.
+        SlotFilterState()
     }
 
     // Mirrors PatientListViewModel.observeRealtimeChanges(): Realtime here is only ever a
@@ -197,6 +289,13 @@ class DashboardViewModel @Inject constructor(
                 patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED")
             ) { pCons, pVacc, cCons, cVacc ->
                 listOf(pCons, pVacc, cCons, cVacc)
+            }.flatMapLatest { todos ->
+                combine(_allDoctors, _selectedSlotKey) { doctors, key -> doctors to key }
+                    .flatMapLatest { (doctors, selectedKey) ->
+                        flow {
+                            emit(TodoBundle(todos, computeSlotFilter(todos, doctors, selectedKey, date)))
+                        }
+                    }
             }
         },
         combine(
@@ -217,7 +316,11 @@ class DashboardViewModel @Inject constructor(
         ) { dates, patients, doctors, slots ->
             listOf(dates, patients, doctors, slots)
         }
-    ) { stats, sync, todos, extra ->
+    ) { stats, sync, bundle, extra ->
+        val slots = bundle.slots
+        val todos = bundle.todos
+        fun pass(slotId: String?): Boolean =
+            TodaySlotFilter.passes(slots.effectiveKey, slots.ranges, slotId)
         DashboardUiState(
             patientCount = stats[0] as Int,
             lowStockCount = (stats[1] as Pair<Int, Int>).first,
@@ -228,14 +331,16 @@ class DashboardViewModel @Inject constructor(
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
-            todayConsultations = todos[0] as List<ConsultationTodoEntity>,
-            todayVaccinations = todos[1] as List<VaccinationTodoEntity>,
-            visitedConsultations = todos[2] as List<ConsultationTodoEntity>,
-            visitedVaccinations = todos[3] as List<VaccinationTodoEntity>,
+            todayConsultations = (todos[0] as List<ConsultationTodoEntity>).filter { pass(it.availabilitySlotId) },
+            todayVaccinations = (todos[1] as List<VaccinationTodoEntity>).filter { pass(it.availabilitySlotId) },
+            visitedConsultations = (todos[2] as List<ConsultationTodoEntity>).filter { pass(it.availabilitySlotId) },
+            visitedVaccinations = (todos[3] as List<VaccinationTodoEntity>).filter { pass(it.availabilitySlotId) },
             datesWithData = extra[0] as Set<String>,
             patients = extra[1] as List<Patient>,
             allDoctors = extra[2] as List<Profile>,
-            todoSlotsState = extra[3] as SlotsUiState
+            todoSlotsState = extra[3] as SlotsUiState,
+            slotSegments = slots.segments,
+            selectedSlotKey = slots.effectiveKey
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 
