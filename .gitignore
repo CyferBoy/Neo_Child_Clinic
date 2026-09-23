@@ -65,3 +65,6 @@ Thumbs.db
 # Cloudflare Wrangler
 **/.wrangler/
 *.heapsnapshot
+  
+# OpenCode  
+.opencode/ 
