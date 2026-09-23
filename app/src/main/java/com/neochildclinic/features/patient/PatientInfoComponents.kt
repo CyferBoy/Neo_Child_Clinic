@@ -219,18 +219,18 @@ fun PatientInfoSection(patient: Patient) {
                 Column {
                     Text(text = patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
-                    Text(text = "ID: $clinicId", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val ageLabel = formatAgeYearsMonths(patient.dob)
+                    val subTitle = if (ageLabel != null) "ID: $clinicId • Age: $ageLabel" else "ID: $clinicId"
+                    Text(text = subTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             HorizontalDivider(modifier = Modifier.alpha(0.3f))
 
             val dobDisplay = formatDateForDisplay(patient.dob)
-            val ageLabel = formatAgeYearsMonths(patient.dob)
-            val dobWithAge = if (ageLabel != null) "$dobDisplay • Age: $ageLabel" else dobDisplay
 
             InfoGridRow(
-                Pair(Icons.Default.Cake, dobWithAge),
+                Pair(Icons.Default.Cake, dobDisplay),
                 Pair(if (patient.gender == "Male") Icons.Default.Male else Icons.Default.Female, patient.gender)
             )
 
