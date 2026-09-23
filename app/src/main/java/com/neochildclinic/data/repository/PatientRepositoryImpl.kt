@@ -8,7 +8,7 @@ import com.neochildclinic.data.local.dao.PatientNotesDao
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -36,7 +36,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val dueReminderDao: DueReminderDao,
     private val notesDao: PatientNotesDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val idGenerator: PatientIdGenerator,
     private val preferenceManager: PreferenceManager,
@@ -76,9 +76,7 @@ class PatientRepositoryImpl @Inject constructor(
     suspend fun getPatientById(id: String): Patient? =
         patientDao.getPatientById(id)
 
-    suspend fun refreshPatients() {
-        withContext(Dispatchers.IO) {
-            try {
+    suspend fun refreshPatients() = cloudRefresh("PatientRepo", rethrow = true) {
                 val entities = postgrest.from("patients").select().decodeList<PatientEntity>()
                 
                 android.util.Log.d("PatientRepo", "Pulled ${entities.size} patients from Supabase")
@@ -132,11 +130,6 @@ class PatientRepositoryImpl @Inject constructor(
                     }
                 }
                 android.util.Log.d("PatientRepo", "Refresh complete. Total local: ${patientDao.getTotalPatientCount()}")
-            } catch (e: Exception) {
-                android.util.Log.e("PatientRepo", "Refresh failed", e)
-                throw e // Propagate to UI
-            }
-        }
     }
 
     suspend fun addPatient(patient: Patient) {

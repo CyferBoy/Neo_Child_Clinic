@@ -1,7 +1,7 @@
 package com.neochildclinic.domain.usecase.patient
 
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.data.repository.PatientRepositoryImpl
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -10,7 +10,7 @@ import javax.inject.Inject
  * Supports searching by patient details, vaccine names, and receipt numbers.
  */
 class SearchPatientsUseCase @Inject constructor(
-    private val patientRepository: PatientRepository
+    private val patientRepository: PatientRepositoryImpl
 ) {
     operator fun invoke(query: String): Flow<List<Patient>> {
         return if (query.isBlank()) {

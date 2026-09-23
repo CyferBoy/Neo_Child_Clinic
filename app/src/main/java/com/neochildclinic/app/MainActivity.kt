@@ -27,8 +27,8 @@ import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.ui.LockScreen
 import com.neochildclinic.features.update.AppUpdateDialog
 import com.neochildclinic.features.update.AppUpdateViewModel
-import com.neochildclinic.domain.manager.SyncManager
-import com.neochildclinic.domain.repository.DeviceRepository
+import com.neochildclinic.data.manager.SyncManagerImpl
+import com.neochildclinic.data.repository.DeviceRepositoryImpl
 import com.neochildclinic.features.dashboard.AuthViewModel
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
@@ -60,10 +60,10 @@ class MainActivity : FragmentActivity() {
     lateinit var settingsManager: NotificationSettingsManager
 
     @Inject
-    lateinit var syncManager: SyncManager
+    lateinit var syncManager: SyncManagerImpl
 
     @Inject
-    lateinit var deviceRepository: DeviceRepository
+    lateinit var deviceRepository: DeviceRepositoryImpl
 
     @Inject
     lateinit var preferenceManager: PreferenceManager
@@ -180,7 +180,7 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             authViewModel.refreshSessionStatus()
             checkAppLock()
-            // Device heartbeat is non-critical; DeviceRepository handles failures so
+            // Device heartbeat is non-critical; DeviceRepositoryImpl handles failures so
             // a user_devices timeout can never prevent the main data sync from being queued.
             deviceRepository.updateActivity()
             settingsManager.updateLastOpenTimestamp()

@@ -5,7 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.features.settings.NotificationSettingsManager
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.notification.NotificationHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.first
 class SyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val settingsManager: NotificationSettingsManager,
     private val notificationHelper: NotificationHelper
 ) : CoroutineWorker(appContext, workerParams) {

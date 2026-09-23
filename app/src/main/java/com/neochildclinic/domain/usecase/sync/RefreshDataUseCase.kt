@@ -1,16 +1,16 @@
 package com.neochildclinic.domain.usecase.sync
 
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.repository.WasteRepository
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.ConsultationRepository
-import com.neochildclinic.domain.repository.PatientTodoRepository
-import com.neochildclinic.domain.repository.PersonalReminderRepository
-import com.neochildclinic.domain.repository.ExpenseRepository
-import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.FinanceRepositoryImpl
+import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.data.repository.WasteRepositoryImpl
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.data.repository.ConsultationRepositoryImpl
+import com.neochildclinic.data.repository.PatientTodoRepositoryImpl
+import com.neochildclinic.data.repository.PersonalReminderRepositoryImpl
+import com.neochildclinic.data.repository.ExpenseRepositoryImpl
+import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -21,17 +21,17 @@ import javax.inject.Inject
  * Coordinates multiple repository refreshes.
  */
 class RefreshDataUseCase @Inject constructor(
-    private val patientRepository: PatientRepository,
-    private val vaccinationRepository: VaccinationRepository,
-    private val wasteRepository: WasteRepository,
-    private val inventoryRepository: InventoryRepository,
-    private val reminderRepository: ReminderRepository,
-    private val consultationRepository: ConsultationRepository,
-    private val patientTodoRepository: PatientTodoRepository,
-    private val financeRepository: FinanceRepository,
-    private val personalReminderRepository: PersonalReminderRepository,
-    private val expenseRepository: ExpenseRepository,
-    private val doctorAvailabilityRepository: DoctorAvailabilityRepository
+    private val patientRepository: PatientRepositoryImpl,
+    private val vaccinationRepository: VaccinationRepositoryImpl,
+    private val wasteRepository: WasteRepositoryImpl,
+    private val inventoryRepository: InventoryRepositoryImpl,
+    private val reminderRepository: ReminderRepositoryImpl,
+    private val consultationRepository: ConsultationRepositoryImpl,
+    private val patientTodoRepository: PatientTodoRepositoryImpl,
+    private val financeRepository: FinanceRepositoryImpl,
+    private val personalReminderRepository: PersonalReminderRepositoryImpl,
+    private val expenseRepository: ExpenseRepositoryImpl,
+    private val doctorAvailabilityRepository: DoctorAvailabilityRepositoryImpl
 ) {
     suspend operator fun invoke() = coroutineScope {
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
@@ -69,11 +69,11 @@ class RefreshDataUseCase @Inject constructor(
         // 2. Inventory must land before vaccination_items. vaccination_items has Room
         // foreign keys to vaccines and vaccine_batches, so importing items in parallel can
         // otherwise permanently skip them on a fresh install.
-        val wasteTask = async { wasteRepository.refreshWaste() }
-        val inventoryTask = async { inventoryRepository.refreshInventory() }
-
-        wasteTask.await()
-        inventoryTask.await()
+        // Parallel: waste and inventory have no FK dependency on each other.
+        kotlinx.coroutines.awaitAll(
+            async { wasteRepository.refreshWaste() },
+            async { inventoryRepository.refreshInventory() }
+        )
 
         // Personal Vaccine Reminders can reference a vaccine_id via a Room foreign key
         // (SET NULL on delete, but still enforced on insert) - must run after inventory
@@ -81,7 +81,7 @@ class RefreshDataUseCase @Inject constructor(
         // references an as-yet-unknown vaccine would violate that FK and fail silently.
         // This is also what actually populates the feature's local cache in the first
         // place: PersonalReminderScreen only pulls from Room, and previously nothing
-        // triggered PersonalReminderRepository.refresh() except a manual pull-to-refresh
+        // triggered PersonalReminderRepositoryImpl.refresh() except a manual pull-to-refresh
         // on that screen, so reminders created outside this device never showed up.
         personalReminderRepository.refresh()
 

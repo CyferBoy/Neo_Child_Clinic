@@ -7,8 +7,8 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.ExpenseRepository
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.data.repository.ExpenseRepositoryImpl
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,16 +49,15 @@ data class ExpenseListUiState(
 
 @HiltViewModel
 class ExpenseListViewModel @Inject constructor(
-    private val expenseRepository: ExpenseRepository,
-    private val profileRepository: ProfileRepository,
+    private val expenseRepository: ExpenseRepositoryImpl,
+    private val profileRepository: ProfileRepositoryImpl,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExpenseListUiState())
     val uiState: StateFlow<ExpenseListUiState> = _uiState.asStateFlow()
 
-    private val _isRefreshing = MutableStateFlow(false)
-    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+    private val isRefreshing get() = _uiState.value.isRefreshing
 
     init {
         loadPermission()
@@ -113,39 +112,18 @@ class ExpenseListViewModel @Inject constructor(
     }
 
     fun loadMore() {
-        if (_uiState.value.isLoadingMore || _isRefreshing.value || !_uiState.value.canLoadMore) return
+        if (_uiState.value.isLoadingMore || isRefreshing || !_uiState.value.canLoadMore) return
         loadPage(reset = false)
     }
 
     fun refresh() {
-        if (_isRefreshing.value || _uiState.value.isLoading) return
+        if (isRefreshing || _uiState.value.isLoading) return
         viewModelScope.launch {
-            _isRefreshing.value = true
-            val state = _uiState.value
+            _uiState.update { it.copy(isRefreshing = true) }
             try {
-                val page = expenseRepository.getFilteredExpensesPage(
-                    category = state.categoryFilter?.name,
-                    paymentMethod = state.paymentMethodFilter?.name,
-                    fromDate = toIsoDate(state.fromDate),
-                    toDate = toIsoDate(state.toDate),
-                    query = state.query,
-                    sortBy = state.sort.sqlKey,
-                    limit = PAGE_SIZE,
-                    offset = 0
-                )
-                _uiState.update {
-                    it.copy(
-                        expenses = page,
-                        isLoading = false,
-                        isLoadingMore = false,
-                        canLoadMore = page.size == PAGE_SIZE,
-                        error = null
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Failed to refresh expenses") }
+                loadPageInternal(reset = true)
             } finally {
-                _isRefreshing.value = false
+                _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }
@@ -164,31 +142,36 @@ class ExpenseListViewModel @Inject constructor(
 
     private fun loadPage(reset: Boolean) {
         viewModelScope.launch {
-            val state = _uiState.value
-            _uiState.update { if (reset) it.copy(isLoading = true, error = null) else it.copy(isLoadingMore = true) }
-            try {
-                val offset = if (reset) 0 else state.expenses.size
-                val page = expenseRepository.getFilteredExpensesPage(
-                    category = state.categoryFilter?.name,
-                    paymentMethod = state.paymentMethodFilter?.name,
-                    fromDate = toIsoDate(state.fromDate),
-                    toDate = toIsoDate(state.toDate),
-                    query = state.query,
-                    sortBy = state.sort.sqlKey,
-                    limit = PAGE_SIZE,
-                    offset = offset
+            loadPageInternal(reset)
+        }
+    }
+
+    private suspend fun loadPageInternal(reset: Boolean) {
+        val state = _uiState.value
+        _uiState.update { if (reset) it.copy(isLoading = true, error = null) else it.copy(isLoadingMore = true) }
+        try {
+            val offset = if (reset) 0 else state.expenses.size
+            val page = expenseRepository.getFilteredExpensesPage(
+                category = state.categoryFilter?.name,
+                paymentMethod = state.paymentMethodFilter?.name,
+                fromDate = toIsoDate(state.fromDate),
+                toDate = toIsoDate(state.toDate),
+                query = state.query,
+                sortBy = state.sort.sqlKey,
+                limit = PAGE_SIZE,
+                offset = offset
+            )
+            _uiState.update {
+                it.copy(
+                    expenses = if (reset) page else it.expenses + page,
+                    isLoading = false,
+                    isLoadingMore = false,
+                    canLoadMore = page.size == PAGE_SIZE,
+                    error = null
                 )
-                _uiState.update {
-                    it.copy(
-                        expenses = if (reset) page else it.expenses + page,
-                        isLoading = false,
-                        isLoadingMore = false,
-                        canLoadMore = page.size == PAGE_SIZE
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "Failed to load expenses") }
             }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "Failed to load expenses") }
         }
     }
 

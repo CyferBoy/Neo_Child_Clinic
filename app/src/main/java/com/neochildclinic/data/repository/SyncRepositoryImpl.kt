@@ -8,8 +8,7 @@ import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.model.SyncStatus
 import com.neochildclinic.core.model.SyncErrorDetails
-import com.neochildclinic.domain.manager.SyncManager
-import com.neochildclinic.domain.repository.SyncState
+import com.neochildclinic.data.manager.SyncManagerImpl
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -25,7 +24,7 @@ import javax.inject.Singleton
 class SyncRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncManager: SyncManager,
+    private val syncManager: SyncManagerImpl,
     private val auth: Auth
 ) {
 
@@ -124,7 +123,7 @@ class SyncRepositoryImpl @Inject constructor(
                 // Status settled on NotAuthenticated - the user is genuinely logged out.
                 // Skip everything; do NOT schedule work, so we never retry-loop without a
                 // session. A manual/after-login sync handles it.
-                android.util.Log.w("SyncRepository", "No active session; skipping sync batch")
+                android.util.Log.w("SyncRepositoryImpl", "No active session; skipping sync batch")
             } else {
                 // Either the bounded wait expired while the SDK was still restoring the
                 // persisted session (cold start, network), or the SDK is mid-refresh after
@@ -133,7 +132,7 @@ class SyncRepositoryImpl @Inject constructor(
                 // (unique work, so no unbounded queue) instead of failing or pushing
                 // anonymously.
                 android.util.Log.w(
-                    "SyncRepository",
+                    "SyncRepositoryImpl",
                     "Session still restoring after ${SESSION_RESOLVE_TIMEOUT_MS}ms; scheduling a background retry"
                 )
                 syncManager.scheduleSync()
@@ -151,14 +150,14 @@ class SyncRepositoryImpl @Inject constructor(
                 // Refresh couldn't complete and no usable session exists (yet) - transient
                 // (concurrent SDK refresh, network). No DB writes; one quiet background
                 // retry via the scheduler's unique, backoff-bounded work.
-                android.util.Log.w("SyncRepository", "Session refresh deferred; scheduling a background retry")
+                android.util.Log.w("SyncRepositoryImpl", "Session refresh deferred; scheduling a background retry")
                 syncManager.scheduleSync()
                 _syncState.value = SyncState.IDLE
                 return
             }
             SessionReadiness.LOGGED_OUT -> {
                 // The SDK has settled on NotAuthenticated. Never retry-loop without a session.
-                android.util.Log.w("SyncRepository", "Session became unavailable; skipping sync batch")
+                android.util.Log.w("SyncRepositoryImpl", "Session became unavailable; skipping sync batch")
                 _syncState.value = SyncState.IDLE
                 return
             }
@@ -216,7 +215,6 @@ class SyncRepositoryImpl @Inject constructor(
                         uploadEntity(item, remoteConflictData)
                     }
                     markUploaded(item)
-                    syncDao.updateStatus(item.queueId, SyncStatus.SYNCED.name)
                     syncDao.deleteItem(item)
                 }
             } catch (e: SessionAuthTransientException) {
@@ -227,10 +225,10 @@ class SyncRepositoryImpl @Inject constructor(
                     syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
                 }
                 sessionTransient = true
-                android.util.Log.w("SyncRepository", "Group $groupId deferred: session refresh unavailable", e)
+                android.util.Log.w("SyncRepositoryImpl", "Group $groupId deferred: session refresh unavailable", e)
             } catch (e: Exception) {
                 hasError = true
-                android.util.Log.e("SyncRepository", "Group sync failed: $groupId", e)
+                android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
                 
                 val isNetworkError = e is java.io.IOException || e.message?.contains("network", ignoreCase = true) == true
                 
@@ -250,7 +248,7 @@ class SyncRepositoryImpl @Inject constructor(
             // don't recurse: leave the PENDING rows and let one quiet background run retry.
             _syncState.value = SyncState.IDLE
             syncManager.scheduleSync()
-            android.util.Log.w("SyncRepository", "Session refresh unavailable; scheduled a background retry")
+            android.util.Log.w("SyncRepositoryImpl", "Session refresh unavailable; scheduled a background retry")
             return
         }
 
@@ -270,25 +268,18 @@ class SyncRepositoryImpl @Inject constructor(
     // skipped: the local row is already gone.
     private suspend fun markUploaded(item: SyncQueueEntity) {
         if (item.operation == SyncOperation.DELETE.name) return
-        val (table, pk, col) = when (item.entityName) {
-            "PATIENT" -> Triple("patients", "id", "isSynced")
-            "VACCINATION", "VISIT" -> Triple("patient_visits", "id", "isSynced")
-            "WASTE" -> Triple("waste_records", "id", "isSynced")
-            "REMINDERS" -> Triple("reminders", "id", "isSynced")
-            "TRANSACTION", "INVENTORY_TRANSACTION" -> Triple("inventory_transactions", "transactionId", "isSynced")
-            "PATIENT_NOTE" -> Triple("patient_notes", "id", "isSynced")
-            "FINANCE" -> Triple("finance_transactions", "id", "isSynced")
-            "EXPENSE" -> Triple("expenses", "id", "isSynced")
-            "BORROW" -> Triple("borrow_records", "id", "isSynced")
-            "BORROW_RETURN" -> Triple("borrow_returns", "id", "is_synced")
-            "AUDIT_LOG" -> Triple("audit_logs", "id", "isSynced")
-            "CONSULTATION" -> Triple("consultations", "id", "isSynced")
-            "CONSULTATION_TODO" -> Triple("consultation_todos", "id", "is_synced")
-            "VACCINATION_TODO" -> Triple("vaccination_todos", "id", "is_synced")
-            "PERSONAL_REMINDER" -> Triple("personal_vaccine_reminders", "id", "is_synced")
-            "DOCTOR_WEEKLY_SLOT" -> Triple("doctor_weekly_slots", "id", "is_synced")
-            "DOCTOR_SLOT_EXCEPTION" -> Triple("doctor_slot_exceptions", "id", "is_synced")
-            else -> return
+        // Tables without an isSynced column (profiles/vaccines/vaccine_batches/
+        // vaccination_items) rely on queue-only guards and are skipped here.
+        val table = entityTable(item.entityName) ?: return
+        when (item.entityName) {
+            "PROFILE", "STAFF", "VACCINE", "BATCH", "VACCINATION_ITEM" -> return
+            else -> {}
+        }
+        val pk = if (item.entityName == "TRANSACTION" || item.entityName == "INVENTORY_TRANSACTION") "transactionId" else "id"
+        val col = when (item.entityName) {
+            "BORROW_RETURN", "CONSULTATION_TODO", "VACCINATION_TODO", "PERSONAL_REMINDER",
+            "DOCTOR_WEEKLY_SLOT", "DOCTOR_SLOT_EXCEPTION" -> "is_synced"
+            else -> "isSynced"
         }
         try {
             database.openHelper.writableDatabase.execSQL(
@@ -296,7 +287,7 @@ class SyncRepositoryImpl @Inject constructor(
                 arrayOf(item.entityId)
             )
         } catch (e: Exception) {
-            android.util.Log.w("SyncRepository", "Failed to mark $table.${item.entityId} synced", e)
+            android.util.Log.w("SyncRepositoryImpl", "Failed to mark $table.${item.entityId} synced", e)
         }
     }
 
@@ -521,7 +512,7 @@ class SyncRepositoryImpl @Inject constructor(
                     result["$table:$id"] = row
                 }
             } catch (e: Exception) {
-                android.util.Log.w("SyncRepository", "Batched conflict-check read failed for $table", e)
+                android.util.Log.w("SyncRepositoryImpl", "Batched conflict-check read failed for $table", e)
             }
         }
 
@@ -683,7 +674,7 @@ class SyncRepositoryImpl @Inject constructor(
             // is only used to mirror the DB-assigned number locally right away, so don't fail
             // the sync item over it. The number will still be picked up on the next
             // download/refresh.
-            android.util.Log.e("SyncRepository", "Could not read back receipt number for ${localData.id}", e)
+            android.util.Log.e("SyncRepositoryImpl", "Could not read back receipt number for ${localData.id}", e)
         }
     }
 
@@ -850,7 +841,7 @@ class SyncRepositoryImpl @Inject constructor(
                 else -> null
             }
         } catch (e: Exception) {
-            android.util.Log.e("SyncRepository", "Error fetching data for sync: ${item.entityName} ID $entityId", e)
+            android.util.Log.e("SyncRepositoryImpl", "Error fetching data for sync: ${item.entityName} ID $entityId", e)
             null
         }
     }
@@ -949,3 +940,5 @@ internal fun classifySessionReadinessAfterFailedRefresh(
             SessionReadiness.RETRY_LATER
         }
 }
+
+enum class SyncState { IDLE, SYNCING, ERROR }

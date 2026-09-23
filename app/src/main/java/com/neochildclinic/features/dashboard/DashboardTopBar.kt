@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.neochildclinic.R
 import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.SyncState
+import com.neochildclinic.data.repository.SyncState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

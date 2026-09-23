@@ -6,14 +6,11 @@ import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.features.statistics.FinanceCalculator
-import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +19,7 @@ class FinanceRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val financeDao: FinanceDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) {
@@ -369,9 +366,7 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshTransactions() {
-        withContext(Dispatchers.IO) {
-            try {
+    suspend fun refreshTransactions() = cloudRefresh("FinanceRepo") {
                 val transactions = postgrest.from("finance_transactions").select().decodeList<FinanceEntity>()
                 database.withTransaction {
                     val visitDao = database.vaccinationDao()
@@ -417,9 +412,5 @@ class FinanceRepositoryImpl @Inject constructor(
                         }
                     }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("FinanceRepo", "Refresh failed", e)
-            }
-        }
     }
 }

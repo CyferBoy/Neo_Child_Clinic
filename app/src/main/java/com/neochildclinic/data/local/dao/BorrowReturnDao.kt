@@ -21,7 +21,4 @@ interface BorrowReturnDao {
 
     @Query("SELECT * FROM borrow_returns WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): BorrowReturnEntity?
-
-    @Query("SELECT COALESCE(SUM(quantity), 0) FROM borrow_returns WHERE borrow_record_id = :borrowRecordId")
-    suspend fun getTotalReturnedQuantity(borrowRecordId: String): Int
 }

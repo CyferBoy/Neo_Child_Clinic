@@ -248,7 +248,7 @@ object FinanceCalculator {
             val netProfit = if (isProfitComplete) revenue - expenses - vaccineCost else 0.0
 
             result += FinanceSummaryItem(
-                label = "${MONTH_NAMES[month]} $year",
+                label = "${StatisticsUtils.monthNames[month]} $year",
                 revenue = revenue,
                 expenses = expenses,
                 vaccineCost = vaccineCost,
@@ -271,6 +271,27 @@ object FinanceCalculator {
 
     fun buildVaccinationRemarks(vaccinationNames: String, vaccineCost: Double): String =
         "Vaccination: $vaccinationNames $COGS_MARKER${"%.2f".format(Locale.US, vaccineCost)}]"
+
+    fun buildVaccinationRemarks(vaccination: Vaccination): String = buildVaccinationRemarks(
+        vaccination.items.joinToString(", ") { it.vaccineName },
+        vaccination.items.sumOf { it.netRate.coerceAtLeast(0.0) * it.quantity.coerceAtLeast(0) }
+    )
+
+    fun cogsOf(remarks: String?): Double? = parseCogsSnapshot(remarks)
+
+    fun cashAndOnlineOf(tx: FinanceEntity): Pair<Double, Double> {
+        val amount = tx.amount.coerceAtLeast(0.0)
+        val cash = if (tx.cashAmount > 0.0) tx.cashAmount else if (tx.paymentMethod.equals("CASH", true)) amount else 0.0
+        val online = if (tx.onlineAmount > 0.0) tx.onlineAmount else if (tx.paymentMethod.equals("ONLINE", true)) amount else 0.0
+        return cash to online
+    }
+
+    fun paymentMethodFor(cashAmount: Double, onlineAmount: Double): String = when {
+        cashAmount > 0 && onlineAmount > 0 -> "MIXED"
+        cashAmount > 0 -> "CASH"
+        onlineAmount > 0 -> "ONLINE"
+        else -> "FREE"
+    }
 
     private fun parseCogsSnapshot(remarks: String?): Double? {
         val value = remarks?.substringAfter(COGS_MARKER, missingDelimiterValue = "")?.substringBefore("]")?.toDoubleOrNull()
@@ -299,9 +320,4 @@ object FinanceCalculator {
         time = date
         set(Calendar.DAY_OF_MONTH, 1)
     }.startOfDay()
-
-    private val MONTH_NAMES = listOf(
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    )
 }

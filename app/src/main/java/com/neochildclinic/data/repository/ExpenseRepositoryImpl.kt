@@ -11,12 +11,10 @@ import com.neochildclinic.data.local.entity.ExpenseEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import io.github.jan.supabase.postgrest.Postgrest
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,7 +22,7 @@ import javax.inject.Singleton
 class ExpenseRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val sessionManager: SessionManager
 ) {
@@ -115,19 +113,13 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshExpenses() {
-        withContext(Dispatchers.IO) {
-            try {
-                val remoteExpenses = postgrest.from("expenses").select().decodeList<ExpenseEntity>()
-                database.withTransaction {
-                    for (remote in remoteExpenses) {
-                        if (!syncQueueDao.isUnsynced("EXPENSE", remote.id)) {
-                            expenseDao.insertExpense(remote.copy(isSynced = true))
-                        }
-                    }
+    suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
+        val remoteExpenses = postgrest.from("expenses").select().decodeList<ExpenseEntity>()
+        database.withTransaction {
+            for (remote in remoteExpenses) {
+                if (!syncQueueDao.isUnsynced("EXPENSE", remote.id)) {
+                    expenseDao.insertExpense(remote.copy(isSynced = true))
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("ExpenseRepo", "Refresh failed", e)
             }
         }
     }

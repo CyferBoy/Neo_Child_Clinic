@@ -71,6 +71,7 @@ fun PatientDetailsScreen(
     val patientVaccinationCards by vaccinationCardsFlow.collectAsState(initial = null)
     val patientConsultations by consultationsFlow.collectAsState(initial = emptyList())
     val documents by viewModel.documents.collectAsState()
+    val documentError by viewModel.documentError.collectAsState()
     val patientNotes by notesFlow.collectAsState(initial = emptyList())
     val doctorMap by viewModel.doctorMap.collectAsState()
     val vaccineMap by viewModel.vaccineMap.collectAsState()
@@ -91,6 +92,8 @@ fun PatientDetailsScreen(
     var selectedVaccinationForAction by remember { mutableStateOf<Vaccination?>(null) }
     var selectedConsultationForAction by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
     var documentToDelete by remember { mutableStateOf<String?>(null) }
+
+    MessageEffect(documentError) { viewModel.clearDocumentError() }
     val sheetState = rememberModalBottomSheetState()
     var showSheet by remember { mutableStateOf(false) }
 

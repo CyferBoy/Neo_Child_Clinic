@@ -315,7 +315,7 @@ private fun SyncItemCard(
                 if (isAdmin) {
                     Spacer(Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Failed: ${formatDateForDisplay(Date(item.updatedAt))}", style = MaterialTheme.typography.labelSmall)
+                        Text("Failed: ${formatTimestampForDisplay(Date(item.updatedAt))}", style = MaterialTheme.typography.labelSmall)
                         Text("Retries: ${item.retryCount}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -332,7 +332,7 @@ fun getStatusColor(status: SyncStatus): Color = when (status) {
     SyncStatus.FAILED -> MaterialTheme.colorScheme.error
 }
 
-private fun formatDateForDisplay(date: Date): String {
+private fun formatTimestampForDisplay(date: Date): String {
     return DateTimeFormatter.ofPattern("dd MMM, HH:mm:ss", Locale.getDefault())
         .withZone(ZoneId.systemDefault())
         .format(date.toInstant())

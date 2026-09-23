@@ -17,6 +17,4 @@ data class AppUpdateInfo(
     // informational (shown in the mandatory-update notice), NOT what decides mandatory.
     // Mandatory is decided solely by the X.0.0 major-version-tag rule below.
     val releasesBehind: Int = 0
-) {
-    fun isRequired(): Boolean = mandatory
-}
+)

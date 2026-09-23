@@ -181,7 +181,7 @@ private fun FinanceContent(
         SummaryCard(
             modifier = Modifier.fillMaxWidth(),
             title = "Total Revenue",
-            value = String.format(Locale.US, "₹%,.0f", currentStats.totalRevenue),
+            value = StatisticsUtils.formatRupees(currentStats.totalRevenue),
             icon = Icons.Default.CurrencyRupee,
             iconColor = customColors.textBlue,
             iconBackground = customColors.softBlue,
@@ -194,7 +194,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Cash",
-                value = String.format(Locale.US, "₹%,.0f", currentStats.cashTotal),
+                value = StatisticsUtils.formatRupees(currentStats.cashTotal),
                 icon = Icons.Default.Payments,
                 iconColor = customColors.textGreen,
                 iconBackground = customColors.softGreen,
@@ -203,7 +203,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Online",
-                value = String.format(Locale.US, "₹%,.0f", currentStats.onlineTotal),
+                value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
                 icon = Icons.Default.CreditCard,
                 iconColor = customColors.textBlue,
                 iconBackground = customColors.softBlue,
@@ -217,7 +217,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "COGS + Expense",
-                value = String.format(Locale.US, "₹%,.0f", currentStats.vaccineCost + currentStats.totalExpenses),
+                value = StatisticsUtils.formatRupees(currentStats.vaccineCost + currentStats.totalExpenses),
                 icon = Icons.Default.RemoveCircle,
                 iconColor = customColors.textPink,
                 iconBackground = customColors.softPink,
@@ -226,7 +226,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Net Profit",
-                value = if (currentStats.isProfitComplete) String.format(Locale.US, "₹%,.0f", currentStats.netProfit) else "Unavailable",
+                value = if (currentStats.isProfitComplete) StatisticsUtils.formatRupees(currentStats.netProfit) else "Unavailable",
                 icon = Icons.Default.TrendingUp,
                 iconColor = customColors.textCyan,
                 iconBackground = customColors.softCyan,
@@ -259,7 +259,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Total Expenses",
-                value = String.format(Locale.US, "₹%,.0f", currentExpensesRupees),
+                value = StatisticsUtils.formatRupees(currentExpensesRupees),
                 icon = Icons.Default.Receipt,
                 iconColor = customColors.textPink,
                 iconBackground = customColors.softPink,
@@ -268,7 +268,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Net Income",
-                value = String.format(Locale.US, "₹%,.0f", netIncome),
+                value = StatisticsUtils.formatRupees(netIncome),
                 icon = Icons.Default.TrendingUp,
                 iconColor = customColors.textCyan,
                 iconBackground = customColors.softCyan,

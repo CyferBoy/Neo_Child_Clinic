@@ -39,17 +39,3 @@ fun SyncQueueEntity.toDomain() = SyncItem(
     createdAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(createdAt),
     updatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(updatedAt)
 )
-
-fun SyncItem.toEntity() = SyncQueueEntity(
-    queueId = id,
-    entityName = entityName,
-    entityId = entityId,
-    operation = operation.name,
-    priority = priority.name,
-    status = status.name,
-    transactionGroupId = transactionGroupId,
-    retryCount = retryCount,
-    lastError = lastError,
-    createdAt = com.neochildclinic.core.utils.PatientUtils.formatDate(java.util.Date(createdAt)), 
-    updatedAt = com.neochildclinic.core.utils.PatientUtils.formatDate(java.util.Date(updatedAt))
-)

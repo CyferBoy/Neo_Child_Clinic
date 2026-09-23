@@ -7,7 +7,7 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import io.github.jan.supabase.postgrest.Postgrest
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,12 +15,12 @@ import javax.inject.Singleton
 @Singleton
 class PatientTodoRepositoryImpl @Inject constructor(
     database: AppDatabase,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val postgrest: Postgrest
 ) {
     private val dao: PatientTodoDao = database.patientTodoDao()
 
-    suspend fun refresh() {
+    suspend fun refresh() = cloudRefresh("PatientTodoRepo") {
         val consultations = postgrest.from("consultation_todos").select().decodeList<ConsultationTodoEntity>()
         val vaccinations = postgrest.from("vaccination_todos").select().decodeList<VaccinationTodoEntity>()
         consultations.forEach { remote ->

@@ -61,7 +61,7 @@ Decrypting the ciphertext yields a UTF-8 JSON **envelope**:
   "appName": "Neo Child Clinic",
   "appVersionName": "…",
   "appVersionCode": 0,
-  "databaseVersion": 26,
+  "databaseVersion": 30,
   "createdAt": "2026-09-11T16:30:00.000Z",
   "createdByUserId": "…supabase user id…",
   "deviceInfo": { "platform": "Android", "osVersion": "…", "model": "…" },
@@ -243,7 +243,7 @@ cd cloudflare/backup-worker
 npm install
 wrangler d1 create neochildclinic-backups     # copy the returned id into wrangler.toml
 npm run db:migrate:remote
-wrangler r2 bucket create neochildclinic-backups
+wrangler r2 bucket create neo-child-clinic-backups
 wrangler secret put SUPABASE_JWT_SECRET       # from Supabase Project Settings -> API -> JWT Settings
 npm run deploy
 ```

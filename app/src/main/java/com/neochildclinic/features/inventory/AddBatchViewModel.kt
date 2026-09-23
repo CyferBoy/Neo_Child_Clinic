@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.BatchStatus
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -28,7 +28,7 @@ data class AddBatchUiState(
 
 @HiltViewModel
 class AddBatchViewModel @Inject constructor(
-    private val inventoryRepository: InventoryRepository,
+    private val inventoryRepository: InventoryRepositoryImpl,
     private val auth: Auth
 ) : ViewModel() {
 

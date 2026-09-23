@@ -1,6 +1,6 @@
 package com.neochildclinic.core.session
 
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import io.github.jan.supabase.auth.Auth
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -8,7 +8,7 @@ import javax.inject.Singleton
 @Singleton
 class SessionManager @Inject constructor(
     private val auth: Auth,
-    private val profileRepository: ProfileRepository
+    private val profileRepository: ProfileRepositoryImpl
 ) {
     /**
      * Returns the human-readable name of the current user.

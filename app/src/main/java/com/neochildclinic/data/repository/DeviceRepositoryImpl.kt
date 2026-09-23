@@ -65,9 +65,9 @@ class DeviceRepositoryImpl @Inject constructor(
                 )
                 userDevicesTable.insert(device)
             }
-            Log.d("DeviceRepository", "Device registered successfully")
+            Log.d("DeviceRepositoryImpl", "Device registered successfully")
         } catch (e: Exception) {
-            Log.e("DeviceRepository", "Failed to register device", e)
+            Log.e("DeviceRepositoryImpl", "Failed to register device", e)
         }
     }
 
@@ -85,7 +85,7 @@ class DeviceRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             // Device registration is best-effort. A network/Supabase failure must
             // never prevent logout from completing.
-            Log.w("DeviceRepository", "Could not deactivate device", e)
+            Log.w("DeviceRepositoryImpl", "Could not deactivate device", e)
         }
     }
 
@@ -106,7 +106,7 @@ class DeviceRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             // Device heartbeat is non-critical. In particular, a timeout here must
             // not abort MainActivity.onResume() before the normal data sync is queued.
-            Log.w("DeviceRepository", "Could not update device activity; continuing", e)
+            Log.w("DeviceRepositoryImpl", "Could not update device activity; continuing", e)
         }
     }
 

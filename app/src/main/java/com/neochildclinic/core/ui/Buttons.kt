@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -95,45 +94,6 @@ fun StandardButton(
             )
         } else {
             content()
-        }
-    }
-}
-
-/**
- * A generic sort button that opens a menu with provided options.
- * Shows a Toast message when a sort option is selected.
- */
-@Composable
-fun <T> SortButton(
-    options: List<Pair<T, String>>,
-    onSortSelected: (T, String) -> Unit,
-    iconColor: Color = MaterialTheme.colorScheme.onPrimary,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(
-                Icons.AutoMirrored.Filled.Sort,
-                contentDescription = "Sort",
-                tint = iconColor
-            )
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { (option, label) ->
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    onClick = {
-                        onSortSelected(option, label)
-                        expanded = false
-                        Toast.makeText(context, label, Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
         }
     }
 }

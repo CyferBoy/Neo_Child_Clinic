@@ -256,8 +256,8 @@ The project includes Edge Functions for privileged staff management and applicat
 Required application configuration:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_URL
+SUPABASE_PUBLISHABLE_KEY
 ```
 
 Firebase configuration is required for notification functionality.
@@ -284,7 +284,7 @@ The application uses:
 Current Room database version:
 
 ```
-22
+30
 ```
 
 Supabase migrations are stored in:

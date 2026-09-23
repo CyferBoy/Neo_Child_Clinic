@@ -3,8 +3,8 @@ package com.neochildclinic.features.reminder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.data.repository.PatientRepositoryImpl
 import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -20,8 +20,8 @@ data class CompletedDismissedUiState(
 
 @HiltViewModel
 class CompletedDismissedViewModel @Inject constructor(
-    private val patientRepository: PatientRepository,
-    private val reminderRepository: ReminderRepository,
+    private val patientRepository: PatientRepositoryImpl,
+    private val reminderRepository: ReminderRepositoryImpl,
     private val auth: Auth
 ) : ViewModel() {
 

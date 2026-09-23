@@ -8,9 +8,9 @@ import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.ConsultationRepository
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.data.repository.ConsultationRepositoryImpl
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.ConsultationEditEngine
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
@@ -39,10 +39,10 @@ data class AddConsultationUiState(
 @HiltViewModel
 class AddConsultationViewModel @Inject constructor(
     private val clinicalService: ClinicalVaccinationService,
-    private val patientRepository: PatientRepository,
-    private val profileRepository: ProfileRepository,
+    private val patientRepository: PatientRepositoryImpl,
+    private val profileRepository: ProfileRepositoryImpl,
     private val auth: Auth,
-    private val consultationRepository: ConsultationRepository,
+    private val consultationRepository: ConsultationRepositoryImpl,
     private val consultationEditEngine: ConsultationEditEngine,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase
 ) : ViewModel() {

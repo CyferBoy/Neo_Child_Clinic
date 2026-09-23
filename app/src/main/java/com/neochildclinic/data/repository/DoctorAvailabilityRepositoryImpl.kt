@@ -10,7 +10,7 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -21,7 +21,7 @@ import javax.inject.Singleton
 class DoctorAvailabilityRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) {
 
@@ -135,21 +135,17 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun refresh() {
-        try {
-            val remoteSlots = postgrest.from("doctor_weekly_slots").select().decodeList<DoctorWeeklySlotEntity>()
-            remoteSlots.forEach { remote ->
-                val local = dao.getWeeklySlotById(remote.id)
-                if (local == null || local.isSynced) dao.upsertWeeklySlot(remote.copy(isSynced = true))
-            }
+    suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo") {
+        val remoteSlots = postgrest.from("doctor_weekly_slots").select().decodeList<DoctorWeeklySlotEntity>()
+        remoteSlots.forEach { remote ->
+            val local = dao.getWeeklySlotById(remote.id)
+            if (local == null || local.isSynced) dao.upsertWeeklySlot(remote.copy(isSynced = true))
+        }
 
-            val remoteExceptions = postgrest.from("doctor_slot_exceptions").select().decodeList<DoctorSlotExceptionEntity>()
-            remoteExceptions.forEach { remote ->
-                val local = dao.getExceptionById(remote.id)
-                if (local == null || local.isSynced) dao.upsertException(remote.copy(isSynced = true))
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("DoctorAvailabilityRepo", "Refresh failed", e)
+        val remoteExceptions = postgrest.from("doctor_slot_exceptions").select().decodeList<DoctorSlotExceptionEntity>()
+        remoteExceptions.forEach { remote ->
+            val local = dao.getExceptionById(remote.id)
+            if (local == null || local.isSynced) dao.upsertException(remote.copy(isSynced = true))
         }
     }
 }

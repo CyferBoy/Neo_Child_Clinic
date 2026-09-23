@@ -13,15 +13,12 @@ import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.NewBatchInfo
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.features.inventory.BorrowedDisplayItem
 import io.github.jan.supabase.postgrest.Postgrest
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -32,8 +29,8 @@ import javax.inject.Singleton
 class BorrowRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val inventoryRepository: InventoryRepository,
-    private val syncRepository: SyncRepository,
+    private val inventoryRepository: InventoryRepositoryImpl,
+    private val syncRepository: SyncRepositoryImpl,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) {
@@ -44,7 +41,7 @@ class BorrowRepositoryImpl @Inject constructor(
     private val syncQueueDao = database.syncQueueDao()
 
     companion object {
-        private const val TAG = "BorrowRepository"
+        private const val TAG = "BorrowRepositoryImpl"
     }
 
     fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>> =
@@ -199,9 +196,7 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshBorrows() {
-        withContext(Dispatchers.IO) {
-            try {
+    suspend fun refreshBorrows() = cloudRefresh(TAG) {
                 Log.d(TAG, "Refreshing borrow records from Supabase...")
                 val records = postgrest.from("borrow_records").select().decodeList<BorrowEntity>()
                 val returns = postgrest.from("borrow_returns").select().decodeList<BorrowReturnEntity>()
@@ -221,9 +216,12 @@ class BorrowRepositoryImpl @Inject constructor(
                     }
                 }
                 Log.d(TAG, "Borrow records refresh complete.")
-            } catch (e: Exception) {
-                Log.e(TAG, "Refresh failed", e)
-            }
-        }
     }
 }
+
+data class NewBatchInfo(
+    val batchNumber: String,
+    val expiryDate: String,
+    val purchaseCost: Double = 0.0,
+    val sellingPrice: Double = 0.0
+)

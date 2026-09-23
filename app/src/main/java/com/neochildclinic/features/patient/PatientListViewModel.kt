@@ -6,8 +6,8 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.usecase.patient.MergePatientsUseCase
 import com.neochildclinic.domain.usecase.patient.SearchPatientsUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.domain.model.Profile
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
@@ -44,11 +44,11 @@ data class PatientListUiState(
 
 @HiltViewModel
 class PatientListViewModel @Inject constructor(
-    private val vaccinationRepository: VaccinationRepository,
+    private val vaccinationRepository: VaccinationRepositoryImpl,
     private val mergePatientsUseCase: MergePatientsUseCase,
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
-    private val patientRepository: PatientRepository,
+    private val patientRepository: PatientRepositoryImpl,
     private val auth: Auth,
     private val postgrest: Postgrest,
     private val realtime: Realtime
@@ -78,7 +78,7 @@ class PatientListViewModel @Inject constructor(
         combine(_isMergeSelectionMode, _selectedPatients, _isMerging, _error, _isRefreshing) { mode, selected, merging, err, refreshing ->
             RefreshState(mode, selected, merging, err, refreshing)
         },
-        flow { emit(patientRepository.getTotalPatientCount()) }
+        patientRepository.getPatientCount()
     ) { patients, sort, vaccinations, internalState, total ->
         
         val missingPrice = vaccinations.filter { it.totalPaid <= 0.0 }.map { it.patientId }.toSet()

@@ -10,10 +10,10 @@ import com.neochildclinic.core.utils.InventoryUtils
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.VaccinationEditEngine
 import io.github.jan.supabase.auth.Auth
@@ -74,11 +74,11 @@ data class AddVaccinationUiState(
 
 @HiltViewModel
 class AddVaccinationViewModel @Inject constructor(
-    private val patientRepository: PatientRepository,
-    private val inventoryRepository: InventoryRepository,
-    private val vaccinationRepository: VaccinationRepository,
-    private val reminderRepository: ReminderRepository,
-    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
+    private val patientRepository: PatientRepositoryImpl,
+    private val inventoryRepository: InventoryRepositoryImpl,
+    private val vaccinationRepository: VaccinationRepositoryImpl,
+    private val reminderRepository: ReminderRepositoryImpl,
+    private val profileRepository: com.neochildclinic.data.repository.ProfileRepositoryImpl,
     private val clinicalService: ClinicalVaccinationService,
     private val vaccinationEditEngine: VaccinationEditEngine,
     private val auth: Auth,
@@ -709,7 +709,7 @@ class AddVaccinationViewModel @Inject constructor(
 
                 // Transform grouped UI state back to flat ReminderSpec list
                 val reminderSpecs = nextGroups.flatMap { group ->
-                    // Group items by Type under the same Date to keep compatibility with existing ReminderRepository logic
+                    // Group items by Type under the same Date to keep compatibility with existing ReminderRepositoryImpl logic
                     // which expects a list of vaccines for a single type.
                     // Actually, the requirements say "Each Type + Vaccine combination creates a separate reminder item".
                     // But the existing repository saveNextVaccination takes List<String> vaccineNames.

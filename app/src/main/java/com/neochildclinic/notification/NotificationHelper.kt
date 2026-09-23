@@ -148,7 +148,7 @@ class NotificationHelper @Inject constructor(
         val builder = NotificationCompat.Builder(context, CHANNEL_SYNC_BACKUP)
             .setSmallIcon(R.drawable.app_logo)
             .setContentTitle("❌ Sync Failure")
-            .setContentText("Firestore sync failed repeatedly: $error")
+            .setContentText("Cloud sync failed repeatedly: $error")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
 

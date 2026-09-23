@@ -343,8 +343,7 @@ private fun paymentModeLabel(transaction: FinanceEntity): String {
     }
 }
 
-private fun formatCurrency(amount: Double): String =
-    "₹" + String.format(Locale.US, "%,.0f", amount.coerceAtLeast(0.0))
+private fun formatCurrency(amount: Double): String = StatisticsUtils.formatRupees(amount.coerceAtLeast(0.0))
 
 @Preview(showBackground = true)
 @Composable

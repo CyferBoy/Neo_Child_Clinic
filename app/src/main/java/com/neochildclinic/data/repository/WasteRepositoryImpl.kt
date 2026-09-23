@@ -6,12 +6,10 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,8 +17,8 @@ import javax.inject.Singleton
 class WasteRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val inventoryRepository: InventoryRepository,
-    private val syncRepository: SyncRepository,
+    private val inventoryRepository: InventoryRepositoryImpl,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) {
@@ -144,22 +142,16 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshWaste() {
-        withContext(Dispatchers.IO) {
-            try {
-                val wasteRecords = postgrest.from("waste_records").select().decodeList<WasteRecord>()
-                database.withTransaction {
-                    for (remote in wasteRecords) {
-                        if (!syncQueueDao.isUnsynced("WASTE", remote.id)) {
-                            wasteDao.insertWaste(remote.copy(
-                                isSynced = true,
-                                updatedAt = remote.updatedAt.ifEmpty { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
-                            ))
-                        }
-                    }
+    suspend fun refreshWaste() = cloudRefresh("WasteRepo") {
+        val wasteRecords = postgrest.from("waste_records").select().decodeList<WasteRecord>()
+        database.withTransaction {
+            for (remote in wasteRecords) {
+                if (!syncQueueDao.isUnsynced("WASTE", remote.id)) {
+                    wasteDao.insertWaste(remote.copy(
+                        isSynced = true,
+                        updatedAt = remote.updatedAt.ifEmpty { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
+                    ))
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("WasteRepo", "Refresh failed", e)
             }
         }
     }

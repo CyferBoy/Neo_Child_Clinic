@@ -141,8 +141,7 @@ fun OverviewTab(
             if (!tx.type.equals("INCOME", true)) return@forEach
             val existing = financeByMonth.getOrDefault(key, MonthFinance(0.0, 0.0, 0.0))
             val amount = tx.amount.coerceAtLeast(0.0)
-            val cashAmt = if (tx.cashAmount > 0.0) tx.cashAmount else if (tx.paymentMethod.equals("CASH", true)) amount else 0.0
-            val onlineAmt = if (tx.onlineAmount > 0.0) tx.onlineAmount else if (tx.paymentMethod.equals("ONLINE", true)) amount else 0.0
+            val (cashAmt, onlineAmt) = FinanceCalculator.cashAndOnlineOf(tx)
             financeByMonth[key] = existing.copy(
                 revenue = existing.revenue + amount,
                 cash = existing.cash + cashAmt,
@@ -294,7 +293,7 @@ private fun OverviewContent(
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Revenue",
-                    value = String.format(Locale.US, "₹%,.0f", currentStats.totalRevenue),
+                    value = StatisticsUtils.formatRupees(currentStats.totalRevenue),
                     icon = Icons.Default.CurrencyRupee,
                     iconColor = customColors.textBlue,
                     iconBackground = customColors.softBlue,
@@ -308,7 +307,7 @@ private fun OverviewContent(
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Cash",
-                    value = String.format(Locale.US, "₹%,.0f", currentStats.cashTotal),
+                    value = StatisticsUtils.formatRupees(currentStats.cashTotal),
                     icon = Icons.Default.Payments,
                     iconColor = customColors.textGreen,
                     iconBackground = customColors.softGreen,
@@ -317,7 +316,7 @@ private fun OverviewContent(
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Online",
-                    value = String.format(Locale.US, "₹%,.0f", currentStats.onlineTotal),
+                    value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
                     icon = Icons.Default.CreditCard,
                     iconColor = customColors.textBlue,
                     iconBackground = customColors.softBlue,
@@ -330,7 +329,7 @@ private fun OverviewContent(
             SummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = "Net Profit",
-                value = if (currentStats.isProfitComplete) String.format(Locale.US, "₹%,.0f", currentStats.netProfit) else "Unavailable",
+                value = if (currentStats.isProfitComplete) StatisticsUtils.formatRupees(currentStats.netProfit) else "Unavailable",
                 icon = Icons.Default.TrendingUp,
                 iconColor = customColors.textPink,
                 iconBackground = customColors.softPink,

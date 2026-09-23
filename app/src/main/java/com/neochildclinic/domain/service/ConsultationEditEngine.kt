@@ -3,8 +3,8 @@ package com.neochildclinic.domain.service
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.domain.repository.ConsultationRepository
-import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.data.repository.ConsultationRepositoryImpl
+import com.neochildclinic.data.repository.FinanceRepositoryImpl
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,8 +12,8 @@ import javax.inject.Singleton
 @Singleton
 class ConsultationEditEngine @Inject constructor(
     private val database: AppDatabase,
-    private val consultationRepository: ConsultationRepository,
-    private val financeRepository: FinanceRepository,
+    private val consultationRepository: ConsultationRepositoryImpl,
+    private val financeRepository: FinanceRepositoryImpl,
 ) {
     enum class Result { UPDATED, NO_CHANGES }
 

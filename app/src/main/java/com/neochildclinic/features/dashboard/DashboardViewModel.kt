@@ -4,13 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.BorrowRepository
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.PatientTodoRepository
-import com.neochildclinic.domain.repository.ProfileRepository
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.data.repository.BorrowRepositoryImpl
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.PatientTodoRepositoryImpl
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
+import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.data.repository.WasteRepositoryImpl
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
@@ -23,8 +23,8 @@ import com.neochildclinic.domain.model.Patient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.domain.repository.SyncState
+import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.data.repository.SyncState
 import com.neochildclinic.core.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.realtime.PostgresAction
@@ -47,7 +47,6 @@ data class DashboardUiState(
     val syncState: SyncState = SyncState.IDLE,
     val isOnline: Boolean = false,
     val pendingSyncCount: Int = 0,
-    val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val todayConsultations: List<ConsultationTodoEntity> = emptyList(),
     val todayVaccinations: List<VaccinationTodoEntity> = emptyList(),
@@ -69,16 +68,16 @@ data class DashboardUiState(
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val networkMonitor: NetworkMonitor,
-    private val patientRepository: PatientRepository,
-    private val patientTodoRepository: PatientTodoRepository,
-    private val inventoryRepository: InventoryRepository,
-    private val reminderRepository: ReminderRepository,
-    private val wasteRepository: WasteRepository,
-    private val borrowRepository: BorrowRepository,
+    private val patientRepository: PatientRepositoryImpl,
+    private val patientTodoRepository: PatientTodoRepositoryImpl,
+    private val inventoryRepository: InventoryRepositoryImpl,
+    private val reminderRepository: ReminderRepositoryImpl,
+    private val wasteRepository: WasteRepositoryImpl,
+    private val borrowRepository: BorrowRepositoryImpl,
     private val realtime: Realtime,
-    private val profileRepository: ProfileRepository,
+    private val profileRepository: ProfileRepositoryImpl,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
     private val auth: Auth,
 ) : ViewModel() {
@@ -178,11 +177,10 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         combine(
             patientCount(),
-            lowStockCount(),
+            inventoryStockCounts(),
             borrowedCount(),
             dueCount(),
-            wasteCount(),
-            outOfStockCount()
+            wasteCount()
         ) { values -> values.toList() },
         combine(
             syncRepository.syncState,
@@ -222,11 +220,11 @@ class DashboardViewModel @Inject constructor(
     ) { stats, sync, todos, extra ->
         DashboardUiState(
             patientCount = stats[0] as Int,
-            lowStockCount = stats[1] as Int,
+            lowStockCount = (stats[1] as Pair<Int, Int>).first,
             borrowedCount = stats[2] as Int,
             dueTodayCount = stats[3] as Int,
             wasteCount = stats[4] as Int,
-            outOfStockCount = stats[5] as Int,
+            outOfStockCount = (stats[1] as Pair<Int, Int>).second,
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
@@ -239,7 +237,7 @@ class DashboardViewModel @Inject constructor(
             allDoctors = extra[2] as List<Profile>,
             todoSlotsState = extra[3] as SlotsUiState
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState(isLoading = true))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 
     fun setSelectedDate(date: String) {
         _selectedDate.value = date
@@ -389,12 +387,8 @@ class DashboardViewModel @Inject constructor(
 
     private fun patientCount(): Flow<Int> = patientRepository.getPatientCount()
 
-    private fun lowStockCount(): Flow<Int> = inventoryRepository.getInventoryItems().map { items ->
-        items.count { it.isLowStock && !it.hasOutofStock }
-    }
-
-    private fun outOfStockCount(): Flow<Int> = inventoryRepository.getInventoryItems().map { items ->
-        items.count { it.hasOutofStock }
+    private fun inventoryStockCounts(): Flow<Pair<Int, Int>> = inventoryRepository.getInventoryItems().map { items ->
+        items.count { it.isLowStock && !it.hasOutofStock } to items.count { it.hasOutofStock }
     }
 
     private fun borrowedCount(): Flow<Int> = borrowRepository.getActiveBorrowedRecords().map { it.size }

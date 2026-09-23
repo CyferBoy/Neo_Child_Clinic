@@ -6,7 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import com.neochildclinic.domain.manager.ClinicStatsManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -20,7 +20,7 @@ class DailySummaryWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val statsManager: ClinicStatsManager,
-    private val inventoryRepository: InventoryRepository,
+    private val inventoryRepository: InventoryRepositoryImpl,
     private val settingsManager: NotificationSettingsManager,
     private val notificationHelper: NotificationHelper
 ) : CoroutineWorker(context, params) {

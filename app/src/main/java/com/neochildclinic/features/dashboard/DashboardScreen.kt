@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.SyncState
+import com.neochildclinic.data.repository.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
 import com.neochildclinic.core.ui.SkeletonCard
 import com.neochildclinic.core.ui.AppPullToRefresh

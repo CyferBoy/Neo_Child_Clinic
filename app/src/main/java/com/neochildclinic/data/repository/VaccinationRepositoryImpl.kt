@@ -10,8 +10,8 @@ import com.neochildclinic.core.utils.WidgetUtils
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.*
@@ -25,8 +25,8 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
-    private val syncRepository: SyncRepository,
-    private val inventoryRepository: InventoryRepository,
+    private val syncRepository: SyncRepositoryImpl,
+    private val inventoryRepository: InventoryRepositoryImpl,
     private val auditLogger: AuditLogger,
     @ApplicationContext private val appContext: Context
 ) {
@@ -72,9 +72,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             entity.toVaccination().copy(items = items)
         }
 
-    suspend fun refreshVaccinations() {
-        withContext(Dispatchers.IO) {
-            try {
+    suspend fun refreshVaccinations() = cloudRefresh("VaccinationRepo") {
                 val entities = postgrest.from("patient_visits").select().decodeList<VisitEntity>()
                 val totalDownloaded = entities.size
                 var imported = 0
@@ -114,10 +112,6 @@ class VaccinationRepositoryImpl @Inject constructor(
                     - Skipped (Missing Patients): $skippedMissingPatient
                 """.trimIndent())
 
-            } catch (e: Exception) {
-                android.util.Log.e("VaccinationRepo", "Cloud Refresh failed", e)
-            }
-        }
     }
 
     // Pure network fetch, no local writes - safe to run in parallel with other

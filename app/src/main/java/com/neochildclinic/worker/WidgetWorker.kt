@@ -8,8 +8,8 @@ import androidx.work.WorkerParameters
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.features.widget.VaccineWidget
 import com.neochildclinic.data.local.entity.WidgetDueEntity
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
@@ -26,8 +26,8 @@ import kotlin.text.get
 class WidgetWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val reminderRepository: ReminderRepository,
-    private val patientRepository: PatientRepository,
+    private val reminderRepository: ReminderRepositoryImpl,
+    private val patientRepository: PatientRepositoryImpl,
     private val database: AppDatabase
 ) : CoroutineWorker(context, params) {
 

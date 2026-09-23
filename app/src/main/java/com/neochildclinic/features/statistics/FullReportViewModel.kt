@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.data.local.entity.FinanceEntity
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.data.repository.FinanceRepositoryImpl
+import com.neochildclinic.data.repository.ExpenseRepositoryImpl
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -45,10 +45,10 @@ data class FullReportUiState(
 
 @HiltViewModel
 class FullReportViewModel @Inject constructor(
-    patientRepository: PatientRepository,
-    vaccinationRepository: VaccinationRepository,
-    financeRepository: FinanceRepository,
-    expenseRepository: ExpenseRepository,
+    patientRepository: PatientRepositoryImpl,
+    vaccinationRepository: VaccinationRepositoryImpl,
+    financeRepository: FinanceRepositoryImpl,
+    expenseRepository: ExpenseRepositoryImpl,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -206,11 +206,10 @@ class FullReportViewModel @Inject constructor(
             val mf = financeBuckets.getOrPut(key) { MonthFinance() }
             val amount = tx.amount.coerceAtLeast(0.0)
             mf.revenue += amount
-            val cashAmt = if (tx.cashAmount > 0.0) tx.cashAmount else if (tx.paymentMethod.equals("CASH", true)) amount else 0.0
-            val onlineAmt = if (tx.onlineAmount > 0.0) tx.onlineAmount else if (tx.paymentMethod.equals("ONLINE", true)) amount else 0.0
+            val (cashAmt, onlineAmt) = FinanceCalculator.cashAndOnlineOf(tx)
             mf.cash += cashAmt
             mf.online += onlineAmt
-            val snapshot = tx.remarks?.substringAfter("[COGS_SNAPSHOT:", "")?.substringBefore("]")?.toDoubleOrNull()
+            val snapshot = FinanceCalculator.cogsOf(tx.remarks)
             if (snapshot != null && snapshot >= 0.0) mf.cogs += snapshot
         }
 
@@ -289,9 +288,8 @@ class FullReportViewModel @Inject constructor(
             dayOfMonthIST(FinanceCalculator.resolveReportingDate(tx))?.let { day ->
                 val bucket = dayBuckets[day] ?: return@let
                 val amount = tx.amount.coerceAtLeast(0.0)
-                val cashAmt = if (tx.cashAmount > 0.0) tx.cashAmount else if (tx.paymentMethod.equals("CASH", true)) amount else 0.0
-                val onlineAmt = if (tx.onlineAmount > 0.0) tx.onlineAmount else if (tx.paymentMethod.equals("ONLINE", true)) amount else 0.0
-                val snapshot = tx.remarks?.substringAfter("[COGS_SNAPSHOT:", "")?.substringBefore("]")?.toDoubleOrNull()
+                val (cashAmt, onlineAmt) = FinanceCalculator.cashAndOnlineOf(tx)
+                val snapshot = FinanceCalculator.cogsOf(tx.remarks)
                 val cogsAdd = if (snapshot != null && snapshot >= 0.0) snapshot else 0.0
                 dayBuckets[day] = bucket.copy(
                     revenue = bucket.revenue + amount,

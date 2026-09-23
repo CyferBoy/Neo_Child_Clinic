@@ -91,7 +91,6 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -115,7 +114,6 @@ dependencies {
     implementation(libs.firebase.messaging)
     
     // Utilities
-    implementation(libs.play.services.base)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
 
@@ -129,7 +127,6 @@ dependencies {
 
     // SQLCipher for Room Encryption
     implementation(libs.sqlcipher)
-    implementation(libs.androidx.sqlite.ktx)
 
     // Security for encryption key management
     implementation(libs.androidx.security.crypto)

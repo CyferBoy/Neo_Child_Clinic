@@ -1,5 +1,7 @@
 package com.neochildclinic.features.personalreminder
 
+import com.neochildclinic.features.statistics.StatisticsUtils
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,7 +19,6 @@ import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.PersonalReminderStatus
-import java.util.Locale
 
 private fun statusColor(status: PersonalReminderStatus): Color = when (status) {
     PersonalReminderStatus.PENDING -> Color(0xFFFB8C00)
@@ -95,7 +96,7 @@ fun PersonalReminderCard(
             if (reminder.advanceReceived && reminder.advanceAmount != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Advance: " + String.format(Locale.US, "\u20b9%,.0f", reminder.advanceAmount),
+                    text = "Advance: " + StatisticsUtils.formatRupees(reminder.advanceAmount),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium

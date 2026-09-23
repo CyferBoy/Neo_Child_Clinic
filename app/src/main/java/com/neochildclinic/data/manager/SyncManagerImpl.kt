@@ -49,9 +49,4 @@ class SyncManagerImpl @Inject constructor(
             syncRequest
         )
     }
-
-    fun cancelAllSync() {
-        workManager.cancelAllWorkByTag("SYNC_JOB")
-        workManager.cancelUniqueWork("AUTOMATIC_SYNC")
-    }
 }

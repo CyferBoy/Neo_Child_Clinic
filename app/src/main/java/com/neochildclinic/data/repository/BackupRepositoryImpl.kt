@@ -14,7 +14,7 @@ import com.neochildclinic.data.local.entity.BackupHistoryEntity
 import com.neochildclinic.data.local.entity.BackupHistoryStatus
 import com.neochildclinic.data.local.entity.BackupHistoryType
 import com.neochildclinic.data.local.entity.BackupLocation
-import com.neochildclinic.domain.manager.SyncManager
+import com.neochildclinic.data.manager.SyncManagerImpl
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.features.settings.BackupSettingsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,14 +28,14 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG = "BackupRepository"
+private const val TAG = "BackupRepositoryImpl"
 
 @Singleton
 class BackupRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: AppDatabase,
     private val cloudApi: CloudBackupApi,
-    private val syncManager: SyncManager,
+    private val syncManager: SyncManagerImpl,
     private val networkMonitor: NetworkMonitor,
     private val backupSettingsManager: BackupSettingsManager,
     private val auth: Auth

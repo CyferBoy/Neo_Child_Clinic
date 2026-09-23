@@ -323,6 +323,15 @@ object PatientUtils {
     /**
      * Returns current time in ISO 8601 format.
      */
+    fun formatBytes(bytes: Long): String {
+        if (bytes < 1024) return "$bytes B"
+        val kb = bytes / 1024.0
+        if (kb < 1024) return "%.1f KB".format(kb)
+        val mb = kb / 1024.0
+        if (mb < 1024) return "%.1f MB".format(mb)
+        return "%.1f GB".format(mb / 1024.0)
+    }
+
     fun getCurrentIsoTimestamp(): String {
         return DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
             .withZone(ZoneId.systemDefault())

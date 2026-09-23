@@ -27,7 +27,7 @@ Install the following before opening the project:
 | Target SDK | 35 |
 | Minimum SDK | 29 (Android 10) |
 | Java | 17 |
-| Room database | 22 |
+| Room database | 30 |
 | Application ID | `com.neochildclinic` |
 
 The exact dependency versions are maintained in `gradle/libs.versions.toml`.
@@ -336,7 +336,7 @@ The Android application uses:
 The current Room database version is:
 
 ```text
-22
+30
 ```
 
 When changing entities or database structure, add the appropriate Room migration and update the database version according to the project's migration strategy.
@@ -459,7 +459,6 @@ Do not use the debug build as the production release.
 | Staff Edge Function | `supabase/functions/manage-staff/` |
 | Update notification function | `supabase/functions/notify-update/` |
 | Screenshots | `docs/Screenshot/` |
-| Architecture/design diagrams | `docs/designs/` |
 | Security documentation | `SECURITY.md` |
 | Main project README | `README.md` |
 

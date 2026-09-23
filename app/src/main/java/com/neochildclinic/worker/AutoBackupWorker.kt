@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.neochildclinic.domain.repository.BackupRepository
+import com.neochildclinic.data.repository.BackupRepositoryImpl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -12,7 +12,7 @@ import dagger.assisted.AssistedInject
  * Runs Automatic Backup on the schedule set in Settings -> Backup & Restore
  * (see BackupAutoScheduler for how this is enqueued).
  *
- * Retry-safe by construction: BackupRepository.performAutomaticBackup() reads current
+ * Retry-safe by construction: BackupRepositoryImpl.performAutomaticBackup() reads current
  * settings/password fresh every run and each destination (local file / cloud upload) is
  * idempotent to re-run (a retried local write overwrites the same-named file harmlessly; a
  * retried cloud upload is a fresh backupId, so a WorkManager retry never doubles up in a way
@@ -22,7 +22,7 @@ import dagger.assisted.AssistedInject
 class AutoBackupWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val backupRepository: BackupRepository
+    private val backupRepository: BackupRepositoryImpl
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {

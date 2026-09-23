@@ -11,7 +11,7 @@ import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.features.settings.NotificationSettingsManager
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -28,7 +28,7 @@ import javax.inject.Singleton
 class InventoryRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val settingsManager: NotificationSettingsManager,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
@@ -780,9 +780,7 @@ class InventoryRepositoryImpl @Inject constructor(
         vaccineDao.updatePatientIdInTransactions(duplicateId, masterId)
     }
 
-    suspend fun refreshInventory() {
-        withContext(Dispatchers.IO) {
-            try {
+    suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {
                 val vaccines = postgrest.from("vaccines").select().decodeList<VaccineEntity>()
                 val batches = postgrest.from("vaccine_batches").select().decodeList<VaccineBatchEntity>()
 
@@ -798,9 +796,5 @@ class InventoryRepositoryImpl @Inject constructor(
                         }
                     }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryRepo", "Refresh failed", e)
-            }
-        }
     }
 }

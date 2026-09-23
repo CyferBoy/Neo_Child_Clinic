@@ -47,12 +47,4 @@ object InventoryUtils {
         val diffInDays = ChronoUnit.DAYS.between(LocalDate.now(), expiryDate.toLocalDate())
         return diffInDays <= thresholdDays
     }
-
-    /**
-     * Gets the number of days until expiry.
-     */
-    fun getDaysUntilExpiry(expiryDateStr: String): Long {
-        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return 0
-        return ChronoUnit.DAYS.between(LocalDate.now(), expiryDate.toLocalDate())
-    }
 }

@@ -33,12 +33,6 @@ sealed class BackupException(
         "backupVersion=$foundVersion > supported=$CURRENT_BACKUP_VERSION"
     )
 
-    class MissingFields(missing: List<String>) : BackupException(
-        BackupFailureReason.MISSING_REQUIRED_FIELDS,
-        "This backup is missing required data and cannot be restored safely.",
-        "Missing/invalid fields: ${missing.joinToString(limit = 20)}"
-    )
-
     class BrokenRelationships(issues: List<String>) : BackupException(
         BackupFailureReason.BROKEN_RELATIONSHIPS,
         "This backup contains inconsistent data and cannot be restored safely.",
@@ -75,12 +69,6 @@ sealed class BackupException(
         "Upload to cloud storage failed", cause
     )
 
-    class DownloadFailed(cause: Throwable? = null) : BackupException(
-        BackupFailureReason.DOWNLOAD_FAILED,
-        "Backup download failed. Please try again.",
-        "Download from cloud storage failed", cause
-    )
-
     class ServerError(code: Int? = null, cause: Throwable? = null, serverDetail: String? = null) : BackupException(
         BackupFailureReason.SERVER_ERROR,
         "The backup server encountered an error. Please try again later.",
@@ -91,12 +79,6 @@ sealed class BackupException(
         BackupFailureReason.INSUFFICIENT_STORAGE,
         "Not enough storage space to complete the backup.",
         "Insufficient storage"
-    )
-
-    class Interrupted(cause: Throwable? = null) : BackupException(
-        BackupFailureReason.INTERRUPTED,
-        "The operation was interrupted. Your current data has not been changed.",
-        "Operation interrupted", cause
     )
 
     /** Mirrors the Worker's MAX_BACKUP_BYTES ceiling (cloudflare/backup-worker/src/index.ts) -

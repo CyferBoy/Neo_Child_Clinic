@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 /**
  * Automatic Backup's WorkManager scheduling, mirroring SyncManagerImpl's pattern for
- * SyncWorker. Kept separate from SyncManager since it schedules a different worker on a
+ * SyncWorker. Kept separate from SyncManagerImpl since it schedules a different worker on a
  * user-configurable cadence rather than a fixed one, and must be re-armed from stored
  * settings at app startup (see NeoChildApp.onCreate) the same way SyncManagerImpl's
  * scheduleSync() already is.

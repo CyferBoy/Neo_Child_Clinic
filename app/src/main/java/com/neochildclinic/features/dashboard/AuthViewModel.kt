@@ -2,10 +2,10 @@ package com.neochildclinic.features.dashboard
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import com.neochildclinic.domain.manager.SyncManager
+import com.neochildclinic.data.manager.SyncManagerImpl
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.ProfileRepository
-import com.neochildclinic.domain.repository.DeviceRepository
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
+import com.neochildclinic.data.repository.DeviceRepositoryImpl
 import com.neochildclinic.core.utils.metadataString
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
@@ -24,9 +24,9 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val auth: Auth,
-    private val profileRepository: ProfileRepository,
-    private val deviceRepository: DeviceRepository,
-    private val syncManager: SyncManager
+    private val profileRepository: ProfileRepositoryImpl,
+    private val deviceRepository: DeviceRepositoryImpl,
+    private val syncManager: SyncManagerImpl
 ) : ViewModel() {
 
     companion object {

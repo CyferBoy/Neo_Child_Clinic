@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.ReminderStats
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.data.repository.ReminderStats
+import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
@@ -29,8 +29,8 @@ data class DueUiState(
 
 @HiltViewModel
 class DueViewModel @Inject constructor(
-    private val patientRepository: PatientRepository,
-    private val reminderRepository: ReminderRepository,
+    private val patientRepository: PatientRepositoryImpl,
+    private val reminderRepository: ReminderRepositoryImpl,
     private val auth: Auth
 ) : ViewModel() {
 

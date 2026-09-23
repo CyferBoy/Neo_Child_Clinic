@@ -1,5 +1,7 @@
 package com.neochildclinic.features.personalreminder
 
+import com.neochildclinic.features.statistics.StatisticsUtils
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -20,7 +22,6 @@ import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.PersonalReminderStatus
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +110,7 @@ fun PersonalReminderDetailsSheet(
             )
             if (reminder.advanceReceived) {
                 reminder.advanceAmount?.let {
-                    DetailRow(label = "Advance Amount", value = String.format(Locale.US, "\u20b9%,.0f", it))
+                    DetailRow(label = "Advance Amount", value = StatisticsUtils.formatRupees(it))
                 }
                 reminder.advanceDate?.let {
                     DetailRow(label = "Advance Date", value = PatientUtils.formatDateForDisplay(it))

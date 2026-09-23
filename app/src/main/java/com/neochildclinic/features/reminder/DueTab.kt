@@ -16,7 +16,7 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.ReminderStatus
-import com.neochildclinic.domain.repository.ReminderStats
+import com.neochildclinic.data.repository.ReminderStats
 import com.neochildclinic.core.designsystem.NeoChildTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

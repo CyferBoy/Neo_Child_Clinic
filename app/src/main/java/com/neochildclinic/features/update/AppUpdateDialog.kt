@@ -1,5 +1,7 @@
 package com.neochildclinic.features.update
 
+import com.neochildclinic.core.utils.PatientUtils
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -132,9 +134,9 @@ fun AppUpdateDialog(
                                 ) {
                                     Text(
                                         if (progress.totalBytes > 0)
-                                            "${formatBytes(progress.downloadedBytes)} / ${formatBytes(progress.totalBytes)}"
+                                            "${PatientUtils.formatBytes(progress.downloadedBytes)} / ${PatientUtils.formatBytes(progress.totalBytes)}"
                                         else
-                                            formatBytes(progress.downloadedBytes),
+                                            PatientUtils.formatBytes(progress.downloadedBytes),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                     Text(
@@ -220,15 +222,6 @@ fun AppUpdateDialog(
             }
         } else null
     )
-}
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val kb = bytes / 1024.0
-    if (kb < 1024) return "%.1f KB".format(kb)
-    val mb = kb / 1024.0
-    if (mb < 1024) return "%.1f MB".format(mb)
-    return "%.1f GB".format(mb / 1024.0)
 }
 
 // Ported from SpotiFLAC-Mobile's update_dialog.dart _formatChangelog(): turns a raw GitHub

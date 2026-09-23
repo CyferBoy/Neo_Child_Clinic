@@ -5,8 +5,11 @@ import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import java.time.LocalDate
 import java.util.Calendar
+import java.util.Locale
 
 object StatisticsUtils {
+    fun formatRupees(amount: Double): String = String.format(Locale.US, "\u20b9%,.0f", amount)
+
     val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
     val fyQuarters = listOf(

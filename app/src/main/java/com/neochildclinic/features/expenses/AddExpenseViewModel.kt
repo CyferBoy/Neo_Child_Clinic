@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
-import com.neochildclinic.domain.repository.DocumentRepository
-import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.data.repository.DocumentRepositoryImpl
+import com.neochildclinic.data.repository.ExpenseRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.auth.Auth
@@ -41,8 +41,8 @@ data class AddExpenseUiState(
 
 @HiltViewModel
 class AddExpenseViewModel @Inject constructor(
-    private val expenseRepository: ExpenseRepository,
-    private val documentRepository: DocumentRepository,
+    private val expenseRepository: ExpenseRepositoryImpl,
+    private val documentRepository: DocumentRepositoryImpl,
     private val auth: Auth
 ) : ViewModel() {
 
@@ -106,7 +106,7 @@ class AddExpenseViewModel @Inject constructor(
             _uiState.update { it.copy(isUploadingAttachment = true) }
             try {
                 // Reuses the existing patient-docs document system (task section 4/16):
-                // DocumentRepository.uploadDocument() only uses its first parameter as a
+                // DocumentRepositoryImpl.uploadDocument() only uses its first parameter as a
                 // storage folder key, nothing patient-specific about the storage call
                 // itself, so the expense's own id is passed in that slot to keep receipts
                 // grouped under expenses/<expenseId>/... instead of a patient folder.

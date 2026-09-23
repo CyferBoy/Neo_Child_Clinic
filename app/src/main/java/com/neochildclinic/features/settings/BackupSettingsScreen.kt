@@ -21,13 +21,6 @@ import com.neochildclinic.data.local.entity.BackupHistoryEntity
 import com.neochildclinic.domain.model.*
 import java.text.NumberFormat
 
-private fun formatSize(bytes: Long): String {
-    if (bytes <= 0) return "0 KB"
-    val kb = bytes / 1024.0
-    if (kb < 1024) return "%.0f KB".format(kb)
-    return "%.1f MB".format(kb / 1024.0)
-}
-
 @Composable
 fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
@@ -217,7 +210,7 @@ private fun CloudBackupRow(backup: CloudBackupMetadata, onRestore: () -> Unit, o
         Column(Modifier.weight(1f)) {
             Text(PatientUtils.formatDateTimeForDisplay(backup.createdAt), style = MaterialTheme.typography.bodyLarge)
             Text(
-                "${formatSize(backup.sizeBytes)} \u2022 v${backup.appVersion}",
+                "${PatientUtils.formatBytes(backup.sizeBytes)} \u2022 v${backup.appVersion}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -317,7 +310,7 @@ private fun HistoryRow(entry: BackupHistoryEntity) {
         Column(Modifier.weight(1f)) {
             Text(historyTypeLabel(entry.type, entry.location), style = MaterialTheme.typography.bodyLarge)
             Text(
-                PatientUtils.formatDateTimeForDisplay(entry.createdAt) + if (entry.sizeBytes > 0) " \u2022 ${formatSize(entry.sizeBytes)}" else "",
+                PatientUtils.formatDateTimeForDisplay(entry.createdAt) + if (entry.sizeBytes > 0) " \u2022 ${PatientUtils.formatBytes(entry.sizeBytes)}" else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

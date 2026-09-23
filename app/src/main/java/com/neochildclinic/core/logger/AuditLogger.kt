@@ -4,7 +4,7 @@ import android.os.Build
 import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import io.github.jan.supabase.auth.Auth
@@ -19,9 +19,9 @@ import javax.inject.Singleton
 class AuditLogger @Inject constructor(
     private val sessionManager: SessionManager,
     private val auditLogDao: AuditLogDao,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepositoryImpl
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
     /**
      * Centralized logging for all business modules.
@@ -88,19 +88,5 @@ class AuditLogger @Inject constructor(
         } catch (e: Exception) {
             android.util.Log.e("AuditLogger", "Audit log failed: ${e.message}")
         }
-    }
-
-    /**
-     * Legacy support mapper.
-     */
-    fun logAction(action: String, patientId: String?, details: String = "") {
-        log(
-            module = "LEGACY",
-            entityType = "UNKNOWN",
-            entityId = "0",
-            action = action,
-            patientId = patientId,
-            remarks = details
-        )
     }
 }

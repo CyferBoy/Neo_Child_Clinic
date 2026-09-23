@@ -6,8 +6,7 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.ReminderStats
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.notification.ReminderScheduler
 import com.neochildclinic.core.utils.*
 import com.neochildclinic.core.model.SyncOperation
@@ -26,7 +25,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Production-ready implementation of [ReminderRepository].
+ * Production-ready implementation of [ReminderRepositoryImpl].
  * Manages the lifecycle of vaccination reminders, audits, and synchronization.
  */
 @Singleton
@@ -38,7 +37,7 @@ class ReminderRepositoryImpl @Inject constructor(
     private val vaccineDao: VaccineDao,
     private val patientDao: PatientDao,
     private val auditLogDao: AuditLogDao,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val reminderScheduler: ReminderScheduler,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
@@ -550,9 +549,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshReminders() {
-        withContext(Dispatchers.IO) {
-            try {
+    suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
                 val entities = postgrest.from("reminders").select().decodeList<RemoteReminder>()
                 database.withTransaction {
                     for (remote in entities) {
@@ -593,10 +590,6 @@ class ReminderRepositoryImpl @Inject constructor(
                     }
                 }
                 android.util.Log.d("ReminderRepo", "Refreshed ${entities.size} reminders")
-            } catch (e: Exception) {
-                android.util.Log.e("ReminderRepo", "Refresh failed", e)
-            }
-        }
     }
 
     suspend fun markCompleted(id: String, timestamp: Long = System.currentTimeMillis()) {
@@ -618,3 +611,12 @@ class ReminderRepositoryImpl @Inject constructor(
         WidgetUtils.updateWidget(context)
     }
 }
+
+data class ReminderStats(
+    val dueToday: Int = 0,
+    val dueTomorrow: Int = 0,
+    val overdue: Int = 0,
+    val completedToday: Int = 0,
+    val dismissedToday: Int = 0,
+    val notificationsSentToday: Int = 0
+)

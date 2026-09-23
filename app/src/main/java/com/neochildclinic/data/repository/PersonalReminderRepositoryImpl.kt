@@ -9,7 +9,7 @@ import com.neochildclinic.data.local.dao.PersonalReminderDao
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.PersonalReminderStatus
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -18,7 +18,7 @@ import javax.inject.Singleton
 @Singleton
 class PersonalReminderRepositoryImpl @Inject constructor(
     database: AppDatabase,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val postgrest: Postgrest,
     private val sessionManager: SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
@@ -168,20 +168,15 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun refresh() {
-        try {
-            val remote = postgrest.from("personal_vaccine_reminders").select()
-                .decodeList<PersonalReminderEntity>()
-            Log.d("PersonalReminder", "Remote refresh: fetched ${remote.size} reminders")
-            remote.forEach { r ->
-                val local = dao.getById(r.id)
-                if (local == null || local.isSynced) {
-                    dao.insert(r.copy(isSynced = true))
-                }
+    suspend fun refresh() = cloudRefresh("PersonalReminder", rethrow = true) {
+        val remote = postgrest.from("personal_vaccine_reminders").select()
+            .decodeList<PersonalReminderEntity>()
+        Log.d("PersonalReminder", "Remote refresh: fetched " + remote.size + " reminders")
+        remote.forEach { r ->
+            val local = dao.getById(r.id)
+            if (local == null || local.isSynced) {
+                dao.insert(r.copy(isSynced = true))
             }
-        } catch (e: Exception) {
-            Log.e("PersonalReminder", "Refresh failed", e)
-            throw e
         }
     }
 }

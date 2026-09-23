@@ -20,7 +20,6 @@ object StatisticsDateUtils {
 
     val IST: ZoneId = ZoneId.of("Asia/Kolkata")
 
-    private val isoDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH)
 
     /**
      * Get today's date in IST as a Calendar with time zeroed.
@@ -93,22 +92,6 @@ object StatisticsDateUtils {
     fun monthKeyIST(dateStr: String): Int? {
         val localDate = parseToISTLocalDate(dateStr) ?: return null
         return localDate.year * 12 + (localDate.monthValue - 1)
-    }
-
-    /**
-     * Compute the day key string "yyyy-MM-dd" using IST.
-     */
-    fun dayKeyIST(dateStr: String): String? {
-        val localDate = parseToISTLocalDate(dateStr) ?: return null
-        return localDate.format(isoDateFormatter)
-    }
-
-    /**
-     * Extract day-of-month using IST.
-     */
-    fun dayOfMonthIST(dateStr: String): Int? {
-        val localDate = parseToISTLocalDate(dateStr) ?: return null
-        return localDate.dayOfMonth
     }
 
     /**

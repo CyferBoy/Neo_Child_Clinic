@@ -2,7 +2,7 @@ package com.neochildclinic.features.sync
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.core.model.SyncItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SyncViewModel @Inject constructor(
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -42,12 +42,6 @@ class SyncViewModel @Inject constructor(
             } finally {
                 _isRefreshing.value = false
             }
-        }
-    }
-
-    fun retryFailed() {
-        viewModelScope.launch {
-            syncRepository.retryFailedItems()
         }
     }
 

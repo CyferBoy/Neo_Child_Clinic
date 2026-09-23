@@ -9,10 +9,10 @@ import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.repository.ConsultationRepository
-import com.neochildclinic.domain.repository.DocumentRepository
+import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.data.repository.ConsultationRepositoryImpl
+import com.neochildclinic.data.repository.DocumentRepositoryImpl
 import io.github.jan.supabase.storage.FileObject
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.core.utils.PatientUtils
@@ -29,19 +29,22 @@ data class PatientVaccinationCardData(
 
 @HiltViewModel
 class PatientViewModel @Inject constructor(
-    private val vaccinationRepository: VaccinationRepository,
+    private val vaccinationRepository: VaccinationRepositoryImpl,
     private val refreshDataUseCase: RefreshDataUseCase,
-    private val patientRepository: PatientRepository,
-    private val consultationRepository: ConsultationRepository,
-    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
-    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
-    private val documentRepository: DocumentRepository,
+    private val patientRepository: PatientRepositoryImpl,
+    private val consultationRepository: ConsultationRepositoryImpl,
+    private val profileRepository: com.neochildclinic.data.repository.ProfileRepositoryImpl,
+    private val inventoryRepository: com.neochildclinic.data.repository.InventoryRepositoryImpl,
+    private val documentRepository: DocumentRepositoryImpl,
     private val database: AppDatabase,
     private val postgrest: Postgrest
 ) : ViewModel() {
 
     private val _documents = MutableStateFlow<List<FileObject>>(emptyList())
     val documents: StateFlow<List<FileObject>> = _documents.asStateFlow()
+
+    private val _documentError = MutableStateFlow<String?>(null)
+    val documentError: StateFlow<String?> = _documentError.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -50,7 +53,10 @@ class PatientViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _documents.value = documentRepository.listDocuments(patientId)
-            } catch (_: Exception) {}
+                _documentError.value = null
+            } catch (e: Exception) {
+                _documentError.value = e.message ?: "Failed to load documents"
+            }
         }
     }
 
@@ -59,7 +65,9 @@ class PatientViewModel @Inject constructor(
             try {
                 documentRepository.uploadDocument(patientId, fileName, bytes)
                 loadDocuments(patientId)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                _documentError.value = e.message ?: "Upload failed"
+            }
         }
     }
 
@@ -72,8 +80,14 @@ class PatientViewModel @Inject constructor(
             try {
                 documentRepository.deleteDocument(path)
                 loadDocuments(patientId)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                _documentError.value = e.message ?: "Delete failed"
+            }
         }
+    }
+
+    fun clearDocumentError() {
+        _documentError.value = null
     }
     
     val allPatients: StateFlow<List<Patient>>

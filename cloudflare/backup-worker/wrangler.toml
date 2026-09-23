@@ -7,9 +7,7 @@ compatibility_date = "2024-11-01"
 # is Cloudflare's recommended way for a Worker to use its own account's R2 bucket, and it is
 # strictly more secure than the access-key/secret-key (S3-compatible API) approach, because
 # no long-lived credential exists at all - not in the Android app, not in this repo, not
-# even as a Worker secret. See docs/BACKUP_RESTORE.md "Cloudflare Worker configuration" for
-# the access-key alternative, kept there only for reference in case a future non-Worker
-# backend service ever needs direct S3-API access to the same bucket.
+# even as a Worker secret.
 [[r2_buckets]]
 binding = "BACKUP_BUCKET"
 bucket_name = "neo-child-clinic-backups"

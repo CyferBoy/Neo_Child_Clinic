@@ -7,8 +7,8 @@ import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.flow.*
@@ -31,8 +31,8 @@ data class WeeklyDoctorSlotsUiState(
 
 @HiltViewModel
 class WeeklyDoctorSlotsViewModel @Inject constructor(
-    private val profileRepository: ProfileRepository,
-    private val repository: DoctorAvailabilityRepository,
+    private val profileRepository: ProfileRepositoryImpl,
+    private val repository: DoctorAvailabilityRepositoryImpl,
     private val auth: Auth
 ) : ViewModel() {
 

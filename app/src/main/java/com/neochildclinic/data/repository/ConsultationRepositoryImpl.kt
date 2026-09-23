@@ -4,16 +4,14 @@ import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.serialization.encodeToString
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +19,7 @@ import javax.inject.Singleton
 class ConsultationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) {
@@ -181,19 +179,13 @@ class ConsultationRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshConsultations() {
-        withContext(Dispatchers.IO) {
-            try {
-                val entities = postgrest.from("consultations").select().decodeList<ConsultationEntity>()
-                database.withTransaction {
-                    for (remote in entities) {
-                        if (!syncQueueDao.isUnsynced("CONSULTATION", remote.id)) {
-                            consultationDao.insertConsultation(remote.copy(isSynced = true))
-                        }
-                    }
+    suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo") {
+        val entities = postgrest.from("consultations").select().decodeList<ConsultationEntity>()
+        database.withTransaction {
+            for (remote in entities) {
+                if (!syncQueueDao.isUnsynced("CONSULTATION", remote.id)) {
+                    consultationDao.insertConsultation(remote.copy(isSynced = true))
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("ConsultationRepo", "Refresh failed", e)
             }
         }
     }

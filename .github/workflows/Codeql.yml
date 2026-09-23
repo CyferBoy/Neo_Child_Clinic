@@ -76,7 +76,6 @@ jobs:
       - name: Build Android project
         shell: bash
         run: |
-          chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
 
       - name: Remove temporary Firebase configuration

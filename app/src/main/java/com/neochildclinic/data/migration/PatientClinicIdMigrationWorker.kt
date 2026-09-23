@@ -10,7 +10,7 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.core.preferences.PreferenceManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -20,7 +20,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
     private val database: AppDatabase,
-    private val syncRepository: SyncRepository,
+    private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val preferenceManager: PreferenceManager
 ) : CoroutineWorker(context, workerParams) {
@@ -59,7 +59,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                     )
                     patientDao.insertPatient(updatedPatient)
                     
-                    // Queue for Firestore Update
+                    // Queue for cloud sync
                     syncRepository.enqueue(
                         entityName = "PATIENT",
                         entityId = patient.id,

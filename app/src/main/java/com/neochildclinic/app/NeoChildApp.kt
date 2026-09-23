@@ -6,8 +6,8 @@ import android.webkit.WebView
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.neochildclinic.notification.ReminderScheduler
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.data.repository.FinanceRepositoryImpl
+import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.worker.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
@@ -30,10 +30,10 @@ class NeoChildApp : Application(), Configuration.Provider {
     lateinit var reminderScheduler: ReminderScheduler
 
     @Inject
-    lateinit var financeRepository: FinanceRepository
+    lateinit var financeRepository: FinanceRepositoryImpl
 
     @Inject
-    lateinit var vaccinationRepository: VaccinationRepository
+    lateinit var vaccinationRepository: VaccinationRepositoryImpl
 
     @Inject
     lateinit var backupAutoScheduler: com.neochildclinic.data.manager.BackupAutoScheduler

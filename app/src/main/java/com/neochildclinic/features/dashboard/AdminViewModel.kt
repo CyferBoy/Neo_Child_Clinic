@@ -3,7 +3,7 @@ package com.neochildclinic.features.dashboard
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.functions.Functions
 import kotlinx.serialization.Serializable
@@ -24,7 +24,7 @@ data class AdminUiState(
 
 @HiltViewModel
 class AdminViewModel @Inject constructor(
-    private val profileRepository: ProfileRepository,
+    private val profileRepository: ProfileRepositoryImpl,
     private val auth: Auth,
     private val functions: Functions
 ) : ViewModel() {
