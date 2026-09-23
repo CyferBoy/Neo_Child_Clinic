@@ -192,13 +192,14 @@ fun TodayPatientsScreen(
             if (uiState.slotSegments.size >= 2) {
                 Spacer(modifier = Modifier.height(12.dp))
                 SingleChoiceSegmentedButtonRow(
-                    Modifier.horizontalScroll(rememberScrollState())
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                 ) {
                     uiState.slotSegments.forEachIndexed { index, segment ->
                         SegmentedButton(
                             selected = uiState.selectedSlotKey == segment.key,
                             onClick = { viewModel.setSelectedSlot(segment.key) },
-                            shape = SegmentedButtonDefaults.itemShape(index, uiState.slotSegments.size)
+                            shape = SegmentedButtonDefaults.itemShape(index, uiState.slotSegments.size),
+                            modifier = Modifier.weight(1f)
                         ) { Text(segment.label) }
                     }
                 }

@@ -1,0 +1,1874 @@
+{
+  ".opencode/opencode.json": {
+    "mtime": 1790145682.9488068,
+    "seen": 1790147696.600525,
+    "ast_hash": "eae30d3e1573dfcda994cf23f1705905",
+    "semantic_hash": "eae30d3e1573dfcda994cf23f1705905"
+  },
+  ".opencode/plugins/graphify.js": {
+    "mtime": 1790137765.4468777,
+    "seen": 1790147696.6005323,
+    "ast_hash": "b33d000860642c6f4907a877e0387a21",
+    "semantic_hash": "b33d000860642c6f4907a877e0387a21"
+  },
+  "app/build.gradle.kts": {
+    "mtime": 1790130270.9596505,
+    "seen": 1790147696.6005356,
+    "ast_hash": "660fc3c40bcff1d01150af8f9e7bcc5e",
+    "semantic_hash": "660fc3c40bcff1d01150af8f9e7bcc5e"
+  },
+  "app/src/androidTest/java/com/neochildclinic/data/local/dao/ExpenseDaoTest.kt": {
+    "mtime": 1789799454.1596193,
+    "seen": 1790147696.600537,
+    "ast_hash": "f075cff9ca794ff094316a1f928a0519",
+    "semantic_hash": "f075cff9ca794ff094316a1f928a0519"
+  },
+  "app/src/androidTest/java/com/neochildclinic/data/local/database/ExpenseMigrationTest.kt": {
+    "mtime": 1789635795.1241746,
+    "seen": 1790147696.6005392,
+    "ast_hash": "eb66a44c40ecdd6b0e3ac579a5acfb97",
+    "semantic_hash": "eb66a44c40ecdd6b0e3ac579a5acfb97"
+  },
+  "app/src/main/java/com/neochildclinic/app/MainActivity.kt": {
+    "mtime": 1790130270.975267,
+    "seen": 1790147696.6005406,
+    "ast_hash": "a2ea4f4fc30bdd274b63423b4524ea99",
+    "semantic_hash": "a2ea4f4fc30bdd274b63423b4524ea99"
+  },
+  "app/src/main/java/com/neochildclinic/app/Navigation.kt": {
+    "mtime": 1790130271.0377634,
+    "seen": 1790147696.6005428,
+    "ast_hash": "3ec94658243a87cd1bf9ebfef463abae",
+    "semantic_hash": "3ec94658243a87cd1bf9ebfef463abae"
+  },
+  "app/src/main/java/com/neochildclinic/app/NeoChildApp.kt": {
+    "mtime": 1790130271.0533862,
+    "seen": 1790147696.600544,
+    "ast_hash": "827ff375b9f1b32614b0a16e572f6eda",
+    "semantic_hash": "827ff375b9f1b32614b0a16e572f6eda"
+  },
+  "app/src/main/java/com/neochildclinic/app/Routes.kt": {
+    "mtime": 1790130271.0690105,
+    "seen": 1790147696.6005456,
+    "ast_hash": "4b5e995998023933037750a039e176d5",
+    "semantic_hash": "4b5e995998023933037750a039e176d5"
+  },
+  "app/src/main/java/com/neochildclinic/core/constants/Constants.kt": {
+    "mtime": 1790130271.0846355,
+    "seen": 1790147696.600547,
+    "ast_hash": "528166bf7ba2e6dba3c064d7e7b98146",
+    "semantic_hash": "528166bf7ba2e6dba3c064d7e7b98146"
+  },
+  "app/src/main/java/com/neochildclinic/core/designsystem/Color.kt": {
+    "mtime": 1789902020.5450282,
+    "seen": 1790147696.6005485,
+    "ast_hash": "9a8e303c9091496535862110d04262d7",
+    "semantic_hash": "9a8e303c9091496535862110d04262d7"
+  },
+  "app/src/main/java/com/neochildclinic/core/designsystem/Theme.kt": {
+    "mtime": 1789635835.8937738,
+    "seen": 1790147696.6005504,
+    "ast_hash": "27d4403035008f04e4ec71e783579f23",
+    "semantic_hash": "27d4403035008f04e4ec71e783579f23"
+  },
+  "app/src/main/java/com/neochildclinic/core/designsystem/Type.kt": {
+    "mtime": 1789635835.8051581,
+    "seen": 1790147696.6005518,
+    "ast_hash": "c3649a14e74ac7e7ba6bdb590e3c7946",
+    "semantic_hash": "c3649a14e74ac7e7ba6bdb590e3c7946"
+  },
+  "app/src/main/java/com/neochildclinic/core/logger/AuditLogger.kt": {
+    "mtime": 1790130271.1002579,
+    "seen": 1790147696.6005535,
+    "ast_hash": "98148805f24dcf67bf9e597a0192c41e",
+    "semantic_hash": "98148805f24dcf67bf9e597a0192c41e"
+  },
+  "app/src/main/java/com/neochildclinic/core/model/BorrowReturnRecord.kt": {
+    "mtime": 1789635834.0792618,
+    "seen": 1790147696.600555,
+    "ast_hash": "f3441a7bda52da400aae18b3f85bbdff",
+    "semantic_hash": "f3441a7bda52da400aae18b3f85bbdff"
+  },
+  "app/src/main/java/com/neochildclinic/core/model/BorrowedVaccine.kt": {
+    "mtime": 1789635833.9855185,
+    "seen": 1790147696.6005564,
+    "ast_hash": "9e43fef943a1cad11cc19dd296c5239c",
+    "semantic_hash": "9e43fef943a1cad11cc19dd296c5239c"
+  },
+  "app/src/main/java/com/neochildclinic/core/model/SyncEnums.kt": {
+    "mtime": 1789635833.8605268,
+    "seen": 1790147696.6005578,
+    "ast_hash": "925e33292afd3749a1ff67166e4d65ef",
+    "semantic_hash": "925e33292afd3749a1ff67166e4d65ef"
+  },
+  "app/src/main/java/com/neochildclinic/core/model/SyncErrorDetails.kt": {
+    "mtime": 1789635833.7667832,
+    "seen": 1790147696.600559,
+    "ast_hash": "8fbde576ec376c82171da03128c336b6",
+    "semantic_hash": "8fbde576ec376c82171da03128c336b6"
+  },
+  "app/src/main/java/com/neochildclinic/core/model/SyncItem.kt": {
+    "mtime": 1789635834.157382,
+    "seen": 1790147696.6005607,
+    "ast_hash": "897fc4acfc963837d28128c13b6f322c",
+    "semantic_hash": "897fc4acfc963837d28128c13b6f322c"
+  },
+  "app/src/main/java/com/neochildclinic/core/network/NetworkMonitor.kt": {
+    "mtime": 1789635836.065636,
+    "seen": 1790147696.6005619,
+    "ast_hash": "b954504789e36f8837e8cd0e1efc9a07",
+    "semantic_hash": "b954504789e36f8837e8cd0e1efc9a07"
+  },
+  "app/src/main/java/com/neochildclinic/core/preferences/PreferenceManager.kt": {
+    "mtime": 1789635836.2333388,
+    "seen": 1790147696.6005638,
+    "ast_hash": "e13b98fbdacc82bec6006204cb843e28",
+    "semantic_hash": "e13b98fbdacc82bec6006204cb843e28"
+  },
+  "app/src/main/java/com/neochildclinic/core/session/SessionManager.kt": {
+    "mtime": 1790130271.1002579,
+    "seen": 1790147696.600565,
+    "ast_hash": "dac4d7fda8a98cbbe1754d3db7f5b585",
+    "semantic_hash": "dac4d7fda8a98cbbe1754d3db7f5b585"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/AppBackground.kt": {
+    "mtime": 1789635835.3493345,
+    "seen": 1790147696.600567,
+    "ast_hash": "828bec6f84d01b12bf95f5c3e03fec32",
+    "semantic_hash": "828bec6f84d01b12bf95f5c3e03fec32"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/Buttons.kt": {
+    "mtime": 1790130271.131508,
+    "seen": 1790147696.6005685,
+    "ast_hash": "c5e70296f5d1666743b4f9213020c967",
+    "semantic_hash": "c5e70296f5d1666743b4f9213020c967"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/Dialogs.kt": {
+    "mtime": 1790130271.1471293,
+    "seen": 1790147696.60057,
+    "ast_hash": "809cd8fc931268b80f7ac3673b923a78",
+    "semantic_hash": "809cd8fc931268b80f7ac3673b923a78"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/Dropdowns.kt": {
+    "mtime": 1790130271.1471293,
+    "seen": 1790147696.6005716,
+    "ast_hash": "3d4449e1c1fbc937932d5964c0d0057d",
+    "semantic_hash": "3d4449e1c1fbc937932d5964c0d0057d"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/LockScreen.kt": {
+    "mtime": 1789635834.2355013,
+    "seen": 1790147696.6005733,
+    "ast_hash": "4ffbd2ad55998b9ba7dff7c71dca3f77",
+    "semantic_hash": "4ffbd2ad55998b9ba7dff7c71dca3f77"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/PullToRefresh.kt": {
+    "mtime": 1789724451.2332048,
+    "seen": 1790147696.6005747,
+    "ast_hash": "f63c8111594f380486cb3d6da51dc8b8",
+    "semantic_hash": "f63c8111594f380486cb3d6da51dc8b8"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/SearchBar.kt": {
+    "mtime": 1789635834.7979636,
+    "seen": 1790147696.6005762,
+    "ast_hash": "d4fd2bbc2c64c5dc44dd7f606d016b41",
+    "semantic_hash": "d4fd2bbc2c64c5dc44dd7f606d016b41"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/Skeleton.kt": {
+    "mtime": 1789645957.1527653,
+    "seen": 1790147696.6005776,
+    "ast_hash": "a79534762c7b2439eba39ef16810ac6b",
+    "semantic_hash": "a79534762c7b2439eba39ef16810ac6b"
+  },
+  "app/src/main/java/com/neochildclinic/core/ui/TextFields.kt": {
+    "mtime": 1789635834.3136227,
+    "seen": 1790147696.600579,
+    "ast_hash": "ef85f68caa1b8a94102fda5a7556aca4",
+    "semantic_hash": "ef85f68caa1b8a94102fda5a7556aca4"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/BiometricAuthenticator.kt": {
+    "mtime": 1789635836.6768787,
+    "seen": 1790147696.6005805,
+    "ast_hash": "0608c07924f1db0316bce8548b81fa63",
+    "semantic_hash": "0608c07924f1db0316bce8548b81fa63"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/BiometricLockManager.kt": {
+    "mtime": 1789635836.8937557,
+    "seen": 1790147696.6005816,
+    "ast_hash": "38ab2202345eb18282a74f139af32f36",
+    "semantic_hash": "38ab2202345eb18282a74f139af32f36"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/DateClassifier.kt": {
+    "mtime": 1790130271.1940022,
+    "seen": 1790147696.600583,
+    "ast_hash": "8ca5f57c11893b825486b6ef1c5f629e",
+    "semantic_hash": "8ca5f57c11893b825486b6ef1c5f629e"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/InventoryUtils.kt": {
+    "mtime": 1790130271.2252686,
+    "seen": 1790147696.6005847,
+    "ast_hash": "b960cfc45427c7f58dec75c53b1de4b3",
+    "semantic_hash": "b960cfc45427c7f58dec75c53b1de4b3"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/JsonMetadataUtils.kt": {
+    "mtime": 1789635836.58793,
+    "seen": 1790147696.600586,
+    "ast_hash": "3b00c282bbed847e361a35cadd80308b",
+    "semantic_hash": "3b00c282bbed847e361a35cadd80308b"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/PatientIdGenerator.kt": {
+    "mtime": 1789635837.3439047,
+    "seen": 1790147696.6005878,
+    "ast_hash": "92411f75d42d4b62a74a011f86e53d55",
+    "semantic_hash": "92411f75d42d4b62a74a011f86e53d55"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/PatientUtils.kt": {
+    "mtime": 1790130271.2252686,
+    "seen": 1790147696.6005893,
+    "ast_hash": "099cd91b409f70a9e8120d66a72bf766",
+    "semantic_hash": "099cd91b409f70a9e8120d66a72bf766"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/ReceiptFormatter.kt": {
+    "mtime": 1790130271.240873,
+    "seen": 1790147696.6005907,
+    "ast_hash": "d9311cd657769a99cbae4e6144334b6b",
+    "semantic_hash": "d9311cd657769a99cbae4e6144334b6b"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/ReceiptGenerator.kt": {
+    "mtime": 1789635836.5133264,
+    "seen": 1790147696.600592,
+    "ast_hash": "f0244a737c7ca57ac68ce09e5e44b109",
+    "semantic_hash": "f0244a737c7ca57ac68ce09e5e44b109"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/ReceiptPrinter.kt": {
+    "mtime": 1789751399.999348,
+    "seen": 1790147696.6005933,
+    "ast_hash": "9590593a3d45e825edf4e2c87ddefe82",
+    "semantic_hash": "9590593a3d45e825edf4e2c87ddefe82"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/SecurityUtils.kt": {
+    "mtime": 1789635837.218913,
+    "seen": 1790147696.6005948,
+    "ast_hash": "e280177e9bdea5c0e44386261bf2aae9",
+    "semantic_hash": "e280177e9bdea5c0e44386261bf2aae9"
+  },
+  "app/src/main/java/com/neochildclinic/core/utils/WidgetUtils.kt": {
+    "mtime": 1789635837.1592722,
+    "seen": 1790147696.6005962,
+    "ast_hash": "4f52d89c38cad5763dece9b8600e288c",
+    "semantic_hash": "4f52d89c38cad5763dece9b8600e288c"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupCollector.kt": {
+    "mtime": 1789635818.056486,
+    "seen": 1790147696.6005983,
+    "ast_hash": "8437977dd1e20562cc0422cdfb6f89ba",
+    "semantic_hash": "8437977dd1e20562cc0422cdfb6f89ba"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupCrypto.kt": {
+    "mtime": 1789702060.546007,
+    "seen": 1790147696.6005998,
+    "ast_hash": "c8c40fc9a03024d3370a1d151ecbaf60",
+    "semantic_hash": "c8c40fc9a03024d3370a1d151ecbaf60"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupErrors.kt": {
+    "mtime": 1790130271.2565014,
+    "seen": 1790147696.6006012,
+    "ast_hash": "22c849ab3f82c881a083a06ecfbab81a",
+    "semantic_hash": "22c849ab3f82c881a083a06ecfbab81a"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupModels.kt": {
+    "mtime": 1789635817.734848,
+    "seen": 1790147696.6006026,
+    "ast_hash": "d2c7ebe18298fee1965d771bb025cb39",
+    "semantic_hash": "d2c7ebe18298fee1965d771bb025cb39"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupRestorer.kt": {
+    "mtime": 1789635818.958799,
+    "seen": 1790147696.6006038,
+    "ast_hash": "ce3991f8a3690ff5e42233fe94d71012",
+    "semantic_hash": "ce3991f8a3690ff5e42233fe94d71012"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupSerializer.kt": {
+    "mtime": 1789635818.167529,
+    "seen": 1790147696.6006055,
+    "ast_hash": "3dc99328282ffd6500823ca56bd8662b",
+    "semantic_hash": "3dc99328282ffd6500823ca56bd8662b"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/BackupValidator.kt": {
+    "mtime": 1789635819.1376963,
+    "seen": 1790147696.6006067,
+    "ast_hash": "5b1a24a66f3d59a4815225b0e52f3c83",
+    "semantic_hash": "5b1a24a66f3d59a4815225b0e52f3c83"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/CloudBackupApi.kt": {
+    "mtime": 1789635818.3454149,
+    "seen": 1790147696.600608,
+    "ast_hash": "06361332f65d9d7d8b0e0aa1206a5921",
+    "semantic_hash": "06361332f65d9d7d8b0e0aa1206a5921"
+  },
+  "app/src/main/java/com/neochildclinic/data/backup/SafetyBackupStore.kt": {
+    "mtime": 1789635817.6411054,
+    "seen": 1790147696.6006093,
+    "ast_hash": "8deaf950e00c6ab3525e0f8fcdc8af9a",
+    "semantic_hash": "8deaf950e00c6ab3525e0f8fcdc8af9a"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/AuditLogDao.kt": {
+    "mtime": 1790130271.299257,
+    "seen": 1790147696.6006107,
+    "ast_hash": "238c3ce829a9573f9f05d3e523d0fc17",
+    "semantic_hash": "238c3ce829a9573f9f05d3e523d0fc17"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/BackupDao.kt": {
+    "mtime": 1789635820.7752786,
+    "seen": 1790147696.6006122,
+    "ast_hash": "d220be7d43961693e58b7ad42cfc9d80",
+    "semantic_hash": "d220be7d43961693e58b7ad42cfc9d80"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/BorrowDao.kt": {
+    "mtime": 1790130271.3352368,
+    "seen": 1790147696.6006138,
+    "ast_hash": "7c6d658bf39e9035c4aa4c3e93183116",
+    "semantic_hash": "7c6d658bf39e9035c4aa4c3e93183116"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/BorrowReturnDao.kt": {
+    "mtime": 1790130271.3519008,
+    "seen": 1790147696.6006153,
+    "ast_hash": "48f9892cc4939bda651ca1ca9efed006",
+    "semantic_hash": "48f9892cc4939bda651ca1ca9efed006"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/ConsultationDao.kt": {
+    "mtime": 1790130271.367527,
+    "seen": 1790147696.6006165,
+    "ast_hash": "bf88564ae1f6b55e39d47913407696a6",
+    "semantic_hash": "bf88564ae1f6b55e39d47913407696a6"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/DoctorAvailabilityDao.kt": {
+    "mtime": 1790130271.367527,
+    "seen": 1790147696.600618,
+    "ast_hash": "adef1f31ed342534233a7af9a70625de",
+    "semantic_hash": "adef1f31ed342534233a7af9a70625de"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/DueReminderDao.kt": {
+    "mtime": 1790130271.3831477,
+    "seen": 1790147696.6006196,
+    "ast_hash": "7bb06b0f89c855320b94a57b0830c041",
+    "semantic_hash": "7bb06b0f89c855320b94a57b0830c041"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/ExpenseDao.kt": {
+    "mtime": 1789799170.8584619,
+    "seen": 1790147696.6006207,
+    "ast_hash": "0f495f09d9244ef1eff5f99c10e7f043",
+    "semantic_hash": "0f495f09d9244ef1eff5f99c10e7f043"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/FinanceDao.kt": {
+    "mtime": 1790130271.398771,
+    "seen": 1790147696.6006224,
+    "ast_hash": "df91fc3302d8389d9c15d12c01537c7e",
+    "semantic_hash": "df91fc3302d8389d9c15d12c01537c7e"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/InventoryDeductionDao.kt": {
+    "mtime": 1789635821.4261048,
+    "seen": 1790147696.6006236,
+    "ast_hash": "12d12ac77baf842c797598c23a4c9ff5",
+    "semantic_hash": "12d12ac77baf842c797598c23a4c9ff5"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/PatientDao.kt": {
+    "mtime": 1789751024.7320259,
+    "seen": 1790147696.6006248,
+    "ast_hash": "5249434101a51c52f6b696caa75d79a0",
+    "semantic_hash": "5249434101a51c52f6b696caa75d79a0"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/PatientNotesDao.kt": {
+    "mtime": 1789635820.9291198,
+    "seen": 1790147696.6006265,
+    "ast_hash": "14dc5d83fded3f164472b158f69ac4ce",
+    "semantic_hash": "14dc5d83fded3f164472b158f69ac4ce"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/PatientTodoDao.kt": {
+    "mtime": 1789751307.2059934,
+    "seen": 1790147696.6006277,
+    "ast_hash": "a402a0cfcd144b1e6c72dbf6efda88a5",
+    "semantic_hash": "a402a0cfcd144b1e6c72dbf6efda88a5"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/PersonalReminderDao.kt": {
+    "mtime": 1789751312.915982,
+    "seen": 1790147696.600629,
+    "ast_hash": "0627baa12cb94a53bb6405c8886d4098",
+    "semantic_hash": "0627baa12cb94a53bb6405c8886d4098"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/ProfileDao.kt": {
+    "mtime": 1789751234.3711586,
+    "seen": 1790147696.6006303,
+    "ast_hash": "68618a2bd20b5b9dc4b95374dd032ad9",
+    "semantic_hash": "68618a2bd20b5b9dc4b95374dd032ad9"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/SyncQueueDao.kt": {
+    "mtime": 1789635821.2259746,
+    "seen": 1790147696.6006317,
+    "ast_hash": "511e48eba6158b06b31f3cd7dd8ce97b",
+    "semantic_hash": "511e48eba6158b06b31f3cd7dd8ce97b"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/VaccinationDao.kt": {
+    "mtime": 1790130271.398771,
+    "seen": 1790147696.6006334,
+    "ast_hash": "7984cfa112e34c8028619188b8322349",
+    "semantic_hash": "7984cfa112e34c8028619188b8322349"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/VaccinationItemDao.kt": {
+    "mtime": 1789635820.112408,
+    "seen": 1790147696.6006346,
+    "ast_hash": "6678d8b06aec06fa3395c4b3ee4fec29",
+    "semantic_hash": "6678d8b06aec06fa3395c4b3ee4fec29"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/VaccineDao.kt": {
+    "mtime": 1789635821.2995307,
+    "seen": 1790147696.6006362,
+    "ast_hash": "0729ebf8262702d57402f294166e7a57",
+    "semantic_hash": "0729ebf8262702d57402f294166e7a57"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/WasteDao.kt": {
+    "mtime": 1789751334.2129915,
+    "seen": 1790147696.6006374,
+    "ast_hash": "bf7fef68138a878e6a230f8ac0954c40",
+    "semantic_hash": "bf7fef68138a878e6a230f8ac0954c40"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/dao/WidgetDueDao.kt": {
+    "mtime": 1789635820.3672607,
+    "seen": 1790147696.6006389,
+    "ast_hash": "87f72d9e64782c65466a964c7c455a2e",
+    "semantic_hash": "87f72d9e64782c65466a964c7c455a2e"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt": {
+    "mtime": 1790130271.414395,
+    "seen": 1790147696.6006403,
+    "ast_hash": "7cb65fdda660cf67e17b06bfec93a429",
+    "semantic_hash": "7cb65fdda660cf67e17b06bfec93a429"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/database/Converters.kt": {
+    "mtime": 1789635819.3729224,
+    "seen": 1790147696.6006417,
+    "ast_hash": "b6964a4b2262ce26d6cd908738e3fd0b",
+    "semantic_hash": "b6964a4b2262ce26d6cd908738e3fd0b"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/AuditLogEntity.kt": {
+    "mtime": 1789635822.9077485,
+    "seen": 1790147696.6006432,
+    "ast_hash": "cbfab48bb18ea3d55b5273c00ae35990",
+    "semantic_hash": "cbfab48bb18ea3d55b5273c00ae35990"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/BackupHistoryEntity.kt": {
+    "mtime": 1789635822.0269806,
+    "seen": 1790147696.6006446,
+    "ast_hash": "8e024a52a39f60c343cdfefff27d94ae",
+    "semantic_hash": "8e024a52a39f60c343cdfefff27d94ae"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/BorrowEntity.kt": {
+    "mtime": 1789635821.7457438,
+    "seen": 1790147696.6006458,
+    "ast_hash": "f9f36f696ffc198c1a5f562dbda4e487",
+    "semantic_hash": "f9f36f696ffc198c1a5f562dbda4e487"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/BorrowReturnEntity.kt": {
+    "mtime": 1789635822.8452559,
+    "seen": 1790147696.6006474,
+    "ast_hash": "517ccdad78a6c2aef1d450f7e3a0952a",
+    "semantic_hash": "517ccdad78a6c2aef1d450f7e3a0952a"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/ConsultationEntity.kt": {
+    "mtime": 1789635822.120723,
+    "seen": 1790147696.6006486,
+    "ast_hash": "2ad8fa9c4af22fc3a30a550048dc49d2",
+    "semantic_hash": "2ad8fa9c4af22fc3a30a550048dc49d2"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/DoctorAvailabilityEntities.kt": {
+    "mtime": 1790130271.414395,
+    "seen": 1790147696.6006505,
+    "ast_hash": "19359ea21cc59426d91d915fbc708945",
+    "semantic_hash": "19359ea21cc59426d91d915fbc708945"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/ExpenseEntity.kt": {
+    "mtime": 1789798988.8628697,
+    "seen": 1790147696.6006517,
+    "ast_hash": "2de6dfc18b069284088d905b6f5ab17a",
+    "semantic_hash": "2de6dfc18b069284088d905b6f5ab17a"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/FinanceEntity.kt": {
+    "mtime": 1789635822.5581942,
+    "seen": 1790147696.6006534,
+    "ast_hash": "d19a4af9d5cf32309d1aae8d3457dee9",
+    "semantic_hash": "d19a4af9d5cf32309d1aae8d3457dee9"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/InventoryDeductionEntity.kt": {
+    "mtime": 1789635823.642074,
+    "seen": 1790147696.6006546,
+    "ast_hash": "bbeab5c9dcb10be6c4a2637c31c45308",
+    "semantic_hash": "bbeab5c9dcb10be6c4a2637c31c45308"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/PatientEntity.kt": {
+    "mtime": 1790130271.414395,
+    "seen": 1790147696.600656,
+    "ast_hash": "e4bf3cf0a6a042ff3cc4e0a94d74fdf3",
+    "semantic_hash": "e4bf3cf0a6a042ff3cc4e0a94d74fdf3"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/PatientNotesEntity.kt": {
+    "mtime": 1789635822.2457144,
+    "seen": 1790147696.6006575,
+    "ast_hash": "75ce7929ab1cbddd83d2d57544ff591e",
+    "semantic_hash": "75ce7929ab1cbddd83d2d57544ff591e"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/PatientTodoEntities.kt": {
+    "mtime": 1789635822.4175792,
+    "seen": 1790147696.6006606,
+    "ast_hash": "9751d09fe747c40ade378e6b8b835304",
+    "semantic_hash": "9751d09fe747c40ade378e6b8b835304"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/PatientVaccinationCardEntity.kt": {
+    "mtime": 1789635822.7213576,
+    "seen": 1790147696.600662,
+    "ast_hash": "8414eff6364abb27861d980d14f88244",
+    "semantic_hash": "8414eff6364abb27861d980d14f88244"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/PersonalReminderEntity.kt": {
+    "mtime": 1789635822.65886,
+    "seen": 1790147696.6006632,
+    "ast_hash": "35b7c6889c2ccb1f31744a3125f6bd23",
+    "semantic_hash": "35b7c6889c2ccb1f31744a3125f6bd23"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/ProfileEntity.kt": {
+    "mtime": 1789635822.3394585,
+    "seen": 1790147696.6006649,
+    "ast_hash": "f4c5c550e29e4e24e5f3f4a44e90b2e0",
+    "semantic_hash": "f4c5c550e29e4e24e5f3f4a44e90b2e0"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/ReminderAuditEntity.kt": {
+    "mtime": 1789635823.0952365,
+    "seen": 1790147696.6006663,
+    "ast_hash": "125250b7c57556c51a318e0c2d1f3f67",
+    "semantic_hash": "125250b7c57556c51a318e0c2d1f3f67"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/ReminderEntity.kt": {
+    "mtime": 1789635823.5327058,
+    "seen": 1790147696.600668,
+    "ast_hash": "b9afb6e69dfce99910a0bf8021a63aa8",
+    "semantic_hash": "b9afb6e69dfce99910a0bf8021a63aa8"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/SyncQueueEntity.kt": {
+    "mtime": 1790130271.4300196,
+    "seen": 1790147696.6006691,
+    "ast_hash": "3ce9c6d98b1d19bd80ec2768b2189087",
+    "semantic_hash": "3ce9c6d98b1d19bd80ec2768b2189087"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/VaccinationEntity.kt": {
+    "mtime": 1790130271.4456444,
+    "seen": 1790147696.6006708,
+    "ast_hash": "6874f2c3b1b4b6252a85ee37f82a17d7",
+    "semantic_hash": "6874f2c3b1b4b6252a85ee37f82a17d7"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/VaccinationItemEntity.kt": {
+    "mtime": 1790130271.4456444,
+    "seen": 1790147696.600672,
+    "ast_hash": "fdae948122af8ae74973123b59fbdadb",
+    "semantic_hash": "fdae948122af8ae74973123b59fbdadb"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/VaccineEntity.kt": {
+    "mtime": 1790130271.4612672,
+    "seen": 1790147696.6006732,
+    "ast_hash": "cbb8f454ad01c6f727fd0c9cae3a3970",
+    "semantic_hash": "cbb8f454ad01c6f727fd0c9cae3a3970"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/WasteEntity.kt": {
+    "mtime": 1790130271.4612672,
+    "seen": 1790147696.6006749,
+    "ast_hash": "f8feb7aeffe5f15a66333182b9df91ef",
+    "semantic_hash": "f8feb7aeffe5f15a66333182b9df91ef"
+  },
+  "app/src/main/java/com/neochildclinic/data/local/entity/WidgetDueEntity.kt": {
+    "mtime": 1789635821.6292174,
+    "seen": 1790147696.6006763,
+    "ast_hash": "e64d02c5862baa5e3bb9c5f74668f73a",
+    "semantic_hash": "e64d02c5862baa5e3bb9c5f74668f73a"
+  },
+  "app/src/main/java/com/neochildclinic/data/manager/BackupAutoScheduler.kt": {
+    "mtime": 1790130271.4768908,
+    "seen": 1790147696.600678,
+    "ast_hash": "99e1569e2ba3a1c1daa9a3d4d03cb092",
+    "semantic_hash": "99e1569e2ba3a1c1daa9a3d4d03cb092"
+  },
+  "app/src/main/java/com/neochildclinic/data/manager/SyncManagerImpl.kt": {
+    "mtime": 1790130271.4768908,
+    "seen": 1790147696.6006792,
+    "ast_hash": "add7b72f42aa5cc8d2b41b4621bb2110",
+    "semantic_hash": "add7b72f42aa5cc8d2b41b4621bb2110"
+  },
+  "app/src/main/java/com/neochildclinic/data/migration/PatientClinicIdMigrationWorker.kt": {
+    "mtime": 1790130271.4768908,
+    "seen": 1790147696.6006806,
+    "ast_hash": "771d68e3dae11bce78808529099c9edf",
+    "semantic_hash": "771d68e3dae11bce78808529099c9edf"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/BackupRepositoryImpl.kt": {
+    "mtime": 1790130271.4925158,
+    "seen": 1790147696.600682,
+    "ast_hash": "d31181dd85f430a7b75eebe9ad776c34",
+    "semantic_hash": "d31181dd85f430a7b75eebe9ad776c34"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/BorrowRepositoryImpl.kt": {
+    "mtime": 1790130271.4925158,
+    "seen": 1790147696.6006835,
+    "ast_hash": "69e76c256657d5e2cf95d29fba56754b",
+    "semantic_hash": "69e76c256657d5e2cf95d29fba56754b"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/CloudRefresh.kt": {
+    "mtime": 1790130271.4925158,
+    "seen": 1790147696.6006851,
+    "ast_hash": "bb4c5515226d968d9425031ba4a21d39",
+    "semantic_hash": "bb4c5515226d968d9425031ba4a21d39"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/ConsultationRepositoryImpl.kt": {
+    "mtime": 1790130271.4925158,
+    "seen": 1790147696.6006866,
+    "ast_hash": "950c012b9b4f09dbe3e1cbfa8376f17a",
+    "semantic_hash": "950c012b9b4f09dbe3e1cbfa8376f17a"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/DeviceRepositoryImpl.kt": {
+    "mtime": 1790130271.5081391,
+    "seen": 1790147696.600688,
+    "ast_hash": "ad943b274b4edf927fc3822917bc29e0",
+    "semantic_hash": "ad943b274b4edf927fc3822917bc29e0"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/DoctorAvailabilityRepositoryImpl.kt": {
+    "mtime": 1790130271.5081391,
+    "seen": 1790147696.6006894,
+    "ast_hash": "cbd36ae31ade505f276cfeadc06768b3",
+    "semantic_hash": "cbd36ae31ade505f276cfeadc06768b3"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/DocumentRepositoryImpl.kt": {
+    "mtime": 1790130271.5081391,
+    "seen": 1790147696.6006906,
+    "ast_hash": "19d7c7ac530a464b6063409c09ce7db8",
+    "semantic_hash": "19d7c7ac530a464b6063409c09ce7db8"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/ExpenseRepositoryImpl.kt": {
+    "mtime": 1790130271.5081391,
+    "seen": 1790147696.6006923,
+    "ast_hash": "b3fd55d45cb9f9e85bca64a5f9b37d39",
+    "semantic_hash": "b3fd55d45cb9f9e85bca64a5f9b37d39"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/FinanceRepositoryImpl.kt": {
+    "mtime": 1790130271.523764,
+    "seen": 1790147696.6006935,
+    "ast_hash": "60c29a5c6b9408958b6aa13fbc01949c",
+    "semantic_hash": "60c29a5c6b9408958b6aa13fbc01949c"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/InventoryRepositoryImpl.kt": {
+    "mtime": 1790130271.523764,
+    "seen": 1790147696.6006951,
+    "ast_hash": "ad78bc727b7176cf3c6a7d54999fbd59",
+    "semantic_hash": "ad78bc727b7176cf3c6a7d54999fbd59"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/PatientRepositoryImpl.kt": {
+    "mtime": 1790130271.523764,
+    "seen": 1790147696.6006963,
+    "ast_hash": "6ce804463ba067f41bb38e0bf43e7368",
+    "semantic_hash": "6ce804463ba067f41bb38e0bf43e7368"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/PatientTodoRepositoryImpl.kt": {
+    "mtime": 1790130271.523764,
+    "seen": 1790147696.6006978,
+    "ast_hash": "aaca677a86efbd4162c3c19f6fb52933",
+    "semantic_hash": "aaca677a86efbd4162c3c19f6fb52933"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/PersonalReminderRepositoryImpl.kt": {
+    "mtime": 1790130271.5393972,
+    "seen": 1790147696.6006994,
+    "ast_hash": "b42b2255676790acf245ad9ed73179d9",
+    "semantic_hash": "b42b2255676790acf245ad9ed73179d9"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/ProfileRepositoryImpl.kt": {
+    "mtime": 1790130271.5393972,
+    "seen": 1790147696.6007006,
+    "ast_hash": "d44d984dbb0972a8201ad6b962f248fa",
+    "semantic_hash": "d44d984dbb0972a8201ad6b962f248fa"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/ReminderRepositoryImpl.kt": {
+    "mtime": 1790130271.5550122,
+    "seen": 1790147696.6007023,
+    "ast_hash": "be8dee446c375c3cab5ef1b7cb0f7081",
+    "semantic_hash": "be8dee446c375c3cab5ef1b7cb0f7081"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/SyncRepositoryImpl.kt": {
+    "mtime": 1790130271.5550122,
+    "seen": 1790147696.600704,
+    "ast_hash": "b3e1b446a26f8a5044f969991369e66c",
+    "semantic_hash": "b3e1b446a26f8a5044f969991369e66c"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/VaccinationRepositoryImpl.kt": {
+    "mtime": 1790130271.5550122,
+    "seen": 1790147696.6007054,
+    "ast_hash": "bca9bc4cf7d06f88acdbb38a2b549c80",
+    "semantic_hash": "bca9bc4cf7d06f88acdbb38a2b549c80"
+  },
+  "app/src/main/java/com/neochildclinic/data/repository/WasteRepositoryImpl.kt": {
+    "mtime": 1790130271.5708234,
+    "seen": 1790147696.6007068,
+    "ast_hash": "d258f615db7db9027863fcfda2d67337",
+    "semantic_hash": "d258f615db7db9027863fcfda2d67337"
+  },
+  "app/src/main/java/com/neochildclinic/di/DatabaseModule.kt": {
+    "mtime": 1789748826.5920384,
+    "seen": 1790147696.6007082,
+    "ast_hash": "d832fde792e4d57be1c8ea809f0606dd",
+    "semantic_hash": "d832fde792e4d57be1c8ea809f0606dd"
+  },
+  "app/src/main/java/com/neochildclinic/di/SupabaseModule.kt": {
+    "mtime": 1789635823.8328617,
+    "seen": 1790147696.60071,
+    "ast_hash": "bd2814d12e9228866388ce480d278dac",
+    "semantic_hash": "bd2814d12e9228866388ce480d278dac"
+  },
+  "app/src/main/java/com/neochildclinic/domain/manager/ClinicStatsManager.kt": {
+    "mtime": 1790130271.5708234,
+    "seen": 1790147696.600715,
+    "ast_hash": "590190b5f04bdbc44eefc258595938d1",
+    "semantic_hash": "590190b5f04bdbc44eefc258595938d1"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/BackupModels.kt": {
+    "mtime": 1790130271.5708234,
+    "seen": 1790147696.6007166,
+    "ast_hash": "393cc2089419477b9467b8a81eea1bce",
+    "semantic_hash": "393cc2089419477b9467b8a81eea1bce"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/ClinicStats.kt": {
+    "mtime": 1789635824.2859566,
+    "seen": 1790147696.600718,
+    "ast_hash": "c5e50b70f342a824c5762012fe10e86a",
+    "semantic_hash": "c5e50b70f342a824c5762012fe10e86a"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/Consultation.kt": {
+    "mtime": 1789635824.695009,
+    "seen": 1790147696.6007195,
+    "ast_hash": "dbe7e45ba5e39d97cc2f28043c3ee27c",
+    "semantic_hash": "dbe7e45ba5e39d97cc2f28043c3ee27c"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/DoctorAvailability.kt": {
+    "mtime": 1790130271.5708234,
+    "seen": 1790147696.600721,
+    "ast_hash": "02fb1e5f93217855344ea8c7e26791ac",
+    "semantic_hash": "02fb1e5f93217855344ea8c7e26791ac"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/Expense.kt": {
+    "mtime": 1789799120.5730157,
+    "seen": 1790147696.6007223,
+    "ast_hash": "396a7c1df20d5cff6e1773fb04b39b05",
+    "semantic_hash": "396a7c1df20d5cff6e1773fb04b39b05"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/InventoryEnums.kt": {
+    "mtime": 1790130271.5864499,
+    "seen": 1790147696.6007237,
+    "ast_hash": "f026331cfb0c85c9dff752e61e4fbd0e",
+    "semantic_hash": "f026331cfb0c85c9dff752e61e4fbd0e"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/InventoryItem.kt": {
+    "mtime": 1789635824.379698,
+    "seen": 1790147696.6007252,
+    "ast_hash": "4d563231cb008c28ec43111da165aa7b",
+    "semantic_hash": "4d563231cb008c28ec43111da165aa7b"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/Patient.kt": {
+    "mtime": 1790130271.5864499,
+    "seen": 1790147696.6007268,
+    "ast_hash": "e9efc6d5006a640ed62495e2f3a905ac",
+    "semantic_hash": "e9efc6d5006a640ed62495e2f3a905ac"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/PersonalReminderStatus.kt": {
+    "mtime": 1789635824.9882927,
+    "seen": 1790147696.600728,
+    "ast_hash": "dad6eb126c1576616d0422812a5e3fbd",
+    "semantic_hash": "dad6eb126c1576616d0422812a5e3fbd"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/Profile.kt": {
+    "mtime": 1789635824.8789258,
+    "seen": 1790147696.6007297,
+    "ast_hash": "591afaa35854eabc6595673178bfd8b7",
+    "semantic_hash": "591afaa35854eabc6595673178bfd8b7"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/ReminderStatus.kt": {
+    "mtime": 1789635824.5671854,
+    "seen": 1790147696.6007311,
+    "ast_hash": "bcd4dbb987dc3db26b57620d0819e163",
+    "semantic_hash": "bcd4dbb987dc3db26b57620d0819e163"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/UserDevice.kt": {
+    "mtime": 1789635824.7418816,
+    "seen": 1790147696.6007323,
+    "ast_hash": "3bec03d5d7447ed89680729ea529752b",
+    "semantic_hash": "3bec03d5d7447ed89680729ea529752b"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/Vaccination.kt": {
+    "mtime": 1790130271.5864499,
+    "seen": 1790147696.600734,
+    "ast_hash": "bbbc36dff1fb23e380a93f069f8550ee",
+    "semantic_hash": "bbbc36dff1fb23e380a93f069f8550ee"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/Vaccine.kt": {
+    "mtime": 1789635824.7945957,
+    "seen": 1790147696.6007354,
+    "ast_hash": "ad88c5fb58450bf8bbad5854e3e40996",
+    "semantic_hash": "ad88c5fb58450bf8bbad5854e3e40996"
+  },
+  "app/src/main/java/com/neochildclinic/domain/model/WasteRecord.kt": {
+    "mtime": 1790130271.6020832,
+    "seen": 1790147696.600737,
+    "ast_hash": "ffe03604938d8ab88f3ee66b7d56f886",
+    "semantic_hash": "ffe03604938d8ab88f3ee66b7d56f886"
+  },
+  "app/src/main/java/com/neochildclinic/domain/service/ClinicalVaccinationService.kt": {
+    "mtime": 1790130271.6020832,
+    "seen": 1790147696.6007385,
+    "ast_hash": "cf8b7169c955e9fa91f443ae27bd828b",
+    "semantic_hash": "cf8b7169c955e9fa91f443ae27bd828b"
+  },
+  "app/src/main/java/com/neochildclinic/domain/service/ConsultationEditEngine.kt": {
+    "mtime": 1790130271.6020832,
+    "seen": 1790147696.6007402,
+    "ast_hash": "67f99162eb32993bd3178dcf51f00b98",
+    "semantic_hash": "67f99162eb32993bd3178dcf51f00b98"
+  },
+  "app/src/main/java/com/neochildclinic/domain/service/VaccinationEditEngine.kt": {
+    "mtime": 1790130271.6020832,
+    "seen": 1790147696.6007414,
+    "ast_hash": "c82f320950c992e2f81c031b2a71b3b1",
+    "semantic_hash": "c82f320950c992e2f81c031b2a71b3b1"
+  },
+  "app/src/main/java/com/neochildclinic/domain/usecase/doctor/GetAvailableSlotsUseCase.kt": {
+    "mtime": 1790130271.6176994,
+    "seen": 1790147696.6007428,
+    "ast_hash": "f2286e867238f40ce322468b01c447c4",
+    "semantic_hash": "f2286e867238f40ce322468b01c447c4"
+  },
+  "app/src/main/java/com/neochildclinic/domain/usecase/patient/MergePatientsUseCase.kt": {
+    "mtime": 1790130271.6333215,
+    "seen": 1790147696.6007445,
+    "ast_hash": "8e76951d0a5718373493a82182a8f0d9",
+    "semantic_hash": "8e76951d0a5718373493a82182a8f0d9"
+  },
+  "app/src/main/java/com/neochildclinic/domain/usecase/patient/SearchPatientsUseCase.kt": {
+    "mtime": 1790130271.6333215,
+    "seen": 1790147696.6007457,
+    "ast_hash": "fe5eec66fd63384adf6c63b5c52f7a12",
+    "semantic_hash": "fe5eec66fd63384adf6c63b5c52f7a12"
+  },
+  "app/src/main/java/com/neochildclinic/domain/usecase/sync/RefreshDataUseCase.kt": {
+    "mtime": 1790130271.6333215,
+    "seen": 1790147696.6007473,
+    "ast_hash": "57435618db3d8e3185d850d2db622bf0",
+    "semantic_hash": "57435618db3d8e3185d850d2db622bf0"
+  },
+  "app/src/main/java/com/neochildclinic/features/audit/FullAuditLogScreen.kt": {
+    "mtime": 1790130271.6489456,
+    "seen": 1790147696.6007485,
+    "ast_hash": "d96129d92a8613e94a4e437ceda1a376",
+    "semantic_hash": "d96129d92a8613e94a4e437ceda1a376"
+  },
+  "app/src/main/java/com/neochildclinic/features/audit/FullAuditLogViewModel.kt": {
+    "mtime": 1789722191.9168503,
+    "seen": 1790147696.60075,
+    "ast_hash": "55f0e6a5db065465344c8b43e5e18719",
+    "semantic_hash": "55f0e6a5db065465344c8b43e5e18719"
+  },
+  "app/src/main/java/com/neochildclinic/features/audit/PatientAuditLogPager.kt": {
+    "mtime": 1789635801.8244877,
+    "seen": 1790147696.6007516,
+    "ast_hash": "25f704843d1aef651d48c2298c3bc3f5",
+    "semantic_hash": "25f704843d1aef651d48c2298c3bc3f5"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/AddStaffScreen.kt": {
+    "mtime": 1790130271.6489456,
+    "seen": 1790147696.6007528,
+    "ast_hash": "c62b8d5c529c1e2d3e7e2fe4f58290a4",
+    "semantic_hash": "c62b8d5c529c1e2d3e7e2fe4f58290a4"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/AdminViewModel.kt": {
+    "mtime": 1790130271.6489456,
+    "seen": 1790147696.6007545,
+    "ast_hash": "b96d8ebfac6dfd28565d0a4e7f925ba6",
+    "semantic_hash": "b96d8ebfac6dfd28565d0a4e7f925ba6"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/AuthViewModel.kt": {
+    "mtime": 1790130271.6489456,
+    "seen": 1790147696.600756,
+    "ast_hash": "e5ae18da1266581e445dfe8bad192e53",
+    "semantic_hash": "e5ae18da1266581e445dfe8bad192e53"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/DashboardCards.kt": {
+    "mtime": 1789635806.858257,
+    "seen": 1790147696.6007574,
+    "ast_hash": "6395ffe6d641a05a770145aa6c339d97",
+    "semantic_hash": "6395ffe6d641a05a770145aa6c339d97"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/DashboardComponents.kt": {
+    "mtime": 1789754912.678114,
+    "seen": 1790147696.6007588,
+    "ast_hash": "7a4bd7012321513f5a7c1317d08a8fad",
+    "semantic_hash": "7a4bd7012321513f5a7c1317d08a8fad"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/DashboardScreen.kt": {
+    "mtime": 1790130271.664569,
+    "seen": 1790147696.6007602,
+    "ast_hash": "5c21a5d52b034988539ba4369e978b24",
+    "semantic_hash": "5c21a5d52b034988539ba4369e978b24"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/DashboardTopBar.kt": {
+    "mtime": 1790130271.664569,
+    "seen": 1790147696.6007617,
+    "ast_hash": "dbc8f05d15d8c300fd5f92de23f4b78e",
+    "semantic_hash": "dbc8f05d15d8c300fd5f92de23f4b78e"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/DashboardViewModel.kt": {
+    "mtime": 1790130271.664569,
+    "seen": 1790147696.600763,
+    "ast_hash": "012eab44da85131dd93c907d24e42ec9",
+    "semantic_hash": "012eab44da85131dd93c907d24e42ec9"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/EditStaffScreen.kt": {
+    "mtime": 1790130271.664569,
+    "seen": 1790147696.6007648,
+    "ast_hash": "91f8f1c09e579d4e8465d9d0ce6dfd19",
+    "semantic_hash": "91f8f1c09e579d4e8465d9d0ce6dfd19"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/LoginScreen.kt": {
+    "mtime": 1789635807.9804564,
+    "seen": 1790147696.6007662,
+    "ast_hash": "ded1c3c5d7660015e8f749d42e9beaa8",
+    "semantic_hash": "ded1c3c5d7660015e8f749d42e9beaa8"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/ManageStaffScreen.kt": {
+    "mtime": 1789722628.1256077,
+    "seen": 1790147696.6007674,
+    "ast_hash": "ba8667d39844a808af6fb91cac58dd63",
+    "semantic_hash": "ba8667d39844a808af6fb91cac58dd63"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/StaffDetailsScreen.kt": {
+    "mtime": 1790130271.664569,
+    "seen": 1790147696.600769,
+    "ast_hash": "6abdfa44c9305ef667cbb28777060115",
+    "semantic_hash": "6abdfa44c9305ef667cbb28777060115"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/TodayPatientsCard.kt": {
+    "mtime": 1789635809.5252287,
+    "seen": 1790147696.6007702,
+    "ast_hash": "0fd7e04ab7ca8337983c3c079c3a97d7",
+    "semantic_hash": "0fd7e04ab7ca8337983c3c079c3a97d7"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/TodayPatientsScreen.kt": {
+    "mtime": 1790130271.6801925,
+    "seen": 1790147696.6007717,
+    "ast_hash": "edf81b31f50c1ea3480e0393685b1ea5",
+    "semantic_hash": "edf81b31f50c1ea3480e0393685b1ea5"
+  },
+  "app/src/main/java/com/neochildclinic/features/dashboard/components/AppDrawer.kt": {
+    "mtime": 1790130271.6801925,
+    "seen": 1790147696.600773,
+    "ast_hash": "e1ba226cb208c0fc2e088c0e6c627511",
+    "semantic_hash": "e1ba226cb208c0fc2e088c0e6c627511"
+  },
+  "app/src/main/java/com/neochildclinic/features/doctorslots/WeeklyDoctorSlotsScreen.kt": {
+    "mtime": 1790130271.6801925,
+    "seen": 1790147696.6007748,
+    "ast_hash": "47770900eabe8e994e1da6f72a499ae3",
+    "semantic_hash": "47770900eabe8e994e1da6f72a499ae3"
+  },
+  "app/src/main/java/com/neochildclinic/features/doctorslots/WeeklyDoctorSlotsViewModel.kt": {
+    "mtime": 1790130271.6801925,
+    "seen": 1790147696.6007762,
+    "ast_hash": "3a93d2c09bc64097dcbb08a6827642cb",
+    "semantic_hash": "3a93d2c09bc64097dcbb08a6827642cb"
+  },
+  "app/src/main/java/com/neochildclinic/features/expenses/AddExpenseScreen.kt": {
+    "mtime": 1790130271.695819,
+    "seen": 1790147696.6007776,
+    "ast_hash": "4f177fda5a82b8f18c60268b33c6c6b8",
+    "semantic_hash": "4f177fda5a82b8f18c60268b33c6c6b8"
+  },
+  "app/src/main/java/com/neochildclinic/features/expenses/AddExpenseViewModel.kt": {
+    "mtime": 1790130271.695819,
+    "seen": 1790147696.600779,
+    "ast_hash": "321d3735dc08fe22c13bff85fb897315",
+    "semantic_hash": "321d3735dc08fe22c13bff85fb897315"
+  },
+  "app/src/main/java/com/neochildclinic/features/expenses/ExpenseListScreen.kt": {
+    "mtime": 1790130271.695819,
+    "seen": 1790147696.6007805,
+    "ast_hash": "466bbb8ff5452cd43744591da846e5e9",
+    "semantic_hash": "466bbb8ff5452cd43744591da846e5e9"
+  },
+  "app/src/main/java/com/neochildclinic/features/expenses/ExpenseListViewModel.kt": {
+    "mtime": 1790130271.711446,
+    "seen": 1790147696.6007822,
+    "ast_hash": "2d1a5a770da5dbcdb1aac0a53c906e5a",
+    "semantic_hash": "2d1a5a770da5dbcdb1aac0a53c906e5a"
+  },
+  "app/src/main/java/com/neochildclinic/features/expenses/ExpenseValidator.kt": {
+    "mtime": 1789635802.1874528,
+    "seen": 1790147696.6007836,
+    "ast_hash": "1e6d263ce1c5ea5f679f569a0e3d1c59",
+    "semantic_hash": "1e6d263ce1c5ea5f679f569a0e3d1c59"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/AddBatchScreen.kt": {
+    "mtime": 1790130271.711446,
+    "seen": 1790147696.6007848,
+    "ast_hash": "edcb794095c02efb09d6015a03d33f56",
+    "semantic_hash": "edcb794095c02efb09d6015a03d33f56"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/AddBatchViewModel.kt": {
+    "mtime": 1790130271.711446,
+    "seen": 1790147696.6007867,
+    "ast_hash": "e89a07e92c19f0797ba97156c1d80c0e",
+    "semantic_hash": "e89a07e92c19f0797ba97156c1d80c0e"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/AddStockScreen.kt": {
+    "mtime": 1790130271.7270646,
+    "seen": 1790147696.6007946,
+    "ast_hash": "afdbcd0a3209c46f70e7fad602d7e3b4",
+    "semantic_hash": "afdbcd0a3209c46f70e7fad602d7e3b4"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/AddStockViewModel.kt": {
+    "mtime": 1790130271.7270646,
+    "seen": 1790147696.6007962,
+    "ast_hash": "0bff7c19f54fa6b32056901d18216120",
+    "semantic_hash": "0bff7c19f54fa6b32056901d18216120"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/AddVaccineScreen.kt": {
+    "mtime": 1790130271.7270646,
+    "seen": 1790147696.6007974,
+    "ast_hash": "786942022d1bafffed1cc446b714c481",
+    "semantic_hash": "786942022d1bafffed1cc446b714c481"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/AddVaccineViewModel.kt": {
+    "mtime": 1790130271.7270646,
+    "seen": 1790147696.600799,
+    "ast_hash": "86a6fa9eeb13754616d5b01b9db599b4",
+    "semantic_hash": "86a6fa9eeb13754616d5b01b9db599b4"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/BorrowHistorySheet.kt": {
+    "mtime": 1789635804.524359,
+    "seen": 1790147696.6008005,
+    "ast_hash": "7b5b4fa74106a19cda16f8c45ba6b991",
+    "semantic_hash": "7b5b4fa74106a19cda16f8c45ba6b991"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/BorrowedCards.kt": {
+    "mtime": 1789635804.3368711,
+    "seen": 1790147696.6008017,
+    "ast_hash": "9051c6d11580415cd4e9c9230516ad89",
+    "semantic_hash": "9051c6d11580415cd4e9c9230516ad89"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/BorrowedScreen.kt": {
+    "mtime": 1790130271.7426908,
+    "seen": 1790147696.6008034,
+    "ast_hash": "9d284548ab2a7f2b27edefad540c452f",
+    "semantic_hash": "9d284548ab2a7f2b27edefad540c452f"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/BorrowedViewModel.kt": {
+    "mtime": 1790130271.7426908,
+    "seen": 1790147696.6008046,
+    "ast_hash": "3bd1393df8831243176c6a2462b176da",
+    "semantic_hash": "3bd1393df8831243176c6a2462b176da"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/ReturnVaccineDialog.kt": {
+    "mtime": 1790130271.7426908,
+    "seen": 1790147696.6008062,
+    "ast_hash": "cfa51adf9d5f2d37048b3e42769d15c5",
+    "semantic_hash": "cfa51adf9d5f2d37048b3e42769d15c5"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/StockHistoryScreen.kt": {
+    "mtime": 1790130271.7426908,
+    "seen": 1790147696.6008077,
+    "ast_hash": "b2ba632fea9a28f498ebf16bf62b72b6",
+    "semantic_hash": "b2ba632fea9a28f498ebf16bf62b72b6"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/StockHistoryViewModel.kt": {
+    "mtime": 1790130271.7583144,
+    "seen": 1790147696.6008089,
+    "ast_hash": "a1574dd452da8bc86ab7388e06bf0f48",
+    "semantic_hash": "a1574dd452da8bc86ab7388e06bf0f48"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/VaccineInventoryScreen.kt": {
+    "mtime": 1790130271.8460407,
+    "seen": 1790147696.6008105,
+    "ast_hash": "3da1695b43b7fc12266b524b7a8b29e9",
+    "semantic_hash": "3da1695b43b7fc12266b524b7a8b29e9"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/VaccineInventoryViewModel.kt": {
+    "mtime": 1790130271.8793495,
+    "seen": 1790147696.6008117,
+    "ast_hash": "3073c36cc6e6727c36ca52e83470c72b",
+    "semantic_hash": "3073c36cc6e6727c36ca52e83470c72b"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/WasteScreen.kt": {
+    "mtime": 1790130271.894975,
+    "seen": 1790147696.6008134,
+    "ast_hash": "010595fc7293e8593230e2e18240240f",
+    "semantic_hash": "010595fc7293e8593230e2e18240240f"
+  },
+  "app/src/main/java/com/neochildclinic/features/inventory/WasteViewModel.kt": {
+    "mtime": 1790130271.910596,
+    "seen": 1790147696.6008146,
+    "ast_hash": "81de509d044eb95cbb760d829a9bdb8e",
+    "semantic_hash": "81de509d044eb95cbb760d829a9bdb8e"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/AddConsultationScreen.kt": {
+    "mtime": 1790130271.910596,
+    "seen": 1790147696.600816,
+    "ast_hash": "fbcc5bbd6e7fcfe771d721f54b9c7f42",
+    "semantic_hash": "fbcc5bbd6e7fcfe771d721f54b9c7f42"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/AddConsultationViewModel.kt": {
+    "mtime": 1790130271.9262195,
+    "seen": 1790147696.6008174,
+    "ast_hash": "317ddab8dca05d8856e0680020867f30",
+    "semantic_hash": "317ddab8dca05d8856e0680020867f30"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/AddPatientScreen.kt": {
+    "mtime": 1790130271.9262195,
+    "seen": 1790147696.600819,
+    "ast_hash": "1676c25c8cf88051c0f3d516c2dff05f",
+    "semantic_hash": "1676c25c8cf88051c0f3d516c2dff05f"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientDetailsScreen.kt": {
+    "mtime": 1790130271.9730937,
+    "seen": 1790147696.6008205,
+    "ast_hash": "7d431f62bace92911b4c3bef040a8d7e",
+    "semantic_hash": "7d431f62bace92911b4c3bef040a8d7e"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientForm.kt": {
+    "mtime": 1790130272.0043414,
+    "seen": 1790147696.600822,
+    "ast_hash": "836314114e11bb2825b63639d3f33a2f",
+    "semantic_hash": "836314114e11bb2825b63639d3f33a2f"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientFormSections.kt": {
+    "mtime": 1789635805.3008943,
+    "seen": 1790147696.6008234,
+    "ast_hash": "a5f336f562e220d41b727fb4a313311b",
+    "semantic_hash": "a5f336f562e220d41b727fb4a313311b"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientInfoComponents.kt": {
+    "mtime": 1790130272.0043414,
+    "seen": 1790147696.6008248,
+    "ast_hash": "580dcdfb7f130538243db308b518ddaf",
+    "semantic_hash": "580dcdfb7f130538243db308b518ddaf"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientListScreen.kt": {
+    "mtime": 1790130272.0199637,
+    "seen": 1790147696.6008263,
+    "ast_hash": "9295d378d05a64f75b420c6fe45f3d1a",
+    "semantic_hash": "9295d378d05a64f75b420c6fe45f3d1a"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientListViewModel.kt": {
+    "mtime": 1790130272.0199637,
+    "seen": 1790147696.600828,
+    "ast_hash": "68b0318a13445e5c86592cc71d02b1c6",
+    "semantic_hash": "68b0318a13445e5c86592cc71d02b1c6"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/PatientViewModel.kt": {
+    "mtime": 1790130272.0199637,
+    "seen": 1790147696.6008291,
+    "ast_hash": "781df4ab8b6844717607a11156654d93",
+    "semantic_hash": "781df4ab8b6844717607a11156654d93"
+  },
+  "app/src/main/java/com/neochildclinic/features/patient/VaccinationCards.kt": {
+    "mtime": 1789635805.8665948,
+    "seen": 1790147696.6008308,
+    "ast_hash": "32b0e89d05b6acb3c4e0cd6788d20f1c",
+    "semantic_hash": "32b0e89d05b6acb3c4e0cd6788d20f1c"
+  },
+  "app/src/main/java/com/neochildclinic/features/personalreminder/AddEditPersonalReminderScreen.kt": {
+    "mtime": 1790130272.0199637,
+    "seen": 1790147696.600832,
+    "ast_hash": "645d1873cde36d7de5a45fdfe433f349",
+    "semantic_hash": "645d1873cde36d7de5a45fdfe433f349"
+  },
+  "app/src/main/java/com/neochildclinic/features/personalreminder/AddEditPersonalReminderViewModel.kt": {
+    "mtime": 1790130272.0355873,
+    "seen": 1790147696.6008337,
+    "ast_hash": "43bedd37ce69c42c76bfa223c65ce81e",
+    "semantic_hash": "43bedd37ce69c42c76bfa223c65ce81e"
+  },
+  "app/src/main/java/com/neochildclinic/features/personalreminder/PersonalReminderCards.kt": {
+    "mtime": 1790130272.0512116,
+    "seen": 1790147696.600835,
+    "ast_hash": "86b4bf1edc061d1ae708d315c1378aca",
+    "semantic_hash": "86b4bf1edc061d1ae708d315c1378aca"
+  },
+  "app/src/main/java/com/neochildclinic/features/personalreminder/PersonalReminderDetailsSheet.kt": {
+    "mtime": 1790130272.0512116,
+    "seen": 1790147696.6008365,
+    "ast_hash": "e5b24914cf9db4d19fa97194d7fec248",
+    "semantic_hash": "e5b24914cf9db4d19fa97194d7fec248"
+  },
+  "app/src/main/java/com/neochildclinic/features/personalreminder/PersonalReminderScreen.kt": {
+    "mtime": 1790130272.0668354,
+    "seen": 1790147696.600838,
+    "ast_hash": "e8f936baaad0087aa269ea0b60ff3a4c",
+    "semantic_hash": "e8f936baaad0087aa269ea0b60ff3a4c"
+  },
+  "app/src/main/java/com/neochildclinic/features/personalreminder/PersonalReminderViewModel.kt": {
+    "mtime": 1790130272.0668354,
+    "seen": 1790147696.6008391,
+    "ast_hash": "bc1534e3141eac5d6952531b40294cda",
+    "semantic_hash": "bc1534e3141eac5d6952531b40294cda"
+  },
+  "app/src/main/java/com/neochildclinic/features/profile/ProfileScreen.kt": {
+    "mtime": 1790130272.0668354,
+    "seen": 1790147696.6008408,
+    "ast_hash": "a2bb1fde040f41dcbdff19f3521db0c2",
+    "semantic_hash": "a2bb1fde040f41dcbdff19f3521db0c2"
+  },
+  "app/src/main/java/com/neochildclinic/features/profile/ProfileViewModel.kt": {
+    "mtime": 1790130272.0824609,
+    "seen": 1790147696.600842,
+    "ast_hash": "dd32a35115b7a4a5b2dec9a04e67b09b",
+    "semantic_hash": "dd32a35115b7a4a5b2dec9a04e67b09b"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/CompletedDismissedScreen.kt": {
+    "mtime": 1790130272.0824609,
+    "seen": 1790147696.6008437,
+    "ast_hash": "c56654e871e871d5554bb0c6a2036b62",
+    "semantic_hash": "c56654e871e871d5554bb0c6a2036b62"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/CompletedDismissedViewModel.kt": {
+    "mtime": 1790130272.0824609,
+    "seen": 1790147696.6008453,
+    "ast_hash": "15ad67eda1ffaa1192ee8abcd351d7e1",
+    "semantic_hash": "15ad67eda1ffaa1192ee8abcd351d7e1"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/DueScreen.kt": {
+    "mtime": 1789926558.724416,
+    "seen": 1790147696.6008465,
+    "ast_hash": "d9ea0fe11dc145c511ceb6803a3f04bb",
+    "semantic_hash": "d9ea0fe11dc145c511ceb6803a3f04bb"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/DueTab.kt": {
+    "mtime": 1790130272.0824609,
+    "seen": 1790147696.6008482,
+    "ast_hash": "9dee956ba61a372bad4faa365d87f2b1",
+    "semantic_hash": "9dee956ba61a372bad4faa365d87f2b1"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/DueViewModel.kt": {
+    "mtime": 1790130272.098084,
+    "seen": 1790147696.6008496,
+    "ast_hash": "d5509fa5933882308ac13929cec61b4e",
+    "semantic_hash": "d5509fa5933882308ac13929cec61b4e"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/ReminderBottomSheets.kt": {
+    "mtime": 1789635795.9584024,
+    "seen": 1790147696.6008513,
+    "ast_hash": "3bafc5038aeb2cb93d45598e171d4c91",
+    "semantic_hash": "3bafc5038aeb2cb93d45598e171d4c91"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/ReminderCards.kt": {
+    "mtime": 1789926558.724416,
+    "seen": 1790147696.6008525,
+    "ast_hash": "d7b2a73d1745c09c0a5e5d6ad28bc9bc",
+    "semantic_hash": "d7b2a73d1745c09c0a5e5d6ad28bc9bc"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/ReminderComponents.kt": {
+    "mtime": 1789926558.7400393,
+    "seen": 1790147696.600854,
+    "ast_hash": "fee1df825d2236a408e6e679e8f86a1e",
+    "semantic_hash": "fee1df825d2236a408e6e679e8f86a1e"
+  },
+  "app/src/main/java/com/neochildclinic/features/reminder/ReminderDialogs.kt": {
+    "mtime": 1790130272.098084,
+    "seen": 1790147696.6008554,
+    "ast_hash": "42d1d47b9088dab8ad7ec375d5285e21",
+    "semantic_hash": "42d1d47b9088dab8ad7ec375d5285e21"
+  },
+  "app/src/main/java/com/neochildclinic/features/search/SearchScreen.kt": {
+    "mtime": 1790130272.098084,
+    "seen": 1790147696.6008565,
+    "ast_hash": "b448373121c047423abdd33591281acb",
+    "semantic_hash": "b448373121c047423abdd33591281acb"
+  },
+  "app/src/main/java/com/neochildclinic/features/search/SearchViewModel.kt": {
+    "mtime": 1789722571.028169,
+    "seen": 1790147696.6008582,
+    "ast_hash": "49f1ded544f64522705e3c9cd1520df6",
+    "semantic_hash": "49f1ded544f64522705e3c9cd1520df6"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/BackupSettingsManager.kt": {
+    "mtime": 1789635803.0331504,
+    "seen": 1790147696.6008594,
+    "ast_hash": "77e3511a8d07ac5a84a3c79e8ae69070",
+    "semantic_hash": "77e3511a8d07ac5a84a3c79e8ae69070"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/BackupSettingsScreen.kt": {
+    "mtime": 1790130272.098084,
+    "seen": 1790147696.6008608,
+    "ast_hash": "b0df4bc07dcdcfac207b49267de61505",
+    "semantic_hash": "b0df4bc07dcdcfac207b49267de61505"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/BackupViewModel.kt": {
+    "mtime": 1790130272.1293318,
+    "seen": 1790147696.6008625,
+    "ast_hash": "bbd436c74291aa473b1b082d77cb2a9d",
+    "semantic_hash": "bbd436c74291aa473b1b082d77cb2a9d"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/HelpSupportScreen.kt": {
+    "mtime": 1789635802.9396744,
+    "seen": 1790147696.600864,
+    "ast_hash": "7ffc848c1d54f4fa79bff4e8ff23a74a",
+    "semantic_hash": "7ffc848c1d54f4fa79bff4e8ff23a74a"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/InventorySettingsScreen.kt": {
+    "mtime": 1790130272.3858125,
+    "seen": 1790147696.6008654,
+    "ast_hash": "9ab9c2bbbc47c0f7eb99f7084c58e717",
+    "semantic_hash": "9ab9c2bbbc47c0f7eb99f7084c58e717"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/NotificationSettingsManager.kt": {
+    "mtime": 1789635803.1772304,
+    "seen": 1790147696.6008668,
+    "ast_hash": "9c67a830a1208d7517c547f1b4209e24",
+    "semantic_hash": "9c67a830a1208d7517c547f1b4209e24"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/NotificationSettingsScreen.kt": {
+    "mtime": 1790130272.4341698,
+    "seen": 1790147696.6008685,
+    "ast_hash": "dea7dab8361d68892e0ef3a423d60946",
+    "semantic_hash": "dea7dab8361d68892e0ef3a423d60946"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/NotificationSettingsViewModel.kt": {
+    "mtime": 1789635802.8117473,
+    "seen": 1790147696.60087,
+    "ast_hash": "c18050a2f677a93ecae7aa21a9c503e0",
+    "semantic_hash": "c18050a2f677a93ecae7aa21a9c503e0"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/PrivacyPolicyScreen.kt": {
+    "mtime": 1789635803.302222,
+    "seen": 1790147696.6008713,
+    "ast_hash": "f78215b4cc3090f19add14c8cbc0fbec",
+    "semantic_hash": "f78215b4cc3090f19add14c8cbc0fbec"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/SecuritySettingsScreen.kt": {
+    "mtime": 1790130272.4341698,
+    "seen": 1790147696.6008728,
+    "ast_hash": "8133d22675d7dcee9b1d12296a650c5f",
+    "semantic_hash": "8133d22675d7dcee9b1d12296a650c5f"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/SettingsComponents.kt": {
+    "mtime": 1790130272.7976668,
+    "seen": 1790147696.6008742,
+    "ast_hash": "85e2da8a0b37b648a2215414102823cb",
+    "semantic_hash": "85e2da8a0b37b648a2215414102823cb"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/SettingsScreen.kt": {
+    "mtime": 1790130272.920537,
+    "seen": 1790147696.6008756,
+    "ast_hash": "9fe61a894f8d2c4af9daf48acc3cf8f0",
+    "semantic_hash": "9fe61a894f8d2c4af9daf48acc3cf8f0"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/SettingsViewModel.kt": {
+    "mtime": 1789635803.474087,
+    "seen": 1790147696.600877,
+    "ast_hash": "18a02c0e7066e4aa6b330b76895f3337",
+    "semantic_hash": "18a02c0e7066e4aa6b330b76895f3337"
+  },
+  "app/src/main/java/com/neochildclinic/features/settings/TermsOfServiceScreen.kt": {
+    "mtime": 1789635803.5522077,
+    "seen": 1790147696.6008782,
+    "ast_hash": "9dfbe09a8c56bfbd04dd622dd7242a0d",
+    "semantic_hash": "9dfbe09a8c56bfbd04dd622dd7242a0d"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/BarLineChart.kt": {
+    "mtime": 1789903906.1723084,
+    "seen": 1790147696.60088,
+    "ast_hash": "5dd1304ce433e37aa48e027fd8023f36",
+    "semantic_hash": "5dd1304ce433e37aa48e027fd8023f36"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/ExpenseCalculator.kt": {
+    "mtime": 1789635796.6633275,
+    "seen": 1790147696.6008813,
+    "ast_hash": "dc16d9133bc5ba3c361e608dcb588e2d",
+    "semantic_hash": "dc16d9133bc5ba3c361e608dcb588e2d"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/FinanceCalculator.kt": {
+    "mtime": 1790130272.9517934,
+    "seen": 1790147696.600883,
+    "ast_hash": "f4d93bc81cdf65743da48c7fc17ab4cc",
+    "semantic_hash": "f4d93bc81cdf65743da48c7fc17ab4cc"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/FinanceDetailsViewModel.kt": {
+    "mtime": 1790130272.967405,
+    "seen": 1790147696.6008844,
+    "ast_hash": "54734fe6772918365f6ed37b65857338",
+    "semantic_hash": "54734fe6772918365f6ed37b65857338"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/FinanceTab.kt": {
+    "mtime": 1790130272.983031,
+    "seen": 1790147696.6008859,
+    "ast_hash": "cc1e9dbb391c3f0a5dead8d94df0b119",
+    "semantic_hash": "cc1e9dbb391c3f0a5dead8d94df0b119"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/FinanceTable.kt": {
+    "mtime": 1790130273.0142813,
+    "seen": 1790147696.6008873,
+    "ast_hash": "cc679078a5d9bc0ce51af57a6a7e2aeb",
+    "semantic_hash": "cc679078a5d9bc0ce51af57a6a7e2aeb"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/FullReportScreen.kt": {
+    "mtime": 1790130273.0142813,
+    "seen": 1790147696.6008885,
+    "ast_hash": "a7cce0eb92dd5e6ab7e24b8e59da4fc7",
+    "semantic_hash": "a7cce0eb92dd5e6ab7e24b8e59da4fc7"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/FullReportViewModel.kt": {
+    "mtime": 1790130273.0455265,
+    "seen": 1790147696.6008902,
+    "ast_hash": "a3ec76870fd56646aedec1cf7ece45b1",
+    "semantic_hash": "a3ec76870fd56646aedec1cf7ece45b1"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/MilestonePatientsScreen.kt": {
+    "mtime": 1790130273.0455265,
+    "seen": 1790147696.6008914,
+    "ast_hash": "64374c1ef73d615c70acf97b9b7083a3",
+    "semantic_hash": "64374c1ef73d615c70acf97b9b7083a3"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/MilestonePatientsViewModel.kt": {
+    "mtime": 1790130273.0455265,
+    "seen": 1790147696.600893,
+    "ast_hash": "563c0107929172c2cc50b8aadd16b4db",
+    "semantic_hash": "563c0107929172c2cc50b8aadd16b4db"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/MonthlyFinanceDetailsScreen.kt": {
+    "mtime": 1790130273.0455265,
+    "seen": 1790147696.6008947,
+    "ast_hash": "0ccc7738498323b2916a054e9eeead7c",
+    "semantic_hash": "0ccc7738498323b2916a054e9eeead7c"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/OverviewTab.kt": {
+    "mtime": 1790130273.0611515,
+    "seen": 1790147696.6008964,
+    "ast_hash": "b560b4fefe14a6e0784c5f9788195c21",
+    "semantic_hash": "b560b4fefe14a6e0784c5f9788195c21"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/PatientsTab.kt": {
+    "mtime": 1790130273.0611515,
+    "seen": 1790147696.6008976,
+    "ast_hash": "6d0ec33e8087690bbb900d96e9bd2a8d",
+    "semantic_hash": "6d0ec33e8087690bbb900d96e9bd2a8d"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/StatisticsDateUtils.kt": {
+    "mtime": 1790130273.0611515,
+    "seen": 1790147696.600899,
+    "ast_hash": "da3ea6764267ecee2570d101fc59b9ce",
+    "semantic_hash": "da3ea6764267ecee2570d101fc59b9ce"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/StatisticsScreen.kt": {
+    "mtime": 1790130273.0611515,
+    "seen": 1790147696.6009007,
+    "ast_hash": "52fb47457b8027615a003c225c265ee7",
+    "semantic_hash": "52fb47457b8027615a003c225c265ee7"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/StatisticsSummaryCard.kt": {
+    "mtime": 1790130273.0611515,
+    "seen": 1790147696.600902,
+    "ast_hash": "ffecfa7639421c0ea8417f1ae76631e1",
+    "semantic_hash": "ffecfa7639421c0ea8417f1ae76631e1"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/StatisticsTrendChart.kt": {
+    "mtime": 1789635797.222635,
+    "seen": 1790147696.6009037,
+    "ast_hash": "2a21bcd5320504c8e547c96e8aceb822",
+    "semantic_hash": "2a21bcd5320504c8e547c96e8aceb822"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/StatisticsUtils.kt": {
+    "mtime": 1790130273.0767725,
+    "seen": 1790147696.6009052,
+    "ast_hash": "f6bb487671a3ca76e7f717c5ffb6d083",
+    "semantic_hash": "f6bb487671a3ca76e7f717c5ffb6d083"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/StatisticsViewModel.kt": {
+    "mtime": 1790130273.0767725,
+    "seen": 1790147696.6009066,
+    "ast_hash": "451f6010485b78d3568b442e39e5de7b",
+    "semantic_hash": "451f6010485b78d3568b442e39e5de7b"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/VaccinationsTab.kt": {
+    "mtime": 1790130273.0923972,
+    "seen": 1790147696.6009095,
+    "ast_hash": "f1758fd359c468a27d726d7d00f472e4",
+    "semantic_hash": "f1758fd359c468a27d726d7d00f472e4"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/VaccineDetailScreen.kt": {
+    "mtime": 1790130273.0923972,
+    "seen": 1790147696.6009111,
+    "ast_hash": "1d6073878352cd707ad7fb20e0aa296f",
+    "semantic_hash": "1d6073878352cd707ad7fb20e0aa296f"
+  },
+  "app/src/main/java/com/neochildclinic/features/statistics/VaccineDetailViewModel.kt": {
+    "mtime": 1790130273.1080432,
+    "seen": 1790147696.6009123,
+    "ast_hash": "2eca2ff0824e826f3d14d28d0df8ad84",
+    "semantic_hash": "2eca2ff0824e826f3d14d28d0df8ad84"
+  },
+  "app/src/main/java/com/neochildclinic/features/sync/SyncScreen.kt": {
+    "mtime": 1790130273.1080432,
+    "seen": 1790147696.6009142,
+    "ast_hash": "9e91a33ea192bb3dfb5ac46e2f1f30e0",
+    "semantic_hash": "9e91a33ea192bb3dfb5ac46e2f1f30e0"
+  },
+  "app/src/main/java/com/neochildclinic/features/sync/SyncViewModel.kt": {
+    "mtime": 1790130273.1080432,
+    "seen": 1790147696.6009154,
+    "ast_hash": "7405d4473ad960b927f47e2e323ba60b",
+    "semantic_hash": "7405d4473ad960b927f47e2e323ba60b"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/AppUpdateDialog.kt": {
+    "mtime": 1790130273.1236546,
+    "seen": 1790147696.600917,
+    "ast_hash": "ebf3ee5b2dc87d6ffa599df03eeb6d6e",
+    "semantic_hash": "ebf3ee5b2dc87d6ffa599df03eeb6d6e"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/AppUpdateInfo.kt": {
+    "mtime": 1790130273.1236546,
+    "seen": 1790147696.6009185,
+    "ast_hash": "0c6e1e560167f71b55b6e0a69de57c56",
+    "semantic_hash": "0c6e1e560167f71b55b6e0a69de57c56"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/AppUpdateInstallReceiver.kt": {
+    "mtime": 1789635799.389915,
+    "seen": 1790147696.6009197,
+    "ast_hash": "376d14764373c81cadc8c88233348b93",
+    "semantic_hash": "376d14764373c81cadc8c88233348b93"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/AppUpdateManager.kt": {
+    "mtime": 1790130273.1236546,
+    "seen": 1790147696.6009223,
+    "ast_hash": "94c1c0d1330949c4df3f4cbb5c6b6557",
+    "semantic_hash": "94c1c0d1330949c4df3f4cbb5c6b6557"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/AppUpdateScreen.kt": {
+    "mtime": 1789635799.9898896,
+    "seen": 1790147696.6009243,
+    "ast_hash": "2b87b6dad24fe5b362bdb1e38322a1f4",
+    "semantic_hash": "2b87b6dad24fe5b362bdb1e38322a1f4"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/AppUpdateViewModel.kt": {
+    "mtime": 1789635800.232857,
+    "seen": 1790147696.6009254,
+    "ast_hash": "73b6a1077f9e1a70f8d90755fd906f6f",
+    "semantic_hash": "73b6a1077f9e1a70f8d90755fd906f6f"
+  },
+  "app/src/main/java/com/neochildclinic/features/update/StartupUpdateBanner.kt": {
+    "mtime": 1789635800.3657806,
+    "seen": 1790147696.6009269,
+    "ast_hash": "5f3e5f310d96fcd531b43232e4b400c7",
+    "semantic_hash": "5f3e5f310d96fcd531b43232e4b400c7"
+  },
+  "app/src/main/java/com/neochildclinic/features/vaccination/AddVaccinationScreen.kt": {
+    "mtime": 1790130273.148277,
+    "seen": 1790147696.6009285,
+    "ast_hash": "c4847573bd9091365f52d61bfd0cc580",
+    "semantic_hash": "c4847573bd9091365f52d61bfd0cc580"
+  },
+  "app/src/main/java/com/neochildclinic/features/vaccination/AddVaccinationViewModel.kt": {
+    "mtime": 1790130273.1639025,
+    "seen": 1790147696.60093,
+    "ast_hash": "945d8a7eb97bb511e8e285a68104675a",
+    "semantic_hash": "945d8a7eb97bb511e8e285a68104675a"
+  },
+  "app/src/main/java/com/neochildclinic/features/widget/RefreshWidgetAction.kt": {
+    "mtime": 1789635806.5301535,
+    "seen": 1790147696.6009316,
+    "ast_hash": "ff9de5c144e8191dc249ddd140532f5e",
+    "semantic_hash": "ff9de5c144e8191dc249ddd140532f5e"
+  },
+  "app/src/main/java/com/neochildclinic/features/widget/VaccineWidget.kt": {
+    "mtime": 1789635806.6551454,
+    "seen": 1790147696.6009328,
+    "ast_hash": "cd64cc70e95c1fb5ae4f39f1004d0639",
+    "semantic_hash": "cd64cc70e95c1fb5ae4f39f1004d0639"
+  },
+  "app/src/main/java/com/neochildclinic/features/widget/VaccineWidgetConfigurationActivity.kt": {
+    "mtime": 1789635806.4207866,
+    "seen": 1790147696.6009347,
+    "ast_hash": "4c535afe8a9f3ba1389f6def4f702594",
+    "semantic_hash": "4c535afe8a9f3ba1389f6def4f702594"
+  },
+  "app/src/main/java/com/neochildclinic/features/widget/VaccineWidgetReceiver.kt": {
+    "mtime": 1789635806.3426669,
+    "seen": 1790147696.6009362,
+    "ast_hash": "2aa8919ae5b37c42c9a5180acb1990e3",
+    "semantic_hash": "2aa8919ae5b37c42c9a5180acb1990e3"
+  },
+  "app/src/main/java/com/neochildclinic/notification/NeoChildFirebaseMessagingService.kt": {
+    "mtime": 1790130273.1795266,
+    "seen": 1790147696.6009374,
+    "ast_hash": "3441facd54681923df4e264ad3c3d31d",
+    "semantic_hash": "3441facd54681923df4e264ad3c3d31d"
+  },
+  "app/src/main/java/com/neochildclinic/notification/NotificationHelper.kt": {
+    "mtime": 1790130273.1795266,
+    "seen": 1790147696.600939,
+    "ast_hash": "3f16cf6e733692bd19fa27a6c810bc9e",
+    "semantic_hash": "3f16cf6e733692bd19fa27a6c810bc9e"
+  },
+  "app/src/main/java/com/neochildclinic/notification/ReminderScheduler.kt": {
+    "mtime": 1789635795.2647903,
+    "seen": 1790147696.6009405,
+    "ast_hash": "b962248cac497d9c73711d5f3a2f8c3d",
+    "semantic_hash": "b962248cac497d9c73711d5f3a2f8c3d"
+  },
+  "app/src/main/java/com/neochildclinic/worker/AutoBackupWorker.kt": {
+    "mtime": 1790130273.1795266,
+    "seen": 1790147696.6009421,
+    "ast_hash": "6eae9feec7bca302db5fdffeef094d49",
+    "semantic_hash": "6eae9feec7bca302db5fdffeef094d49"
+  },
+  "app/src/main/java/com/neochildclinic/worker/DailySummaryWorker.kt": {
+    "mtime": 1790130273.1951525,
+    "seen": 1790147696.6009436,
+    "ast_hash": "038abee754cc26e51e171caa8615f5c6",
+    "semantic_hash": "038abee754cc26e51e171caa8615f5c6"
+  },
+  "app/src/main/java/com/neochildclinic/worker/PersonalReminderNotificationWorker.kt": {
+    "mtime": 1790130273.2107744,
+    "seen": 1790147696.600945,
+    "ast_hash": "2ec9f5822b8e83021dde8afc203ba7fc",
+    "semantic_hash": "2ec9f5822b8e83021dde8afc203ba7fc"
+  },
+  "app/src/main/java/com/neochildclinic/worker/SyncWorker.kt": {
+    "mtime": 1790130273.2107744,
+    "seen": 1790147696.6009464,
+    "ast_hash": "2e8c1086fa8d9b7baffc674b76c0dcfb",
+    "semantic_hash": "2e8c1086fa8d9b7baffc674b76c0dcfb"
+  },
+  "app/src/main/java/com/neochildclinic/worker/WidgetWorker.kt": {
+    "mtime": 1790130273.2107744,
+    "seen": 1790147696.6009476,
+    "ast_hash": "8e258a9d490eca0e5b4d525a459ed483",
+    "semantic_hash": "8e258a9d490eca0e5b4d525a459ed483"
+  },
+  "app/src/test/java/com/neochildclinic/core/utils/PatientUtilsAgeMilestoneTest.kt": {
+    "mtime": 1790130273.2263982,
+    "seen": 1790147696.6009493,
+    "ast_hash": "6f0b2a4e43981fc61a3b1c375d978acf",
+    "semantic_hash": "6f0b2a4e43981fc61a3b1c375d978acf"
+  },
+  "app/src/test/java/com/neochildclinic/core/utils/PatientUtilsTest.kt": {
+    "mtime": 1789635794.8742135,
+    "seen": 1790147696.6009507,
+    "ast_hash": "379c5eef4e314b2fa50d1f85fd4421bf",
+    "semantic_hash": "379c5eef4e314b2fa50d1f85fd4421bf"
+  },
+  "app/src/test/java/com/neochildclinic/data/backup/BackupCryptoTest.kt": {
+    "mtime": 1789702101.2471068,
+    "seen": 1790147696.6009524,
+    "ast_hash": "1f421816db988ee14457f2e44234227b",
+    "semantic_hash": "1f421816db988ee14457f2e44234227b"
+  },
+  "app/src/test/java/com/neochildclinic/data/backup/BackupValidatorTest.kt": {
+    "mtime": 1789701203.8362653,
+    "seen": 1790147696.6009538,
+    "ast_hash": "fea267bc8a8ed0b5a194a7a49de93b0f",
+    "semantic_hash": "fea267bc8a8ed0b5a194a7a49de93b0f"
+  },
+  "app/src/test/java/com/neochildclinic/data/local/entity/ExpenseEntityMappingTest.kt": {
+    "mtime": 1789635794.8273423,
+    "seen": 1790147696.6009555,
+    "ast_hash": "eb01f6cccf55f930143fd1e7a527352d",
+    "semantic_hash": "eb01f6cccf55f930143fd1e7a527352d"
+  },
+  "app/src/test/java/com/neochildclinic/data/repository/SyncErrorClassificationTest.kt": {
+    "mtime": 1789715084.5944197,
+    "seen": 1790147696.6009567,
+    "ast_hash": "2b72348e0e6a79b89e605e6ff088cebd",
+    "semantic_hash": "2b72348e0e6a79b89e605e6ff088cebd"
+  },
+  "app/src/test/java/com/neochildclinic/features/expenses/ExpenseCalculatorTest.kt": {
+    "mtime": 1789635794.6710835,
+    "seen": 1790147696.600958,
+    "ast_hash": "47821f0cc71e11cc4cb4b05e73085519",
+    "semantic_hash": "47821f0cc71e11cc4cb4b05e73085519"
+  },
+  "app/src/test/java/com/neochildclinic/features/expenses/ExpenseValidatorTest.kt": {
+    "mtime": 1789635794.7023308,
+    "seen": 1790147696.6009595,
+    "ast_hash": "040cc92d85b001d51eff0ad6746e5d63",
+    "semantic_hash": "040cc92d85b001d51eff0ad6746e5d63"
+  },
+  "build.gradle.kts": {
+    "mtime": 1789635841.2386813,
+    "seen": 1790147696.600961,
+    "ast_hash": "82eb14c95c0ee4fa91e8b5e984377ad3",
+    "semantic_hash": "82eb14c95c0ee4fa91e8b5e984377ad3"
+  },
+  "cloudflare/backup-worker/package.json": {
+    "mtime": 1789635839.2672756,
+    "seen": 1790147696.6009626,
+    "ast_hash": "b5dd809e67c432e3ba2b47255c61ac38",
+    "semantic_hash": "b5dd809e67c432e3ba2b47255c61ac38"
+  },
+  "cloudflare/backup-worker/schema.sql": {
+    "mtime": 1789635839.376645,
+    "seen": 1790147696.6009638,
+    "ast_hash": "06fd954a83a6b1242db5bee540e0fbb5",
+    "semantic_hash": "06fd954a83a6b1242db5bee540e0fbb5"
+  },
+  "cloudflare/backup-worker/src/index.ts": {
+    "mtime": 1789635839.564132,
+    "seen": 1790147696.6009653,
+    "ast_hash": "570f1b0e762db3844c74e2e4030981e3",
+    "semantic_hash": "570f1b0e762db3844c74e2e4030981e3"
+  },
+  "cloudflare/backup-worker/src/jwt.ts": {
+    "mtime": 1789635839.626626,
+    "seen": 1790147696.600967,
+    "ast_hash": "858158cd9699d455a88cb5e9daf262ca",
+    "semantic_hash": "858158cd9699d455a88cb5e9daf262ca"
+  },
+  "cloudflare/backup-worker/test/backup-worker.spec.ts": {
+    "mtime": 1789635839.689124,
+    "seen": 1790147696.6009681,
+    "ast_hash": "0417bc5ea694c77ab1fa44557a26c0ec",
+    "semantic_hash": "0417bc5ea694c77ab1fa44557a26c0ec"
+  },
+  "cloudflare/backup-worker/tsconfig.json": {
+    "mtime": 1789635839.423515,
+    "seen": 1790147696.6009707,
+    "ast_hash": "a28771e63f76d579e6def1fcaecaa446",
+    "semantic_hash": "a28771e63f76d579e6def1fcaecaa446"
+  },
+  "cloudflare/backup-worker/vitest.config.ts": {
+    "mtime": 1789635839.2204037,
+    "seen": 1790147696.6009722,
+    "ast_hash": "b6ac3139a6f5900b8d159d11aa6b3b43",
+    "semantic_hash": "b6ac3139a6f5900b8d159d11aa6b3b43"
+  },
+  "gradlew": {
+    "mtime": 1789912709.628796,
+    "seen": 1790147696.6009736,
+    "ast_hash": "343bf72f71043b4da467584bfb1d13cc",
+    "semantic_hash": "343bf72f71043b4da467584bfb1d13cc"
+  },
+  "settings.gradle.kts": {
+    "mtime": 1789635841.617654,
+    "seen": 1790147696.600975,
+    "ast_hash": "a9edc5356ac153f1d8eda5bf071bb036",
+    "semantic_hash": "a9edc5356ac153f1d8eda5bf071bb036"
+  },
+  "supabase/functions/manage-staff/index.ts": {
+    "mtime": 1789635841.075683,
+    "seen": 1790147696.6009765,
+    "ast_hash": "f4327db2a32744624f2d5ff31ac1a28a",
+    "semantic_hash": "f4327db2a32744624f2d5ff31ac1a28a"
+  },
+  "supabase/functions/notify-update/index.ts": {
+    "mtime": 1789635841.138177,
+    "seen": 1790147696.600978,
+    "ast_hash": "97f43beac42414d70dddf1d236211290",
+    "semantic_hash": "97f43beac42414d70dddf1d236211290"
+  },
+  ".github/workflows/Codeql.yml": {
+    "mtime": 1790130270.944018,
+    "seen": 1790147696.6009796,
+    "ast_hash": "7acc217f8517c56feb9c4e9637b7a1cd",
+    "semantic_hash": "7acc217f8517c56feb9c4e9637b7a1cd"
+  },
+  ".github/workflows/android-ci.yml": {
+    "mtime": 1790130270.944018,
+    "seen": 1790147696.600981,
+    "ast_hash": "d8e674def1ec680dd17930961945b2ea",
+    "semantic_hash": "d8e674def1ec680dd17930961945b2ea"
+  },
+  ".github/workflows/notify-update.yml": {
+    "mtime": 1788974409.02773,
+    "seen": 1790147696.6009827,
+    "ast_hash": "6c4637b12c43baf0f4564476f77f2175",
+    "semantic_hash": "6c4637b12c43baf0f4564476f77f2175"
+  },
+  "AGENTS.md": {
+    "mtime": 1790145605.3096004,
+    "seen": 1790147696.600984,
+    "ast_hash": "4fb3924b923a2f7574c953b6f4e48d20",
+    "semantic_hash": "4fb3924b923a2f7574c953b6f4e48d20"
+  },
+  "README.md": {
+    "mtime": 1790130270.9596505,
+    "seen": 1790147696.6009855,
+    "ast_hash": "61c698595abe5f3ba07a3a78bf9852fe",
+    "semantic_hash": "61c698595abe5f3ba07a3a78bf9852fe"
+  },
+  "SECURITY.md": {
+    "mtime": 1789635841.5707822,
+    "seen": 1790147696.600987,
+    "ast_hash": "21aedfbb73f19a358148b4e567c8fa3d",
+    "semantic_hash": "21aedfbb73f19a358148b4e567c8fa3d"
+  },
+  "cloudflare/backup-worker/README.md": {
+    "mtime": 1789635839.1562822,
+    "seen": 1790147696.6009884,
+    "ast_hash": "3ff68c520f20f1ac256a888703db1418",
+    "semantic_hash": "3ff68c520f20f1ac256a888703db1418"
+  },
+  "docs/BACKUP_RESTORE.md": {
+    "mtime": 1790130273.2263982,
+    "seen": 1790147696.6009896,
+    "ast_hash": "a3d8426ae89dd2b9dd49f9fd4dac4092",
+    "semantic_hash": "a3d8426ae89dd2b9dd49f9fd4dac4092"
+  },
+  "docs/GETTING_STARTED.md": {
+    "mtime": 1790130273.242022,
+    "seen": 1790147696.6009912,
+    "ast_hash": "b1b820c562ec6fc642febdeb4b8759ec",
+    "semantic_hash": "b1b820c562ec6fc642febdeb4b8759ec"
+  },
+  "app/src/main/res/drawable/app_logo.png": {
+    "mtime": 1789635838.7969303,
+    "seen": 1790147696.6009927,
+    "ast_hash": "8ff6f4abe820e5f1ce446a41bfb74aa7",
+    "semantic_hash": "8ff6f4abe820e5f1ce446a41bfb74aa7"
+  },
+  "app/src/main/res/drawable/logo.png": {
+    "mtime": 1789635838.7188115,
+    "seen": 1790147696.600994,
+    "ast_hash": "74d6a4dbc32fb7abdb6e4fb21caf5af7",
+    "semantic_hash": "74d6a4dbc32fb7abdb6e4fb21caf5af7"
+  },
+  "docs/Screenshot/app drawer.png": {
+    "mtime": 1789635840.4514897,
+    "seen": 1790147696.6009955,
+    "ast_hash": "d43e281c0d1ee1107d8cf9d887ae4f1a",
+    "semantic_hash": "d43e281c0d1ee1107d8cf9d887ae4f1a"
+  },
+  "docs/Screenshot/borrow vaccine.png": {
+    "mtime": 1789635840.513984,
+    "seen": 1790147696.6009972,
+    "ast_hash": "e4216fd5f027313a8d080eeb1ffd165c",
+    "semantic_hash": "e4216fd5f027313a8d080eeb1ffd165c"
+  },
+  "docs/Screenshot/dashboard.png": {
+    "mtime": 1789635840.6389782,
+    "seen": 1790147696.6009986,
+    "ast_hash": "bbbb7a40b671c83c68941cecd7399f00",
+    "semantic_hash": "bbbb7a40b671c83c68941cecd7399f00"
+  },
+  "docs/Screenshot/due vaccination.png": {
+    "mtime": 1789635840.748343,
+    "seen": 1790147696.6010003,
+    "ast_hash": "a9bd9b05d4aabf136900fdcb670a10f0",
+    "semantic_hash": "a9bd9b05d4aabf136900fdcb670a10f0"
+  },
+  "docs/Screenshot/inventory.png": {
+    "mtime": 1789635840.7014713,
+    "seen": 1790147696.6010015,
+    "ast_hash": "8ce9c8c4709f4a08ae77701457d65b35",
+    "semantic_hash": "8ce9c8c4709f4a08ae77701457d65b35"
+  },
+  "docs/Screenshot/patient details.png": {
+    "mtime": 1789635840.576483,
+    "seen": 1790147696.601003,
+    "ast_hash": "e2f1c85bff3c4d0515b25f341fc7aa0f",
+    "semantic_hash": "e2f1c85bff3c4d0515b25f341fc7aa0f"
+  }
+}

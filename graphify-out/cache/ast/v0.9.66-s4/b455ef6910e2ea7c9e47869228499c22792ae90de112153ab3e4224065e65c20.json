@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_app_src_main_java_com_neochildclinic_domain_model_patient_kt", "label": "Patient.kt", "file_type": "code", "source_file": "app/src/main/java/com/neochildclinic/domain/model/Patient.kt", "source_location": "L1"}], "edges": [], "raw_calls": [], "kotlin_package": "com.neochildclinic.domain.model"}

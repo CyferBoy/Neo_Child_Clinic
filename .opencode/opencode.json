@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    ".opencode/plugins/graphify.js"
+  ],
+  "mcp": {
+    "graphify": {
+      "type": "remote",
+      "url": "https://api.graphify.com/mcp",
+      "enabled": true
+    }
+  }
+}
