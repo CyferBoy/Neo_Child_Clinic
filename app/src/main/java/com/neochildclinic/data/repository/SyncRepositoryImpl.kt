@@ -195,8 +195,13 @@ class SyncRepositoryImpl @Inject constructor(
                 // group, instead of one SELECT per item inside uploadEntity. DELETE and
                 // REMINDERS items are excluded because neither used the per-item check this
                 // replaces (see fetchRemoteConflictData for why).
+                // VACCINATION_ITEM has no updatedAt column (getEntityUpdatedAt -> "");
+                // item rows are replaced via DELETE+CREATE under one visit, so last-write-
+                // wins conflict checks on items are meaningless — skip like REMINDERS.
                 val conflictCheckCandidates = groupItems.filter {
-                    it.operation != SyncOperation.DELETE.name && it.entityName != "REMINDERS"
+                    it.operation != SyncOperation.DELETE.name &&
+                        it.entityName != "REMINDERS" &&
+                        it.entityName != "VACCINATION_ITEM"
                 }
                 val remoteConflictData = fetchRemoteConflictData(conflictCheckCandidates)
 
@@ -527,17 +532,11 @@ class SyncRepositoryImpl @Inject constructor(
             ?: throw IllegalArgumentException("Unknown entity: ${item.entityName}")
 
         if (item.operation == SyncOperation.DELETE.name) {
-            if (item.entityName == "REMINDERS") {
-                val serverId = database.dueReminderDao().getReminderById(item.entityId)?.serverId
-                if (serverId != null) {
-                    postgrest.from(table).delete {
-                        filter { eq("id", serverId) }
-                    }
-                }
-            } else {
-                postgrest.from(table).delete {
-                    filter { eq("id", item.entityId) }
-                }
+            // REMINDERS: entityId is serverId ?: localId captured at enqueue time — the
+            // local row is already hard-deleted, so never re-read it here. Other entities
+            // use local UUID == remote PK.
+            postgrest.from(table).delete {
+                filter { eq("id", item.entityId) }
             }
             return
         }

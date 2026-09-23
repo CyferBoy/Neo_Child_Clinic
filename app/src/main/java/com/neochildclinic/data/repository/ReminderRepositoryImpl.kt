@@ -235,7 +235,8 @@ class ReminderRepositoryImpl @Inject constructor(
         notes: String,
         priority: String = "NORMAL",
         reminderEnabled: Boolean = true,
-        performedBy: String
+        performedBy: String,
+        forceNewId: Boolean = false
     ) {
         // A Next Vaccination may be type-only, or may contain one/many vaccines.
         // Each selected vaccine is persisted as its own reminder row.
@@ -273,6 +274,8 @@ class ReminderRepositoryImpl @Inject constructor(
                     val vaccineName = pair?.first.orEmpty()
                     val vaccineId = pair?.second
 
+                    // forceNewId (edit replace path): skip unique-event reuse so the old
+                    // row's ID is never revived after a hard delete + re-create.
                     val existing = dueReminderDao.getReminderByUniqueEvent(
                         patientId,
                         originalVisitId,
@@ -280,9 +283,15 @@ class ReminderRepositoryImpl @Inject constructor(
                         vaccineName,
                         type
                     )
+                    if (forceNewId && existing != null) {
+                        // A dismissed/cancelled row can still occupy the unique index —
+                        // remove it with a proper remote DELETE before creating the new id.
+                        deleteReminder(existing, performedBy)
+                    }
+                    val reused = if (forceNewId) null else existing
 
-                    val reminder = if (existing != null) {
-                        existing.copy(
+                    val reminder = if (reused != null) {
+                        reused.copy(
                             patientId = patientId,
                             originalVisitId = originalVisitId,
                             vaccineName = vaccineName,
@@ -296,7 +305,7 @@ class ReminderRepositoryImpl @Inject constructor(
                             notes = notes,
                             updatedAt = now,
                             isSynced = false,
-                            createdBy = existing.createdBy ?: userName,
+                            createdBy = reused.createdBy ?: userName,
                             updatedBy = userName
                         )
                     } else {
@@ -327,12 +336,12 @@ class ReminderRepositoryImpl @Inject constructor(
                     val displayLabel = if (vaccineName.isBlank()) type else vaccineName
                     logReminderUndoableChange(
                         reminder = reminder,
-                        action = if (existing == null) "SCHEDULED" else "UPDATED",
+                        action = if (reused == null) "SCHEDULED" else "UPDATED",
                         remarks = "Next Vaccination ($displayLabel) scheduled by $userName",
                         newValue = dueDate
                     )
 
-                    val operation = if (existing == null) {
+                    val operation = if (reused == null) {
                         SyncOperation.CREATE
                     } else {
                         SyncOperation.UPDATE
@@ -467,47 +476,22 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateReminderForEdit(reminder: ReminderEntity, performedBy: String, transactionGroupId: String? = null) {
-        withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
-                val now = PatientUtils.getCurrentIsoTimestamp()
-                val userName = sessionManager.getCurrentUserName()
-                val updated = reminder.copy(
-                    id = existing.id,
-                    createdAt = existing.createdAt,
-                    updatedAt = now,
-                    performedBy = existing.performedBy,
-                    isSynced = false,
-                    createdBy = existing.createdBy ?: reminder.createdBy ?: userName,
-                    updatedBy = userName
-                )
-                dueReminderDao.updateReminder(updated)
-                logReminderUndoableChange(
-                    reminder = updated,
-                    action = "UPDATED",
-                    remarks = "Next Vaccination reminder updated by $userName",
-                    newValue = "dueDate=${updated.dueDate}; type=${updated.type}; vaccines=${updated.vaccineName}",
-                    transactionGroupId = transactionGroupId
-                )
-                enqueueReminderSync(
-                    "REMINDERS",
-                    updated.id,
-                    SyncOperation.UPDATE,
-                    SyncPriority.MEDIUM,
-                    transactionGroupId = transactionGroupId
-                )
-            }
-        }
-    }
-
     suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
                 logReminderUndoableChange(existing, "DELETED", "Deleted by $performedBy")
                 dueReminderDao.deleteReminderById(existing.id)
-                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.DELETE, SyncPriority.LOW)
+                // Enqueue using the remote identity (serverId when known, else local id).
+                // uploadEntity's REMINDERS DELETE branch deletes by entityId directly —
+                // the local row is already gone, so a post-delete serverId lookup would
+                // always miss and the remote row would never be removed (resurrection).
+                enqueueReminderSync(
+                    "REMINDERS",
+                    existing.serverId ?: existing.id,
+                    SyncOperation.DELETE,
+                    SyncPriority.LOW
+                )
             }
             triggerImmediateCheck()
         }
@@ -573,16 +557,26 @@ class ReminderRepositoryImpl @Inject constructor(
                             remote.type
                         )
                         
-                        // Skip if this reminder has a pending DELETE in the sync queue
+                        // Pending DELETE enqueues entityId = serverId ?: local id — check
+                        // both identities so a queued hard-delete is never overwritten by a pull.
+                        val remoteId = remote.id
+                        if (remoteId != null && database.syncQueueDao().isUnsynced("REMINDERS", remoteId)) {
+                            continue
+                        }
                         if (local != null && database.syncQueueDao().isUnsynced("REMINDERS", local.id)) {
                             continue
                         }
-                        
-                        if (local == null || local.isSynced) {
-                            // Safe to overwrite or insert
-                            // We preserve the local autoincrement id if it exists to avoid row replacement
-                            val toSave = remote.toLocal(localId = local?.id)
-                            dueReminderDao.insertReminder(toSave)
+
+                        // local == null + no pending DELETE = first-time download (a completed
+                        // hard-delete means the remote row is already gone and won't appear here).
+                        if (local == null) {
+                            dueReminderDao.insertReminder(remote.toLocal())
+                            continue
+                        }
+
+                        if (local.isSynced) {
+                            // Safe to overwrite; preserve the local id to avoid row replacement
+                            dueReminderDao.insertReminder(remote.toLocal(localId = local.id))
                         } else {
                             // Local has unsynced changes, keep it for now
                             // The sync engine will eventually push local changes to Supabase

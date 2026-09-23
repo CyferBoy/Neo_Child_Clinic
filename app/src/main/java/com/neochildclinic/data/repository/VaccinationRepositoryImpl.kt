@@ -229,34 +229,17 @@ class VaccinationRepositoryImpl @Inject constructor(
             ).toEntity(isSynced = false)
             vaccinationDao.insertVaccination(entity)
 
-            // Reconcile item identity instead of deleting/recreating every row. This keeps
-            // unchanged item IDs stable and queues explicit DELETE operations for removed rows.
+            // Always replace items on edit: DELETE every old row (with its ID) and CREATE
+            // every new row under a fresh UUID. Visit ID stays the same. Create path
+            // (existing == null) keeps incoming IDs when present.
             val existingItems = vaccinationItemDao.getItemsForVaccination(vaccination.id).first()
-            val usedExistingIds = mutableSetOf<String>()
+            val isEdit = existing != null
 
             val itemEntities = vaccination.items.map { incoming ->
-                val matching = existingItems.firstOrNull { old ->
-                    old.id !in usedExistingIds &&
-                        old.vaccineId == incoming.vaccineId &&
-                        old.batchId == incoming.batchId
-                }
-
-                if (matching != null) {
-                    usedExistingIds += matching.id
-                    incoming.copy(
-                        id = matching.id,
-                        vaccinationId = vaccination.id
-                    )
-                } else {
-                    incoming.copy(
-                        id = incoming.id.ifBlank { java.util.UUID.randomUUID().toString() },
-                        vaccinationId = vaccination.id
-                    )
-                }
-            }
-
-            val removedItems = existingItems.filter { old ->
-                old.id !in usedExistingIds && itemEntities.none { it.id == old.id }
+                incoming.copy(
+                    id = if (isEdit || incoming.id.isBlank()) java.util.UUID.randomUUID().toString() else incoming.id,
+                    vaccinationId = vaccination.id
+                )
             }
 
             vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
@@ -271,26 +254,23 @@ class VaccinationRepositoryImpl @Inject constructor(
                 transactionGroupId = transactionGroupId
             )
 
-            itemEntities.forEach { item ->
-                val itemOperation = if (existingItems.any { it.id == item.id }) {
-                    SyncOperation.UPDATE
-                } else {
-                    SyncOperation.CREATE
-                }
+            // Queue DELETE for every previous item ID before the CREATE for the replacements.
+            // On create there are no prior rows, so this is a no-op.
+            existingItems.forEach { old ->
                 syncRepository.enqueue(
                     entityName = "VACCINATION_ITEM",
-                    entityId = item.id,
-                    operation = itemOperation,
+                    entityId = old.id,
+                    operation = SyncOperation.DELETE,
                     priority = SyncPriority.MEDIUM,
                     transactionGroupId = transactionGroupId
                 )
             }
 
-            removedItems.forEach { item ->
+            itemEntities.forEach { item ->
                 syncRepository.enqueue(
                     entityName = "VACCINATION_ITEM",
                     entityId = item.id,
-                    operation = SyncOperation.DELETE,
+                    operation = SyncOperation.CREATE,
                     priority = SyncPriority.MEDIUM,
                     transactionGroupId = transactionGroupId
                 )

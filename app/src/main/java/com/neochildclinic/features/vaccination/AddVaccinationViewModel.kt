@@ -666,7 +666,7 @@ class AddVaccinationViewModel @Inject constructor(
                     originalVaccinationItems.mapIndexed { index, original ->
                         val row = state.vaccinesGiven.getOrNull(index)
                         original.copy(
-                            id = original.id.ifBlank { UUID.randomUUID().toString() },
+                            id = UUID.randomUUID().toString(),
                             vaccinationId = vaccinationId,
                             quantity = if (editQuantity) row?.quantity ?: original.quantity else original.quantity
                         )
