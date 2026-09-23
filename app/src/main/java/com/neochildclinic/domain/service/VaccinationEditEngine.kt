@@ -11,7 +11,6 @@ import com.neochildclinic.data.repository.ReminderRepositoryImpl
 import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.flow.first
 import javax.inject.Singleton
 
 /**
@@ -29,6 +28,7 @@ class VaccinationEditEngine @Inject constructor(
     private val reminderRepository: ReminderRepositoryImpl
 ) {
     data class ReminderSpec(
+        val reminderId: String? = null,
         val type: String,
         val vaccineNames: List<String>,
         val vaccineIds: List<String>,
@@ -51,8 +51,10 @@ class VaccinationEditEngine @Inject constructor(
             val inventoryChanged = inventoryDiff(original, updated).isNotEmpty()
             val financeChanged = financeChanged(original, updated)
 
-            // Replace-all items: DELETE prior IDs + CREATE under fresh UUIDs (same visit id).
-            vaccinationRepository.addVaccination(updated, transactionGroupId)
+            // Item-level reconciliation (EditReconciler): unchanged vaccination_items keep
+            // their rows/ids, changed rows are DELETE+CREATE under a new id, removed rows
+            // are deleted, added rows are created. Parent visit id is untouched.
+            val itemsChanged = vaccinationRepository.addVaccination(updated, transactionGroupId)
 
             if (financeChanged) {
                 financeRepository.updateIncomeForVisit(
@@ -68,6 +70,11 @@ class VaccinationEditEngine @Inject constructor(
 
             if (inventoryChanged) {
                 applyInventoryDiff(original, updated, user)
+            }
+            // Local-only deduction audit: rebuild whenever the item set moved at all so
+            // no stale row (e.g. an old vaccine name) is left behind - but never as part
+            // of a no-op save.
+            if (inventoryChanged || itemsChanged) {
                 reconcileInventoryDeductions(updated)
             }
 
@@ -154,22 +161,6 @@ class VaccinationEditEngine @Inject constructor(
         excludedReminderIds: Set<String> = emptySet()
     ) {
         val existing = reminderRepository.getRemindersByVisitId(visitId)
-            .filter { it.id !in excludedReminderIds }
-            .toMutableList()
-
-        // Replace-all: hard-delete every remaining reminder for this visit (queue DELETE),
-        // then create the desired set under fresh UUIDs. Empty desired = delete only.
-        existing.forEach { reminder ->
-            reminderRepository.deleteReminder(reminder, user)
-        }
-
-        data class DesiredRow(
-            val type: String,
-            val vaccineName: String,
-            val vaccineId: String?,
-            val dueDate: String,
-            val notes: String
-        )
 
         val desiredRows = desired.flatMap { spec ->
             val names = spec.vaccineNames
@@ -181,7 +172,8 @@ class VaccinationEditEngine @Inject constructor(
 
             if (names.isEmpty()) {
                 listOf(
-                    DesiredRow(
+                    EditReconciler.ReminderRow(
+                        reminderId = spec.reminderId,
                         type = spec.type,
                         vaccineName = "",
                         vaccineId = null,
@@ -191,11 +183,11 @@ class VaccinationEditEngine @Inject constructor(
                 )
             } else {
                 names.mapIndexedNotNull { index, name ->
-                    val id = ids.getOrNull(index)
-                    DesiredRow(
+                    EditReconciler.ReminderRow(
+                        reminderId = spec.reminderId,
                         type = spec.type,
                         vaccineName = name,
-                        vaccineId = id,
+                        vaccineId = ids.getOrNull(index),
                         dueDate = spec.dueDate,
                         notes = spec.notes
                     )
@@ -203,7 +195,22 @@ class VaccinationEditEngine @Inject constructor(
             }
         }
 
-        desiredRows.forEach { row ->
+        // Item-level plan: unchanged reminders are left completely alone (same row, same
+        // id, no sync op); changed ones are DELETE+CREATE with a fresh id; removed ones
+        // are deleted; added ones are created. Rows cancelled this session
+        // (excludedReminderIds) were already soft-dismissed and are never hard-deleted.
+        val plan = EditReconciler.classifyReminders(existing, desiredRows, excludedReminderIds)
+
+        // Deletes first: the unique (visit, dueDate, type, vaccineName) index must be
+        // free before a replacement row with a colliding key is inserted.
+        plan.delete.forEach { reminder ->
+            reminderRepository.deleteReminder(reminder, user)
+        }
+
+        plan.create.forEach { row ->
+            // The paired old row (if any) was deleted above, so a unique-event hit here
+            // can only mean a genuine duplicate event - saveNextVaccination reuses that
+            // row instead of hard-deleting an unrelated kept reminder.
             reminderRepository.saveNextVaccination(
                 patientId = patientId,
                 originalVisitId = visitId,
@@ -212,8 +219,7 @@ class VaccinationEditEngine @Inject constructor(
                 nxtVaccineId = row.vaccineId?.let { listOf(it) } ?: emptyList(),
                 dueDate = row.dueDate,
                 notes = row.notes,
-                performedBy = user,
-                forceNewId = true
+                performedBy = user
             )
         }
     }

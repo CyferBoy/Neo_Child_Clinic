@@ -20,4 +20,7 @@ interface VaccinationItemDao {
 
     @Query("DELETE FROM vaccination_items WHERE vaccinationId = :vaccinationId")
     suspend fun deleteItemsForVaccination(vaccinationId: String)
+
+    @Query("DELETE FROM vaccination_items WHERE id IN (:ids)")
+    suspend fun deleteItemsByIds(ids: List<String>)
 }

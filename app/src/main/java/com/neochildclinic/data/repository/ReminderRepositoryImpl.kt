@@ -235,8 +235,7 @@ class ReminderRepositoryImpl @Inject constructor(
         notes: String,
         priority: String = "NORMAL",
         reminderEnabled: Boolean = true,
-        performedBy: String,
-        forceNewId: Boolean = false
+        performedBy: String
     ) {
         // A Next Vaccination may be type-only, or may contain one/many vaccines.
         // Each selected vaccine is persisted as its own reminder row.
@@ -274,8 +273,10 @@ class ReminderRepositoryImpl @Inject constructor(
                     val vaccineName = pair?.first.orEmpty()
                     val vaccineId = pair?.second
 
-                    // forceNewId (edit replace path): skip unique-event reuse so the old
-                    // row's ID is never revived after a hard delete + re-create.
+                    // Unique-event reuse: the edit path hard-deletes its paired old row
+                    // before calling this, so a hit here can only mean this event already
+                    // has another row (e.g. two UI rows collapsed onto one event) - update
+                    // it instead of violating the unique index or orphaning a kept row.
                     val existing = dueReminderDao.getReminderByUniqueEvent(
                         patientId,
                         originalVisitId,
@@ -283,12 +284,7 @@ class ReminderRepositoryImpl @Inject constructor(
                         vaccineName,
                         type
                     )
-                    if (forceNewId && existing != null) {
-                        // A dismissed/cancelled row can still occupy the unique index —
-                        // remove it with a proper remote DELETE before creating the new id.
-                        deleteReminder(existing, performedBy)
-                    }
-                    val reused = if (forceNewId) null else existing
+                    val reused = existing
 
                     val reminder = if (reused != null) {
                         reused.copy(

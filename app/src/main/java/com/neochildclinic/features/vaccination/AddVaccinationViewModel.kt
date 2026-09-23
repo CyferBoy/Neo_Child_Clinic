@@ -181,7 +181,10 @@ class AddVaccinationViewModel @Inject constructor(
                     ?.batches
                     ?.firstOrNull { it.batchId == item.batchId }
                     ?: inventoryRepository.getBatchById(item.batchId)
+                // Row id = the persisted vaccination_items id, so the save path can tell
+                // edited rows apart from added ones (EditReconciler matches on it).
                 VaccineSelectionState(
+                    id = item.id,
                     selectedVaccine = vaccine,
                     selectedBatch = batch,
                     quantity = item.quantity
@@ -662,11 +665,15 @@ class AddVaccinationViewModel @Inject constructor(
                     state.selectedSlot!!.weeklySlotId
                 }
 
+                // Every item keeps its stable row identity: rows loaded from the DB carry
+                // their vaccination_items id (selection.id), rows added in the UI carry a
+                // fresh UUID. EditReconciler decides per row whether to KEEP it, replace
+                // it (DELETE old + CREATE new id), delete it, or create it. Ids are never
+                // regenerated here - doing so destroys the identity before reconciliation.
                 val items = if (isEdit && !editVaccineBatch) {
-                    originalVaccinationItems.mapIndexed { index, original ->
-                        val row = state.vaccinesGiven.getOrNull(index)
+                    originalVaccinationItems.map { original ->
+                        val row = state.vaccinesGiven.find { it.id == original.id }
                         original.copy(
-                            id = UUID.randomUUID().toString(),
                             vaccinationId = vaccinationId,
                             quantity = if (editQuantity) row?.quantity ?: original.quantity else original.quantity
                         )
@@ -674,7 +681,7 @@ class AddVaccinationViewModel @Inject constructor(
                 } else {
                     state.vaccinesGiven.map { selection ->
                         VaccinationItem(
-                            id = UUID.randomUUID().toString(),
+                            id = selection.id,
                             vaccinationId = vaccinationId,
                             vaccineId = selection.selectedVaccine!!.id,
                             vaccineName = selection.selectedVaccine.brandName,
@@ -721,6 +728,7 @@ class AddVaccinationViewModel @Inject constructor(
                     // creates 3 separate reminders.
                     group.items.map { item ->
                         VaccinationEditEngine.ReminderSpec(
+                            reminderId = item.reminderId,
                             type = item.type,
                             vaccineNames = listOfNotNull(item.vaccine?.brandName),
                             vaccineIds = listOfNotNull(item.vaccine?.id),

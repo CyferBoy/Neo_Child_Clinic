@@ -10,6 +10,7 @@ import com.neochildclinic.core.utils.WidgetUtils
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.service.EditReconciler
 import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import io.github.jan.supabase.auth.Auth
@@ -213,81 +214,116 @@ class VaccinationRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String? = null) {
+    /**
+     * Writes the visit header and reconciles its vaccination_items one row at a time
+     * (see EditReconciler): unchanged rows are not touched, changed rows are deleted
+     * and recreated under a new id, removed rows are deleted, added rows are created.
+     * Create path (no existing visit) inserts the incoming rows as-is.
+     *
+     * @return true when any item row was created or deleted.
+     */
+    suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String? = null): Boolean {
+        var itemsChanged = false
         database.withTransaction {
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
 
             // Receipt numbers are assigned by the database (patient_visits trigger), never
             // here. A brand-new record is saved with a blank receiptNumber and picks up its
             // real "NEO-YY/YY-NNNNNN" number once this visit is pushed to Supabase; see
-            // SyncRepositoryImpl's post-upsert read-back. Editing must never touch it, so an
-            // already-issued number carried on `vaccination` is passed through untouched.
+            // SyncRepositoryImpl's post-upsert read-back. Editing must never touch it, so
+            // the editor (which doesn't model these fields) carries the persisted values.
+            // inventoryStatus too: it is set once at creation and the editor rebuilding
+            // Vaccination with its default "PENDING" would otherwise wipe "COMPLETED" -
+            // and make every save of a completed visit look like a parent change.
+            val carried = if (existing == null) vaccination else vaccination.copy(
+                receiptNumber = vaccination.receiptNumber.ifBlank { existing.receiptNumber },
+                notes = vaccination.notes.ifBlank { existing.notes },
+                inventoryStatus = existing.inventoryStatus
+            )
             val userName = sessionManager.getCurrentUserName()
-            val entity = vaccination.copy(
+            val entity = carried.copy(
                 createdBy = if (existing == null) userName else (existing.createdBy ?: vaccination.createdBy ?: userName),
                 updatedBy = userName
             ).toEntity(isSynced = false)
-            vaccinationDao.insertVaccination(entity)
+                .let { if (existing == null) it else it.copy(
+                    paymentId = existing.paymentId,
+                    materialsUsed = existing.materialsUsed
+                ) }
 
-            // Always replace items on edit: DELETE every old row (with its ID) and CREATE
-            // every new row under a fresh UUID. Visit ID stays the same. Create path
-            // (existing == null) keeps incoming IDs when present.
-            val existingItems = vaccinationItemDao.getItemsForVaccination(vaccination.id).first()
-            val isEdit = existing != null
-
-            val itemEntities = vaccination.items.map { incoming ->
-                incoming.copy(
-                    id = if (isEdit || incoming.id.isBlank()) java.util.UUID.randomUUID().toString() else incoming.id,
-                    vaccinationId = vaccination.id
-                )
-            }
-
-            vaccinationItemDao.deleteItemsForVaccination(vaccination.id)
-            vaccinationItemDao.insertItems(itemEntities)
-
-            val operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE
-            syncRepository.enqueue(
-                entityName = "VACCINATION",
-                entityId = vaccination.id,
-                operation = operation,
-                priority = SyncPriority.HIGH,
-                transactionGroupId = transactionGroupId
+            val itemPlan = EditReconciler.classifyItems(
+                existing = if (existing == null) emptyList()
+                    else vaccinationItemDao.getItemsForVaccination(vaccination.id).first(),
+                edited = vaccination.items.map { it.copy(vaccinationId = vaccination.id) }
             )
+            itemsChanged = itemPlan.anyChange
 
-            // Queue DELETE for every previous item ID before the CREATE for the replacements.
-            // On create there are no prior rows, so this is a no-op.
-            existingItems.forEach { old ->
+            // Parent row is kept (same id, relationships intact) and written only when
+            // something it carries actually changed: its own business fields, or the
+            // denormalized item snapshot (plus any child-row change, because a pending
+            // VACCINATION queue entry is what tells applyDownloadedVaccinationItems to
+            // skip a pull while item DELETEs/CREATEs are still queued). A no-op save
+            // writes nothing and queues nothing.
+            val parentChanged = existing == null || itemPlan.anyChange || businessDiffers(existing, entity)
+            if (parentChanged) {
+                vaccinationDao.insertVaccination(entity)
                 syncRepository.enqueue(
-                    entityName = "VACCINATION_ITEM",
-                    entityId = old.id,
-                    operation = SyncOperation.DELETE,
-                    priority = SyncPriority.MEDIUM,
+                    entityName = "VACCINATION",
+                    entityId = vaccination.id,
+                    operation = if (existing == null) SyncOperation.CREATE else SyncOperation.UPDATE,
+                    priority = SyncPriority.HIGH,
+                    transactionGroupId = transactionGroupId
+                )
+                auditLogger.recordLog(
+                    module = "PATIENT",
+                    entityType = "VACCINATION",
+                    entityId = vaccination.id,
+                    action = if (existing == null) "VACCINATION" else "VACCINATION_UPDATED",
+                    patientId = vaccination.patientId,
+                    remarks = "Vaccines: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
                     transactionGroupId = transactionGroupId
                 )
             }
 
-            itemEntities.forEach { item ->
-                syncRepository.enqueue(
-                    entityName = "VACCINATION_ITEM",
-                    entityId = item.id,
-                    operation = SyncOperation.CREATE,
-                    priority = SyncPriority.MEDIUM,
-                    transactionGroupId = transactionGroupId
-                )
+            // Item-level plan: untouched rows get no local write and no sync op.
+            if (itemPlan.deleteIds.isNotEmpty()) {
+                vaccinationItemDao.deleteItemsByIds(itemPlan.deleteIds)
+                itemPlan.deleteIds.forEach { oldId ->
+                    syncRepository.enqueue(
+                        entityName = "VACCINATION_ITEM",
+                        entityId = oldId,
+                        operation = SyncOperation.DELETE,
+                        priority = SyncPriority.MEDIUM,
+                        transactionGroupId = transactionGroupId
+                    )
+                }
             }
-
-            auditLogger.recordLog(
-                module = "PATIENT",
-                entityType = "VACCINATION",
-                entityId = vaccination.id,
-                action = if (existing == null) "VACCINATION" else "VACCINATION_UPDATED",
-                patientId = vaccination.patientId,
-                remarks = "Vaccines: ${vaccination.items.joinToString(", ") { it.vaccineName }}",
-                transactionGroupId = transactionGroupId
-            )
+            if (itemPlan.inserts.isNotEmpty()) {
+                vaccinationItemDao.insertItems(itemPlan.inserts)
+                itemPlan.inserts.forEach { item ->
+                    syncRepository.enqueue(
+                        entityName = "VACCINATION_ITEM",
+                        entityId = item.id,
+                        operation = SyncOperation.CREATE,
+                        priority = SyncPriority.MEDIUM,
+                        transactionGroupId = transactionGroupId
+                    )
+                }
+            }
         }
         WidgetUtils.updateWidget(appContext)
+        return itemsChanged
     }
+
+    // Timestamps/audit columns and the editor-managed identity fields are not business
+    // state - normalizing them away keeps a no-op save from looking like a change.
+    private fun businessDiffers(old: VisitEntity, new: VisitEntity): Boolean =
+        old.copy(
+            createdAt = new.createdAt,
+            updatedAt = new.updatedAt,
+            isSynced = new.isSynced,
+            createdBy = new.createdBy,
+            updatedBy = new.updatedBy
+        ) != new
 
     suspend fun deleteVaccination(id: String) {
         database.withTransaction {
