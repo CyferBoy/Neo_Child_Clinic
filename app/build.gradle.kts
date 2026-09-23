@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     
     // Utilities
+    implementation(libs.play.services.base)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
 
