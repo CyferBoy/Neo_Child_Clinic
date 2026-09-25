@@ -72,6 +72,14 @@ fun OverviewTab(
         if (isOverall) emptyList() else financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
     }
 
+    // Visit-type counts (all non-deleted visits, by visit_type) for the three Overview cards.
+    val visitTypeStatsCurrent = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
+        StatisticsUtils.visitTypeStats(vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) })
+    }
+    val visitTypeStatsPrev = remember(vaccinations, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) VisitTypeStats(0, 0, 0) else StatisticsUtils.visitTypeStats(vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) })
+    }
+
     // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)
     val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
 
@@ -173,6 +181,12 @@ fun OverviewTab(
         prevPatientsCount = prevPatients.size,
         vaccPatientsCount = filteredVaccinations.map { it.patientId }.distinct().size,
         prevVaccPatientsCount = prevVaccinations.map { it.patientId }.distinct().size,
+        consultedPatientsCount = visitTypeStatsCurrent.consultedPatients,
+        prevConsultedPatientsCount = visitTypeStatsPrev.consultedPatients,
+        totalVaccinationCount = visitTypeStatsCurrent.totalVaccination,
+        prevTotalVaccinationCount = visitTypeStatsPrev.totalVaccination,
+        totalConsultationCount = visitTypeStatsCurrent.totalConsultation,
+        prevTotalConsultationCount = visitTypeStatsPrev.totalConsultation,
         dosesCount = filteredVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
         prevDosesCount = prevVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
         patientActivityData = patientActivityData,
@@ -197,6 +211,12 @@ private fun OverviewContent(
     prevPatientsCount: Int,
     vaccPatientsCount: Int,
     prevVaccPatientsCount: Int,
+    consultedPatientsCount: Int,
+    prevConsultedPatientsCount: Int,
+    totalVaccinationCount: Int,
+    prevTotalVaccinationCount: Int,
+    totalConsultationCount: Int,
+    prevTotalConsultationCount: Int,
     dosesCount: Int,
     prevDosesCount: Int,
     patientActivityData: List<ChartDataPoint>,
@@ -217,7 +237,7 @@ private fun OverviewContent(
                 filterMode = filterMode,
                 fyQuarter = fyQuarter,
                 selectedMonth = selectedMonth,
-                onFilterModeChange = { onFilterModeChange("FY ${it.takeLast(5)}") },
+                onFilterModeChange = { onFilterModeChange(it) },
                 onQuarterChange = onQuarterChange,
                 onMonthChange = onMonthChange,
                 modifier = Modifier.padding(top = 16.dp)
@@ -260,12 +280,12 @@ private fun OverviewContent(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
-                    title = "Total Consultations",
-                    value = String.format(Locale.US, "%,d", (patientsCount * 1.2).toInt()), // Simulated
-                    icon = Icons.Default.MedicalServices,
+                    title = "Consulted Patients",
+                    value = String.format(Locale.US, "%,d", consultedPatientsCount),
+                    icon = Icons.Default.Groups,
                     iconColor = customColors.textPurple,
                     iconBackground = customColors.softPurple,
-                    growthPercentage = StatisticsUtils.calculateGrowth(patientsCount * 1.2, prevPatientsCount * 1.2)
+                    growthPercentage = StatisticsUtils.calculateGrowth(consultedPatientsCount.toDouble(), prevConsultedPatientsCount.toDouble())
                 )
                 SummaryCard(
                     modifier = Modifier.weight(1f),
@@ -275,6 +295,29 @@ private fun OverviewContent(
                     iconColor = customColors.textCyan,
                     iconBackground = customColors.softCyan,
                     growthPercentage = StatisticsUtils.calculateGrowth(vaccPatientsCount.toDouble(), prevVaccPatientsCount.toDouble())
+                )
+            }
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Consultation",
+                    value = String.format(Locale.US, "%,d", totalConsultationCount),
+                    icon = Icons.Default.MedicalServices,
+                    iconColor = customColors.textPink,
+                    iconBackground = customColors.softPink,
+                    growthPercentage = StatisticsUtils.calculateGrowth(totalConsultationCount.toDouble(), prevTotalConsultationCount.toDouble())
+                )
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Vaccination",
+                    value = String.format(Locale.US, "%,d", totalVaccinationCount),
+                    icon = Icons.Default.Vaccines,
+                    iconColor = customColors.textOrange,
+                    iconBackground = customColors.softOrange,
+                    growthPercentage = StatisticsUtils.calculateGrowth(totalVaccinationCount.toDouble(), prevTotalVaccinationCount.toDouble())
                 )
             }
         }

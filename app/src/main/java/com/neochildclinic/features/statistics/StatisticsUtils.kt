@@ -139,4 +139,29 @@ object StatisticsUtils {
         if (previous == 0.0) return null
         return ((current - previous) / previous) * 100.0
     }
+
+    /**
+     * Visit-type counts for Overview cards. Counts every non-deleted visit (the caller's list is
+     * already is_deleted=0 filtered), by visit_type — deliberately NOT gated by [filterValidVaccinations],
+     * because visits are recorded with ACTIVE status and must still count ([VisitTypeStats.consultedPatients]
+     * is unique patients, the other two are per-visit counts).
+     */
+    fun visitTypeStats(visits: List<Vaccination>): VisitTypeStats {
+        val consultedIds = mutableSetOf<String>()
+        var totalConsultation = 0
+        var totalVaccination = 0
+        visits.forEach { v ->
+            when {
+                v.visitType.equals("CONSULTATION", ignoreCase = true) -> { totalConsultation++; consultedIds += v.patientId }
+                v.visitType.equals("VACCINATION", ignoreCase = true) -> totalVaccination++
+            }
+        }
+        return VisitTypeStats(consultedIds.size, totalConsultation, totalVaccination)
+    }
 }
+
+data class VisitTypeStats(
+    val consultedPatients: Int,
+    val totalConsultation: Int,
+    val totalVaccination: Int
+)

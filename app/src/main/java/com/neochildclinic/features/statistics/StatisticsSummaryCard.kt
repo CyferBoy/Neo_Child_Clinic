@@ -69,7 +69,7 @@ fun FilterSection(
                 availableYears.forEach { year ->
                     DropdownMenuItem(
                         text = { Text(year) },
-                        onClick = { onFilterModeChange(year); yearExpanded = false }
+                        onClick = { onFilterModeChange("FY ${year.takeLast(5)}"); yearExpanded = false }
                     )
                 }
             }

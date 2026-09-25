@@ -76,7 +76,7 @@ fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<
         fyQuarter = fyQuarter,
         selectedMonth = selectedMonth,
         availableYears = availableYears,
-        onFilterModeChange = { filterMode = "FY ${it.takeLast(5)}"; fyQuarter = 0; selectedMonth = -1 },
+        onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
         onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
         onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } },
         onVaccineTypeClick = onVaccineTypeClick

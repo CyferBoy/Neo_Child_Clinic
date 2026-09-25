@@ -70,12 +70,6 @@ class BorrowedViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(0)
     private val _isRefreshing = MutableStateFlow(false)
 
-    init {
-        viewModelScope.launch {
-            borrowRepository.refreshBorrows()
-        }
-    }
-
     val uiState: StateFlow<BorrowedUiState> = combine(
         borrowRepository.getActiveBorrowedRecords(),
         borrowRepository.getReturnedRecords(),
@@ -153,7 +147,8 @@ class BorrowedViewModel @Inject constructor(
             mainTab = mainTab,
             selectedTab = tab
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BorrowedUiState(isLoading = true))
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BorrowedUiState(isLoading = true))
 
     fun refresh() {
         if (_isRefreshing.value) return

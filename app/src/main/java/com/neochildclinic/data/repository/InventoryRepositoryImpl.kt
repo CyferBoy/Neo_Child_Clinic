@@ -18,6 +18,7 @@ import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -126,7 +127,7 @@ class InventoryRepositoryImpl @Inject constructor(
                     InventorySort.OLDEST -> (a.batches.minOfOrNull { it.purchaseDate } ?: "").compareTo(b.batches.minOfOrNull { it.purchaseDate } ?: "")
                 }
             }
-        }
+        }.flowOn(Dispatchers.Default)
     }
 
     fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 

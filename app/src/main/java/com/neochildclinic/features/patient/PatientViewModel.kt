@@ -18,6 +18,7 @@ import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.core.utils.PatientUtils
 import io.github.jan.supabase.postgrest.Postgrest
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -231,6 +232,7 @@ class PatientViewModel @Inject constructor(
                         )
                     }
             }
+            .flowOn(Dispatchers.Default)
 
     fun getPatientNotes(patientId: String): Flow<List<PatientNotesEntity>> {
         return patientRepository.getNotes(patientId)
