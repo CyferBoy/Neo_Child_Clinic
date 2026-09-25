@@ -37,6 +37,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val inventoryDeductionDao = database.inventoryDeductionDao()
     private val patientDao = database.patientDao()
     private val vaccineDao = database.vaccineDao()
+    private val financeDao = database.financeDao()
     private val dueReminderDao = database.dueReminderDao()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -325,34 +326,105 @@ class VaccinationRepositoryImpl @Inject constructor(
             updatedBy = new.updatedBy
         ) != new
 
+    // Deletion failure/retry contract (see project spec "Deletion Failure and Retry
+    // Behavior"):
+    //
+    // - Everything below runs inside one Room transaction, so a failure at any step rolls
+    //   back every local change made by this call - no partial inventory restore, no
+    //   partially-deleted reminders/items, no misleading "success". Nothing here swallows
+    //   an exception from a *required* step; only the final soft state (inventoryStatus
+    //   reconciliation elsewhere) is allowed to be best-effort, and this method has none of
+    //   that kind of step.
+    // - The very first line is also what makes a retry (a second call for the same id,
+    //   whether from a UI double-tap or a caller retrying after a prior failure) safe:
+    //   getActiveVaccinationById only returns a row that still exists, and this is a hard
+    //   SQL DELETE, so once one call's transaction commits, every later call for the same
+    //   id finds nothing and becomes a no-op. Concurrent calls are serialized by Room/SQLite
+    //   the same way any two writers to the same database are, so there is no window where
+    //   two calls both see the row as present.
+    // - A remote sync failure afterward (network, Supabase down, auth) never undoes any of
+    //   this: nothing here is reverted by SyncRepositoryImpl on a failed upload. The queued
+    //   DELETE/CREATE/UPDATE operations below simply stay PENDING (or FAILED, still visible
+    //   on the Sync screen and retryable) until they succeed - see SyncRepositoryImpl for
+    //   the retry/backoff and DELETE-idempotency guarantees that apply once they're queued.
     suspend fun deleteVaccination(id: String) {
+        val transactionGroupId = java.util.UUID.randomUUID().toString()
         database.withTransaction {
             val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction
 
-            // Financial transactions are historical records and must remain after a clinical record is deleted.
-            // 1. Identify batches used in this vaccination
-            val batchIds = existing.batchIds.split(",").filter { it.isNotBlank() }
             val user = sessionManager.getCurrentUserName()
 
-            // 2. Replenish inventory atomically
-            for (batchId in batchIds) {
-                try {
-                    inventoryRepository.reverseDeduction(
-                        batchId = batchId,
-                        quantity = 1,
-                        user = user,
-                        visitId = id,
-                        patientId = existing.patientId
+            // 1. Replenish inventory atomically, from the inventory_deductions ledger -
+            // the actual record of what this vaccination deducted (batch + quantity per
+            // item) - rather than the denormalized batchIds string on the visit row, which
+            // has no quantity and does not distinguish a batch that was actually deducted
+            // from one whose deduction failed (see ClinicalVaccinationService, which writes
+            // a COMPLETED/FAILED row per item for exactly this reason; VaccinationEditEngine
+            // reverses stock the same way). A failure here throws out of this whole
+            // transaction - it is never caught/logged-and-continued, so a batch that can't
+            // be replenished (e.g. deleted from the catalog) blocks the deletion instead of
+            // silently leaving stock short.
+            val completedDeductions = inventoryDeductionDao.getCompletedForVaccination(id)
+            for (deduction in completedDeductions) {
+                val batchId = deduction.batchId ?: continue
+                inventoryRepository.reverseDeduction(
+                    batchId = batchId,
+                    quantity = deduction.quantity,
+                    user = user,
+                    visitId = id,
+                    patientId = existing.patientId,
+                    transactionGroupId = transactionGroupId
+                )
+            }
+
+            // 2. Clean up the deduction ledger itself. Local-only table (no remote
+            // counterpart, never appears in SyncRepositoryImpl's entity map), so this needs
+            // no sync op - and deleting it here, in the same transaction as the reversal
+            // above, is what keeps a reversal from ever being applied twice: if this
+            // transaction is retried after a prior attempt's local commit, the rows read in
+            // step 1 are already gone, so there is nothing left to reverse.
+            inventoryDeductionDao.deleteForVaccination(id)
+
+            // 2b. Sever inventory_transactions' and finance_transactions' link to this
+            // visit. Both are permanent audit history and are never deleted here (see step
+            // 5) - but every one of them, including the reversal just inserted in step 1,
+            // still carries this visit's id. If Supabase enforces visit_id as a real
+            // foreign key against patient_visits, those rows blocking the visit delete in
+            // step 6 is exactly the failure this step exists to prevent: "patient visit row
+            // deletes first, fails because the visit id is still referenced elsewhere."
+            // Null just the link (every other column - amount, batch, quantity, notes,
+            // timestamp - stays exactly as it was); the sync UPDATE this enqueues re-reads
+            // the local row at upload time, so it doesn't matter whether it runs before or
+            // after step 6's DELETE actually reaches Supabase - by the time either one
+            // lands, the reference is already gone from this row's own data.
+            val visitTransactions = vaccineDao.getTransactionsForVisit(id)
+            if (visitTransactions.isNotEmpty()) {
+                vaccineDao.clearVisitLink(id)
+                visitTransactions.forEach { txn ->
+                    syncRepository.enqueue(
+                        entityName = "INVENTORY_TRANSACTION",
+                        entityId = txn.transactionId,
+                        operation = SyncOperation.UPDATE,
+                        priority = SyncPriority.MEDIUM,
+                        transactionGroupId = transactionGroupId
                     )
-                } catch (e: Exception) {
-                    android.util.Log.e("VaccinationRepo", "Failed to replenish stock for batch $batchId: ${e.message}")
+                }
+            }
+            val visitFinanceTransactions = financeDao.getTransactionsByVisitId(id)
+            if (visitFinanceTransactions.isNotEmpty()) {
+                financeDao.clearVisitLink(id)
+                visitFinanceTransactions.forEach { txn ->
+                    syncRepository.enqueue(
+                        entityName = "FINANCE",
+                        entityId = txn.id,
+                        operation = SyncOperation.UPDATE,
+                        priority = SyncPriority.MEDIUM,
+                        transactionGroupId = transactionGroupId
+                    )
                 }
             }
 
-            // 3. Clean up deduction logs
-            inventoryDeductionDao.deleteForVaccination(id)
-
-            // 3b. Clean up reminders tied to this visit. Without this, a reminder that
+            // 3. Clean up reminders tied to this visit. Without this, a reminder that
             // already synced to Supabase is left behind there after the visit is deleted -
             // a later refreshReminders() pull then re-downloads that now-parentless
             // reminder locally, and any subsequent create/update sync for it permanently
@@ -362,29 +434,69 @@ class VaccinationRepositoryImpl @Inject constructor(
                 dueReminderDao.deleteReminderById(reminder.id)
                 syncRepository.enqueue(
                     entityName = "REMINDERS",
-                    entityId = reminder.id,
+                    // Remote identity for a reminder is serverId when known, else the local
+                    // id (the two are always the same value for a reminder this app created
+                    // and has synced at least once - see ReminderEntity.toRemote/toLocal -
+                    // but serverId is the field that actually records "synced", so prefer
+                    // it). The local row is already gone above, so this must be captured
+                    // now rather than re-read later.
+                    entityId = reminder.serverId ?: reminder.id,
                     operation = SyncOperation.DELETE,
-                    priority = SyncPriority.LOW
+                    priority = SyncPriority.LOW,
+                    transactionGroupId = transactionGroupId
                 )
             }
 
-            // 4. Soft-delete the record
+            // 4. Delete the vaccination's line items. vaccination_items has a local FK
+            // (CASCADE) to patient_visits, so step 6's hard delete would remove these rows
+            // from Room on its own - but a local cascade has no way to tell Supabase
+            // anything, so without an explicit DELETE enqueued per item here, the remote
+            // vaccination_items rows for this visit were being left behind permanently
+            // (patient_visits itself never referenced them for its own deletion, so nothing
+            // else queues this).
+            val items = vaccinationItemDao.getItemsForVaccination(id).first()
+            if (items.isNotEmpty()) {
+                vaccinationItemDao.deleteItemsByIds(items.map { it.id })
+                items.forEach { item ->
+                    syncRepository.enqueue(
+                        entityName = "VACCINATION_ITEM",
+                        entityId = item.id,
+                        operation = SyncOperation.DELETE,
+                        priority = SyncPriority.MEDIUM,
+                        transactionGroupId = transactionGroupId
+                    )
+                }
+            }
+
+            // 5. Finance: the record itself is deliberately untouched beyond step 2b's
+            // visit_id unlink above. Financial transactions are historical records and
+            // must remain after a clinical record is deleted (recordVaccination links a
+            // finance_transactions row to this visit via visitId, but nothing about
+            // deleting the visit should delete or rewrite the amount, category, payment
+            // method, or any other field of that income record).
+
+            // 6. Hard-delete the visit itself, last - after every child row that
+            // references it has already been queued for deletion, matching
+            // SyncRepositoryImpl's own child-before-parent DELETE ordering
+            // (getEntityPriority) for the remote side.
             vaccinationDao.deleteVaccination(id)
-            
+
             syncRepository.enqueue(
                 entityName = "VACCINATION",
                 entityId = id,
                 operation = SyncOperation.DELETE,
-                priority = SyncPriority.MEDIUM
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = transactionGroupId
             )
-            
+
             auditLogger.recordLog(
                 module = "PATIENT",
                 entityType = "VACCINATION",
                 entityId = id,
                 action = "DELETED",
                 patientId = existing.patientId,
-                remarks = "Vaccines: ${existing.vaccineNames}"
+                remarks = "Vaccines: ${existing.vaccineNames}",
+                transactionGroupId = transactionGroupId
             )
         }
         WidgetUtils.updateWidget(appContext)

@@ -658,12 +658,22 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
+    // Idempotency note: this always generates a brand-new transactionId and always adds
+    // `quantity` to the batch's remainingQuantity - it has no built-in guard against being
+    // applied twice for the "same" reversal. That's intentional: the guard lives one level
+    // up, in the caller's atomic local transaction (e.g. VaccinationRepositoryImpl.deleteVaccination
+    // only calls this once per completed inventory_deductions row, and deletes that row in
+    // the same transaction - so a rolled-back attempt leaves nothing reversed and nothing
+    // to retry from, and a committed attempt can never be replayed because the row driving
+    // it is gone). Callers must not call this more than once for the same physical
+    // deduction being undone.
     suspend fun reverseDeduction(
         batchId: String,
         quantity: Int,
         user: String,
         visitId: String? = null,
-        patientId: String? = null
+        patientId: String? = null,
+        transactionGroupId: String? = null
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -691,17 +701,20 @@ class InventoryRepositoryImpl @Inject constructor(
                 updatedBy = userName
             )
             vaccineDao.insertTransaction(transaction)
+            val groupId = transactionGroupId ?: UUID.randomUUID().toString()
             syncRepository.enqueue(
                 entityName = "INVENTORY_TRANSACTION",
                 entityId = transaction.transactionId,
                 operation = SyncOperation.CREATE,
-                priority = SyncPriority.HIGH
+                priority = SyncPriority.HIGH,
+                transactionGroupId = groupId
             )
             syncRepository.enqueue(
                 entityName = "BATCH",
                 entityId = batchId,
                 operation = SyncOperation.UPDATE,
-                priority = SyncPriority.MEDIUM
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = groupId
             )
         }
     }

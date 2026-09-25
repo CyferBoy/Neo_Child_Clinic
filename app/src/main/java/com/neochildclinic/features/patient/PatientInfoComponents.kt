@@ -220,7 +220,7 @@ fun PatientInfoSection(patient: Patient) {
                     Text(text = patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
                     val ageLabel = formatAgeYearsMonths(patient.dob)
-                    val subTitle = if (ageLabel != null) "ID: $clinicId • Age: $ageLabel" else "ID: $clinicId"
+                    val subTitle = if (ageLabel != null) "Age: $ageLabel • ID: $clinicId" else "ID: $clinicId"
                     Text(text = subTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

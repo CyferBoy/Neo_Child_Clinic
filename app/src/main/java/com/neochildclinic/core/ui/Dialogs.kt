@@ -25,20 +25,32 @@ fun DeleteConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     title: String = "Delete Confirmation",
-    message: String = "Are you sure you want to delete this item? This action cannot be undone."
+    message: String = "Are you sure you want to delete this item? This action cannot be undone.",
+    // While a deletion is actually running (e.g. the vaccination-delete transaction),
+    // both actions are disabled so a slow tap-to-dismiss race or a rapid double-tap on
+    // Delete can't fire the delete transaction twice or dismiss the dialog mid-flight.
+    isDeleting: Boolean = false
 ) {
     if (show) {
         AlertDialog(
-            onDismissRequest = onDismiss,
+            onDismissRequest = { if (!isDeleting) onDismiss() },
             title = { Text(title) },
             text = { Text(message) },
             confirmButton = {
-                TextButton(onClick = onConfirm) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onConfirm, enabled = !isDeleting) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) {
+                TextButton(onClick = onDismiss, enabled = !isDeleting) {
                     Text("Cancel")
                 }
             }

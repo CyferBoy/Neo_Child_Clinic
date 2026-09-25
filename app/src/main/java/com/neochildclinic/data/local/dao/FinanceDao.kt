@@ -21,6 +21,12 @@ interface FinanceDao {
     @Query("SELECT * FROM finance_transactions WHERE visitId = :visitId")
     suspend fun getTransactionsByVisitId(visitId: String): List<FinanceEntity>
 
+    // Same reasoning as VaccineDao.clearVisitLink: a deleted vaccination's finance record
+    // must remain (historical income record), but the visit_id it points at is gone. Null
+    // just that link; amount, category, payment method, receipt number etc. are untouched.
+    @Query("UPDATE finance_transactions SET visitId = NULL WHERE visitId = :visitId")
+    suspend fun clearVisitLink(visitId: String)
+
     // Row counts and simple sums for a date range, computed by SQLite rather than by
     // summing a fully-materialized Kotlin list. Use for "how many transactions / what's
     // the raw revenue-minus-expense total in this window" - anything needing the finer

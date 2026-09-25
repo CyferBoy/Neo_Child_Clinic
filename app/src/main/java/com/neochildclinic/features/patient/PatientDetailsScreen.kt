@@ -76,6 +76,7 @@ fun PatientDetailsScreen(
     val doctorMap by viewModel.doctorMap.collectAsState()
     val vaccineMap by viewModel.vaccineMap.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val deletingVaccinationIds by viewModel.deletingVaccinationIds.collectAsState()
 
     LaunchedEffect(patientId) {
         viewModel.loadDocuments(patientId)
@@ -103,15 +104,22 @@ fun PatientDetailsScreen(
         onConfirm = {
             val vId = vaccinationToDelete?.id
             if (vId != null) {
+                // Dialog stays open (with its busy state, see isDeleting below) until the
+                // delete transaction actually finishes, instead of dismissing instantly -
+                // so a slow/offline attempt visibly shows "Deleting..." rather than
+                // silently closing before the local transaction has even committed.
                 viewModel.deleteVaccination(vId) { success ->
                     val msg = if (success) "Vaccination record deleted" else "Failed to delete"
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    vaccinationToDelete = null
                 }
+            } else {
+                vaccinationToDelete = null
             }
-            vaccinationToDelete = null
         },
         title = "Delete Vaccination",
-        message = "Are you sure you want to delete this vaccination record?"
+        message = "Are you sure you want to delete this vaccination record?",
+        isDeleting = vaccinationToDelete?.id?.let { it in deletingVaccinationIds } == true
     )
 
     DeleteConfirmationDialog(

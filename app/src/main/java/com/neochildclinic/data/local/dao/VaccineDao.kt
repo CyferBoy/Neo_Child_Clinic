@@ -73,6 +73,19 @@ interface VaccineDao {
     @Query("SELECT * FROM inventory_transactions WHERE transactionId = :id LIMIT 1")
     suspend fun getTransactionById(id: String): InventoryTransactionEntity?
 
+    @Query("SELECT * FROM inventory_transactions WHERE visitId = :visitId")
+    suspend fun getTransactionsForVisit(visitId: String): List<InventoryTransactionEntity>
+
+    // Deleting a vaccination never deletes its inventory_transactions rows (they're
+    // permanent audit history, same policy as finance_transactions - see
+    // VaccinationRepositoryImpl.deleteVaccination), but the visit they point at is gone.
+    // Null the link rather than leaving it dangling, in case Supabase enforces visit_id as
+    // a real foreign key against patient_visits (an unresolvable reference would otherwise
+    // block deleting the visit remotely, or fail this row's own next sync). Every other
+    // column - amount, batch, quantity, timestamp, notes - is untouched.
+    @Query("UPDATE inventory_transactions SET visitId = NULL WHERE visitId = :visitId")
+    suspend fun clearVisitLink(visitId: String)
+
     // Stock History - filters entirely in SQL (rather than loading every transaction
     // into memory and filtering in Kotlin) and paginates via LIMIT/OFFSET so the
     // history screen never has to hold more than one page of rows at a time.

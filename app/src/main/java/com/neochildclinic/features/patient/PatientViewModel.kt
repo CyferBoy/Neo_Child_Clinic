@@ -49,6 +49,15 @@ class PatientViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // Vaccination ids with a delete transaction currently running. Guards against a rapid
+    // double-tap on Delete (or any other double-invocation) firing the deletion transaction
+    // twice concurrently, and lets the confirmation dialog show a busy state instead of
+    // dismissing instantly - the local transaction is atomic either way (see
+    // VaccinationRepositoryImpl.deleteVaccination), but skipping the redundant second call
+    // here avoids doing the same work twice and any flicker that would cause in the UI.
+    private val _deletingVaccinationIds = MutableStateFlow<Set<String>>(emptySet())
+    val deletingVaccinationIds: StateFlow<Set<String>> = _deletingVaccinationIds.asStateFlow()
+
     fun loadDocuments(patientId: String) {
         viewModelScope.launch {
             try {
@@ -162,6 +171,8 @@ class PatientViewModel @Inject constructor(
     }
 
     fun deleteVaccination(id: String, onResult: (Boolean) -> Unit = {}) {
+        if (id in _deletingVaccinationIds.value) return // already in flight; ignore the repeat tap
+        _deletingVaccinationIds.value += id
         viewModelScope.launch {
             try {
                 vaccinationRepository.deleteVaccination(id)
@@ -169,6 +180,8 @@ class PatientViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("PatientVM", "Delete vaccination failed", e)
                 onResult(false)
+            } finally {
+                _deletingVaccinationIds.value -= id
             }
         }
     }

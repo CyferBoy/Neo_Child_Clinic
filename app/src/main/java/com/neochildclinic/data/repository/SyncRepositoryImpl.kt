@@ -163,24 +163,49 @@ class SyncRepositoryImpl @Inject constructor(
             }
         }
         
-        // 1. Sort the queue to respect FK dependencies
+        // 1. Group by transactionGroupId first. An item with no group id still becomes
+        // its own singleton group, same as before.
+        val rawGroups = pending.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }
+
+        // 2. Order the GROUPS (not the raw items) using the entity-priority FK heuristic:
         // For CREATE/UPDATE: Parent (Priority 1) before Child (Priority 10)
         // For DELETE: Child (Priority 10 -> -10) before Parent (Priority 1 -> -1)
-        val sortedQueue = pending.sortedWith(
-            compareBy(
-                { 
-                    val basePriority = getEntityPriority(it.entityName)
-                    if (it.operation == SyncOperation.DELETE.name) -basePriority else basePriority 
-                }, 
-                { it.createdAt }
-            )
-        )
+        // This still governs ordering between items that were queued independently, with
+        // no shared transactionGroupId (e.g. a PATIENT create from one flow that must
+        // reach Supabase before an unrelated VACCINATION create queued afterward).
+        fun sortKey(item: SyncQueueEntity): Int {
+            val basePriority = getEntityPriority(item.entityName)
+            return if (item.operation == SyncOperation.DELETE.name) -basePriority else basePriority
+        }
 
-        // 2. Group by transactionGroupId
-        val groups = sortedQueue.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }
+        val groups = rawGroups.entries
+            .sortedWith(
+                compareBy(
+                    { entry -> entry.value.minOf(::sortKey) },
+                    { entry -> entry.value.minOf { it.createdAt } }
+                )
+            )
+            .associate { (groupId, items) ->
+                // 3. WITHIN one transactionGroupId, preserve the exact order the app
+                // enqueued these ops - do NOT re-rank them by the entity-priority
+                // heuristic above. A shared group id means a single local business
+                // transaction (e.g. deleteVaccination) already sequenced its child
+                // unlink/delete calls correctly relative to a parent delete, and
+                // re-deriving that order from entity priority breaks as soon as a group
+                // mixes a parent DELETE with a child UPDATE: FINANCE's positive UPDATE
+                // key (basePriority 4 -> +4) sorted AFTER VACCINATION's negated DELETE
+                // key (basePriority 2 -> -2), so the old code deleted the patient_visits
+                // row before finance_transactions.visit_id was nulled, and Supabase
+                // rejected the delete with FK violation "finance_transactions_visit_id_fkey"
+                // (Postgres 23503). Sorting by createdAt/queueId instead keeps the
+                // unlink-before-delete (and child-delete-before-parent-delete) order that
+                // deleteVaccination() already builds the queue in.
+                groupId to items.sortedWith(compareBy({ it.createdAt }, { it.queueId }))
+            }
 
         var hasError = false
         var sessionTransient = false
+        var anyTransientRetry = false
 
         for ((groupId, groupItems) in groups) {
             try {
@@ -234,18 +259,36 @@ class SyncRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 hasError = true
                 android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
-                
-                val isNetworkError = e is java.io.IOException || e.message?.contains("network", ignoreCase = true) == true
-                
+
+                val transient = isTransientSyncError(e)
+
                 for (item in groupItems) {
-                    if (isNetworkError && item.retryCount < 5) {
+                    if (transient && item.retryCount < 5) {
                         syncDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
                         syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                        anyTransientRetry = true
                     } else {
+                        // Either a permanent failure (bad payload, schema mismatch, RLS/
+                        // permission denial, etc. - retrying it would never succeed without
+                        // user/data intervention) or a transient one that already used its 5
+                        // attempts. Either way, mark it FAILED rather than looping forever:
+                        // the row stays in sync_queue with its error details (lastError),
+                        // visible on the Sync screen and retryable from there - never
+                        // silently discarded.
                         syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, buildSyncErrorDetails(e))
                     }
                 }
             }
+        }
+
+        if (anyTransientRetry) {
+            // At least one item was requeued PENDING for a transient reason (timeout,
+            // Supabase 5xx, rate limiting, a dropped connection, ...). The periodic 15-
+            // minute worker (see NeoChildApp) would eventually pick these back up on its
+            // own, but scheduling now lets WorkManager's exponential backoff (see
+            // SyncManagerImpl.scheduleSync) retry them promptly instead of waiting for that
+            // next periodic tick.
+            syncManager.scheduleSync()
         }
 
         if (sessionTransient) {
@@ -535,8 +578,25 @@ class SyncRepositoryImpl @Inject constructor(
             // REMINDERS: entityId is serverId ?: localId captured at enqueue time — the
             // local row is already hard-deleted, so never re-read it here. Other entities
             // use local UUID == remote PK.
-            postgrest.from(table).delete {
-                filter { eq("id", item.entityId) }
+            //
+            // Idempotency: a DELETE must be safe to run more than once (a retried request
+            // whose first attempt actually succeeded server-side but whose response was
+            // lost to a timeout/dropped connection, or two overlapping sync attempts
+            // racing on the same row). A normal "delete where id = X, zero rows matched" is
+            // not an error at all under PostgREST - it just deletes nothing and returns
+            // normally - so most of the time there is nothing to catch here. The explicit
+            // catch below is only for the case where the backend does surface a "not
+            // found"-shaped response for it: that still means the desired end state (the
+            // row is absent) was already reached, so it's treated as success rather than
+            // failing/retrying a delete that already worked. Any other error (permission
+            // denial, a genuine network/server failure, etc.) is rethrown unchanged and
+            // handled by the normal retry/failure path in processNextItems.
+            try {
+                postgrest.from(table).delete {
+                    filter { eq("id", item.entityId) }
+                }
+            } catch (e: io.github.jan.supabase.exceptions.RestException) {
+                if (e.statusCode != 404) throw e
             }
             return
         }
@@ -591,8 +651,22 @@ class SyncRepositoryImpl @Inject constructor(
                 is ReminderEntity -> postgrest.from(table).upsert(localData.toRemote())
                 is VaccineEntity -> postgrest.from(table).upsert(localData)
                 is VaccineBatchEntity -> uploadBatch(table, localData, item.operation == SyncOperation.CREATE.name)
-                is InventoryTransactionEntity -> postgrest.from(table).upsert(localData)
-                is FinanceEntity -> postgrest.from(table).upsert(localData)
+                // visitId is nullable on both of these and gets explicitly set back to
+                // null by VaccinationRepositoryImpl.deleteVaccination()'s clearVisitLink()
+                // step, to sever the link before the visit itself is hard-deleted (see
+                // that function's step 2b). A plain upsert(localData) here would run the
+                // Postgrest client's default Json encoder, which - like the encoder used
+                // everywhere else in this app - omits a null field from the outgoing JSON
+                // rather than sending it as null (the exact behavior uploadBatch's
+                // remaining_quantity comment above documents and relies on). PostgREST
+                // treats an omitted key as "leave this column untouched", so a plain
+                // upsert() here would silently fail to clear visit_id remotely: the local
+                // row shows visitId = null, but the FK to patient_visits stays intact on
+                // Supabase, and the visit's own DELETE later fails with
+                // "..._visit_id_fkey" (23503) even though the unlink "succeeded". Force an
+                // explicit-nulls encode so a genuine null on this field is actually sent.
+                is InventoryTransactionEntity -> uploadWithExplicitNulls(table, localData, InventoryTransactionEntity.serializer())
+                is FinanceEntity -> uploadWithExplicitNulls(table, localData, FinanceEntity.serializer())
                 is AuditLogEntity -> postgrest.from(table).upsert(localData)
                 // profiles has no client-side INSERT policy at all (only the manage-staff
                 // edge function, using the service role, is allowed to create rows there -
@@ -645,6 +719,30 @@ class SyncRepositoryImpl @Inject constructor(
             fields.remove("remaining_quantity")
         }
         postgrest.from(table).upsert(JsonObject(fields))
+    }
+
+    // Re-encodes with explicitNulls = true before upserting, so a Kotlin property that is
+    // genuinely null (e.g. FinanceEntity/InventoryTransactionEntity.visitId after
+    // clearVisitLink()) is sent to Postgrest as "column": null instead of being dropped
+    // from the JSON body entirely. Needed anywhere a nullable column must be actively
+    // cleared - as opposed to uploadBatch's remaining_quantity, which deliberately wants
+    // the opposite (omit the key so the column is left alone).
+    private val explicitNullsJson = kotlinx.serialization.json.Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = true
+    }
+
+    private suspend fun <T> uploadWithExplicitNulls(
+        table: String,
+        data: T,
+        serializer: kotlinx.serialization.KSerializer<T>
+    ) {
+        // Cast to JsonObject to match the exact call shape uploadBatch already uses below
+        // (postgrest.from(table).upsert(JsonObject(...))) - a data class always encodes to
+        // a JSON object, never another JsonElement subtype, so this is safe.
+        val payload = explicitNullsJson.encodeToJsonElement(serializer, data) as JsonObject
+        postgrest.from(table).upsert(payload)
     }
 
     // patient_visits.receipt_number is assigned by a database trigger (never by this app -
@@ -884,6 +982,52 @@ internal fun shouldRefreshSessionFor(statusCode: Int?, message: String?): Boolea
         (text.contains("expired", ignoreCase = true) ||
             text.contains("invalid", ignoreCase = true) ||
             text.contains("token", ignoreCase = true))
+}
+
+// Classifies a sync upload failure as transient (worth retrying with backoff - the same
+// request could well succeed later with nothing else changed) or permanent (will not
+// succeed without a code/data fix, so retrying it is pointless and only delays surfacing
+// the problem). Used by processNextItems' per-group catch to decide PENDING+retry vs
+// FAILED (see "Deletion Failure and Retry Behavior" section D/E - this governs the queued
+// DELETE/CREATE/UPDATE operations a vaccination deletion enqueues, same as every other
+// entity's sync operations).
+//
+// Transient: connectivity-layer failures with no HTTP response at all (no network, DNS,
+// connection reset/refused, a client-side request timeout - java.io.IOException and
+// supabase-kt's own HttpRequestException both represent this), and HTTP responses that are
+// explicitly about server-side or rate-limiting trouble rather than the request itself
+// being wrong: 408 Request Timeout, 429 Too Many Requests, and 5xx (Supabase/Postgres
+// temporarily unavailable).
+//
+// Permanent: any other RestException - a 4xx such as 400 (invalid payload/schema
+// mismatch), 403/a PostgREST 42501 (RLS/permission denial that a retry can't fix), 404,
+// 409 (conflict/duplicate key), or 422 (validation) means the request as sent cannot
+// succeed, and resending it unchanged will fail identically every time.
+//
+// 401 is deliberately not special-cased here: it's already handled earlier in
+// processNextItems via requiresSessionRefresh/handleSessionRefreshOn401, which retries the
+// same item inline after a session refresh or defers the whole group via
+// SessionAuthTransientException (never reaching this function). A 401 that does reach here
+// means that path already gave up on it, so it falls through and is judged as any other
+// RestException would be.
+internal fun isTransientSyncError(error: Throwable): Boolean {
+    var current: Throwable? = error
+    repeat(8) {
+        val t = current
+        if (t is java.io.IOException || t is io.github.jan.supabase.exceptions.HttpRequestException) {
+            return true
+        }
+        if (t is RestException) {
+            return t.statusCode == 408 || t.statusCode == 429 || t.statusCode in 500..599
+        }
+        current = t?.cause
+    }
+    // Unrecognized shape (e.g. a local exception not wrapping a REST/IO failure at all) -
+    // fall back to the message text, same spirit as the network-error check this replaces.
+    val text = error.message.orEmpty()
+    return text.contains("network", ignoreCase = true) ||
+        text.contains("timeout", ignoreCase = true) ||
+        text.contains("unavailable", ignoreCase = true)
 }
 
 // Blocks until the SDK has left the Initializing status - i.e. it has restored a persisted
