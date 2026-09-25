@@ -400,10 +400,11 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteBatch(batchId: String, user: String) {
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: return@withTransaction
 
-            vaccineDao.deleteBatch(batchId)
+            vaccineDao.deleteBatch(batchId, now, user)
 
             val userName = sessionManager.getCurrentUserName()
             vaccineDao.insertTransaction(InventoryTransactionEntity(
@@ -423,14 +424,15 @@ class InventoryRepositoryImpl @Inject constructor(
                 module = "INVENTORY",
                 entityType = "BATCH",
                 entityId = batchId,
-                action = "DELETED",
+                action = "SOFT_DELETED",
                 remarks = "Batch: ${batch.batchNumber}, Removed Qty: ${batch.remainingQuantity}"
             )
-            syncRepository.enqueue("BATCH", batchId, SyncOperation.DELETE, SyncPriority.MEDIUM)
+            syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         }
     }
 
     suspend fun deleteVaccine(vaccineId: String, user: String) {
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
             val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@withTransaction
             
@@ -451,13 +453,13 @@ class InventoryRepositoryImpl @Inject constructor(
                 throw IllegalStateException("This vaccine cannot be deleted because it has historical vaccination or waste records.")
             } else {
                 // Permanent Delete
-                vaccineDao.deleteVaccine(vaccineId)
-                syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
+                vaccineDao.deleteVaccine(vaccineId, now, user)
+                syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
                 auditLogger.recordLog(
                     module = "VACCINE",
                     entityType = "VACCINE",
                     entityId = vaccineId,
-                    action = "DELETED_PERMANENTLY",
+                    action = "SOFT_DELETED",
                     remarks = "Vaccine: ${vaccine.brandName}"
                 )
             }

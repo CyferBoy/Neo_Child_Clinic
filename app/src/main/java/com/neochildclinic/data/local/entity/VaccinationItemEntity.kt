@@ -51,5 +51,8 @@ data class VaccinationItemEntity(
     val quantity: Int = 1,
     val mrp: Double = 0.0,
     @SerialName("net_rate") val netRate: Double = 0.0,
-    @SerialName("expiry_date") val expiryDate: String = ""
+    @SerialName("expiry_date") val expiryDate: String = "",
+    @SerialName("is_deleted") @androidx.room.ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
+    @SerialName("deleted_at") @androidx.room.ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
+    @SerialName("deleted_by") @androidx.room.ColumnInfo(name = "deleted_by") val deletedBy: String? = null
 )

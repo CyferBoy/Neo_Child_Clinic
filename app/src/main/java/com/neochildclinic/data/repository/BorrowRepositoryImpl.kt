@@ -91,20 +91,22 @@ class BorrowRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteBorrowedItem(id: String) {
+        val userName = sessionManager.getCurrentUserName()
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
             borrowDao.getRecordById(id)?.let { record ->
-                borrowDao.deleteById(id)
+                borrowDao.deleteById(id, now, userName)
                 syncRepository.enqueue(
                     entityName = "BORROW",
                     entityId = id,
-                    operation = SyncOperation.DELETE,
+                    operation = SyncOperation.UPDATE,
                     priority = SyncPriority.MEDIUM
                 )
                 auditLogger.log(
                     module = "INVENTORY",
                     entityType = "BORROW",
                     entityId = id,
-                    action = "BORROW_DELETED"
+                    action = "BORROW_SOFT_DELETED"
                 )
             }
         }

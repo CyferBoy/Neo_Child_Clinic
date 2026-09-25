@@ -156,14 +156,16 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteReminder(id: String) {
+        val userName = sessionManager.getCurrentUserName()
+        val now = PatientUtils.getCurrentIsoTimestamp()
         val existing = dao.getById(id)
-        dao.delete(id)
-        syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+        dao.delete(id, now, userName)
+        syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         auditLogger.log(
             module = "REMINDER",
             entityType = "PERSONAL_REMINDER",
             entityId = id,
-            action = "DELETED",
+            action = "SOFT_DELETED",
             remarks = existing?.let { "${it.patientName} - ${it.vaccineLabel ?: "Other"}" }
         )
     }

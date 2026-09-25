@@ -129,14 +129,15 @@ class WasteRepositoryImpl @Inject constructor(
                 notes = "Restored from deleted waste: ${record.id}"
             )
 
-            // 2. Mark as deleted locally
-            wasteDao.deleteWaste(id)
+            // 2. Mark as soft-deleted locally
+            val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            wasteDao.deleteWaste(id, now, userName)
 
             // 3. Queue Sync
             syncRepository.enqueue(
                 entityName = "WASTE",
                 entityId = id,
-                operation = SyncOperation.DELETE,
+                operation = SyncOperation.UPDATE,
                 priority = SyncPriority.LOW
             )
         }

@@ -13,12 +13,15 @@ interface BorrowReturnDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: BorrowReturnEntity)
 
-    @Query("SELECT * FROM borrow_returns WHERE borrow_record_id = :borrowRecordId ORDER BY returned_date DESC, created_at DESC")
+    @Query("SELECT * FROM borrow_returns WHERE borrow_record_id = :borrowRecordId AND is_deleted = 0 ORDER BY returned_date DESC, created_at DESC")
     fun getReturnsForRecord(borrowRecordId: String): Flow<List<BorrowReturnEntity>>
 
-    @Query("SELECT * FROM borrow_returns")
+    @Query("SELECT * FROM borrow_returns WHERE is_deleted = 0")
     fun getAllReturns(): Flow<List<BorrowReturnEntity>>
 
-    @Query("SELECT * FROM borrow_returns WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM borrow_returns WHERE id = :id AND is_deleted = 0 LIMIT 1")
     suspend fun getById(id: String): BorrowReturnEntity?
+
+    @Query("UPDATE borrow_returns SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, is_synced = 0, updated_by = :deletedBy WHERE id = :id AND is_deleted = 0")
+    suspend fun deleteById(id: String, deletedAt: String, deletedBy: String?)
 }

@@ -16,7 +16,8 @@ import javax.inject.Singleton
 class PatientTodoRepositoryImpl @Inject constructor(
     database: AppDatabase,
     private val syncRepository: SyncRepositoryImpl,
-    private val postgrest: Postgrest
+    private val postgrest: Postgrest,
+    private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) {
     private val dao: PatientTodoDao = database.patientTodoDao()
 
@@ -58,12 +59,16 @@ class PatientTodoRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteConsultation(id: String) {
-        dao.deleteConsultation(id)
-        syncRepository.enqueue("CONSULTATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+        val userName = sessionManager.getCurrentUserName()
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+        dao.deleteConsultation(id, now, userName)
+        syncRepository.enqueue("CONSULTATION_TODO", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
     }
 
     suspend fun deleteVaccination(id: String) {
-        dao.deleteVaccination(id)
-        syncRepository.enqueue("VACCINATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+        val userName = sessionManager.getCurrentUserName()
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+        dao.deleteVaccination(id, now, userName)
+        syncRepository.enqueue("VACCINATION_TODO", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
     }
 }

@@ -21,6 +21,12 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+fun completedQuantityByBatch(rows: List<InventoryDeductionEntity>): Map<String, Int> =
+    rows.asSequence()
+        .filter { it.status == "COMPLETED" && it.batchId != null }
+        .groupingBy { it.batchId!! }
+        .fold(0) { acc, row -> acc + row.quantity }
+
 @Singleton
 class VaccinationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
@@ -195,7 +201,9 @@ class VaccinationRepositoryImpl @Inject constructor(
                     val local = vaccinationItemDao.getItemsForVaccination(visitId).first()
                     val resurrected = local.filter { it.id !in acceptedIds }
                     if (resurrected.isEmpty()) continue
-                    vaccinationItemDao.deleteItemsForVaccination(visitId)
+                    val userName = sessionManager.getCurrentUserName()
+                    val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+                    vaccinationItemDao.deleteItemsForVaccination(visitId, now, userName)
                     vaccinationItemDao.insertItems(
                         items.filter { it.vaccinationId == visitId && it.id in acceptedIds }
                     )
@@ -287,12 +295,13 @@ class VaccinationRepositoryImpl @Inject constructor(
 
             // Item-level plan: untouched rows get no local write and no sync op.
             if (itemPlan.deleteIds.isNotEmpty()) {
-                vaccinationItemDao.deleteItemsByIds(itemPlan.deleteIds)
+                val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+                vaccinationItemDao.deleteItemsByIds(itemPlan.deleteIds, now, userName)
                 itemPlan.deleteIds.forEach { oldId ->
                     syncRepository.enqueue(
                         entityName = "VACCINATION_ITEM",
                         entityId = oldId,
-                        operation = SyncOperation.DELETE,
+                        operation = SyncOperation.UPDATE,
                         priority = SyncPriority.MEDIUM,
                         transactionGroupId = transactionGroupId
                     )
@@ -365,11 +374,10 @@ class VaccinationRepositoryImpl @Inject constructor(
             // be replenished (e.g. deleted from the catalog) blocks the deletion instead of
             // silently leaving stock short.
             val completedDeductions = inventoryDeductionDao.getCompletedForVaccination(id)
-            for (deduction in completedDeductions) {
-                val batchId = deduction.batchId ?: continue
+            for ((batchId, quantity) in completedQuantityByBatch(completedDeductions)) {
                 inventoryRepository.reverseDeduction(
                     batchId = batchId,
-                    quantity = deduction.quantity,
+                    quantity = quantity,
                     user = user,
                     visitId = id,
                     patientId = existing.patientId,
@@ -385,44 +393,9 @@ class VaccinationRepositoryImpl @Inject constructor(
             // step 1 are already gone, so there is nothing left to reverse.
             inventoryDeductionDao.deleteForVaccination(id)
 
-            // 2b. Sever inventory_transactions' and finance_transactions' link to this
-            // visit. Both are permanent audit history and are never deleted here (see step
-            // 5) - but every one of them, including the reversal just inserted in step 1,
-            // still carries this visit's id. If Supabase enforces visit_id as a real
-            // foreign key against patient_visits, those rows blocking the visit delete in
-            // step 6 is exactly the failure this step exists to prevent: "patient visit row
-            // deletes first, fails because the visit id is still referenced elsewhere."
-            // Null just the link (every other column - amount, batch, quantity, notes,
-            // timestamp - stays exactly as it was); the sync UPDATE this enqueues re-reads
-            // the local row at upload time, so it doesn't matter whether it runs before or
-            // after step 6's DELETE actually reaches Supabase - by the time either one
-            // lands, the reference is already gone from this row's own data.
-            val visitTransactions = vaccineDao.getTransactionsForVisit(id)
-            if (visitTransactions.isNotEmpty()) {
-                vaccineDao.clearVisitLink(id)
-                visitTransactions.forEach { txn ->
-                    syncRepository.enqueue(
-                        entityName = "INVENTORY_TRANSACTION",
-                        entityId = txn.transactionId,
-                        operation = SyncOperation.UPDATE,
-                        priority = SyncPriority.MEDIUM,
-                        transactionGroupId = transactionGroupId
-                    )
-                }
-            }
-            val visitFinanceTransactions = financeDao.getTransactionsByVisitId(id)
-            if (visitFinanceTransactions.isNotEmpty()) {
-                financeDao.clearVisitLink(id)
-                visitFinanceTransactions.forEach { txn ->
-                    syncRepository.enqueue(
-                        entityName = "FINANCE",
-                        entityId = txn.id,
-                        operation = SyncOperation.UPDATE,
-                        priority = SyncPriority.MEDIUM,
-                        transactionGroupId = transactionGroupId
-                    )
-                }
-            }
+            // 2b. (Removed under soft-delete) The visit row itself is no longer physically
+            // deleted, so nothing here can block a hard delete via FK - and unlink the
+            // inventory_transactions audit trail is no longer needed, visit_id stays.
 
             // 3. Clean up reminders tied to this visit. Without this, a reminder that
             // already synced to Supabase is left behind there after the visit is deleted -
@@ -430,8 +403,9 @@ class VaccinationRepositoryImpl @Inject constructor(
             // reminder locally, and any subsequent create/update sync for it permanently
             // fails with a foreign key violation (its originalVisitId no longer exists).
             val remindersForVisit = dueReminderDao.getRemindersByVisitId(id)
+            val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             for (reminder in remindersForVisit) {
-                dueReminderDao.deleteReminderById(reminder.id)
+                dueReminderDao.deleteReminderById(reminder.id, now, user)
                 syncRepository.enqueue(
                     entityName = "REMINDERS",
                     // Remote identity for a reminder is serverId when known, else the local
@@ -441,50 +415,48 @@ class VaccinationRepositoryImpl @Inject constructor(
                     // it). The local row is already gone above, so this must be captured
                     // now rather than re-read later.
                     entityId = reminder.serverId ?: reminder.id,
-                    operation = SyncOperation.DELETE,
+                    operation = SyncOperation.UPDATE,
                     priority = SyncPriority.LOW,
                     transactionGroupId = transactionGroupId
                 )
             }
 
-            // 4. Delete the vaccination's line items. vaccination_items has a local FK
-            // (CASCADE) to patient_visits, so step 6's hard delete would remove these rows
-            // from Room on its own - but a local cascade has no way to tell Supabase
-            // anything, so without an explicit DELETE enqueued per item here, the remote
-            // vaccination_items rows for this visit were being left behind permanently
-            // (patient_visits itself never referenced them for its own deletion, so nothing
-            // else queues this).
+            // 4. Soft-delete the vaccination's line items.
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
             if (items.isNotEmpty()) {
-                vaccinationItemDao.deleteItemsByIds(items.map { it.id })
+                vaccinationItemDao.deleteItemsByIds(items.map { it.id }, now, user)
                 items.forEach { item ->
                     syncRepository.enqueue(
                         entityName = "VACCINATION_ITEM",
                         entityId = item.id,
-                        operation = SyncOperation.DELETE,
+                        operation = SyncOperation.UPDATE,
                         priority = SyncPriority.MEDIUM,
                         transactionGroupId = transactionGroupId
                     )
                 }
             }
 
-            // 5. Finance: the record itself is deliberately untouched beyond step 2b's
-            // visit_id unlink above. Financial transactions are historical records and
-            // must remain after a clinical record is deleted (recordVaccination links a
-            // finance_transactions row to this visit via visitId, but nothing about
-            // deleting the visit should delete or rewrite the amount, category, payment
-            // method, or any other field of that income record).
+            // 5. Finance: As of the soft-delete migration, we soft-delete the associated finance record too.
+            // (Previously we unlinked visit_id but kept the finance transaction active.)
+            val visitFinanceTxns = financeDao.getTransactionsByVisitId(id)
+            for (txn in visitFinanceTxns) {
+                financeDao.deleteTransactionById(txn.id, now, user)
+                syncRepository.enqueue(
+                    entityName = "FINANCE",
+                    entityId = txn.id,
+                    operation = SyncOperation.UPDATE,
+                    priority = SyncPriority.MEDIUM,
+                    transactionGroupId = transactionGroupId
+                )
+            }
 
-            // 6. Hard-delete the visit itself, last - after every child row that
-            // references it has already been queued for deletion, matching
-            // SyncRepositoryImpl's own child-before-parent DELETE ordering
-            // (getEntityPriority) for the remote side.
-            vaccinationDao.deleteVaccination(id)
+            // 6. Soft-delete the visit itself
+            vaccinationDao.deleteVaccination(id, now, user)
 
             syncRepository.enqueue(
                 entityName = "VACCINATION",
                 entityId = id,
-                operation = SyncOperation.DELETE,
+                operation = SyncOperation.UPDATE,
                 priority = SyncPriority.MEDIUM,
                 transactionGroupId = transactionGroupId
             )
@@ -493,7 +465,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 module = "PATIENT",
                 entityType = "VACCINATION",
                 entityId = id,
-                action = "DELETED",
+                action = "SOFT_DELETED",
                 patientId = existing.patientId,
                 remarks = "Vaccines: ${existing.vaccineNames}",
                 transactionGroupId = transactionGroupId

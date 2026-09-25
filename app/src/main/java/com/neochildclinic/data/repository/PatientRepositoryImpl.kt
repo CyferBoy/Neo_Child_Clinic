@@ -41,7 +41,8 @@ class PatientRepositoryImpl @Inject constructor(
     private val idGenerator: PatientIdGenerator,
     private val preferenceManager: PreferenceManager,
     private val sessionManager: SessionManager,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val vaccinationRepository: dagger.Lazy<VaccinationRepositoryImpl>
 ) {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -178,34 +179,51 @@ class PatientRepositoryImpl @Inject constructor(
     }
 
     suspend fun deletePatient(id: String) {
+        val userName = sessionManager.getCurrentUserName()
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+
         database.withTransaction {
             val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
             val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
+            val personalReminderIds = database.personalReminderDao().getActiveReminders().first().filter { it.patientId == id }.map { it.id }
+            val consultationIds = database.consultationDao().getConsultationsForPatient(id).first().map { it.id }
 
             // 1. Delete Reminders (Children)
-            dueReminderDao.deleteRemindersByPatientId(id)
+            dueReminderDao.deleteRemindersByPatientId(id, now, userName)
             reminderIds.forEach {
-                syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
+                syncRepository.enqueue("REMINDERS", it, SyncOperation.UPDATE, SyncPriority.LOW)
+            }
+
+            personalReminderIds.forEach {
+                database.personalReminderDao().delete(it, now, userName)
+                syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.UPDATE, SyncPriority.LOW)
             }
 
             // 2. Delete Vaccinations/Visits (Children)
-            vaccinationDao.deleteVaccinationsForPatient(id)
             vaccinationIds.forEach {
-                syncRepository.enqueue("VACCINATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
+                // To maintain proper side effects (inventory reversal), we must run
+                // the full delete logic per visit, rather than just soft-deleting them.
+                vaccinationRepository.get().deleteVaccination(it)
             }
 
-            // 3. Delete Patient (Mother)
-            patientDao.deletePatient(id)
-            syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
-        }
+            // 3. Delete Consultations
+            consultationIds.forEach {
+                database.consultationDao().deleteConsultation(it, now, userName)
+                syncRepository.enqueue("CONSULTATION", it, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            }
 
-        auditLogger.recordLog(
-            module = "PATIENT",
-            entityType = "PATIENT",
-            entityId = id,
-            action = "DELETED",
-            patientId = id
-        )
+            // 4. Delete Patient (Parent)
+            patientDao.deletePatient(id, now, userName)
+            syncRepository.enqueue("PATIENT", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+
+            auditLogger.recordLog(
+                module = "PATIENT",
+                entityType = "PATIENT",
+                entityId = id,
+                action = "SOFT_DELETED",
+                patientId = id
+            )
+        }
     }
 
     fun searchPatients(query: String): Flow<List<Patient>> =
@@ -243,13 +261,15 @@ class PatientRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteNote(noteId: String) {
-        notesDao.deleteNote(noteId)
-        syncRepository.enqueue("PATIENT_NOTE", noteId, SyncOperation.DELETE, SyncPriority.LOW)
+        val userName = sessionManager.getCurrentUserName()
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+        notesDao.deleteNote(noteId, now, userName)
+        syncRepository.enqueue("PATIENT_NOTE", noteId, SyncOperation.UPDATE, SyncPriority.LOW)
         auditLogger.recordLog(
             module = "PATIENT",
             entityType = "PATIENT_NOTE",
             entityId = noteId,
-            action = "DELETED"
+            action = "SOFT_DELETED"
         )
     }
 }

@@ -125,13 +125,14 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteException(id: String, actor: String?) {
-        dao.deleteException(id)
-        syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPriority.LOW)
+        val now = PatientUtils.getCurrentIsoTimestamp()
+        dao.deleteException(id, now, actor)
+        syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.UPDATE, SyncPriority.LOW)
         auditLogger.log(
             module = "DOCTOR_TIMINGS",
             entityType = "UNAVAILABILITY",
             entityId = id,
-            action = "EXCEPTION_DELETED"
+            action = "EXCEPTION_SOFT_DELETED"
         )
     }
 

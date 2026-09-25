@@ -474,18 +474,15 @@ class ReminderRepositoryImpl @Inject constructor(
 
     suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
+            val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
-                logReminderUndoableChange(existing, "DELETED", "Deleted by $performedBy")
-                dueReminderDao.deleteReminderById(existing.id)
-                // Enqueue using the remote identity (serverId when known, else local id).
-                // uploadEntity's REMINDERS DELETE branch deletes by entityId directly —
-                // the local row is already gone, so a post-delete serverId lookup would
-                // always miss and the remote row would never be removed (resurrection).
+                logReminderUndoableChange(existing, "SOFT_DELETED", "Soft Deleted by $performedBy")
+                dueReminderDao.deleteReminderById(existing.id, now, performedBy)
                 enqueueReminderSync(
                     "REMINDERS",
                     existing.serverId ?: existing.id,
-                    SyncOperation.DELETE,
+                    SyncOperation.UPDATE,
                     SyncPriority.LOW
                 )
             }

@@ -92,14 +92,15 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteExpense(id: String, user: String) {
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
             val existing = expenseDao.getExpenseById(id) ?: return@withTransaction
-            expenseDao.deleteExpense(id)
+            expenseDao.deleteExpense(id, now, user)
 
             syncRepository.enqueue(
                 entityName = "EXPENSE",
                 entityId = id,
-                operation = SyncOperation.DELETE,
+                operation = SyncOperation.UPDATE,
                 priority = SyncPriority.MEDIUM
             )
 
@@ -107,7 +108,7 @@ class ExpenseRepositoryImpl @Inject constructor(
                 module = "FINANCE",
                 entityType = "EXPENSE",
                 entityId = id,
-                action = "EXPENSE_DELETED",
+                action = "EXPENSE_SOFT_DELETED",
                 remarks = "${existing.title} (${existing.category}) deleted"
             )
         }

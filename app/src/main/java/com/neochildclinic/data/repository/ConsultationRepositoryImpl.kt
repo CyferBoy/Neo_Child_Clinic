@@ -144,26 +144,29 @@ class ConsultationRepositoryImpl @Inject constructor(
     }
 
     suspend fun deleteConsultation(id: String) {
+        val userName = sessionManager.getCurrentUserName()
+        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+
         database.withTransaction {
             val existing = consultationDao.getConsultationById(id) ?: return@withTransaction
             
             // Financial transactions are historical records and must remain after a clinical record is deleted.
-            // 1. Delete Consultation (Child)
-            consultationDao.deleteConsultation(id)
+            // 1. Soft-Delete Consultation (Child)
+            consultationDao.deleteConsultation(id, now, userName)
             syncRepository.enqueue(
                 entityName = "CONSULTATION",
                 entityId = id,
-                operation = SyncOperation.DELETE,
+                operation = SyncOperation.UPDATE,
                 priority = SyncPriority.MEDIUM
             )
 
-            // 3. Delete Visit Header (Mother)
+            // 3. Soft-Delete Visit Header (Mother)
             if (existing.visitId.isNotBlank()) {
-                vaccinationDao.deleteVaccination(existing.visitId)
+                vaccinationDao.deleteVaccination(existing.visitId, now, userName)
                 syncRepository.enqueue(
                     entityName = "VISIT",
                     entityId = existing.visitId,
-                    operation = SyncOperation.DELETE,
+                    operation = SyncOperation.UPDATE,
                     priority = SyncPriority.MEDIUM
                 )
             }
@@ -172,9 +175,9 @@ class ConsultationRepositoryImpl @Inject constructor(
                 module = "PATIENT",
                 entityType = "CONSULTATION",
                 entityId = id,
-                action = "DELETED",
+                action = "SOFT_DELETED",
                 patientId = existing.patientId,
-                remarks = "Consultation and associated visit header deleted"
+                remarks = "Consultation and associated visit header soft deleted"
             )
         }
     }

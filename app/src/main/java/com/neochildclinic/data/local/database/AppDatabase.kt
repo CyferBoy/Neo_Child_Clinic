@@ -39,7 +39,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 30,
+    version = 31,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -76,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 30
+        const val DB_VERSION = 31
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -392,6 +392,23 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                val migration30_31 = object : androidx.room.migration.Migration(30, 31) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        val tables = listOf(
+                            "patients", "patient_visits", "vaccination_items", "consultations",
+                            "reminders", "personal_vaccine_reminders", "finance_transactions",
+                            "expenses", "borrow_records", "borrow_returns", "waste_records",
+                            "consultation_todos", "vaccination_todos", "vaccines", "vaccine_batches",
+                            "doctor_weekly_slots", "doctor_slot_exceptions", "patient_notes", "profiles"
+                        )
+                        tables.forEach { table ->
+                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `is_deleted` INTEGER NOT NULL DEFAULT 0")
+                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `deleted_at` TEXT")
+                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `deleted_by` TEXT")
+                        }
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -403,7 +420,7 @@ abstract class AppDatabase : RoomDatabase() {
                     migration17_18, migration18_19, migration19_20, migration20_21,
                     migration21_22, migration22_23, migration23_24, migration24_25,
                     migration25_26, migration26_27, migration27_28, migration28_29,
-                    migration29_30
+                    migration29_30, migration30_31
                 )
                 // No destructive fallback: a future missing migration must crash loudly,
                 // never silently wipe a clinic's local patient data.

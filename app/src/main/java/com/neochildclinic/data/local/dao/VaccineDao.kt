@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VaccineDao {
     // Vaccine Definition
-    @Query("SELECT * FROM vaccines")
+    @Query("SELECT * FROM vaccines WHERE is_deleted = 0")
     fun getAllVaccines(): Flow<List<VaccineEntity>>
 
-    @Query("SELECT * FROM vaccines WHERE id = :id")
+    @Query("SELECT * FROM vaccines WHERE id = :id AND is_deleted = 0")
     suspend fun getVaccineById(id: String): VaccineEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -22,32 +22,32 @@ interface VaccineDao {
     @Update
     suspend fun updateVaccine(vaccine: VaccineEntity)
 
-    @Query("DELETE FROM vaccines WHERE id = :id")
-    suspend fun deleteVaccine(id: String)
+    @Query("UPDATE vaccines SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, lastUpdated = :deletedAt, updated_by = :deletedBy WHERE id = :id AND is_deleted = 0")
+    suspend fun deleteVaccine(id: String, deletedAt: String, deletedBy: String?)
 
     @Delete
     suspend fun deleteVaccinePermanently(vaccine: VaccineEntity)
 
     // Batches
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND remainingQuantity > 0 ORDER BY expiryDate ASC")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND remainingQuantity > 0 AND is_deleted = 0 ORDER BY expiryDate ASC")
     suspend fun getActiveBatchesByExpiry(vaccineId: String): List<VaccineBatchEntity>
 
-    @Query("SELECT * FROM vaccine_batches")
+    @Query("SELECT * FROM vaccine_batches WHERE is_deleted = 0")
     fun getAllBatches(): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
     fun getBatchesForVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
     fun getBatchesByVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
     suspend fun getBatchesByVaccineSync(vaccineId: String): List<VaccineBatchEntity>
 
-    @Query("SELECT * FROM vaccine_batches WHERE batchId = :batchId LIMIT 1")
+    @Query("SELECT * FROM vaccine_batches WHERE batchId = :batchId AND is_deleted = 0 LIMIT 1")
     suspend fun getBatchById(batchId: String): VaccineBatchEntity?
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND batchNumber = :batchNumber LIMIT 1")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND batchNumber = :batchNumber AND is_deleted = 0 LIMIT 1")
     suspend fun getBatchByVaccineAndNumber(vaccineId: String, batchNumber: String): VaccineBatchEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -57,8 +57,8 @@ interface VaccineDao {
     @Update
     suspend fun updateBatch(batch: VaccineBatchEntity)
 
-    @Query("DELETE FROM vaccine_batches WHERE batchId = :batchId")
-    suspend fun deleteBatch(batchId: String)
+    @Query("UPDATE vaccine_batches SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, updatedAt = :deletedAt, updated_by = :deletedBy WHERE batchId = :batchId AND is_deleted = 0")
+    suspend fun deleteBatch(batchId: String, deletedAt: String, deletedBy: String?)
 
     // Transactions
     @Insert
@@ -72,19 +72,6 @@ interface VaccineDao {
 
     @Query("SELECT * FROM inventory_transactions WHERE transactionId = :id LIMIT 1")
     suspend fun getTransactionById(id: String): InventoryTransactionEntity?
-
-    @Query("SELECT * FROM inventory_transactions WHERE visitId = :visitId")
-    suspend fun getTransactionsForVisit(visitId: String): List<InventoryTransactionEntity>
-
-    // Deleting a vaccination never deletes its inventory_transactions rows (they're
-    // permanent audit history, same policy as finance_transactions - see
-    // VaccinationRepositoryImpl.deleteVaccination), but the visit they point at is gone.
-    // Null the link rather than leaving it dangling, in case Supabase enforces visit_id as
-    // a real foreign key against patient_visits (an unresolvable reference would otherwise
-    // block deleting the visit remotely, or fail this row's own next sync). Every other
-    // column - amount, batch, quantity, timestamp, notes - is untouched.
-    @Query("UPDATE inventory_transactions SET visitId = NULL WHERE visitId = :visitId")
-    suspend fun clearVisitLink(visitId: String)
 
     // Stock History - filters entirely in SQL (rather than loading every transaction
     // into memory and filtering in Kotlin) and paginates via LIMIT/OFFSET so the
@@ -115,17 +102,17 @@ interface VaccineDao {
     ): List<InventoryTransactionEntity>
 
     // Stock Summary
-    @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId")
+    @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
     suspend fun getTotalStockForVaccine(vaccineId: String): Int?
 
     // Reference Checks
-    @Query("SELECT COUNT(*) FROM vaccine_batches WHERE vaccineId = :vaccineId")
+    @Query("SELECT COUNT(*) FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
     suspend fun getBatchCountForVaccine(vaccineId: String): Int
 
-    @Query("SELECT COUNT(*) FROM patient_visits WHERE vaccineIds LIKE '%' || :vaccineId || '%'")
+    @Query("SELECT COUNT(*) FROM patient_visits WHERE vaccineIds LIKE '%' || :vaccineId || '%' AND is_deleted = 0")
     suspend fun getVaccinationCountForVaccine(vaccineId: String): Int
 
-    @Query("SELECT COUNT(*) FROM waste_records WHERE vaccineId = :vaccineId")
+    @Query("SELECT COUNT(*) FROM waste_records WHERE vaccineId = :vaccineId AND is_deleted = 0")
     suspend fun getWasteCountForVaccine(vaccineId: String): Int
 
     @Query("SELECT COUNT(*) FROM inventory_transactions WHERE vaccineId = :vaccineId")
