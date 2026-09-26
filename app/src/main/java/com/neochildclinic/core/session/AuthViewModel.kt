@@ -220,4 +220,21 @@ class AuthViewModel @Inject constructor(
             fetchProfile(userId)
         }
     }
+
+    /**
+     * Re-authenticates the currently signed-in account by re-entering its password, used
+     * by the biometric/app-lock fallback (MainActivity's account-password unlock). A wrong
+     * password or a missing account email surfaces as a failed Result - the caller decides
+     * how to present it.
+     */
+    suspend fun reauthenticateWithPassword(password: String): Result<Unit> = runCatching {
+        val email = auth.currentSessionOrNull()?.user?.email
+        if (email.isNullOrBlank()) {
+            throw IllegalStateException("No account email is available.")
+        }
+        auth.signInWith(Email) {
+            this.email = email
+            this.password = password
+        }
+    }
 }

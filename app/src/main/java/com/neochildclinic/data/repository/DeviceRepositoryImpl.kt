@@ -5,6 +5,7 @@ import android.os.Build
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.neochildclinic.domain.model.UserDevice
+import com.neochildclinic.domain.repository.DeviceRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
@@ -19,16 +20,16 @@ class DeviceRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val auth: Auth,
     private val postgrest: Postgrest
-) {
+) : DeviceRepository {
 
     private val userDevicesTable = postgrest.from("user_devices")
 
-    suspend fun registerCurrentDevice() {
+    override suspend fun registerCurrentDevice() {
         val token = getFcmToken() ?: return
         registerDeviceWithToken(token)
     }
 
-    suspend fun registerDeviceWithToken(token: String) {
+    override suspend fun registerDeviceWithToken(token: String) {
         val currentUser = auth.currentSessionOrNull()?.user ?: return
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
         val appVersion = getAppVersion()
@@ -71,7 +72,7 @@ class DeviceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deactivateCurrentDevice() {
+    override suspend fun deactivateCurrentDevice() {
         val token = getFcmToken() ?: return
 
         try {
@@ -89,7 +90,7 @@ class DeviceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateActivity() {
+    override suspend fun updateActivity() {
         val token = getFcmToken() ?: return
 
         try {

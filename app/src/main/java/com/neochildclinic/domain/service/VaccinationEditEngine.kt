@@ -138,9 +138,9 @@ class VaccinationEditEngine @Inject constructor(
     // dialog kept showing both the old and the new vaccine. Recreate the set from the
     // final items whenever stock actually changed, mirroring the create-path rows.
     private suspend fun reconcileInventoryDeductions(vaccination: Vaccination) {
-        database.inventoryDeductionDao().deleteForVaccination(vaccination.id)
+        inventoryRepository.deleteInventoryDeductionsForVaccination(vaccination.id)
         vaccination.items.forEach { item ->
-            database.inventoryDeductionDao().insert(InventoryDeductionEntity(
+            inventoryRepository.insertInventoryDeduction(InventoryDeductionEntity(
                 vaccinationId = vaccination.id,
                 vaccineId = item.vaccineId,
                 vaccineName = item.vaccineName,

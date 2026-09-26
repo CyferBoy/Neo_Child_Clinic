@@ -2,6 +2,7 @@ package com.neochildclinic.domain.repository
 
 import com.neochildclinic.data.local.entity.ReminderAuditEntity
 import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.domain.model.ReminderStats
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import kotlinx.coroutines.flow.Flow
@@ -39,4 +40,23 @@ interface ReminderRepository {
     )
     suspend fun transferReminders(duplicateId: String, masterId: String)
     suspend fun refreshReminders()
+
+    fun getDashboardStats(): Flow<ReminderStats>
+    suspend fun getReminderById(id: String): ReminderEntity?
+    fun getAllReminders(): Flow<List<ReminderEntity>>
+    suspend fun reschedule(
+        reminder: ReminderEntity,
+        newDate: String,
+        reminderDate: String,
+        reason: String,
+        performedBy: String
+    )
+    suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String)
+    suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String)
+    suspend fun cancelNextVaccinationVaccine(
+        reminder: ReminderEntity,
+        vaccineId: String,
+        reason: String,
+        performedBy: String
+    )
 }

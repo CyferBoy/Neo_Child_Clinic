@@ -3,7 +3,7 @@ package com.neochildclinic.features.inventory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.entity.VaccineEntity
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +26,7 @@ data class AddVaccineUiState(
 
 @HiltViewModel
 class AddVaccineViewModel @Inject constructor(
-    private val inventoryRepository: InventoryRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 

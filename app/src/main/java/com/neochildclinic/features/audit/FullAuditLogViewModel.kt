@@ -3,7 +3,7 @@ package com.neochildclinic.features.audit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.data.repository.AuditLogRepositoryImpl
+import com.neochildclinic.domain.repository.AuditLogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +18,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class FullAuditLogViewModel @Inject constructor(
-    private val auditLogRepository: AuditLogRepositoryImpl
+    private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {
 
     companion object {

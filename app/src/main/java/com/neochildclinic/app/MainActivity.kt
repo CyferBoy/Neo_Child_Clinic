@@ -233,20 +233,16 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun authenticateWithAccountPassword(password: String) {
-        val email = auth.currentSessionOrNull()?.user?.email
-        if (email.isNullOrBlank()) {
-            Toast.makeText(this, "No account email is available.", Toast.LENGTH_SHORT).show()
-            return
-        }
         lifecycleScope.launch {
-            try {
-                auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
-                    this.email = email
-                    this.password = password
-                }
+            val result = authViewModel.reauthenticateWithPassword(password)
+            if (result.isSuccess) {
                 BiometricLockManager.unlockAfterKeystoreVerification()
-            } catch (e: Exception) {
-                Log.e("ACCOUNT_AUTH", "Account password authentication failed", e)
+            } else if (result.exceptionOrNull()?.message == "No account email is available.") {
+                // No session email to authenticate against - nothing to unlock or relock,
+                // just tell the user why the lock-screen password path is unavailable.
+                Toast.makeText(this@MainActivity, "No account email is available.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.e("ACCOUNT_AUTH", "Account password authentication failed", result.exceptionOrNull())
                 BiometricLockManager.lock()
                 Toast.makeText(this@MainActivity, "Incorrect account password.", Toast.LENGTH_SHORT).show()
             }

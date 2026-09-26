@@ -103,7 +103,7 @@ class ClinicalVaccinationService @Inject constructor(
                     patientId = vaccination.patientId,
                     givenDate = vaccination.dateGiven
                 )
-                database.inventoryDeductionDao().insert(InventoryDeductionEntity(
+                inventoryRepository.insertInventoryDeduction(InventoryDeductionEntity(
                     vaccinationId = vaccination.id,
                     vaccineId = item.vaccineId,
                     vaccineName = item.vaccineName,
@@ -115,7 +115,7 @@ class ClinicalVaccinationService @Inject constructor(
                 ))
                 completedCount++
             } catch (e: Exception) {
-                database.inventoryDeductionDao().insert(InventoryDeductionEntity(
+                inventoryRepository.insertInventoryDeduction(InventoryDeductionEntity(
                     vaccinationId = vaccination.id,
                     vaccineId = item.vaccineId,
                     vaccineName = item.vaccineName,
@@ -133,7 +133,7 @@ class ClinicalVaccinationService @Inject constructor(
             completedCount > 0 -> InventoryStatus.PARTIAL
             else -> InventoryStatus.FAILED
         }
-        database.vaccinationDao().updateInventoryStatus(vaccination.id, finalStatus.name)
+        vaccinationRepository.updateVisitInventoryStatus(vaccination.id, finalStatus.name)
 
         // Without this, the status change stays local-only until this visit's next
         // unrelated edit - other devices pulling this visit down in the meantime would
@@ -174,7 +174,7 @@ class ClinicalVaccinationService @Inject constructor(
                 updatedAt = consultationTimestamp,
                 isSynced = false
             )
-            database.vaccinationDao().insertVaccination(visit)
+            vaccinationRepository.insertVisit(visit)
             
             // Sync visit header
             syncRepository.enqueue(

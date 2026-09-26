@@ -3,10 +3,10 @@ package com.neochildclinic.features.statistics
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
-import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.domain.repository.VaccinationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,9 +20,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FinanceDetailsViewModel @Inject constructor(
-    financeRepository: FinanceRepositoryImpl,
-    patientRepository: PatientRepositoryImpl,
-    vaccinationRepository: VaccinationRepositoryImpl,
+    financeRepository: FinanceRepository,
+    patientRepository: PatientRepository,
+    vaccinationRepository: VaccinationRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 

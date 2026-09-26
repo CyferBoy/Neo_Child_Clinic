@@ -13,8 +13,10 @@ import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.NewBatchInfo
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,11 +30,11 @@ import javax.inject.Singleton
 class BorrowRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val syncRepository: SyncRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
+    private val syncRepository: SyncRepository,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
-) {
+) : BorrowRepository {
 
     private val borrowDao = database.borrowDao()
     private val borrowReturnDao = database.borrowReturnDao()
@@ -43,16 +45,16 @@ class BorrowRepositoryImpl @Inject constructor(
         private const val TAG = "BorrowRepositoryImpl"
     }
 
-    fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>> =
+    override fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>> =
         borrowDao.getActiveBorrows().map { list -> list.map { it.toDomain() } }
 
-    fun getReturnedRecords(): Flow<List<BorrowedVaccine>> =
+    override fun getReturnedRecords(): Flow<List<BorrowedVaccine>> =
         borrowDao.getReturnedBorrows().map { list -> list.map { it.toDomain() } }
 
-    fun getReturnRecords(): Flow<List<BorrowReturnRecord>> =
+    override fun getReturnRecords(): Flow<List<BorrowReturnRecord>> =
         borrowReturnDao.getAllReturns().map { list -> list.map { it.toDomain() } }
 
-    suspend fun saveBorrowedItem(item: BorrowedVaccine) {
+    override suspend fun saveBorrowedItem(item: BorrowedVaccine) {
         database.withTransaction {
             val user = sessionManager.getCurrentUserName()
             val isNew = item.id.isEmpty()
@@ -89,7 +91,7 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deleteBorrowedItem(id: String) {
+    override suspend fun deleteBorrowedItem(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
@@ -111,7 +113,7 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun submitReturn(
+    override suspend fun submitReturn(
         borrowRecordId: String,
         originalBatchId: String,
         vaccineId: String,
@@ -120,7 +122,7 @@ class BorrowRepositoryImpl @Inject constructor(
         quantity: Int,
         batchId: String,
         notes: String?,
-        newBatchInfo: NewBatchInfo? = null
+        newBatchInfo: NewBatchInfo?
     ) {
         database.withTransaction {
             val user = sessionManager.getCurrentUserName()
@@ -201,7 +203,7 @@ class BorrowRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshBorrows() = cloudRefresh(TAG) {
+    override suspend fun refreshBorrows() = cloudRefresh(TAG) {
                 Log.d(TAG, "Refreshing borrow records from Supabase...")
                 val records = postgrest.from("borrow_records").select().decodeList<BorrowEntity>()
                 val returns = postgrest.from("borrow_returns").select().decodeList<BorrowReturnEntity>()
@@ -223,12 +225,3 @@ class BorrowRepositoryImpl @Inject constructor(
                 Log.d(TAG, "Borrow records refresh complete.")
     }
 }
-
-data class NewBatchInfo(
-    val batchNumber: String,
-    val expiryDate: String,
-    val purchaseCost: Double = 0.0,
-    val sellingPrice: Double = 0.0
-)
-
-

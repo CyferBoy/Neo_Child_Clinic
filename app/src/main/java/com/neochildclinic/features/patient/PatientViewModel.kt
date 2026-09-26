@@ -8,12 +8,12 @@ import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
-import com.neochildclinic.data.repository.ConsultationRepositoryImpl
-import com.neochildclinic.data.repository.DocumentRepositoryImpl
-import com.neochildclinic.data.repository.AuditLogRepositoryImpl
-import io.github.jan.supabase.storage.FileObject
+import com.neochildclinic.domain.model.PatientDocument
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.DocumentRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.core.utils.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,18 +29,18 @@ data class PatientVaccinationCardData(
 
 @HiltViewModel
 class PatientViewModel @Inject constructor(
-    private val vaccinationRepository: VaccinationRepositoryImpl,
+    private val vaccinationRepository: VaccinationRepository,
     private val refreshDataUseCase: RefreshDataUseCase,
-    private val patientRepository: PatientRepositoryImpl,
-    private val consultationRepository: ConsultationRepositoryImpl,
-    private val profileRepository: com.neochildclinic.data.repository.ProfileRepositoryImpl,
-    private val inventoryRepository: com.neochildclinic.data.repository.InventoryRepositoryImpl,
-    private val documentRepository: DocumentRepositoryImpl,
-    private val auditLogRepository: AuditLogRepositoryImpl
+    private val patientRepository: PatientRepository,
+    private val consultationRepository: ConsultationRepository,
+    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
+    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
+    private val documentRepository: DocumentRepository,
+    private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {
 
-    private val _documents = MutableStateFlow<List<FileObject>>(emptyList())
-    val documents: StateFlow<List<FileObject>> = _documents.asStateFlow()
+    private val _documents = MutableStateFlow<List<PatientDocument>>(emptyList())
+    val documents: StateFlow<List<PatientDocument>> = _documents.asStateFlow()
 
     private val _documentError = MutableStateFlow<String?>(null)
     val documentError: StateFlow<String?> = _documentError.asStateFlow()
@@ -52,7 +52,7 @@ class PatientViewModel @Inject constructor(
     // double-tap on Delete (or any other double-invocation) firing the deletion transaction
     // twice concurrently, and lets the confirmation dialog show a busy state instead of
     // dismissing instantly - the local transaction is atomic either way (see
-    // VaccinationRepositoryImpl.deleteVaccination), but skipping the redundant second call
+    // VaccinationRepository.deleteVaccination), but skipping the redundant second call
     // here avoids doing the same work twice and any flicker that would cause in the UI.
     private val _deletingVaccinationIds = MutableStateFlow<Set<String>>(emptySet())
     val deletingVaccinationIds: StateFlow<Set<String>> = _deletingVaccinationIds.asStateFlow()

@@ -4,9 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.data.local.entity.ReminderEntity
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
+import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +29,8 @@ data class VaccineDetailUiState(
 @HiltViewModel
 class VaccineDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    reminderRepository: ReminderRepositoryImpl,
-    patientRepository: PatientRepositoryImpl,
+    reminderRepository: ReminderRepository,
+    patientRepository: PatientRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 

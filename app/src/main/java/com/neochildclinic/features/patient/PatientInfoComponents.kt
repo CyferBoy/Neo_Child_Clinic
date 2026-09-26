@@ -26,7 +26,7 @@ import com.neochildclinic.data.local.entity.PatientNotesEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
-import io.github.jan.supabase.storage.FileObject
+import com.neochildclinic.domain.model.PatientDocument
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import com.neochildclinic.core.utils.PatientUtils.formatAgeYearsMonths
@@ -39,7 +39,7 @@ fun PatientDetailsContent(
     vaccinations: List<Vaccination>,
     vaccinationCardData: List<PatientVaccinationCardData>?,
     consultations: List<Consultation>,
-    documents: List<FileObject>,
+    documents: List<PatientDocument>,
     notes: List<PatientNotesEntity>,
     doctorMap: Map<String, String>,
     vaccineMap: Map<String, String>,

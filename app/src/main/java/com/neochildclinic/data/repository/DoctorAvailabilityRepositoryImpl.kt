@@ -11,7 +11,7 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -22,16 +22,16 @@ import javax.inject.Singleton
 class DoctorAvailabilityRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : DoctorAvailabilityRepository {
 
     private val dao = database.doctorAvailabilityDao()
 
-    fun getWeeklySlots(doctorId: String): Flow<List<DoctorWeeklySlot>> =
+    override fun getWeeklySlots(doctorId: String): Flow<List<DoctorWeeklySlot>> =
         dao.getActiveWeeklySlotsForDoctor(doctorId)
 
-    fun getExceptions(doctorId: String): Flow<List<DoctorSlotException>> =
+    override fun getExceptions(doctorId: String): Flow<List<DoctorSlotException>> =
         dao.getExceptionsForDoctor(doctorId).map { list -> list.map { it.toDomain() } }
 
     override suspend fun getActiveWeeklySlotsForDay(doctorId: String, dayOfWeek: Int): List<DoctorWeeklySlot> =
@@ -40,10 +40,10 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     override suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotException> =
         dao.getExceptionsForDate(doctorId, date).map { it.toDomain() }
 
-    suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot? =
+    override suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot? =
         dao.getWeeklySlotById(id)
 
-    suspend fun addWeeklySlot(
+    override suspend fun addWeeklySlot(
         doctorId: String,
         dayOfWeek: Int,
         startMinute: Int,
@@ -91,7 +91,7 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun removeWeeklySlot(slotId: String, actor: String?) {
+    override suspend fun removeWeeklySlot(slotId: String, actor: String?) {
         val now = PatientUtils.getCurrentIsoTimestamp()
         dao.setWeeklySlotActive(slotId, false, now, actor)
         syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", slotId, SyncOperation.UPDATE, SyncPriority.LOW)
@@ -103,7 +103,7 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun addException(exception: DoctorSlotException, actor: String?) {
+    override suspend fun addException(exception: DoctorSlotException, actor: String?) {
         val now = PatientUtils.getCurrentIsoTimestamp()
         val entity = exception.copy(
             createdAt = exception.createdAt.ifBlank { now },
@@ -125,7 +125,7 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun deleteException(id: String, actor: String?) {
+    override suspend fun deleteException(id: String, actor: String?) {
         val now = PatientUtils.getCurrentIsoTimestamp()
         dao.deleteException(id, now, actor)
         syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.UPDATE, SyncPriority.LOW)

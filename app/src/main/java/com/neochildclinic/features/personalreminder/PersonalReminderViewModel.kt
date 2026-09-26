@@ -7,8 +7,8 @@ import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.PersonalReminderRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -28,8 +28,8 @@ data class PersonalReminderUiState(
 
 @HiltViewModel
 class PersonalReminderViewModel @Inject constructor(
-    private val repository: PersonalReminderRepositoryImpl,
-    private val patientRepository: PatientRepositoryImpl
+    private val repository: PersonalReminderRepository,
+    private val patientRepository: PatientRepository
 ) : ViewModel() {
 
     private val _selectedTab = MutableStateFlow(PersonalReminderTab.ACTIVE)

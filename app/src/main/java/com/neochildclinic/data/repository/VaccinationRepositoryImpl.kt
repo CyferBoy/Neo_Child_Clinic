@@ -12,7 +12,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.service.EditReconciler
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
@@ -33,7 +33,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val inventoryRepository: InventoryRepositoryImpl,
     private val auditLogger: AuditLogger,
     @ApplicationContext private val appContext: Context
@@ -71,10 +71,18 @@ class VaccinationRepositoryImpl @Inject constructor(
             combine(flows) { it.toList() }
         }
 
-    fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
+    override fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
         vaccinationDao.getVaccinationCardsForPatient(patientId)
 
-    suspend fun getVaccinationById(id: String): Vaccination? =
+    override suspend fun insertVisit(visit: com.neochildclinic.data.local.entity.VisitEntity) {
+        vaccinationDao.insertVaccination(visit)
+    }
+
+    override suspend fun updateVisitInventoryStatus(vaccinationId: String, status: String) {
+        vaccinationDao.updateInventoryStatus(vaccinationId, status)
+    }
+
+    override suspend fun getVaccinationById(id: String): Vaccination? =
         withContext(Dispatchers.IO) {
             val entity = vaccinationDao.getVaccinationById(id) ?: return@withContext null
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
@@ -357,7 +365,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     //   DELETE/CREATE/UPDATE operations below simply stay PENDING (or FAILED, still visible
     //   on the Sync screen and retryable) until they succeed - see SyncRepositoryImpl for
     //   the retry/backoff and DELETE-idempotency guarantees that apply once they're queued.
-    suspend fun deleteVaccination(id: String) {
+    override suspend fun deleteVaccination(id: String) {
         val transactionGroupId = java.util.UUID.randomUUID().toString()
         database.withTransaction {
             val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction

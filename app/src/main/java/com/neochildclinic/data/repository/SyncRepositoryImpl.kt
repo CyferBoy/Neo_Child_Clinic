@@ -101,182 +101,22 @@ class SyncRepositoryImpl @Inject constructor(
 
         _syncState.value = SyncState.SYNCING
 
-        // Keep a persisted session usable before starting a batch.
-        //
-        // The SDK loads a saved session asynchronously (autoLoadFromStorage), but a
-        // WorkManager run in a freshly-created process (the app having been minimized
-        // and its process killed) can read currentSessionOrNull() as null before that
-        // load finishes. Without waiting, every upload in this batch goes out anonymous
-        // (anon key only), auth.uid() is null, so is_active_staff() is false and Supabase
-        // rejects each row with "new row violates row-level security policy for table ...".
-        // Wait for the load to settle first (bounded - a cold start must stay offline-first
-        // and never hang on a network token-refresh inside the SDK's initial status flow).
-        val sessionResolved = awaitSessionResolved(auth.sessionStatus, SESSION_RESOLVE_TIMEOUT_MS)
+        if (!resolveSessionOrDefer()) return
 
-        val currentSession = auth.currentSessionOrNull()
-        if (currentSession == null) {
-            // Never push anonymous rows at an RLS-protected database. Leave the queue
-            // pending so a later sync picks it up, instead of burning retries on RLS
-            // rejections that can't succeed without an authenticated session.
-            val genuinelyLoggedOut = sessionResolved && auth.sessionStatus.value !is SessionStatus.RefreshFailure
-            if (genuinelyLoggedOut) {
-                // Status settled on NotAuthenticated - the user is genuinely logged out.
-                // Skip everything; do NOT schedule work, so we never retry-loop without a
-                // session. A manual/after-login sync handles it.
-                android.util.Log.w("SyncRepositoryImpl", "No active session; skipping sync batch")
-            } else {
-                // Either the bounded wait expired while the SDK was still restoring the
-                // persisted session (cold start, network), or the SDK is mid-refresh after
-                // a (near-)expiry and reports RefreshFailure while it retries internally.
-                // Both are transient: requeue one quiet, network-constrained background run
-                // (unique work, so no unbounded queue) instead of failing or pushing
-                // anonymously.
-                android.util.Log.w(
-                    "SyncRepositoryImpl",
-                    "Session still restoring after ${SESSION_RESOLVE_TIMEOUT_MS}ms; scheduling a background retry"
-                )
-                syncManager.scheduleSync()
-            }
-            _syncState.value = SyncState.IDLE
-            return
-        }
-
-        // Auth prerequisite: prove there is a usable authenticated session before any
-        // Supabase write, refreshing only when appropriate. Never swallows a refresh
-        // failure or pushes anonymous rows with a dead session.
-        when (ensureAuthenticatedSession()) {
-            SessionReadiness.USABLE -> Unit
-            SessionReadiness.RETRY_LATER -> {
-                // Refresh couldn't complete and no usable session exists (yet) - transient
-                // (concurrent SDK refresh, network). No DB writes; one quiet background
-                // retry via the scheduler's unique, backoff-bounded work.
-                android.util.Log.w("SyncRepositoryImpl", "Session refresh deferred; scheduling a background retry")
-                syncManager.scheduleSync()
-                _syncState.value = SyncState.IDLE
-                return
-            }
-            SessionReadiness.LOGGED_OUT -> {
-                // The SDK has settled on NotAuthenticated. Never retry-loop without a session.
-                android.util.Log.w("SyncRepositoryImpl", "Session became unavailable; skipping sync batch")
-                _syncState.value = SyncState.IDLE
-                return
-            }
-        }
-        
-        // 1. Group by transactionGroupId first. An item with no group id still becomes
-        // its own singleton group, same as before.
-        val rawGroups = pending.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }
-
-        // 2. Order the GROUPS (not the raw items) using the entity-priority FK heuristic:
-        // For CREATE/UPDATE: Parent (Priority 1) before Child (Priority 10)
-        // For DELETE: Child (Priority 10 -> -10) before Parent (Priority 1 -> -1)
-        // This still governs ordering between items that were queued independently, with
-        // no shared transactionGroupId (e.g. a PATIENT create from one flow that must
-        // reach Supabase before an unrelated VACCINATION create queued afterward).
-        fun sortKey(item: SyncQueueEntity): Int {
-            val basePriority = getEntityPriority(item.entityName)
-            return if (item.operation == SyncOperation.DELETE.name) -basePriority else basePriority
-        }
-
-        val groups = rawGroups.entries
-            .sortedWith(
-                compareBy(
-                    { entry -> entry.value.minOf(::sortKey) },
-                    { entry -> entry.value.minOf { it.createdAt } }
-                )
-            )
-            .associate { (groupId, items) ->
-                // 3. WITHIN one transactionGroupId, preserve the exact order the app
-                // enqueued these ops - do NOT re-rank them by the entity-priority
-                // heuristic above. A shared group id means a single local business
-                // transaction (e.g. deleteVaccination) already sequenced its child
-                // unlink/delete calls correctly relative to a parent delete, and
-                // re-deriving that order from entity priority breaks as soon as a group
-                // mixes a parent DELETE with a child UPDATE: FINANCE's positive UPDATE
-                // key (basePriority 4 -> +4) sorted AFTER VACCINATION's negated DELETE
-                // key (basePriority 2 -> -2), so the old code deleted the patient_visits
-                // row before finance_transactions.visit_id was nulled, and Supabase
-                // rejected the delete with FK violation "finance_transactions_visit_id_fkey"
-                // (Postgres 23503). Sorting by createdAt/queueId instead keeps the
-                // unlink-before-delete (and child-delete-before-parent-delete) order that
-                // deleteVaccination() already builds the queue in.
-                groupId to items.sortedWith(compareBy({ it.createdAt }, { it.queueId }))
-            }
+        val groups = orderPendingIntoGroups(pending, ::getEntityPriority)
 
         var hasError = false
         var sessionTransient = false
         var anyTransientRetry = false
 
         for ((groupId, groupItems) in groups) {
-            try {
-                database.withTransaction {
-                    for (item in groupItems) {
-                        syncDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
-                    }
-                }
-                
-                // Batch the pre-upsert conflict-check read (Section 6: Batched
-                // Synchronization): one SELECT ... WHERE id IN (...) per table for this
-                // group, instead of one SELECT per item inside uploadEntity. DELETE and
-                // REMINDERS items are excluded because neither used the per-item check this
-                // replaces (see fetchRemoteConflictData for why).
-                // VACCINATION_ITEM has no updatedAt column (getEntityUpdatedAt -> "");
-                // item rows are replaced via DELETE+CREATE under one visit, so last-write-
-                // wins conflict checks on items are meaningless — skip like REMINDERS.
-                val conflictCheckCandidates = groupItems.filter {
-                    it.operation != SyncOperation.DELETE.name &&
-                        it.entityName != "REMINDERS" &&
-                        it.entityName != "VACCINATION_ITEM"
-                }
-                val remoteConflictData = uploader.fetchRemoteConflictData(conflictCheckCandidates)
-
-                // Process items in group sequentially. If Supabase rejects the request
-                // with a 401 (expired/invalid access token between the pre-sync refresh
-                // and this upload), refresh once and retry the exact same queue item. Any
-                // other rejection - notably genuine data-level authz failures such as RLS
-                // ("new row violates row-level security policy", PostgREST 400 "42501") -
-                // rethrows into the group handler and is never retried as a token problem.
-                for (item in groupItems) {
-                    try {
-                        uploader.uploadEntity(item, remoteConflictData)
-                    } catch (e: Exception) {
-                        if (!requiresSessionRefresh(e)) throw e
-                        handleSessionRefreshOn401(e)
-                        uploader.uploadEntity(item, remoteConflictData)
-                    }
-                    uploader.markUploaded(item)
-                    syncDao.deleteItem(item)
-                }
-            } catch (e: SessionAuthTransientException) {
-                // An auth/timing problem, not a data one: once the SDK finishes its own
-                // refresh the same rows can sync, so leave them PENDING (never FAILED) and
-                // let the end-of-batch handler schedule one quieter background run.
-                for (item in groupItems) {
-                    syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
-                }
-                sessionTransient = true
-                android.util.Log.w("SyncRepositoryImpl", "Group $groupId deferred: session refresh unavailable", e)
-            } catch (e: Exception) {
-                hasError = true
-                android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
-
-                val transient = isTransientSyncError(e)
-
-                for (item in groupItems) {
-                    if (transient && item.retryCount < 5) {
-                        syncDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
-                        syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
-                        anyTransientRetry = true
-                    } else {
-                        // Either a permanent failure (bad payload, schema mismatch, RLS/
-                        // permission denial, etc. - retrying it would never succeed without
-                        // user/data intervention) or a transient one that already used its 5
-                        // attempts. Either way, mark it FAILED rather than looping forever:
-                        // the row stays in sync_queue with its error details (lastError),
-                        // visible on the Sync screen and retryable from there - never
-                        // silently discarded.
-                        syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, buildSyncErrorDetails(e))
-                    }
+            when (processGroup(groupId, groupItems)) {
+                GroupResult.SUCCESS -> Unit
+                GroupResult.SESSION_DEFERRED -> sessionTransient = true
+                GroupResult.FAILED -> hasError = true
+                GroupResult.FAILED_TRANSIENT_RETRY -> {
+                    hasError = true
+                    anyTransientRetry = true
                 }
             }
         }
@@ -306,6 +146,169 @@ class SyncRepositoryImpl @Inject constructor(
         if (syncDao.getPendingCountSync() > 0 && !hasError) {
             processNextItems()
         }
+    }
+
+    /**
+     * Resolves the session prerequisite this batch must clear before any Supabase write.
+     *
+     * Returns false when the batch must stop (genuinely logged out, or session still
+     * restoring/refreshing), with any quiet background retry already scheduled and
+     * [_syncState] reset to IDLE. Returns true only with a usable session in hand.
+     *
+     * Why the wait at the front: the SDK loads a saved session asynchronously
+     * (autoLoadFromStorage), but a WorkManager run in a freshly-created process (the app
+     * having been minimized and its process killed) can read currentSessionOrNull() as null
+     * before that load finishes. Without waiting, every upload in this batch goes out
+     * anonymous (anon key only), auth.uid() is null, so is_active_staff() is false and
+     * Supabase rejects each row with "new row violates row-level security policy for table
+     * ...". Wait for the load to settle first (bounded - a cold start must stay
+     * offline-first and never hang on a network token-refresh inside the SDK's initial
+     * status flow). Never push anonymous rows at an RLS-protected database; leave the queue
+     * pending so a later sync picks it up instead of burning retries on RLS rejections.
+     */
+    private suspend fun resolveSessionOrDefer(): Boolean {
+        val sessionResolved = awaitSessionResolved(auth.sessionStatus, SESSION_RESOLVE_TIMEOUT_MS)
+
+        val currentSession = auth.currentSessionOrNull()
+        if (currentSession == null) {
+            val genuinelyLoggedOut = sessionResolved && auth.sessionStatus.value !is SessionStatus.RefreshFailure
+            if (genuinelyLoggedOut) {
+                // Status settled on NotAuthenticated - the user is genuinely logged out.
+                // Skip everything; do NOT schedule work, so we never retry-loop without a
+                // session. A manual/after-login sync handles it.
+                android.util.Log.w("SyncRepositoryImpl", "No active session; skipping sync batch")
+            } else {
+                // Either the bounded wait expired while the SDK was still restoring the
+                // persisted session (cold start, network), or the SDK is mid-refresh after
+                // a (near-)expiry and reports RefreshFailure while it retries internally.
+                // Both are transient: requeue one quiet, network-constrained background run
+                // (unique work, so no unbounded queue) instead of failing or pushing
+                // anonymously.
+                android.util.Log.w(
+                    "SyncRepositoryImpl",
+                    "Session still restoring after ${SESSION_RESOLVE_TIMEOUT_MS}ms; scheduling a background retry"
+                )
+                syncManager.scheduleSync()
+            }
+            _syncState.value = SyncState.IDLE
+            return false
+        }
+
+        // Auth prerequisite: prove there is a usable authenticated session before any
+        // Supabase write, refreshing only when appropriate. Never swallows a refresh
+        // failure or pushes anonymous rows with a dead session.
+        when (ensureAuthenticatedSession()) {
+            SessionReadiness.USABLE -> return true
+            SessionReadiness.RETRY_LATER -> {
+                // Refresh couldn't complete and no usable session exists (yet) - transient
+                // (concurrent SDK refresh, network). No DB writes; one quiet background
+                // retry via the scheduler's unique, backoff-bounded work.
+                android.util.Log.w("SyncRepositoryImpl", "Session refresh deferred; scheduling a background retry")
+                syncManager.scheduleSync()
+                _syncState.value = SyncState.IDLE
+                return false
+            }
+            SessionReadiness.LOGGED_OUT -> {
+                // The SDK has settled on NotAuthenticated. Never retry-loop without a session.
+                android.util.Log.w("SyncRepositoryImpl", "Session became unavailable; skipping sync batch")
+                _syncState.value = SyncState.IDLE
+                return false
+            }
+        }
+    }
+
+    /**
+     * Uploads one ordered group (see [orderPendingIntoGroups] for how the group's own
+     * ordering was derived). Batches the pre-upsert conflict-check read for the group:
+     * one SELECT ... WHERE id IN (...) per table, instead of one SELECT per item inside
+     * uploadEntity. DELETE and REMINDERS items are excluded because neither used the
+     * per-item check this replaces (see fetchRemoteConflictData for why). VACCINATION_ITEM
+     * has no updatedAt column (getEntityUpdatedAt -> ""); item rows are replaced via
+     * DELETE+CREATE under one visit, so last-write-wins conflict checks on items are
+     * meaningless - skip like REMINDERS.
+     *
+     * Items are processed sequentially. If Supabase rejects the request with a 401
+     * (expired/invalid access token between the pre-sync refresh and this upload), refresh
+     * once and retry the exact same queue item. Any other rejection - notably genuine
+     * data-level authz failures such as RLS ("new row violates row-level security
+     * policy", PostgREST 400 "42501") - rethrows into the group handler and is never
+     * retried as a token problem.
+     */
+    private suspend fun processGroup(groupId: String, groupItems: List<SyncQueueEntity>): GroupResult {
+        return try {
+            database.withTransaction {
+                for (item in groupItems) {
+                    syncDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
+                }
+            }
+
+            val conflictCheckCandidates = groupItems.filter {
+                it.operation != SyncOperation.DELETE.name &&
+                    it.entityName != "REMINDERS" &&
+                    it.entityName != "VACCINATION_ITEM"
+            }
+            val remoteConflictData = uploader.fetchRemoteConflictData(conflictCheckCandidates)
+
+            for (item in groupItems) {
+                try {
+                    uploader.uploadEntity(item, remoteConflictData)
+                } catch (e: Exception) {
+                    if (!requiresSessionRefresh(e)) throw e
+                    handleSessionRefreshOn401(e)
+                    uploader.uploadEntity(item, remoteConflictData)
+                }
+                uploader.markUploaded(item)
+                syncDao.deleteItem(item)
+            }
+            GroupResult.SUCCESS
+        } catch (e: SessionAuthTransientException) {
+            // An auth/timing problem, not a data one: once the SDK finishes its own
+            // refresh the same rows can sync, so leave them PENDING (never FAILED) and
+            // let the end-of-batch handler schedule one quieter background run.
+            for (item in groupItems) {
+                syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+            }
+            android.util.Log.w("SyncRepositoryImpl", "Group $groupId deferred: session refresh unavailable", e)
+            GroupResult.SESSION_DEFERRED
+        } catch (e: Exception) {
+            android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
+            if (classifyAndRecordError(groupItems, e)) {
+                GroupResult.FAILED_TRANSIENT_RETRY
+            } else {
+                GroupResult.FAILED
+            }
+        }
+    }
+
+    /**
+     * Applies the per-item retry/failure policy for a group that failed. Returns true when
+     * at least one item was requeued PENDING for a transient reason.
+     *
+     * Transient (retryCount < 5): connectivity-layer failures, 408/429/5xx - the same
+     * request could succeed later, so increment the retry count with error details and
+     * leave the item PENDING.
+     *
+     * Permanent (anything else, or a transient one that already used its 5 attempts):
+     * a bad payload, schema mismatch, RLS/permission denial, etc. - resending it would
+     * never succeed without user/data intervention, or the transient item already churned
+     * its limit. Either way mark it FAILED rather than looping forever: the row stays in
+     * sync_queue with its error details (lastError), visible on the Sync screen and
+     * retryable from there - never silently discarded.
+     */
+    private suspend fun classifyAndRecordError(groupItems: List<SyncQueueEntity>, e: Exception): Boolean {
+        val transient = isTransientSyncError(e)
+        var requeued = false
+
+        for (item in groupItems) {
+            if (transient && item.retryCount < 5) {
+                syncDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
+                syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                requeued = true
+            } else {
+                syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, buildSyncErrorDetails(e))
+            }
+        }
+        return requeued
     }
 
 
@@ -454,22 +457,10 @@ class SyncRepositoryImpl @Inject constructor(
         return if (queryIndex >= 0) rawUrl.substring(0, queryIndex) else rawUrl
     }
 
-    private fun getEntityPriority(entityName: String): Int {
-        return when (entityName) {
-            "PATIENT", "VACCINE" -> 1
-            "VACCINATION", "VISIT", "BATCH" -> 2
-            "VACCINATION_ITEM", "CONSULTATION", "CONSULTATION_TODO", "VACCINATION_TODO", "WASTE", "BORROW" -> 3
-            "BORROW_RETURN" -> 4
-            "INVENTORY_TRANSACTION", "FINANCE" -> 4
-            "EXPENSE" -> 4
-            "DOCTOR_WEEKLY_SLOT" -> 2
-            "DOCTOR_SLOT_EXCEPTION" -> 3
-            "REMINDERS", "PATIENT_NOTE", "AUDIT_LOG", "PERSONAL_REMINDER" -> 5
-            else -> 100
-        }
-    }
+    private fun getEntityPriority(entityName: String): Int =
+        SYNC_ENTITY_REGISTRY[entityName]?.priority ?: 100
 
-suspend fun retryFailedItems() {
+    suspend fun retryFailedItems() {
         val failed = syncDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
             syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
@@ -610,4 +601,61 @@ internal fun classifySessionReadinessAfterFailedRefresh(
         }
 }
 
+// Groups pending items by transactionGroupId first (an item with no group id still becomes
+// its own singleton group, same as before), then orders the GROUPS (not the raw items)
+// using the entity-priority FK heuristic:
+//   For CREATE/UPDATE: Parent (Priority 1) before Child (Priority 10)
+//   For DELETE: Child (Priority 10 -> -10) before Parent (Priority 1 -> -1)
+// This still governs ordering between items that were queued independently, with no shared
+// transactionGroupId (e.g. a PATIENT create from one flow that must reach Supabase before
+// an unrelated VACCINATION create queued afterward).
+//
+// WITHIN one transactionGroupId, the exact order the app enqueued these ops is preserved -
+// NOT re-ranked by the entity-priority heuristic above. A shared group id means a single
+// local business transaction (e.g. deleteVaccination) already sequenced its child
+// unlink/delete calls correctly relative to a parent delete, and re-deriving that order
+// from entity priority breaks as soon as a group mixes a parent DELETE with a child UPDATE:
+// FINANCE's positive UPDATE key (basePriority 4 -> +4) sorted AFTER VACCINATION's negated
+// DELETE key (basePriority 2 -> -2), so the old code deleted the patient_visits row before
+// finance_transactions.visit_id was nulled, and Supabase rejected the delete with FK
+// violation "finance_transactions_visit_id_fkey" (Postgres 23503). Sorting by
+// createdAt/queueId instead keeps the unlink-before-delete (and child-delete-before-parent-
+// delete) order that deleteVaccination() already builds the queue in.
+internal fun orderPendingIntoGroups(
+    pending: List<SyncQueueEntity>,
+    priority: (String) -> Int
+): Map<String, List<SyncQueueEntity>> {
+    val rawGroups = pending.groupBy { it.transactionGroupId ?: java.util.UUID.randomUUID().toString() }
+
+    fun sortKey(item: SyncQueueEntity): Int {
+        val basePriority = priority(item.entityName)
+        return if (item.operation == SyncOperation.DELETE.name) -basePriority else basePriority
+    }
+
+    return rawGroups.entries
+        .sortedWith(
+            compareBy(
+                { entry -> entry.value.minOf(::sortKey) },
+                { entry -> entry.value.minOf { it.createdAt } }
+            )
+        )
+        .associate { (groupId, items) ->
+            groupId to items.sortedWith(compareBy({ it.createdAt }, { it.queueId }))
+        }
+}
+
 enum class SyncState { IDLE, SYNCING, ERROR }
+
+// Outcome of one ordered group upload in processNextItems.
+internal enum class GroupResult {
+    SUCCESS,
+
+    /** Auth wasn't available (session refresh deferred); rows left PENDING for a quiet retry. */
+    SESSION_DEFERRED,
+
+    /** The group failed and every item was marked FAILED (permanent, or retries exhausted). */
+    FAILED,
+
+    /** The group failed but at least one item was requeued PENDING for a transient reason. */
+    FAILED_TRANSIENT_RETRY
+}

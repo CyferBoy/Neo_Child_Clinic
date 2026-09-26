@@ -5,15 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.data.local.entity.ReminderEntity
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.ExpenseRepositoryImpl
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.model.Expense
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -37,12 +37,12 @@ data class StatisticsUiState(
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
-    private val patientRepository: PatientRepositoryImpl,
-    private val vaccinationRepository: VaccinationRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val financeRepository: FinanceRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val expenseRepository: ExpenseRepositoryImpl,
+    private val patientRepository: PatientRepository,
+    private val vaccinationRepository: VaccinationRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val financeRepository: FinanceRepository,
+    private val reminderRepository: ReminderRepository,
+    private val expenseRepository: ExpenseRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 

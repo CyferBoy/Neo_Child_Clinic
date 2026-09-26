@@ -7,19 +7,11 @@ import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.VisitEntity
 import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.NextVaccinationSummary
+import com.neochildclinic.domain.model.ReminderStats
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Date
 import java.util.UUID
-
-data class ReminderStats(
-    val dueToday: Int = 0,
-    val dueTomorrow: Int = 0,
-    val overdue: Int = 0,
-    val completedToday: Int = 0,
-    val dismissedToday: Int = 0,
-    val notificationsSentToday: Int = 0
-)
 
 /**
  * Pure combination of visit + reminder entities into the processed Due/terminal

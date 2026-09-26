@@ -8,11 +8,11 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.data.local.entity.FinanceEntity
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
-import com.neochildclinic.data.repository.ExpenseRepositoryImpl
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -48,10 +48,10 @@ data class FullReportUiState(
 
 @HiltViewModel
 class FullReportViewModel @Inject constructor(
-    patientRepository: PatientRepositoryImpl,
-    vaccinationRepository: VaccinationRepositoryImpl,
-    financeRepository: FinanceRepositoryImpl,
-    expenseRepository: ExpenseRepositoryImpl,
+    patientRepository: PatientRepository,
+    vaccinationRepository: VaccinationRepository,
+    financeRepository: FinanceRepository,
+    expenseRepository: ExpenseRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 

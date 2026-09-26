@@ -7,8 +7,8 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -18,8 +18,8 @@ import javax.inject.Singleton
 class WasteRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val syncRepository: SyncRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
+    private val syncRepository: SyncRepository,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : WasteRepository {
@@ -27,13 +27,13 @@ class WasteRepositoryImpl @Inject constructor(
     private val wasteDao = database.wasteDao()
     private val syncQueueDao = database.syncQueueDao()
 
-    fun getAllWaste(): Flow<List<WasteRecord>> =
+    override fun getAllWaste(): Flow<List<WasteRecord>> =
         wasteDao.getAllWaste()
 
-    suspend fun getWasteById(id: String): WasteRecord? =
+    override suspend fun getWasteById(id: String): WasteRecord? =
         wasteDao.getWasteById(id)
 
-    suspend fun recordWaste(record: WasteRecord, user: String) {
+    override suspend fun recordWaste(record: WasteRecord, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             // 1. Save Locally
@@ -70,7 +70,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateWaste(oldRecord: WasteRecord, newRecord: WasteRecord, user: String) {
+    override suspend fun updateWaste(oldRecord: WasteRecord, newRecord: WasteRecord, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             // 1. Restore old stock
@@ -116,7 +116,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deleteWaste(id: String, user: String) {
+    override suspend fun deleteWaste(id: String, user: String) {
         database.withTransaction {
             val record = wasteDao.getWasteById(id) ?: return@withTransaction
             val userName = sessionManager.getCurrentUserName()
@@ -158,7 +158,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    fun getWasteCount(): Flow<Int> = wasteDao.getWasteCount()
+    override fun getWasteCount(): Flow<Int> = wasteDao.getWasteCount()
 
     private fun mapReasonToTransactionType(reason: String): InventoryTransactionType {
         return when (reason.lowercase()) {

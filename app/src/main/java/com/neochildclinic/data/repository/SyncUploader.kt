@@ -4,8 +4,348 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.model.SyncOperation
 import io.github.jan.supabase.postgrest.Postgrest
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
+
+// Decoder used for remote rows pulled back into the local DB (downloadAndReplaceLocal).
+// ignoreUnknownKeys/coerceInputValues: the remote row may carry columns Room doesn't know
+// (server-side only, e.g. receipt_number triggers) or values Room types coerce resiliently.
+private val syncRemoteJson = kotlinx.serialization.json.Json {
+    ignoreUnknownKeys = true
+    coerceInputValues = true
+}
+
+// Single source of truth for "what is a syncable entity". Every name-keyed when switch
+// (entity table, priority, local fetch, updated-at extractor, markUploaded column, remote
+// download) used to enumerate the ~20 entity names in lockstep across parallel branches;
+// adding one entity meant editing five call sites, and a missed branch degraded silently.
+// Now a new entity is registered once, here, and the lookups below fail loudly (Illegal-
+// ArgumentException) on an unknown name instead of defaulting (e.g. priority -> 100).
+//
+//   tableName         remote Supabase table
+//   priority          FK-ordering weight (1 = parent, 5 = leaf); see orderPendingIntoGroups
+//   fetch             load the local row for upload (null => nothing to upload)
+//   updatedAt         extract the row's last-updated value for remote-newer conflict checks
+//   download          write a remote-newer row back into Room (no-op default preserves the
+//                     legacy behavior of tables that never downloaded: no branch ran)
+//   pkColumn          local PK column for the markUploaded UPDATE
+//   syncedSqlColumn   isSynced column name for markUploaded; null => no such column, skip
+internal data class SyncEntityDescriptor(
+    val tableName: String,
+    val priority: Int,
+    val fetch: suspend (AppDatabase, String) -> Any?,
+    val updatedAt: (Any) -> String,
+    val download: suspend (AppDatabase, Map<String, JsonElement>) -> Unit = { _, _ -> Unit },
+    val pkColumn: String = "id",
+    val syncedSqlColumn: String? = "isSynced"
+)
+
+// Built once, no AppDatabase in scope - every accessor takes the DB as a parameter, so the
+// registry is a plain static map safe to share and to unit-test priority/ordering against.
+internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
+
+    "PATIENT" to SyncEntityDescriptor(
+        tableName = "patients",
+        priority = 1,
+        fetch = { db, id ->
+            val entity = db.patientDao().getPatientById(id)
+            // Strip 'TEMP-' prefix before uploading
+            if (entity?.patientClinicId?.startsWith("TEMP-") == true) {
+                entity.copy(patientClinicId = null)
+            } else {
+                entity
+            }
+        },
+        updatedAt = { (it as? PatientEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<PatientEntity>(JsonObject(m))
+            db.patientDao().insertPatient(entity.copy(isSynced = true))
+        }
+    ),
+
+    "VACCINATION" to SyncEntityDescriptor(
+        tableName = "patient_visits",
+        priority = 2,
+        fetch = { db, id -> db.vaccinationDao().getVaccinationById(id) },
+        updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
+            db.vaccinationDao().insertVaccination(entity.copy(isSynced = true))
+        }
+    ),
+
+    "VISIT" to SyncEntityDescriptor(
+        tableName = "patient_visits",
+        priority = 2,
+        fetch = { db, id -> db.vaccinationDao().getVaccinationById(id) },
+        updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
+            db.vaccinationDao().insertVaccination(entity.copy(isSynced = true))
+        }
+    ),
+
+    "VACCINATION_ITEM" to SyncEntityDescriptor(
+        tableName = "vaccination_items",
+        priority = 3,
+        // No updatedAt column - item rows are replaced via DELETE+CREATE under one visit,
+        // so last-write-wins conflict checks on items are meaningless (excluded upstream).
+        fetch = { db, id -> db.vaccinationItemDao().getItemById(id) },
+        updatedAt = { "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<VaccinationItemEntity>(JsonObject(m))
+            db.vaccinationItemDao().insertItems(listOf(entity))
+        },
+        syncedSqlColumn = null
+    ),
+
+    "WASTE" to SyncEntityDescriptor(
+        tableName = "waste_records",
+        priority = 3,
+        fetch = { db, id -> db.wasteDao().getWasteById(id) },
+        updatedAt = { (it as? WasteEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<WasteEntity>(JsonObject(m))
+            db.wasteDao().insertWaste(entity.copy(isSynced = true))
+        }
+    ),
+
+    "REMINDERS" to SyncEntityDescriptor(
+        tableName = "reminders",
+        priority = 5,
+        // REMINDERS upload has its own specialized path in uploadEntity (server-generated
+        // IDs); fetch/download here serve the download-and-replace conflict side only.
+        fetch = { db, id -> db.dueReminderDao().getReminderById(id) },
+        updatedAt = { (it as? ReminderEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val remote = syncRemoteJson.decodeFromJsonElement<RemoteReminder>(JsonObject(m))
+            val local = db.dueReminderDao().getReminderByStableId(
+                remote.patientId,
+                remote.originalVisitId,
+                remote.vaccineName,
+                remote.type
+            )
+            db.dueReminderDao().insertReminder(remote.toLocal(localId = local?.id))
+        }
+    ),
+
+    "VACCINE" to SyncEntityDescriptor(
+        tableName = "vaccines",
+        priority = 1,
+        fetch = { db, id -> db.vaccineDao().getVaccineById(id) },
+        updatedAt = { (it as? VaccineEntity)?.lastUpdated ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<VaccineEntity>(JsonObject(m))
+            db.vaccineDao().insertVaccine(entity)
+        },
+        syncedSqlColumn = null
+    ),
+
+    "BATCH" to SyncEntityDescriptor(
+        tableName = "vaccine_batches",
+        priority = 2,
+        fetch = { db, id -> db.vaccineDao().getBatchById(id) },
+        updatedAt = { (it as? VaccineBatchEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<VaccineBatchEntity>(JsonObject(m))
+            db.vaccineDao().insertBatch(entity)
+        },
+        syncedSqlColumn = null
+    ),
+
+    "TRANSACTION" to SyncEntityDescriptor(
+        tableName = "inventory_transactions",
+        priority = 4,
+        fetch = { db, id -> db.vaccineDao().getTransactionById(id) },
+        updatedAt = { (it as? InventoryTransactionEntity)?.timestamp ?: "" },
+        pkColumn = "transactionId"
+    ),
+
+    "INVENTORY_TRANSACTION" to SyncEntityDescriptor(
+        tableName = "inventory_transactions",
+        priority = 4,
+        fetch = { db, id -> db.vaccineDao().getTransactionById(id) },
+        updatedAt = { (it as? InventoryTransactionEntity)?.timestamp ?: "" },
+        pkColumn = "transactionId"
+    ),
+
+    "PATIENT_NOTE" to SyncEntityDescriptor(
+        tableName = "patient_notes",
+        priority = 5,
+        fetch = { db, id -> db.patientNotesDao().getNoteById(id) },
+        updatedAt = { (it as? PatientNotesEntity)?.timestamp ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<PatientNotesEntity>(JsonObject(m))
+            db.patientNotesDao().insertNote(entity.copy(isSynced = true))
+        }
+    ),
+
+    "FINANCE" to SyncEntityDescriptor(
+        tableName = "finance_transactions",
+        priority = 4,
+        fetch = { db, id -> db.financeDao().getTransactionById(id) },
+        // No FinanceEntity branch in the legacy getEntityUpdatedAt switch (fell to else -> "");
+        // preserved so the conflict check still favours the remote row for finance.
+        updatedAt = { "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<FinanceEntity>(JsonObject(m))
+            db.financeDao().insertTransaction(entity.copy(isSynced = true))
+        }
+    ),
+
+    "EXPENSE" to SyncEntityDescriptor(
+        tableName = "expenses",
+        priority = 4,
+        fetch = { db, id -> db.expenseDao().getExpenseById(id) },
+        updatedAt = { (it as? ExpenseEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<ExpenseEntity>(JsonObject(m))
+            db.expenseDao().insertExpense(entity.copy(isSynced = true))
+        }
+    ),
+
+    "PROFILE" to SyncEntityDescriptor(
+        tableName = "profiles",
+        // No branch in the legacy getEntityPriority switch - it defaulted to 100 (sorted
+        // last for CREATE/UPDATE, first for DELETE). Preserved exactly.
+        priority = 100,
+        fetch = { db, id -> db.profileDao().getProfileById(id) },
+        updatedAt = { "" },
+        // profiles never downloads: a conflict check reaching here falls through the legacy
+        // when-less path too (no branch matched), so the no-op default is the same behavior.
+        syncedSqlColumn = null
+    ),
+
+    "STAFF" to SyncEntityDescriptor(
+        tableName = "profiles",
+        priority = 100,
+        fetch = { db, id -> db.profileDao().getProfileById(id) },
+        updatedAt = { "" },
+        syncedSqlColumn = null
+    ),
+
+    "BORROW" to SyncEntityDescriptor(
+        tableName = "borrow_records",
+        priority = 3,
+        fetch = { db, id -> db.borrowDao().getRecordById(id) },
+        // A returned borrow is a local status update. borrow_records does not have a
+        // client-side updated_at field, so using the original borrowed date makes the
+        // conflict check incorrectly treat the remote row as newer and download the old
+        // is_returned=false row. Use the current timestamp while this pending update is
+        // being uploaded so the explicit return wins.
+        updatedAt = {
+            val b = it as? BorrowEntity
+            if (b == null) "" else if (b.isReturned) {
+                com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            } else {
+                b.borrowedDate
+            }
+        },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<BorrowEntity>(JsonObject(m))
+            db.borrowDao().insertRecord(entity.copy(isSynced = true))
+        }
+    ),
+
+    "BORROW_RETURN" to SyncEntityDescriptor(
+        tableName = "borrow_returns",
+        priority = 4,
+        fetch = { db, id -> db.borrowReturnDao().getById(id) },
+        updatedAt = {
+            val b = it as? BorrowReturnEntity
+            if (b == null) "" else b.createdAt.ifBlank { b.returnedDate }
+        },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<BorrowReturnEntity>(JsonObject(m))
+            db.borrowReturnDao().insert(entity.copy(isSynced = true))
+        },
+        syncedSqlColumn = "is_synced"
+    ),
+
+    "AUDIT_LOG" to SyncEntityDescriptor(
+        tableName = "audit_logs",
+        priority = 5,
+        fetch = { db, id -> db.auditLogDao().getLogById(id) },
+        updatedAt = { (it as? AuditLogEntity)?.timestamp ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<AuditLogEntity>(JsonObject(m))
+            db.auditLogDao().insertLog(entity.copy(isSynced = true))
+        }
+    ),
+
+    "CONSULTATION" to SyncEntityDescriptor(
+        tableName = "consultations",
+        priority = 3,
+        fetch = { db, id -> db.consultationDao().getConsultationById(id) },
+        updatedAt = { (it as? ConsultationEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<ConsultationEntity>(JsonObject(m))
+            db.consultationDao().insertConsultation(entity.copy(isSynced = true))
+        }
+    ),
+
+    "CONSULTATION_TODO" to SyncEntityDescriptor(
+        tableName = "consultation_todos",
+        priority = 3,
+        fetch = { db, id -> db.patientTodoDao().getConsultationTodoById(id) },
+        updatedAt = { (it as? ConsultationTodoEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<ConsultationTodoEntity>(JsonObject(m))
+            db.patientTodoDao().insertConsultation(entity.copy(isSynced = true))
+        },
+        syncedSqlColumn = "is_synced"
+    ),
+
+    "VACCINATION_TODO" to SyncEntityDescriptor(
+        tableName = "vaccination_todos",
+        priority = 3,
+        fetch = { db, id -> db.patientTodoDao().getVaccinationTodoById(id) },
+        updatedAt = { (it as? VaccinationTodoEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<VaccinationTodoEntity>(JsonObject(m))
+            db.patientTodoDao().insertVaccination(entity.copy(isSynced = true))
+        },
+        syncedSqlColumn = "is_synced"
+    ),
+
+    "PERSONAL_REMINDER" to SyncEntityDescriptor(
+        tableName = "personal_vaccine_reminders",
+        priority = 5,
+        fetch = { db, id -> db.personalReminderDao().getById(id) },
+        updatedAt = { (it as? PersonalReminderEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<PersonalReminderEntity>(JsonObject(m))
+            db.personalReminderDao().insert(entity.copy(isSynced = true))
+        },
+        syncedSqlColumn = "is_synced"
+    ),
+
+    "DOCTOR_WEEKLY_SLOT" to SyncEntityDescriptor(
+        tableName = "doctor_weekly_slots",
+        priority = 2,
+        fetch = { db, id -> db.doctorAvailabilityDao().getWeeklySlotById(id) },
+        updatedAt = { (it as? DoctorWeeklySlotEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<DoctorWeeklySlotEntity>(JsonObject(m))
+            db.doctorAvailabilityDao().upsertWeeklySlot(entity.copy(isSynced = true))
+        },
+        syncedSqlColumn = "is_synced"
+    ),
+
+    "DOCTOR_SLOT_EXCEPTION" to SyncEntityDescriptor(
+        tableName = "doctor_slot_exceptions",
+        priority = 3,
+        fetch = { db, id -> db.doctorAvailabilityDao().getExceptionById(id) },
+        updatedAt = { (it as? DoctorSlotExceptionEntity)?.updatedAt ?: "" },
+        download = { db, m ->
+            val entity = syncRemoteJson.decodeFromJsonElement<DoctorSlotExceptionEntity>(JsonObject(m))
+            db.doctorAvailabilityDao().upsertException(entity.copy(isSynced = true))
+        },
+        syncedSqlColumn = "is_synced"
+    )
+)
 
 // Per-entity SyncRepositoryImpl core: every remote write/read mapping, conflict check, and
 // remote-into-local download for the sync queue. Owns no queue state itself - the batch
@@ -16,62 +356,22 @@ internal class SyncUploader(
     private val postgrest: Postgrest
 ) {
 
-    // Shared entityName -> Supabase table mapping, used both by uploadEntity (which still
-    // throws on an unrecognized entityName, exactly as before) and by the batched
-    // conflict-check prefetch below (which just skips grouping for entries it doesn't
-    // recognize, since uploadEntity will throw on them anyway when its turn comes).
-    private fun entityTable(entityName: String): String? = when (entityName) {
-        "PATIENT" -> "patients"
-        "VACCINATION", "VISIT" -> "patient_visits"
-        "VACCINATION_ITEM" -> "vaccination_items"
-        "WASTE" -> "waste_records"
-        "REMINDERS" -> "reminders"
-        "VACCINE" -> "vaccines"
-        "BATCH" -> "vaccine_batches"
-        "TRANSACTION", "INVENTORY_TRANSACTION" -> "inventory_transactions"
-        "PATIENT_NOTE" -> "patient_notes"
-        "FINANCE" -> "finance_transactions"
-        "EXPENSE" -> "expenses"
-        "PROFILE", "STAFF" -> "profiles"
-        "BORROW" -> "borrow_records"
-        "BORROW_RETURN" -> "borrow_returns"
-        "AUDIT_LOG" -> "audit_logs"
-        "CONSULTATION" -> "consultations"
-        "CONSULTATION_TODO" -> "consultation_todos"
-        "VACCINATION_TODO" -> "vaccination_todos"
-        "PERSONAL_REMINDER" -> "personal_vaccine_reminders"
-        "DOCTOR_WEEKLY_SLOT" -> "doctor_weekly_slots"
-        "DOCTOR_SLOT_EXCEPTION" -> "doctor_slot_exceptions"
-        else -> null
-    }
-
     // After a successful upload, flip the local row's isSynced so pull guards of the form
     // (local == null || local.isSynced) stop permanently skipping remote updates for it.
-    // Tables without an isSynced column (profiles/vaccines/vaccine_batches/
-    // vaccination_items) rely on queue-only guards and are skipped here. DELETE ops are
-    // skipped: the local row is already gone.
+    // Tables without an isSynced column (syncedSqlColumn == null in the registry: profiles/
+    // vaccines/vaccine_batches/vaccination_items) rely on queue-only guards and are skipped
+    // here. DELETE ops are skipped: the local row is already gone.
     suspend fun markUploaded(item: SyncQueueEntity) {
         if (item.operation == SyncOperation.DELETE.name) return
-        // Tables without an isSynced column (profiles/vaccines/vaccine_batches/
-        // vaccination_items) rely on queue-only guards and are skipped here.
-        val table = entityTable(item.entityName) ?: return
-        when (item.entityName) {
-            "PROFILE", "STAFF", "VACCINE", "BATCH", "VACCINATION_ITEM" -> return
-            else -> {}
-        }
-        val pk = if (item.entityName == "TRANSACTION" || item.entityName == "INVENTORY_TRANSACTION") "transactionId" else "id"
-        val col = when (item.entityName) {
-            "BORROW_RETURN", "CONSULTATION_TODO", "VACCINATION_TODO", "PERSONAL_REMINDER",
-            "DOCTOR_WEEKLY_SLOT", "DOCTOR_SLOT_EXCEPTION" -> "is_synced"
-            else -> "isSynced"
-        }
+        val descriptor = SYNC_ENTITY_REGISTRY[item.entityName] ?: return
+        val syncedColumn = descriptor.syncedSqlColumn ?: return
         try {
             database.openHelper.writableDatabase.execSQL(
-                "UPDATE $table SET $col = 1 WHERE $pk = ?",
+                "UPDATE ${descriptor.tableName} SET $syncedColumn = 1 WHERE ${descriptor.pkColumn} = ?",
                 arrayOf(item.entityId)
             )
         } catch (e: Exception) {
-            android.util.Log.w("SyncRepositoryImpl", "Failed to mark $table.${item.entityId} synced", e)
+            android.util.Log.w("SyncRepositoryImpl", "Failed to mark ${descriptor.tableName}.${item.entityId} synced", e)
         }
     }
 
@@ -86,11 +386,11 @@ internal class SyncUploader(
     // a plain upsert whenever the live check failed.
     suspend fun fetchRemoteConflictData(
         items: List<SyncQueueEntity>
-    ): Map<String, Map<String, kotlinx.serialization.json.JsonElement>> {
+    ): Map<String, Map<String, JsonElement>> {
         if (items.isEmpty()) return emptyMap()
 
-        val result = mutableMapOf<String, Map<String, kotlinx.serialization.json.JsonElement>>()
-        val byTable = items.groupBy { entityTable(it.entityName) }
+        val result = mutableMapOf<String, Map<String, JsonElement>>()
+        val byTable = items.groupBy { SYNC_ENTITY_REGISTRY[it.entityName]?.tableName }
 
         for ((table, tableItems) in byTable) {
             if (table == null) continue
@@ -100,7 +400,7 @@ internal class SyncUploader(
             try {
                 val rows = postgrest.from(table).select {
                     filter { isIn("id", ids) }
-                }.decodeList<Map<String, kotlinx.serialization.json.JsonElement>>()
+                }.decodeList<Map<String, JsonElement>>()
 
                 for (row in rows) {
                     val id = row["id"]?.toString()?.trim('"') ?: continue
@@ -116,10 +416,11 @@ internal class SyncUploader(
 
     suspend fun uploadEntity(
         item: SyncQueueEntity,
-        remoteConflictData: Map<String, Map<String, kotlinx.serialization.json.JsonElement>>
+        remoteConflictData: Map<String, Map<String, JsonElement>>
     ) {
-        val table = entityTable(item.entityName)
+        val descriptor = SYNC_ENTITY_REGISTRY[item.entityName]
             ?: throw IllegalArgumentException("Unknown entity: ${item.entityName}")
+        val table = descriptor.tableName
 
         if (item.operation == SyncOperation.DELETE.name) {
             // REMINDERS: entityId is serverId ?: localId captured at enqueue time — the
@@ -165,9 +466,16 @@ internal class SyncUploader(
             }
         }
 
-        val localData = fetchEntityData(item)
+        val localData = try {
+            descriptor.fetch(database, item.entityId)
+        } catch (e: Exception) {
+            // Same containment the legacy fetchEntityData provided: a local DB read failure
+            // yields "nothing to upload" (null) rather than failing the whole group.
+            android.util.Log.e("SyncRepositoryImpl", "Error fetching data for sync: ${item.entityName} ID ${item.entityId}", e)
+            null
+        }
         if (localData != null) {
-            val localUpdatedAt = getEntityUpdatedAt(localData)
+            val localUpdatedAt = descriptor.updatedAt(localData)
 
             // Conflict check: was resolved with its own SELECT per item before this change;
             // now reads from the batch-fetched map built once per sync group in
@@ -183,7 +491,7 @@ internal class SyncUploader(
 
                 if (remoteUpdatedAt > localUpdatedAtLong) {
                     // REMOTE IS NEWER: Sync back to local (Self-healing)
-                    downloadAndReplaceLocal(item.entityName, remoteData)
+                    descriptor.download(database, remoteData)
                     return
                 }
             }
@@ -261,7 +569,7 @@ internal class SyncUploader(
         ) as JsonObject
         val fields = fullJson.toMutableMap()
         if (isCreate) {
-            fields["remaining_quantity"] = kotlinx.serialization.json.JsonPrimitive(0)
+            fields["remaining_quantity"] = JsonPrimitive(0)
         } else {
             fields.remove("remaining_quantity")
         }
@@ -319,174 +627,6 @@ internal class SyncUploader(
             // the sync item over it. The number will still be picked up on the next
             // download/refresh.
             android.util.Log.e("SyncRepositoryImpl", "Could not read back receipt number for ${localData.id}", e)
-        }
-    }
-
-    suspend fun downloadAndReplaceLocal(entityName: String, remoteMap: Map<String, kotlinx.serialization.json.JsonElement>) {
-        val json = kotlinx.serialization.json.Json { 
-            ignoreUnknownKeys = true 
-            coerceInputValues = true
-        }
-        val element = JsonObject(remoteMap)
-        
-        when (entityName) {
-            "PATIENT" -> {
-                val entity = json.decodeFromJsonElement<PatientEntity>(element)
-                database.patientDao().insertPatient(entity.copy(isSynced = true))
-            }
-            "VACCINATION", "VISIT" -> {
-                val entity = json.decodeFromJsonElement<VisitEntity>(element)
-                database.vaccinationDao().insertVaccination(entity.copy(isSynced = true))
-            }
-            "VACCINATION_ITEM" -> {
-                val entity = json.decodeFromJsonElement<VaccinationItemEntity>(element)
-                database.vaccinationItemDao().insertItems(listOf(entity))
-            }
-            "VACCINE" -> {
-                val entity = json.decodeFromJsonElement<VaccineEntity>(element)
-                database.vaccineDao().insertVaccine(entity)
-            }
-            "BATCH" -> {
-                val entity = json.decodeFromJsonElement<VaccineBatchEntity>(element)
-                database.vaccineDao().insertBatch(entity)
-            }
-            "FINANCE" -> {
-                val entity = json.decodeFromJsonElement<FinanceEntity>(element)
-                database.financeDao().insertTransaction(entity.copy(isSynced = true))
-            }
-            "PATIENT_NOTE" -> {
-                val entity = json.decodeFromJsonElement<PatientNotesEntity>(element)
-                database.patientNotesDao().insertNote(entity.copy(isSynced = true))
-            }
-            "AUDIT_LOG" -> {
-                val entity = json.decodeFromJsonElement<AuditLogEntity>(element)
-                database.auditLogDao().insertLog(entity.copy(isSynced = true))
-            }
-            "REMINDERS" -> {
-                val remote = json.decodeFromJsonElement<RemoteReminder>(element)
-                val local = database.dueReminderDao().getReminderByStableId(
-                    remote.patientId, 
-                    remote.originalVisitId, 
-                    remote.vaccineName,
-                    remote.type
-                )
-                database.dueReminderDao().insertReminder(remote.toLocal(localId = local?.id))
-            }
-            "CONSULTATION" -> {
-                val entity = json.decodeFromJsonElement<ConsultationEntity>(element)
-                database.consultationDao().insertConsultation(entity.copy(isSynced = true))
-            }
-            "CONSULTATION_TODO" -> {
-                val entity = json.decodeFromJsonElement<ConsultationTodoEntity>(element)
-                database.patientTodoDao().insertConsultation(entity.copy(isSynced = true))
-            }
-            "VACCINATION_TODO" -> {
-                val entity = json.decodeFromJsonElement<VaccinationTodoEntity>(element)
-                database.patientTodoDao().insertVaccination(entity.copy(isSynced = true))
-            }
-            "BORROW" -> {
-                val entity = json.decodeFromJsonElement<BorrowEntity>(element)
-                database.borrowDao().insertRecord(entity.copy(isSynced = true))
-            }
-            "BORROW_RETURN" -> {
-                val entity = json.decodeFromJsonElement<BorrowReturnEntity>(element)
-                database.borrowReturnDao().insert(entity.copy(isSynced = true))
-            }
-            "WASTE" -> {
-                val entity = json.decodeFromJsonElement<WasteEntity>(element)
-                database.wasteDao().insertWaste(entity.copy(isSynced = true))
-            }
-            "PERSONAL_REMINDER" -> {
-                val entity = json.decodeFromJsonElement<PersonalReminderEntity>(element)
-                database.personalReminderDao().insert(entity.copy(isSynced = true))
-            }
-            "EXPENSE" -> {
-                val entity = json.decodeFromJsonElement<ExpenseEntity>(element)
-                database.expenseDao().insertExpense(entity.copy(isSynced = true))
-            }
-            "DOCTOR_WEEKLY_SLOT" -> {
-                val entity = json.decodeFromJsonElement<DoctorWeeklySlotEntity>(element)
-                database.doctorAvailabilityDao().upsertWeeklySlot(entity.copy(isSynced = true))
-            }
-            "DOCTOR_SLOT_EXCEPTION" -> {
-                val entity = json.decodeFromJsonElement<DoctorSlotExceptionEntity>(element)
-                database.doctorAvailabilityDao().upsertException(entity.copy(isSynced = true))
-            }
-        }
-    }
-
-    private fun getEntityUpdatedAt(data: Any?): String {
-        return when (data) {
-            is PatientEntity -> data.updatedAt ?: ""
-            is VisitEntity -> data.updatedAt ?: ""
-            is WasteEntity -> data.updatedAt
-            is ConsultationEntity -> data.updatedAt ?: ""
-            is ConsultationTodoEntity -> data.updatedAt
-            is VaccinationTodoEntity -> data.updatedAt
-            is ReminderEntity -> data.updatedAt
-            is VaccineEntity -> data.lastUpdated
-            is VaccineBatchEntity -> data.updatedAt
-            is AuditLogEntity -> data.timestamp
-            is PatientNotesEntity -> data.timestamp
-            is InventoryTransactionEntity -> data.timestamp
-            // A returned borrow is a local status update. borrow_records does not
-            // have a client-side updated_at field, so using the original borrowed
-            // date makes the conflict check incorrectly treat the remote row as newer
-            // and download the old is_returned=false row. Use the current timestamp
-            // while this pending update is being uploaded so the explicit return wins.
-            is BorrowEntity -> if (data.isReturned) {
-                com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            } else {
-                data.borrowedDate
-            }
-            is BorrowReturnEntity -> data.createdAt.ifBlank { data.returnedDate }
-            is PersonalReminderEntity -> data.updatedAt
-            is ExpenseEntity -> data.updatedAt
-            is DoctorWeeklySlotEntity -> data.updatedAt
-            is DoctorSlotExceptionEntity -> data.updatedAt
-            else -> ""
-        }
-    }
-
-    suspend fun fetchEntityData(item: SyncQueueEntity): Any? {
-        val entityId = item.entityId
-        
-        return try {
-            when (item.entityName) {
-                "PATIENT" -> {
-                    val entity = database.patientDao().getPatientById(entityId)
-                    // Strip 'TEMP-' prefix before uploading
-                    if (entity?.patientClinicId?.startsWith("TEMP-") == true) {
-                        entity.copy(patientClinicId = null)
-                    } else {
-                        entity
-                    }
-                }
-                "VACCINATION", "VISIT" -> database.vaccinationDao().getVaccinationById(entityId)
-                "VACCINATION_ITEM" -> database.vaccinationItemDao().getItemById(entityId)
-                "WASTE" -> database.wasteDao().getWasteById(entityId)
-                "REMINDERS" -> database.dueReminderDao().getReminderById(entityId)
-                "VACCINE" -> database.vaccineDao().getVaccineById(entityId)
-                "BATCH" -> database.vaccineDao().getBatchById(entityId)
-                "TRANSACTION", "INVENTORY_TRANSACTION" -> database.vaccineDao().getTransactionById(entityId)
-                "FINANCE" -> database.financeDao().getTransactionById(entityId)
-                "AUDIT_LOG" -> database.auditLogDao().getLogById(entityId)
-                "PROFILE", "STAFF" -> database.profileDao().getProfileById(entityId)
-                "CONSULTATION" -> database.consultationDao().getConsultationById(entityId)
-                "CONSULTATION_TODO" -> database.patientTodoDao().getConsultationTodoById(entityId)
-                "VACCINATION_TODO" -> database.patientTodoDao().getVaccinationTodoById(entityId)
-                "BORROW" -> database.borrowDao().getRecordById(entityId)
-                "BORROW_RETURN" -> database.borrowReturnDao().getById(entityId)
-                "PATIENT_NOTE" -> database.patientNotesDao().getNoteById(entityId)
-                "PERSONAL_REMINDER" -> database.personalReminderDao().getById(entityId)
-                "EXPENSE" -> database.expenseDao().getExpenseById(entityId)
-                "DOCTOR_WEEKLY_SLOT" -> database.doctorAvailabilityDao().getWeeklySlotById(entityId)
-                "DOCTOR_SLOT_EXCEPTION" -> database.doctorAvailabilityDao().getExceptionById(entityId)
-                else -> null
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SyncRepositoryImpl", "Error fetching data for sync: ${item.entityName} ID $entityId", e)
-            null
         }
     }
 }

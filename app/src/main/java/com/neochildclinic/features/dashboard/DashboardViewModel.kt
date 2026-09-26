@@ -4,14 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.data.repository.BorrowRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.PatientTodoRepositoryImpl
-import com.neochildclinic.data.repository.ProfileRepositoryImpl
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.WasteRepositoryImpl
-import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
+import com.neochildclinic.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PatientTodoRepository
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
@@ -70,16 +70,16 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val networkMonitor: NetworkMonitor,
-    private val patientRepository: PatientRepositoryImpl,
-    private val patientTodoRepository: PatientTodoRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val wasteRepository: WasteRepositoryImpl,
-    private val borrowRepository: BorrowRepositoryImpl,
+    private val patientRepository: PatientRepository,
+    private val patientTodoRepository: PatientTodoRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val reminderRepository: ReminderRepository,
+    private val wasteRepository: WasteRepository,
+    private val borrowRepository: BorrowRepository,
     private val realtimeChangeSubscriptions: RealtimeChangeSubscriptions,
-    private val profileRepository: ProfileRepositoryImpl,
+    private val profileRepository: ProfileRepository,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
-    private val doctorAvailabilityRepository: DoctorAvailabilityRepositoryImpl
+    private val doctorAvailabilityRepository: DoctorAvailabilityRepository
 ) : ViewModel() {
 
     private val _allDoctors = MutableStateFlow<List<Profile>>(emptyList())

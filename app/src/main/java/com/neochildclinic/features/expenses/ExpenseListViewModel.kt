@@ -7,8 +7,8 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.data.repository.ExpenseRepositoryImpl
-import com.neochildclinic.data.repository.ProfileRepositoryImpl
+import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.core.utils.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,8 +49,8 @@ data class ExpenseListUiState(
 
 @HiltViewModel
 class ExpenseListViewModel @Inject constructor(
-    private val expenseRepository: ExpenseRepositoryImpl,
-    private val profileRepository: ProfileRepositoryImpl,
+    private val expenseRepository: ExpenseRepository,
+    private val profileRepository: ProfileRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 

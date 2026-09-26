@@ -3,10 +3,10 @@ package com.neochildclinic.features.dashboard
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.data.repository.ProfileRepositoryImpl
-import com.neochildclinic.data.repository.StaffManagementRepositoryImpl
-import com.neochildclinic.data.repository.CreateStaffRequest
-import com.neochildclinic.data.repository.StaffActionRequest
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.StaffManagementRepository
+import com.neochildclinic.domain.repository.CreateStaffRequest
+import com.neochildclinic.domain.repository.StaffActionRequest
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +24,8 @@ data class AdminUiState(
 
 @HiltViewModel
 class AdminViewModel @Inject constructor(
-    private val profileRepository: ProfileRepositoryImpl,
-    private val staffRepository: StaffManagementRepositoryImpl
+    private val profileRepository: ProfileRepository,
+    private val staffRepository: StaffManagementRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminUiState())

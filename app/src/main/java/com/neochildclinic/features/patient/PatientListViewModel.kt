@@ -6,12 +6,12 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.usecase.patient.MergePatientsUseCase
 import com.neochildclinic.domain.usecase.patient.SearchPatientsUseCase
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.data.manager.RealtimeChangeSubscriptions
-import com.neochildclinic.data.repository.ProfileRepositoryImpl
+import com.neochildclinic.domain.repository.ProfileRepository
 import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -40,12 +40,12 @@ data class PatientListUiState(
 
 @HiltViewModel
 class PatientListViewModel @Inject constructor(
-    private val vaccinationRepository: VaccinationRepositoryImpl,
+    private val vaccinationRepository: VaccinationRepository,
     private val mergePatientsUseCase: MergePatientsUseCase,
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
-    private val patientRepository: PatientRepositoryImpl,
-    private val profileRepository: ProfileRepositoryImpl,
+    private val patientRepository: PatientRepository,
+    private val profileRepository: ProfileRepository,
     private val sessionManager: SessionManager,
     private val realtimeChangeSubscriptions: RealtimeChangeSubscriptions
 ) : ViewModel() {

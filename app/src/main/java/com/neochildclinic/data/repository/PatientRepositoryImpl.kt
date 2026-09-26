@@ -9,7 +9,7 @@ import com.neochildclinic.data.local.dao.PatientNotesDao
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -37,7 +37,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val dueReminderDao: DueReminderDao,
     private val notesDao: PatientNotesDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val idGenerator: PatientIdGenerator,
     private val preferenceManager: PreferenceManager,
@@ -75,7 +75,7 @@ class PatientRepositoryImpl @Inject constructor(
     override val allPatients: Flow<List<Patient>> =
         patientDao.getAllPatients()
 
-    suspend fun getPatientById(id: String): Patient? =
+    override suspend fun getPatientById(id: String): Patient? =
         patientDao.getPatientById(id)
 
     override suspend fun refreshPatients() = cloudRefresh("PatientRepo", rethrow = true) {
@@ -134,7 +134,7 @@ class PatientRepositoryImpl @Inject constructor(
                 android.util.Log.d("PatientRepo", "Refresh complete. Total local: ${patientDao.getTotalPatientCount()}")
     }
 
-    suspend fun addPatient(patient: Patient) {
+    override suspend fun addPatient(patient: Patient) {
         database.withTransaction {
             val isUpdate = patientDao.getPatientById(patient.id) != null
             // Business Rule: patientClinicId must be unique. 
@@ -230,14 +230,14 @@ class PatientRepositoryImpl @Inject constructor(
     override fun searchPatients(query: String): Flow<List<Patient>> =
         patientDao.searchPatients(query)
 
-    fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
+    override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
 
     suspend fun getTotalPatientCount(): Int = patientDao.getTotalPatientCount()
 
     // NOTE: patient audit history is loaded online-only via PatientAuditLogPager now, not
     // through this repository - see PatientViewModel/PatientListViewModel.
 
-    fun getNotes(patientId: String): Flow<List<PatientNotesEntity>> {
+    override fun getNotes(patientId: String): Flow<List<PatientNotesEntity>> {
         return notesDao.getNotesForPatient(patientId)
     }
 

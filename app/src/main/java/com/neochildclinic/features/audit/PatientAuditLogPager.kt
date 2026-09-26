@@ -1,7 +1,7 @@
 package com.neochildclinic.features.audit
 
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.data.repository.AuditLogRepositoryImpl
+import com.neochildclinic.domain.repository.AuditLogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  * per-ViewModel pagination code.
  */
 class PatientAuditLogPager(
-    private val auditLogRepository: AuditLogRepositoryImpl,
+    private val auditLogRepository: AuditLogRepository,
     private val scope: CoroutineScope
 ) {
     companion object {

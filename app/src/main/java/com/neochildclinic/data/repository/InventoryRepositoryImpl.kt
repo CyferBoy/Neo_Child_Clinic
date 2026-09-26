@@ -13,7 +13,7 @@ import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.data.settings.NotificationSettingsManager
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -31,7 +31,7 @@ import javax.inject.Singleton
 class InventoryRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val settingsManager: NotificationSettingsManager,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
@@ -118,7 +118,7 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override fun getAllVaccines(): Flow<List<VaccineEntity>> = vaccineDao.getAllVaccines()
 
-    fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 
+    override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 
         vaccineDao.getBatchesByVaccine(vaccineId).map { batches ->
             batches.sortedBy { parseDate(it.expiryDate) }
         }
@@ -129,14 +129,22 @@ class InventoryRepositoryImpl @Inject constructor(
     override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeductionEntity> =
         database.inventoryDeductionDao().getForVaccination(vaccinationId)
 
-    suspend fun getBatchById(batchId: String): VaccineBatchEntity? =
+    override suspend fun insertInventoryDeduction(entity: InventoryDeductionEntity) {
+        database.inventoryDeductionDao().insert(entity)
+    }
+
+    override suspend fun deleteInventoryDeductionsForVaccination(vaccinationId: String) {
+        database.inventoryDeductionDao().deleteForVaccination(vaccinationId)
+    }
+
+    override suspend fun getBatchById(batchId: String): VaccineBatchEntity? =
         vaccineDao.getBatchById(batchId)
 
-    suspend fun getVaccineById(vaccineId: String): VaccineEntity? {
+    override suspend fun getVaccineById(vaccineId: String): VaccineEntity? {
         return vaccineDao.getVaccineById(vaccineId)
     }
 
-    suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
+    override suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
             val entity = vaccine.copy(
@@ -155,7 +163,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateVaccine(vaccine: VaccineEntity, user: String) {
+    override suspend fun updateVaccine(vaccine: VaccineEntity, user: String) {
         database.withTransaction {
             val existing = vaccineDao.getVaccineById(vaccine.id)
             val userName = sessionManager.getCurrentUserName()
@@ -176,10 +184,10 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun addBatch(
+    override suspend fun addBatch(
         batch: VaccineBatchEntity,
         user: String,
-        transactionGroupId: String? = null
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
@@ -220,7 +228,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun addStockBatch(
+    override suspend fun addStockBatch(
         entriesByVaccine: Map<String, List<VaccineBatchEntity>>,
         user: String
     ) {
@@ -300,15 +308,15 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun getStockHistoryPage(
-        vaccineId: String? = null,
-        batchId: String? = null,
-        types: List<InventoryTransactionType> = emptyList(),
-        fromDateIso: String? = null,
-        toDateIso: String? = null,
-        limit: Int = 50,
-        offset: Int = 0,
-        remoteOnly: Boolean = true
+    override suspend fun getStockHistoryPage(
+        vaccineId: String?,
+        batchId: String?,
+        types: List<InventoryTransactionType>,
+        fromDateIso: String?,
+        toDateIso: String?,
+        limit: Int,
+        offset: Int,
+        remoteOnly: Boolean
     ): List<InventoryTransactionEntity> {
         if (!remoteOnly) {
             return vaccineDao.getFilteredTransactionsPage(
@@ -338,7 +346,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String? = null) {
+    override suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String?) {
         database.withTransaction {
             val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return@withTransaction
             val diff = batch.remainingQuantity - oldBatch.remainingQuantity
@@ -391,7 +399,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deleteBatch(batchId: String, user: String) {
+    override suspend fun deleteBatch(batchId: String, user: String) {
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: return@withTransaction
@@ -423,7 +431,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deleteVaccine(vaccineId: String, user: String) {
+    override suspend fun deleteVaccine(vaccineId: String, user: String) {
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
         database.withTransaction {
             val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@withTransaction
@@ -458,13 +466,13 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deductStock(
+    override suspend fun deductStock(
         vaccineId: String,
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        visitId: String? = null,
-        patientId: String? = null
+        visitId: String?,
+        patientId: String?
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
         database.withTransaction {
@@ -579,12 +587,12 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun addStockToBatch(
+    override suspend fun addStockToBatch(
         batchId: String,
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        notes: String? = null
+        notes: String?
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -669,13 +677,13 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun returnBorrowedStock(
+    override suspend fun returnBorrowedStock(
         originalBatchId: String,
         returnToBatchId: String,
         quantity: Int,
         user: String,
-        notes: String? = null,
-        transactionGroupId: String? = null
+        notes: String?,
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val targetBatch = vaccineDao.getBatchById(returnToBatchId) ?: throw IllegalStateException("Batch not found")

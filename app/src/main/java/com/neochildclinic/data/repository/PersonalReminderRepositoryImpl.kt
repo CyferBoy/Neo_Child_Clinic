@@ -10,7 +10,7 @@ import com.neochildclinic.data.local.dao.PersonalReminderDao
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.PersonalReminderStatus
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class PersonalReminderRepositoryImpl @Inject constructor(
     database: AppDatabase,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val postgrest: Postgrest,
     private val sessionManager: SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
@@ -31,12 +31,12 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         private const val ENTITY_NAME = "PERSONAL_REMINDER"
     }
 
-    fun getActiveReminders(): Flow<List<PersonalReminderEntity>> = dao.getActiveReminders()
-    fun getCompletedReminders(): Flow<List<PersonalReminderEntity>> = dao.getCompletedReminders()
-    fun getCancelledReminders(): Flow<List<PersonalReminderEntity>> = dao.getCancelledReminders()
-    suspend fun getById(id: String): PersonalReminderEntity? = dao.getById(id)
+    override fun getActiveReminders(): Flow<List<PersonalReminderEntity>> = dao.getActiveReminders()
+    override fun getCompletedReminders(): Flow<List<PersonalReminderEntity>> = dao.getCompletedReminders()
+    override fun getCancelledReminders(): Flow<List<PersonalReminderEntity>> = dao.getCancelledReminders()
+    override suspend fun getById(id: String): PersonalReminderEntity? = dao.getById(id)
 
-    suspend fun createReminder(reminder: PersonalReminderEntity) {
+    override suspend fun createReminder(reminder: PersonalReminderEntity) {
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
         dao.insert(
@@ -58,7 +58,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun updateReminder(reminder: PersonalReminderEntity) {
+    override suspend fun updateReminder(reminder: PersonalReminderEntity) {
         val userName = sessionManager.getCurrentUserName()
         dao.insert(
             reminder.copy(
@@ -81,15 +81,15 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     // UI (see PersonalReminderViewModel) - nothing in this repository infers a status
     // change from vaccination, payment, or inventory activity.
 
-    suspend fun markReady(id: String) {
+    override suspend fun markReady(id: String) {
         updateStatus(id, PersonalReminderStatus.READY)
     }
 
-    suspend fun markPending(id: String) {
+    override suspend fun markPending(id: String) {
         updateStatus(id, PersonalReminderStatus.PENDING)
     }
 
-    suspend fun markCompleted(id: String) {
+    override suspend fun markCompleted(id: String) {
         val existing = dao.getById(id) ?: return
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
@@ -112,7 +112,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun cancel(id: String) {
+    override suspend fun cancel(id: String) {
         val existing = dao.getById(id) ?: return
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
@@ -156,7 +156,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun deleteReminder(id: String) {
+    override suspend fun deleteReminder(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
         val existing = dao.getById(id)

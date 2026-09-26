@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.data.local.entity.PatientNotesEntity
-import io.github.jan.supabase.storage.FileObject
+import com.neochildclinic.domain.model.PatientDocument
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
@@ -147,7 +147,7 @@ fun ConsultationRecordCard(
 }
 
 @Composable
-fun DocumentCard(doc: FileObject, onView: () -> Unit, onDelete: () -> Unit) {
+fun DocumentCard(doc: PatientDocument, onView: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
@@ -157,7 +157,7 @@ fun DocumentCard(doc: FileObject, onView: () -> Unit, onDelete: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(doc.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                Text("${(doc.metadata?.get("size")?.toString()?.toLongOrNull() ?: 0L) / 1024} KB", style = MaterialTheme.typography.labelSmall)
+                Text("${doc.sizeKb} KB", style = MaterialTheme.typography.labelSmall)
             }
             IconButton(onClick = onView) { Icon(Icons.Default.Visibility, null) }
             IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color.Red) }

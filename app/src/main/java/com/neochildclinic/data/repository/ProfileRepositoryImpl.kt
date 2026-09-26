@@ -5,7 +5,8 @@ import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import io.github.jan.supabase.auth.Auth
@@ -21,17 +22,17 @@ class ProfileRepositoryImpl @Inject constructor(
     private val profileDao: ProfileDao,
     private val syncQueueDao: SyncQueueDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val auth: Auth
-) {
+) : ProfileRepository {
 
-    val allProfiles: Flow<List<Profile>> = 
+    override val allProfiles: Flow<List<Profile>> = 
         profileDao.getAllProfiles().map { list -> list.map { it.toDomain() } }
 
-    suspend fun getProfileById(id: String): Profile? =
+    override suspend fun getProfileById(id: String): Profile? =
         profileDao.getProfileById(id)?.toDomain()
 
-    suspend fun getProfileByEmail(email: String): Profile? {
+    override suspend fun getProfileByEmail(email: String): Profile? {
         return try {
             postgrest.from("profiles")
                 .select { filter { eq("email", email); eq("is_deleted", false) } }
@@ -42,7 +43,7 @@ class ProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun fetchProfileFromRemote(id: String): Profile? {
+    override suspend fun fetchProfileFromRemote(id: String): Profile? {
         return try {
             postgrest.from("profiles")
                 .select { filter { eq("id", id); eq("is_deleted", false) } }
@@ -60,7 +61,7 @@ class ProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshProfiles() = cloudRefresh("ProfileRepo") {
+    override suspend fun refreshProfiles() = cloudRefresh("ProfileRepo") {
         val profiles = postgrest.from("profiles").select { filter { eq("is_deleted", false) } }.decodeList<Profile>()
         profiles.forEach { profile ->
             if (!syncQueueDao.isUnsynced("PROFILE", profile.id)) {
@@ -69,7 +70,7 @@ class ProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateProfile(profile: Profile) {
+    override suspend fun updateProfile(profile: Profile) {
         profileDao.insertProfile(profile.toEntity())
         syncRepository.enqueue(
             entityName = "PROFILE",
@@ -79,11 +80,11 @@ class ProfileRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun saveLocalProfile(profile: Profile) {
-        profileDao.insertProfile(profile.toEntity())
-    }
+override suspend fun saveLocalProfile(profile: Profile) {
+    profileDao.insertProfile(profile.toEntity())
+}
 
-    suspend fun updateAuthName(name: String) {
+override suspend fun updateAuthName(name: String) {
         auth.updateUser {
             data {
                 put("name", name)
@@ -91,7 +92,7 @@ class ProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateAuthPassword(newPassword: String) {
+    override suspend fun updateAuthPassword(newPassword: String) {
         auth.updateUser {
             password = newPassword
         }

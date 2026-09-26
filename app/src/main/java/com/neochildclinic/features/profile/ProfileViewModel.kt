@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.data.repository.ProfileRepositoryImpl
+import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.core.utils.metadataString
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +24,7 @@ data class ProfileUiState(
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val sessionManager: SessionManager,
-    private val profileRepository: ProfileRepositoryImpl
+    private val profileRepository: ProfileRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())

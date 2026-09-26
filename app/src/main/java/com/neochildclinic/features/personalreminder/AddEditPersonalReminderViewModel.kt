@@ -7,9 +7,9 @@ import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.PersonalReminderRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -58,9 +58,9 @@ data class AddEditPersonalReminderUiState(
 
 @HiltViewModel
 class AddEditPersonalReminderViewModel @Inject constructor(
-    private val repository: PersonalReminderRepositoryImpl,
-    private val patientRepository: PatientRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl
+    private val repository: PersonalReminderRepository,
+    private val patientRepository: PatientRepository,
+    private val inventoryRepository: InventoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddEditPersonalReminderUiState())

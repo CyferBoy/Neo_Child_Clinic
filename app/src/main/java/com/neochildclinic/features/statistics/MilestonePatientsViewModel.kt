@@ -3,7 +3,7 @@ package com.neochildclinic.features.statistics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.data.repository.PatientRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +17,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MilestonePatientsViewModel @Inject constructor(
-    patientRepository: PatientRepositoryImpl,
+    patientRepository: PatientRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 

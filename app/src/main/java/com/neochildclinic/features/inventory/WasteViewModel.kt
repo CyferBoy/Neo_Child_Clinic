@@ -3,8 +3,8 @@ package com.neochildclinic.features.inventory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.WasteRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -32,8 +32,8 @@ data class WasteUiState(
 
 @HiltViewModel
 class WasteViewModel @Inject constructor(
-    private val wasteRepository: WasteRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
+    private val wasteRepository: WasteRepository,
+    private val inventoryRepository: InventoryRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 

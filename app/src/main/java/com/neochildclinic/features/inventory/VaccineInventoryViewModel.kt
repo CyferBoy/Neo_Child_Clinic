@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,7 +24,7 @@ data class VaccineInventoryUiState(
 
 @HiltViewModel
 class VaccineInventoryViewModel @Inject constructor(
-    private val inventoryRepository: InventoryRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 

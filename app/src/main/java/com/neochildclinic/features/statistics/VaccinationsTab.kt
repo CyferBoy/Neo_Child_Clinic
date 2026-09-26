@@ -367,7 +367,7 @@ private fun calculateUpcomingVaccineNeeds(
                 val ids = reminder.nxtVaccineId
                 // Where IDs were recorded alongside the names (index-aligned, per the same
                 // distinct-list convention used when saving these reminders - see
-                // ReminderRepositoryImpl.saveNextVaccination), only count a name whose
+                // ReminderRepository.saveNextVaccination), only count a name whose
                 // nxt_vaccine_id is verified against the vaccine table. Legacy rows with no
                 // IDs recorded at all fall back to the names as-is.
                 val verifiedNames = if (ids.isNullOrEmpty()) {

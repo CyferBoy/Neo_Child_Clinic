@@ -8,7 +8,7 @@ import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,7 +57,7 @@ data class AddStockUiState(
 
 @HiltViewModel
 class AddStockViewModel @Inject constructor(
-    private val inventoryRepository: InventoryRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 

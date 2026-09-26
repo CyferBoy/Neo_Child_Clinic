@@ -1,5 +1,6 @@
 package com.neochildclinic.data.repository
 import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.SyncRepository
 
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
@@ -20,7 +21,7 @@ class FinanceRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val financeDao: FinanceDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : FinanceRepository {

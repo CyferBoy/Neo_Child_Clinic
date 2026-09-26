@@ -5,7 +5,7 @@ import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -20,7 +20,7 @@ import javax.inject.Singleton
 class ConsultationRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : ConsultationRepository {
@@ -29,10 +29,10 @@ class ConsultationRepositoryImpl @Inject constructor(
     private val vaccinationDao = database.vaccinationDao()
     private val syncQueueDao = database.syncQueueDao()
 
-    fun getConsultationsForPatient(patientId: String): Flow<List<Consultation>> =
+    override fun getConsultationsForPatient(patientId: String): Flow<List<Consultation>> =
         consultationDao.getConsultationsForPatient(patientId).map { list -> list.map { it.toDomain() } }
 
-    suspend fun getConsultationById(id: String): Consultation? =
+    override suspend fun getConsultationById(id: String): Consultation? =
         consultationDao.getConsultationById(id)?.toDomain()
 
     override suspend fun addConsultation(consultation: Consultation, transactionGroupId: String? ) {
@@ -144,7 +144,7 @@ class ConsultationRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deleteConsultation(id: String) {
+    override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
 

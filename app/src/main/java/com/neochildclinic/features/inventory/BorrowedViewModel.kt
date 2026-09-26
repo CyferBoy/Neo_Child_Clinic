@@ -7,9 +7,9 @@ import com.neochildclinic.core.model.BorrowedVaccine
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventoryTransactionType
-import com.neochildclinic.data.repository.BorrowRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.NewBatchInfo
+import com.neochildclinic.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.NewBatchInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -61,8 +61,8 @@ data class BorrowedUiState(
 
 @HiltViewModel
 class BorrowedViewModel @Inject constructor(
-    private val borrowRepository: BorrowRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl
+    private val borrowRepository: BorrowRepository,
+    private val inventoryRepository: InventoryRepository
 ) : ViewModel() {
 
     private val _mainTab = MutableStateFlow(BorrowMainTab.BORROWED)

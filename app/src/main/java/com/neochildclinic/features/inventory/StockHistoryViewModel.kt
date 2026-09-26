@@ -9,7 +9,7 @@ import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.StockHistoryTypeFilter
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +49,7 @@ data class StockHistoryUiState(
 
 @HiltViewModel
 class StockHistoryViewModel @Inject constructor(
-    private val inventoryRepository: InventoryRepositoryImpl
+    private val inventoryRepository: InventoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockHistoryUiState())
