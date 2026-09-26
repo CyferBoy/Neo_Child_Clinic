@@ -1,4 +1,6 @@
 package com.neochildclinic.features.statistics
+import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.FinanceCalculator
 
 import com.neochildclinic.domain.model.Expense
 

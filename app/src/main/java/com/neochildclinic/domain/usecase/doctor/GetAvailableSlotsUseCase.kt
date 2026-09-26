@@ -3,7 +3,7 @@ package com.neochildclinic.domain.usecase.doctor
 import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.SlotExceptionType
-import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import java.util.Calendar
 import javax.inject.Inject
 
@@ -17,7 +17,7 @@ import javax.inject.Inject
  * this same use case rather than each re-implementing the weekly/exception merge logic.
  */
 class GetAvailableSlotsUseCase @Inject constructor(
-    private val repository: DoctorAvailabilityRepositoryImpl
+    private val repository: DoctorAvailabilityRepository
 ) {
     suspend operator fun invoke(doctorId: String, date: String): DoctorAvailabilityResult {
         if (doctorId.isBlank() || date.isBlank()) return DoctorAvailabilityResult.Available(emptyList())
@@ -92,3 +92,4 @@ class GetAvailableSlotsUseCase @Inject constructor(
         return aStart < bEnd && bStart < aEnd
     }
 }
+

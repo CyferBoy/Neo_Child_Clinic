@@ -1,4 +1,7 @@
 package com.neochildclinic.features.statistics
+import com.neochildclinic.domain.statistics.StatisticsDateUtils
+import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.FinanceCalculator
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

@@ -1,10 +1,10 @@
 package com.neochildclinic.domain.usecase.patient
 
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.SyncRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -19,11 +19,11 @@ import javax.inject.Inject
  */
 class MergePatientsUseCase @Inject constructor(
     private val database: AppDatabase,
-    private val patientRepository: PatientRepositoryImpl,
-    private val vaccinationRepository: VaccinationRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val syncRepository: SyncRepositoryImpl,
+    private val patientRepository: PatientRepository,
+    private val vaccinationRepository: VaccinationRepository,
+    private val reminderRepository: ReminderRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger
 ) {
     suspend operator fun invoke(masterId: String, duplicateIds: List<String>) {
@@ -80,3 +80,4 @@ class MergePatientsUseCase @Inject constructor(
         }
     }
 }
+

@@ -1,4 +1,4 @@
-package com.neochildclinic.features.statistics
+package com.neochildclinic.domain.statistics
 
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.toLocalDate
@@ -150,3 +150,4 @@ object StatisticsDateUtils {
         return date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))
     }
 }
+

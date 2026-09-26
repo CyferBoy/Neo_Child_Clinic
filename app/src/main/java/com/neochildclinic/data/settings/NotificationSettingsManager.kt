@@ -1,4 +1,4 @@
-package com.neochildclinic.features.settings
+package com.neochildclinic.data.settings
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -107,3 +107,4 @@ data class NotificationSettings(
     val lastSummarySentDate: String,
     val notifiedLowStockVaccines: Set<String>
 )
+

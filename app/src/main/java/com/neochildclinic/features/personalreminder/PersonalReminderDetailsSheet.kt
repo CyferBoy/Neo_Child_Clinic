@@ -1,6 +1,6 @@
 package com.neochildclinic.features.personalreminder
 
-import com.neochildclinic.features.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.StatisticsUtils
 
 import android.content.Intent
 import android.net.Uri
@@ -259,3 +259,4 @@ private fun DetailRow(label: String, value: String, onClick: (() -> Unit)? = nul
         )
     }
 }
+

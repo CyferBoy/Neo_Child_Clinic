@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.work.*
 import com.neochildclinic.domain.model.AutoBackupSettings
 import com.neochildclinic.domain.model.BackupFrequency
-import com.neochildclinic.features.settings.BackupSettingsManager
+import com.neochildclinic.data.settings.BackupSettingsManager
 import com.neochildclinic.worker.AutoBackupWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -62,3 +62,4 @@ class BackupAutoScheduler @Inject constructor(
         if (settings.enabled) schedule(settings) else cancel()
     }
 }
+

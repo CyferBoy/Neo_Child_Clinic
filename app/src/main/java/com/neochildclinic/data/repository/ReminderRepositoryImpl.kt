@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.ReminderRepository
 
 import android.content.Context
 import androidx.room.withTransaction
@@ -42,7 +43,7 @@ class ReminderRepositoryImpl @Inject constructor(
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     @ApplicationContext private val context: Context
-) {
+) : ReminderRepository {
 
     private val json = Json { 
         ignoreUnknownKeys = true 
@@ -90,9 +91,9 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    fun getDueList(
-        searchQuery: String = "",
-        filterStatus: List<ReminderStatus>? = null
+    override fun getDueList(
+        searchQuery: String,
+        filterStatus: List<ReminderStatus>?
     ): Flow<List<Vaccination>> = getProcessedDueFlow().map { (processed, patientEntities) ->
         val patientMap = patientEntities.associateBy { it.id }
         
@@ -225,16 +226,16 @@ class ReminderRepositoryImpl @Inject constructor(
         syncRepository.enqueue(entityName, reminderId, operation, priority, transactionGroupId)
     }
 
-    suspend fun saveNextVaccination(
+    override suspend fun saveNextVaccination(
         patientId: String,
         originalVisitId: String,
         type: String,
         vaccineNames: List<String>,
-        nxtVaccineId: List<String> = emptyList(),
+        nxtVaccineId: List<String>,
         dueDate: String,
         notes: String,
-        priority: String = "NORMAL",
-        reminderEnabled: Boolean = true,
+        priority: String,
+        reminderEnabled: Boolean,
         performedBy: String
     ) {
         // A Next Vaccination may be type-only, or may contain one/many vaccines.
@@ -355,7 +356,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? = null, transactionGroupId: String? = null) {
+    override suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
@@ -472,7 +473,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
+    override suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
             database.withTransaction {
@@ -490,20 +491,20 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
+    override fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
         return dueReminderDao.getDueRemindersForPatient(patientId)
     }
 
 
     fun getAllReminders(): Flow<List<ReminderEntity>> = dueReminderDao.getAllReminders()
 
-    suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
+    override suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
         return dueReminderDao.getRemindersByVisitId(visitId)
     }
 
     suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
 
-    fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
+    override fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
         return auditLogDao.getLogsForPatient(patientId).map { logs ->
             logs.map { log ->
                 ReminderAuditEntity(
@@ -526,7 +527,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
+    override suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
                 val entities = postgrest.from("reminders").select().decodeList<RemoteReminder>()
                 database.withTransaction {
                     for (remote in entities) {
@@ -589,7 +590,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun transferReminders(duplicateId: String, masterId: String) {
+    override suspend fun transferReminders(duplicateId: String, masterId: String) {
         dueReminderDao.updatePatientId(duplicateId, masterId)
     }
 

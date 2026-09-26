@@ -1,5 +1,7 @@
 package com.neochildclinic.features.settings
 
+import com.neochildclinic.data.settings.NotificationSettings
+import com.neochildclinic.data.settings.NotificationSettingsManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel

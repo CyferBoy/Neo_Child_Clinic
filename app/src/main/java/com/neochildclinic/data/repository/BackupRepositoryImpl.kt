@@ -16,7 +16,7 @@ import com.neochildclinic.data.local.entity.BackupHistoryType
 import com.neochildclinic.data.local.entity.BackupLocation
 import com.neochildclinic.data.manager.SyncManagerImpl
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.features.settings.BackupSettingsManager
+import com.neochildclinic.data.settings.BackupSettingsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.Dispatchers
@@ -445,3 +445,4 @@ class BackupRepositoryImpl @Inject constructor(
         )
     }
 }
+

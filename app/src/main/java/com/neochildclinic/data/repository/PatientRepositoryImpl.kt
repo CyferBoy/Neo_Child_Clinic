@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.PatientRepository
 
 import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.data.local.database.AppDatabase
@@ -43,7 +44,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val sessionManager: SessionManager,
     @ApplicationContext private val context: Context,
     private val vaccinationRepository: dagger.Lazy<VaccinationRepositoryImpl>
-) {
+) : PatientRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -71,13 +72,13 @@ class PatientRepositoryImpl @Inject constructor(
         // we keep the check in init.
     }
 
-    val allPatients: Flow<List<Patient>> =
+    override val allPatients: Flow<List<Patient>> =
         patientDao.getAllPatients()
 
     suspend fun getPatientById(id: String): Patient? =
         patientDao.getPatientById(id)
 
-    suspend fun refreshPatients() = cloudRefresh("PatientRepo", rethrow = true) {
+    override suspend fun refreshPatients() = cloudRefresh("PatientRepo", rethrow = true) {
                 val entities = postgrest.from("patients").select().decodeList<PatientEntity>()
                 
                 android.util.Log.d("PatientRepo", "Pulled ${entities.size} patients from Supabase")
@@ -178,7 +179,7 @@ class PatientRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deletePatient(id: String) {
+    override suspend fun deletePatient(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
 
@@ -226,7 +227,7 @@ class PatientRepositoryImpl @Inject constructor(
         }
     }
 
-    fun searchPatients(query: String): Flow<List<Patient>> =
+    override fun searchPatients(query: String): Flow<List<Patient>> =
         patientDao.searchPatients(query)
 
     fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()

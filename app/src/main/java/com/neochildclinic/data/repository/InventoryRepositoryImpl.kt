@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.InventoryRepository
 
 import androidx.room.withTransaction
 import com.neochildclinic.core.logger.AuditLogger
@@ -12,7 +13,7 @@ import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.data.repository.SyncRepositoryImpl
-import com.neochildclinic.features.settings.NotificationSettingsManager
+import com.neochildclinic.data.settings.NotificationSettingsManager
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,7 @@ class InventoryRepositoryImpl @Inject constructor(
     private val auditLogger: AuditLogger,
     private val settingsManager: NotificationSettingsManager,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) {
+) : InventoryRepository {
 
     private val vaccineDao = database.vaccineDao()
     private val syncQueueDao = database.syncQueueDao()
@@ -59,10 +60,10 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    fun getInventoryItems(
-        query: String = "",
-        filter: InventoryFilter = InventoryFilter.ALL,
-        sort: InventorySort = InventorySort.ALPHABETICAL
+    override fun getInventoryItems(
+        query: String,
+        filter: InventoryFilter,
+        sort: InventorySort
     ): Flow<List<InventoryItem>> {
         return combine(
             vaccineDao.getAllVaccines(),
@@ -539,16 +540,16 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun deductStockFromBatch(
+    override suspend fun deductStockFromBatch(
         batchId: String,
         quantity: Int,
         user: String,
         transactionType: InventoryTransactionType,
-        visitId: String? = null,
-        patientId: String? = null,
-        notes: String? = null,
-        allowExpired: Boolean = false,
-        givenDate: String? = null
+        visitId: String?,
+        patientId: String?,
+        notes: String?,
+        allowExpired: Boolean,
+        givenDate: String?
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -670,13 +671,13 @@ class InventoryRepositoryImpl @Inject constructor(
     // to retry from, and a committed attempt can never be replayed because the row driving
     // it is gone). Callers must not call this more than once for the same physical
     // deduction being undone.
-    suspend fun reverseDeduction(
+    override suspend fun reverseDeduction(
         batchId: String,
         quantity: Int,
         user: String,
-        visitId: String? = null,
-        patientId: String? = null,
-        transactionGroupId: String? = null
+        visitId: String?,
+        patientId: String?,
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -792,11 +793,11 @@ class InventoryRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
+    override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
         vaccineDao.updatePatientIdInTransactions(duplicateId, masterId)
     }
 
-    suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {
+    override suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {
                 val vaccines = postgrest.from("vaccines").select().decodeList<VaccineEntity>()
                 val batches = postgrest.from("vaccine_batches").select().decodeList<VaccineBatchEntity>()
 
@@ -814,3 +815,4 @@ class InventoryRepositoryImpl @Inject constructor(
                 }
     }
 }
+

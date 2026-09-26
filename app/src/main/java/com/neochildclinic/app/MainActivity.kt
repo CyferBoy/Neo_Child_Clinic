@@ -30,7 +30,7 @@ import com.neochildclinic.features.update.AppUpdateViewModel
 import com.neochildclinic.data.manager.SyncManagerImpl
 import com.neochildclinic.data.repository.DeviceRepositoryImpl
 import com.neochildclinic.features.dashboard.AuthViewModel
-import com.neochildclinic.features.settings.NotificationSettingsManager
+import com.neochildclinic.data.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.handleDeeplinks
@@ -304,3 +304,4 @@ class MainActivity : FragmentActivity() {
         }
     }
 }
+

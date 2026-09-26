@@ -2,7 +2,7 @@ package com.neochildclinic.notification
 
 import android.content.Context
 import androidx.work.*
-import com.neochildclinic.features.settings.NotificationSettingsManager
+import com.neochildclinic.data.settings.NotificationSettingsManager
 import com.neochildclinic.worker.DailySummaryWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
@@ -93,3 +93,4 @@ class ReminderScheduler @Inject constructor(
         WorkManager.getInstance(context).enqueue(request)
     }
 }
+

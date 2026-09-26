@@ -1,4 +1,6 @@
 package com.neochildclinic.features.statistics
+import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.FinanceCalculator
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn

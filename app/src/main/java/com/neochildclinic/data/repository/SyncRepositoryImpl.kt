@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.SyncRepository
 
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
@@ -26,7 +27,7 @@ class SyncRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncManager: SyncManagerImpl,
     private val auth: Auth
-) {
+) : SyncRepository {
 
     private val syncDao = database.syncQueueDao()
 
@@ -53,12 +54,12 @@ class SyncRepositoryImpl @Inject constructor(
     private val _syncState = MutableStateFlow(SyncState.IDLE)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
-    suspend fun enqueue(
+    override suspend fun enqueue(
         entityName: String,
         entityId: String,
         operation: SyncOperation,
-        priority: SyncPriority = SyncPriority.MEDIUM,
-        transactionGroupId: String? = null
+        priority: SyncPriority,
+        transactionGroupId: String?
     ) {
         if (entityId.isBlank() || (entityId == "kotlin.Unit") || (entityId == "Unit") || (entityId == "null")) {
             return

@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.neochildclinic.features.settings.NotificationSettingsManager
+import com.neochildclinic.data.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import com.neochildclinic.domain.manager.ClinicStatsManager
@@ -58,3 +58,4 @@ class DailySummaryWorker @AssistedInject constructor(
         return Result.success()
     }
 }
+

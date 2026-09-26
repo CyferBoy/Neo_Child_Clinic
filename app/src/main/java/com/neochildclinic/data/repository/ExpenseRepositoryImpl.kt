@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.ExpenseRepository
 
 import androidx.room.withTransaction
 import com.neochildclinic.core.logger.AuditLogger
@@ -25,7 +26,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val sessionManager: SessionManager
-) {
+) : ExpenseRepository {
 
     private val expenseDao = database.expenseDao()
     private val syncQueueDao = database.syncQueueDao()
@@ -114,7 +115,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
+    override suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
         val remoteExpenses = postgrest.from("expenses").select().decodeList<ExpenseEntity>()
         database.withTransaction {
             for (remote in remoteExpenses) {

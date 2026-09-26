@@ -3,17 +3,17 @@ package com.neochildclinic.domain.service
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.data.repository.ConsultationRepositoryImpl
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.data.local.entity.VisitEntity
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.SyncRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.InventoryStatus
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.local.entity.InventoryDeductionEntity
-import com.neochildclinic.features.statistics.FinanceCalculator
+import com.neochildclinic.domain.statistics.FinanceCalculator
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.PatientUtils
@@ -25,12 +25,12 @@ import javax.inject.Singleton
 @Singleton
 class ClinicalVaccinationService @Inject constructor(
     private val database: AppDatabase,
-    private val vaccinationRepository: VaccinationRepositoryImpl,
-    private val consultationRepository: ConsultationRepositoryImpl,
-    private val financeRepository: FinanceRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val syncRepository: SyncRepositoryImpl,
-    private val inventoryRepository: com.neochildclinic.data.repository.InventoryRepositoryImpl
+    private val vaccinationRepository: VaccinationRepository,
+    private val consultationRepository: ConsultationRepository,
+    private val financeRepository: FinanceRepository,
+    private val reminderRepository: ReminderRepository,
+    private val syncRepository: SyncRepository,
+    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository
 ) {
     suspend fun recordVaccination(
         vaccination: Vaccination,
@@ -221,3 +221,5 @@ class ClinicalVaccinationService @Inject constructor(
     }
 
 }
+
+

@@ -1,5 +1,6 @@
 package com.neochildclinic.features.statistics
 
+import com.neochildclinic.domain.statistics.StatisticsUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.ConsultationRepository
 
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
@@ -22,7 +23,7 @@ class ConsultationRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) {
+) : ConsultationRepository {
 
     private val consultationDao = database.consultationDao()
     private val vaccinationDao = database.vaccinationDao()
@@ -34,7 +35,7 @@ class ConsultationRepositoryImpl @Inject constructor(
     suspend fun getConsultationById(id: String): Consultation? =
         consultationDao.getConsultationById(id)?.toDomain()
 
-    suspend fun addConsultation(consultation: Consultation, transactionGroupId: String? = null) {
+    override suspend fun addConsultation(consultation: Consultation, transactionGroupId: String? ) {
         val userName = sessionManager.getCurrentUserName()
         val entity = consultation.copy(
             createdBy = userName,
@@ -61,7 +62,7 @@ class ConsultationRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun updateConsultation(consultation: Consultation, transactionGroupId: String? = null) {
+    override suspend fun updateConsultation(consultation: Consultation, transactionGroupId: String? ) {
         database.withTransaction {
             val existing = consultationDao.getConsultationById(consultation.id)
                 ?: throw IllegalArgumentException("Consultation not found")
@@ -182,7 +183,7 @@ class ConsultationRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo") {
+    override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo") {
         val entities = postgrest.from("consultations").select().decodeList<ConsultationEntity>()
         database.withTransaction {
             for (remote in entities) {

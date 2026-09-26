@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
 
 import android.util.Log
 import com.neochildclinic.core.model.SyncOperation
@@ -22,7 +23,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val sessionManager: SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
-) {
+) : PersonalReminderRepository {
 
     private val dao: PersonalReminderDao = database.personalReminderDao()
 
@@ -170,7 +171,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun refresh() = cloudRefresh("PersonalReminder", rethrow = true) {
+    override suspend fun refresh() = cloudRefresh("PersonalReminder", rethrow = true) {
         val remote = postgrest.from("personal_vaccine_reminders").select()
             .decodeList<PersonalReminderEntity>()
         Log.d("PersonalReminder", "Remote refresh: fetched " + remote.size + " reminders")

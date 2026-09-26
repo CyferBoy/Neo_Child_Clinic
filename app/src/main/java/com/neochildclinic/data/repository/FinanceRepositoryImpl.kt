@@ -1,11 +1,12 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.FinanceRepository
 
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.features.statistics.FinanceCalculator
+import com.neochildclinic.domain.statistics.FinanceCalculator
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -22,7 +23,7 @@ class FinanceRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) {
+) : FinanceRepository {
 
     /**
      * Deterministic row id for a visit's VACCINATION income transaction. Each visit is only
@@ -51,11 +52,11 @@ class FinanceRepositoryImpl @Inject constructor(
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH))
     }
 
-    fun getAllTransactions(): Flow<List<FinanceEntity>> {
+    override fun getAllTransactions(): Flow<List<FinanceEntity>> {
         return financeDao.getAllTransactions()
     }
 
-    suspend fun recordIncome(
+    override suspend fun recordIncome(
         amount: Double,
         cashAmount: Double,
         onlineAmount: Double,
@@ -64,7 +65,7 @@ class FinanceRepositoryImpl @Inject constructor(
         visitId: String?,
         remarks: String?,
         recordedBy: String,
-        transactionGroupId: String? = null
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val userName = sessionManager.getCurrentUserName()
@@ -118,7 +119,7 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateConsultationIncome(
+    override suspend fun updateConsultationIncome(
         visitId: String,
         consultationId: String,
         originalAmount: Double,
@@ -129,7 +130,7 @@ class FinanceRepositoryImpl @Inject constructor(
         onlineAmount: Double,
         remarks: String?,
         recordedBy: String,
-        transactionGroupId: String? = null
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val consultationTransactions = financeDao.getTransactionsByVisitId(visitId)
@@ -230,14 +231,14 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun updateIncomeForVisit(
+    override suspend fun updateIncomeForVisit(
         visitId: String,
         amount: Double,
         cashAmount: Double,
         onlineAmount: Double,
         remarks: String?,
         recordedBy: String,
-        transactionGroupId: String? = null
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val transactions = financeDao.getTransactionsByVisitId(visitId)
@@ -331,7 +332,7 @@ class FinanceRepositoryImpl @Inject constructor(
     }
 
 
-    suspend fun migrateLegacyVaccinationCogs(vaccinations: List<Vaccination>) {
+    override suspend fun migrateLegacyVaccinationCogs(vaccinations: List<Vaccination>) {
         database.withTransaction {
             val validById = vaccinations.associateBy { it.id }
             val transactions = financeDao.getAllTransactionsSnapshot()
@@ -366,7 +367,7 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshTransactions() = cloudRefresh("FinanceRepo") {
+    override suspend fun refreshTransactions() = cloudRefresh("FinanceRepo") {
                 val transactions = postgrest.from("finance_transactions").select().decodeList<FinanceEntity>()
                 database.withTransaction {
                     val visitDao = database.vaccinationDao()
@@ -414,3 +415,4 @@ class FinanceRepositoryImpl @Inject constructor(
                 }
     }
 }
+

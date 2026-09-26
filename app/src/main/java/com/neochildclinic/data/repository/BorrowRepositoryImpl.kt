@@ -15,7 +15,6 @@ import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import com.neochildclinic.data.repository.SyncRepositoryImpl
-import com.neochildclinic.features.inventory.BorrowedDisplayItem
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -113,7 +112,11 @@ class BorrowRepositoryImpl @Inject constructor(
     }
 
     suspend fun submitReturn(
-        item: BorrowedDisplayItem,
+        borrowRecordId: String,
+        originalBatchId: String,
+        vaccineId: String,
+        vaccineName: String,
+        remainingQuantity: Int,
         quantity: Int,
         batchId: String,
         notes: String?,
@@ -125,10 +128,10 @@ class BorrowRepositoryImpl @Inject constructor(
             val transactionGroupId = UUID.randomUUID().toString()
 
             val effectiveBatchId = if (newBatchInfo != null) {
-                val vaccine = vaccineDao.getVaccineById(item.vaccineId)
+                val vaccine = vaccineDao.getVaccineById(vaccineId)
                 val newBatch = VaccineBatchEntity(
                     batchId = UUID.randomUUID().toString(),
-                    vaccineId = item.vaccineId,
+                    vaccineId = vaccineId,
                     batchNumber = newBatchInfo.batchNumber,
                     manufacturer = vaccine?.companyName ?: "Unknown",
                     purchaseDate = today,
@@ -148,7 +151,7 @@ class BorrowRepositoryImpl @Inject constructor(
 
             // Physically restores stock
             inventoryRepository.returnBorrowedStock(
-                originalBatchId = item.record.batchId,
+                originalBatchId = originalBatchId,
                 returnToBatchId = effectiveBatchId,
                 quantity = quantity,
                 user = user,
@@ -158,7 +161,7 @@ class BorrowRepositoryImpl @Inject constructor(
 
             val returnRecord = BorrowReturnRecord(
                 id = UUID.randomUUID().toString(),
-                borrowRecordId = item.id,
+                borrowRecordId = borrowRecordId,
                 batchId = effectiveBatchId,
                 quantity = quantity,
                 returnedDate = today,
@@ -177,11 +180,11 @@ class BorrowRepositoryImpl @Inject constructor(
                 transactionGroupId = transactionGroupId
             )
 
-            if (quantity >= item.remainingQuantity) {
-                borrowDao.markReturned(item.id, today)
+            if (quantity >= remainingQuantity) {
+                borrowDao.markReturned(borrowRecordId, today)
                 syncRepository.enqueue(
                     entityName = "BORROW",
-                    entityId = item.id,
+                    entityId = borrowRecordId,
                     operation = SyncOperation.UPDATE,
                     priority = SyncPriority.MEDIUM,
                     transactionGroupId = transactionGroupId
@@ -193,7 +196,7 @@ class BorrowRepositoryImpl @Inject constructor(
                 entityType = "BORROW_RETURN",
                 entityId = entity.id,
                 action = "BORROW_RETURNED",
-                remarks = "${item.vaccineName} x${quantity} returned"
+                remarks = "${vaccineName} x${quantity} returned"
             )
         }
     }
@@ -227,3 +230,5 @@ data class NewBatchInfo(
     val purchaseCost: Double = 0.0,
     val sellingPrice: Double = 0.0
 )
+
+

@@ -70,6 +70,12 @@ class BorrowedViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(0)
     private val _isRefreshing = MutableStateFlow(false)
 
+    init {
+        viewModelScope.launch {
+            borrowRepository.refreshBorrows()
+        }
+    }
+
     val uiState: StateFlow<BorrowedUiState> = combine(
         borrowRepository.getActiveBorrowedRecords(),
         borrowRepository.getReturnedRecords(),
@@ -197,7 +203,7 @@ class BorrowedViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                borrowRepository.submitReturn(item, quantity, batchId, notes, newBatchInfo)
+                borrowRepository.submitReturn(item.id, item.record.batchId, item.vaccineId, item.vaccineName, item.remainingQuantity, quantity, batchId, notes, newBatchInfo)
             } catch (e: Exception) {
                 android.util.Log.e("BorrowedViewModel", "Return failed", e)
             }

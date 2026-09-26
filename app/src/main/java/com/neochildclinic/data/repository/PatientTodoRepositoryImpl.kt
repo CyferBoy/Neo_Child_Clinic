@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.PatientTodoRepository
 
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -18,10 +19,10 @@ class PatientTodoRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) {
+) : PatientTodoRepository {
     private val dao: PatientTodoDao = database.patientTodoDao()
 
-    suspend fun refresh() = cloudRefresh("PatientTodoRepo") {
+    override suspend fun refresh() = cloudRefresh("PatientTodoRepo") {
         val consultations = postgrest.from("consultation_todos").select().decodeList<ConsultationTodoEntity>()
         val vaccinations = postgrest.from("vaccination_todos").select().decodeList<VaccinationTodoEntity>()
         consultations.forEach { remote ->

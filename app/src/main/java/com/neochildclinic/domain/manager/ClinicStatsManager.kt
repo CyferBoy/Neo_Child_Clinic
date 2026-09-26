@@ -5,12 +5,12 @@ import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.domain.model.ClinicStats
 import com.neochildclinic.domain.model.InventoryItem
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
-import com.neochildclinic.features.statistics.FinanceCalculator
-import com.neochildclinic.features.statistics.StatisticsUtils
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.statistics.FinanceCalculator
+import com.neochildclinic.domain.statistics.StatisticsUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.ZoneId
@@ -25,10 +25,10 @@ import javax.inject.Singleton
  */
 @Singleton
 class ClinicStatsManager @Inject constructor(
-    private val vaccinationRepository: VaccinationRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val financeRepository: FinanceRepositoryImpl
+    private val vaccinationRepository: VaccinationRepository,
+    private val reminderRepository: ReminderRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val financeRepository: FinanceRepository
 ) {
     /**
      * Returns a combined flow of all high-level clinic metrics.
@@ -129,3 +129,5 @@ class ClinicStatsManager @Inject constructor(
         return counts.toList().sortedByDescending { it.second }.take(5)
     }
 }
+
+

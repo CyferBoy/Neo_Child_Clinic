@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.WasteRepository
 
 import androidx.room.withTransaction
 import com.neochildclinic.data.local.database.AppDatabase
@@ -21,7 +22,7 @@ class WasteRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
-) {
+) : WasteRepository {
 
     private val wasteDao = database.wasteDao()
     private val syncQueueDao = database.syncQueueDao()
@@ -143,7 +144,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshWaste() = cloudRefresh("WasteRepo") {
+    override suspend fun refreshWaste() = cloudRefresh("WasteRepo") {
         val wasteRecords = postgrest.from("waste_records").select().decodeList<WasteRecord>()
         database.withTransaction {
             for (remote in wasteRecords) {

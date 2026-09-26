@@ -1,4 +1,5 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -23,7 +24,7 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
-) {
+) : DoctorAvailabilityRepository {
 
     private val dao = database.doctorAvailabilityDao()
 
@@ -33,10 +34,10 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     fun getExceptions(doctorId: String): Flow<List<DoctorSlotException>> =
         dao.getExceptionsForDoctor(doctorId).map { list -> list.map { it.toDomain() } }
 
-    suspend fun getActiveWeeklySlotsForDay(doctorId: String, dayOfWeek: Int): List<DoctorWeeklySlot> =
+    override suspend fun getActiveWeeklySlotsForDay(doctorId: String, dayOfWeek: Int): List<DoctorWeeklySlot> =
         dao.getActiveWeeklySlotsForDay(doctorId, dayOfWeek)
 
-    suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotException> =
+    override suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotException> =
         dao.getExceptionsForDate(doctorId, date).map { it.toDomain() }
 
     suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot? =
@@ -136,7 +137,7 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         )
     }
 
-    suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo") {
+    override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo") {
         val remoteSlots = postgrest.from("doctor_weekly_slots").select().decodeList<DoctorWeeklySlotEntity>()
         remoteSlots.forEach { remote ->
             val local = dao.getWeeklySlotById(remote.id)

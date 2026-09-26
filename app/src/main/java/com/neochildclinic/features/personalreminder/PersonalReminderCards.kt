@@ -1,6 +1,6 @@
 package com.neochildclinic.features.personalreminder
 
-import com.neochildclinic.features.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.StatisticsUtils
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -164,3 +164,4 @@ fun StatusChip(status: PersonalReminderStatus) {
         )
     }
 }
+

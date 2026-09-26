@@ -1,4 +1,4 @@
-package com.neochildclinic.features.statistics
+package com.neochildclinic.domain.statistics
 
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.startOfDay
@@ -321,3 +321,4 @@ object FinanceCalculator {
         set(Calendar.DAY_OF_MONTH, 1)
     }.startOfDay()
 }
+

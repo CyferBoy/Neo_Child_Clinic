@@ -2,6 +2,8 @@ package com.neochildclinic.features.statistics
 
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.VisitTypeStats
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

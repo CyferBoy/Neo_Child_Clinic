@@ -1,16 +1,16 @@
 package com.neochildclinic.domain.usecase.sync
 
-import com.neochildclinic.data.repository.PatientRepositoryImpl
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
-import com.neochildclinic.data.repository.WasteRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.ConsultationRepositoryImpl
-import com.neochildclinic.data.repository.PatientTodoRepositoryImpl
-import com.neochildclinic.data.repository.PersonalReminderRepositoryImpl
-import com.neochildclinic.data.repository.ExpenseRepositoryImpl
-import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.PatientTodoRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -21,17 +21,17 @@ import javax.inject.Inject
  * Coordinates multiple repository refreshes.
  */
 class RefreshDataUseCase @Inject constructor(
-    private val patientRepository: PatientRepositoryImpl,
-    private val vaccinationRepository: VaccinationRepositoryImpl,
-    private val wasteRepository: WasteRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val consultationRepository: ConsultationRepositoryImpl,
-    private val patientTodoRepository: PatientTodoRepositoryImpl,
-    private val financeRepository: FinanceRepositoryImpl,
-    private val personalReminderRepository: PersonalReminderRepositoryImpl,
-    private val expenseRepository: ExpenseRepositoryImpl,
-    private val doctorAvailabilityRepository: DoctorAvailabilityRepositoryImpl
+    private val patientRepository: PatientRepository,
+    private val vaccinationRepository: VaccinationRepository,
+    private val wasteRepository: WasteRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val reminderRepository: ReminderRepository,
+    private val consultationRepository: ConsultationRepository,
+    private val patientTodoRepository: PatientTodoRepository,
+    private val financeRepository: FinanceRepository,
+    private val personalReminderRepository: PersonalReminderRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val doctorAvailabilityRepository: DoctorAvailabilityRepository
 ) {
     suspend operator fun invoke() = coroutineScope {
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
@@ -92,3 +92,4 @@ class RefreshDataUseCase @Inject constructor(
         vaccinationRepository.applyDownloadedVaccinationItems(vaccinationItems)
     }
 }
+

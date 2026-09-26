@@ -1,4 +1,4 @@
-package com.neochildclinic.features.statistics
+package com.neochildclinic.domain.statistics
 
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.domain.model.ReminderStatus
@@ -165,3 +165,4 @@ data class VisitTypeStats(
     val totalConsultation: Int,
     val totalVaccination: Int
 )
+

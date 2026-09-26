@@ -5,10 +5,10 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import com.neochildclinic.data.repository.ReminderRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,10 +22,10 @@ import javax.inject.Singleton
 @Singleton
 class VaccinationEditEngine @Inject constructor(
     private val database: AppDatabase,
-    private val vaccinationRepository: VaccinationRepositoryImpl,
-    private val inventoryRepository: InventoryRepositoryImpl,
-    private val financeRepository: FinanceRepositoryImpl,
-    private val reminderRepository: ReminderRepositoryImpl
+    private val vaccinationRepository: VaccinationRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val financeRepository: FinanceRepository,
+    private val reminderRepository: ReminderRepository
 ) {
     data class ReminderSpec(
         val reminderId: String? = null,
@@ -62,7 +62,7 @@ class VaccinationEditEngine @Inject constructor(
                     amount = updated.totalPaid,
                     cashAmount = updated.cashAmount,
                     onlineAmount = updated.onlineAmount,
-                    remarks = com.neochildclinic.features.statistics.FinanceCalculator.buildVaccinationRemarks(updated),
+                    remarks = com.neochildclinic.domain.statistics.FinanceCalculator.buildVaccinationRemarks(updated),
                     recordedBy = user,
                     transactionGroupId = transactionGroupId
                 )
@@ -225,3 +225,4 @@ class VaccinationEditEngine @Inject constructor(
     }
 
 }
+
