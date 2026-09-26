@@ -10,7 +10,6 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.repository.BorrowRepositoryImpl
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import com.neochildclinic.data.repository.NewBatchInfo
-import io.github.jan.supabase.auth.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch

@@ -8,9 +8,11 @@ import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
+import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,7 +21,8 @@ class ProfileRepositoryImpl @Inject constructor(
     private val profileDao: ProfileDao,
     private val syncQueueDao: SyncQueueDao,
     private val postgrest: Postgrest,
-    private val syncRepository: SyncRepositoryImpl
+    private val syncRepository: SyncRepositoryImpl,
+    private val auth: Auth
 ) {
 
     val allProfiles: Flow<List<Profile>> = 
@@ -27,6 +30,17 @@ class ProfileRepositoryImpl @Inject constructor(
 
     suspend fun getProfileById(id: String): Profile? =
         profileDao.getProfileById(id)?.toDomain()
+
+    suspend fun getProfileByEmail(email: String): Profile? {
+        return try {
+            postgrest.from("profiles")
+                .select { filter { eq("email", email); eq("is_deleted", false) } }
+                .decodeSingleOrNull<Profile>()
+        } catch (e: Exception) {
+            android.util.Log.e("ProfileRepo", "Failed to fetch profile by email $email", e)
+            null
+        }
+    }
 
     suspend fun fetchProfileFromRemote(id: String): Profile? {
         return try {
@@ -67,5 +81,19 @@ class ProfileRepositoryImpl @Inject constructor(
 
     suspend fun saveLocalProfile(profile: Profile) {
         profileDao.insertProfile(profile.toEntity())
+    }
+
+    suspend fun updateAuthName(name: String) {
+        auth.updateUser {
+            data {
+                put("name", name)
+            }
+        }
+    }
+
+    suspend fun updateAuthPassword(newPassword: String) {
+        auth.updateUser {
+            password = newPassword
+        }
     }
 }

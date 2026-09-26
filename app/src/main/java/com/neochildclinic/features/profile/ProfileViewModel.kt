@@ -5,9 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.data.repository.ProfileRepositoryImpl
+import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.core.utils.metadataString
-import io.github.jan.supabase.auth.Auth
-import kotlinx.serialization.json.put
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +23,7 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val auth: Auth,
+    private val sessionManager: SessionManager,
     private val profileRepository: ProfileRepositoryImpl
 ) : ViewModel() {
 
@@ -36,26 +35,28 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun loadProfile() {
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        val currentUserId = sessionManager.getCurrentUserId() ?: return
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 // Try to get from local repository first
-                var profile = profileRepository.getProfileById(currentUser.id)
+                var profile = profileRepository.getProfileById(currentUserId)
 
                 if (profile == null) {
                     // Fallback to initial profile from auth metadata
+                    val metadata = sessionManager.getCurrentUserMetadata()
+                    val email = sessionManager.getCurrentUserEmail().let { if (it == "Unknown") "" else it }
                     profile = Profile(
-                        id = currentUser.id,
-                        email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("display_name").metadataString() 
-                            ?: currentUser.userMetadata?.get("name").metadataString() 
-                            ?: currentUser.email?.substringBefore("@") ?: "User",
-                        phoneNumber = currentUser.userMetadata?.get("phone_number").metadataString() ?: "",
-                        employeeId = currentUser.userMetadata?.get("employee_id").metadataString(),
-                        role = try { 
-                            UserRole.valueOf(currentUser.userMetadata?.get("role").metadataString() ?: "nurse") 
+                        id = currentUserId,
+                        email = email,
+                        displayName = metadata?.get("display_name").metadataString()
+                            ?: metadata?.get("name").metadataString()
+                            ?: email.substringBefore("@") ?: "User",
+                        phoneNumber = metadata?.get("phone_number").metadataString() ?: "",
+                        employeeId = metadata?.get("employee_id").metadataString(),
+                        role = try {
+                            UserRole.valueOf(metadata?.get("role").metadataString() ?: "nurse")
                         } catch (_: Exception) { UserRole.nurse }
                     )
                     profileRepository.saveLocalProfile(profile)
@@ -65,7 +66,7 @@ class ProfileViewModel @Inject constructor(
                 
                 // Refresh from remote
                 profileRepository.refreshProfiles()
-                val refreshed = profileRepository.getProfileById(currentUser.id)
+                val refreshed = profileRepository.getProfileById(currentUserId)
                 if (refreshed != null) {
                     _uiState.value = _uiState.value.copy(profile = refreshed)
                 }
@@ -78,20 +79,16 @@ class ProfileViewModel @Inject constructor(
 
     fun updateName(newName: String) {
         if (newName.isBlank()) return
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        val currentUserId = sessionManager.getCurrentUserId() ?: return
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
             try {
                 // 1. Update Supabase Auth User Metadata (Internal to Auth)
-                auth.updateUser {
-                    data {
-                        put("name", newName)
-                    }
-                }
+                profileRepository.updateAuthName(newName)
 
                 // 2. Update via Repository (Handles local DB + Sync)
-                val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUser.id)
+                val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUserId)
                 val updated = currentProfile?.copy(displayName = newName) ?: return@launch
                 
                 profileRepository.updateProfile(updated)
@@ -108,11 +105,11 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun updatePhoneNumber(newPhone: String) {
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        val currentUserId = sessionManager.getCurrentUserId() ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
             try {
-                val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUser.id)
+                val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUserId)
                 val updated = currentProfile?.copy(phoneNumber = newPhone) ?: return@launch
                 
                 profileRepository.updateProfile(updated)
@@ -136,9 +133,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
             try {
-                auth.updateUser {
-                    password = newPassword
-                }
+                profileRepository.updateAuthPassword(newPassword)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     success = "Password changed successfully"

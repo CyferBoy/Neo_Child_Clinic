@@ -6,7 +6,7 @@ import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -29,7 +29,7 @@ data class AddBatchUiState(
 @HiltViewModel
 class AddBatchViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddBatchUiState())
@@ -79,7 +79,7 @@ class AddBatchViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 
                 if (batchId != null) {
                     val existing = _uiState.value.batch ?: throw IllegalStateException("Batch not loaded")

@@ -4,12 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.data.repository.PersonalReminderRepositoryImpl
+import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -60,10 +60,8 @@ data class AddEditPersonalReminderUiState(
 class AddEditPersonalReminderViewModel @Inject constructor(
     private val repository: PersonalReminderRepositoryImpl,
     private val patientRepository: PatientRepositoryImpl,
-    database: AppDatabase
+    private val inventoryRepository: InventoryRepositoryImpl
 ) : ViewModel() {
-
-    private val vaccineDao = database.vaccineDao()
 
     private val _uiState = MutableStateFlow(AddEditPersonalReminderUiState())
     val uiState: StateFlow<AddEditPersonalReminderUiState> = _uiState.asStateFlow()
@@ -73,7 +71,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            vaccineDao.getAllVaccines().collect { vaccines ->
+            inventoryRepository.getAllVaccines().collect { vaccines ->
                 _uiState.update { it.copy(vaccines = vaccines.sortedBy { v -> v.brandName }) }
             }
         }

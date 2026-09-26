@@ -11,7 +11,7 @@ import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -31,7 +31,7 @@ data class DueUiState(
 class DueViewModel @Inject constructor(
     private val patientRepository: PatientRepositoryImpl,
     private val reminderRepository: ReminderRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     val stats = reminderRepository.getDashboardStats()
@@ -46,7 +46,7 @@ class DueViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
 
     private val currentUserEmail: String
-        get() = auth.currentSessionOrNull()?.user?.email ?: "Unknown Staff"
+        get() = sessionManager.getCurrentUserEmail().let { if (it == "Unknown") "Unknown Staff" else it }
 
     private val activeDueFlow: Flow<List<Vaccination>> =
         reminderRepository.getDueList("", listOf(ReminderStatus.ACTIVE))

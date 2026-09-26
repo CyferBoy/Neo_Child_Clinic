@@ -20,7 +20,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.features.dashboard.AuthViewModel
+import com.neochildclinic.core.session.AuthViewModel
 import com.neochildclinic.features.dashboard.LoginScreen
 import com.neochildclinic.features.dashboard.ManageStaffScreen
 import com.neochildclinic.features.dashboard.StaffDetailsScreen

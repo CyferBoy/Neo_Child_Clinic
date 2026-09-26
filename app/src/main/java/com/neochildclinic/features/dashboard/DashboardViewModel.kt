@@ -19,7 +19,7 @@ import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.data.manager.RealtimeChangeSubscriptions
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import com.neochildclinic.domain.model.Patient
@@ -30,12 +30,6 @@ import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.data.repository.SyncState
 import com.neochildclinic.core.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.realtime.PostgresAction
-import io.github.jan.supabase.realtime.Realtime
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -116,11 +110,10 @@ class DashboardViewModel @Inject constructor(
     private val reminderRepository: ReminderRepositoryImpl,
     private val wasteRepository: WasteRepositoryImpl,
     private val borrowRepository: BorrowRepositoryImpl,
-    private val realtime: Realtime,
+    private val realtimeChangeSubscriptions: RealtimeChangeSubscriptions,
     private val profileRepository: ProfileRepositoryImpl,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
-    private val doctorAvailabilityRepository: DoctorAvailabilityRepositoryImpl,
-    private val auth: Auth,
+    private val doctorAvailabilityRepository: DoctorAvailabilityRepositoryImpl
 ) : ViewModel() {
 
     private val _allDoctors = MutableStateFlow<List<Profile>>(emptyList())
@@ -222,47 +215,14 @@ class DashboardViewModel @Inject constructor(
     // Room. This is what makes "doctor app open -> new patient appears without a manual
     // refresh" (req. 3/4) work without a second Today's Patient sync framework - the existing
     // sync_queue/SyncWorker path remains the only thing that ever pushes local -> cloud.
+    // Channel teardown is handled by RealtimeChangeSubscriptions when viewModelScope cancels.
     private fun observeTodayPatientRealtimeChanges() {
         viewModelScope.launch {
-            try {
-                realtime.subscriptions["realtime:todays-patients-db-changes"]?.let {
-                    realtime.removeChannel(it)
-                }
-
-                val channel = realtime.channel("todays-patients-db-changes")
-
-                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "consultation_todos"
-                }.onEach {
-                    runCatching { patientTodoRepository.refresh() }
-                }.catch { e ->
-                    android.util.Log.e("Realtime", "Error in consultation_todos change flow", e)
-                }.launchIn(this)
-
-                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "vaccination_todos"
-                }.onEach {
-                    runCatching { patientTodoRepository.refresh() }
-                }.catch { e ->
-                    android.util.Log.e("Realtime", "Error in vaccination_todos change flow", e)
-                }.launchIn(this)
-
-                channel.subscribe()
-            } catch (e: Exception) {
-                android.util.Log.e("Realtime", "Error setting up Today's Patient realtime changes", e)
-            }
-        }
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
-    override fun onCleared() {
-        super.onCleared()
-        val channelId = "realtime:todays-patients-db-changes"
-        val channel = realtime.subscriptions[channelId]
-        if (channel != null) {
-            GlobalScope.launch {
-                runCatching { realtime.removeChannel(channel) }
-            }
+            realtimeChangeSubscriptions.tableChanges(
+                "todays-patients-db-changes", "consultation_todos", "vaccination_todos"
+            ).onEach {
+                runCatching { patientTodoRepository.refresh() }
+            }.collect()
         }
     }
 

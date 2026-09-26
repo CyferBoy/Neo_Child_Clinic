@@ -10,7 +10,7 @@ import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,7 +58,7 @@ data class AddStockUiState(
 @HiltViewModel
 class AddStockViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddStockUiState())
@@ -199,7 +199,7 @@ class AddStockViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 val today = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
 
                 val entriesByVaccine = sections

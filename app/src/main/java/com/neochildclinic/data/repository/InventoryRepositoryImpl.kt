@@ -8,6 +8,7 @@ import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.InventoryUtils
 import com.neochildclinic.core.utils.PatientUtils.parseDate
 import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
@@ -131,6 +132,8 @@ class InventoryRepositoryImpl @Inject constructor(
         }.flowOn(Dispatchers.Default)
     }
 
+    override fun getAllVaccines(): Flow<List<VaccineEntity>> = vaccineDao.getAllVaccines()
+
     fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> = 
         vaccineDao.getBatchesByVaccine(vaccineId).map { batches ->
             batches.sortedBy { parseDate(it.expiryDate) }
@@ -138,6 +141,9 @@ class InventoryRepositoryImpl @Inject constructor(
 
     fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>> = 
         vaccineDao.getTransactionsForVaccine(vaccineId)
+
+    override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeductionEntity> =
+        database.inventoryDeductionDao().getForVaccination(vaccinationId)
 
     suspend fun getBatchById(batchId: String): VaccineBatchEntity? =
         vaccineDao.getBatchById(batchId)

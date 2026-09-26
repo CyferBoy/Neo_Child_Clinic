@@ -5,8 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.WasteRecord
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
 import com.neochildclinic.data.repository.WasteRepositoryImpl
-import com.neochildclinic.core.utils.metadataString
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -35,7 +34,7 @@ data class WasteUiState(
 class WasteViewModel @Inject constructor(
     private val wasteRepository: WasteRepositoryImpl,
     private val inventoryRepository: InventoryRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _isSaving = MutableStateFlow(false)
@@ -233,10 +232,7 @@ class WasteViewModel @Inject constructor(
         }
     }
 
-    private fun getCurrentUser(): String {
-        val user = auth.currentSessionOrNull()?.user
-        return user?.userMetadata?.get("name").metadataString() ?: user?.email ?: "System User"
-    }
+    private fun getCurrentUser(): String = sessionManager.getCurrentUserDisplayName("System User")
 
     fun clearError() {
         _error.value = null

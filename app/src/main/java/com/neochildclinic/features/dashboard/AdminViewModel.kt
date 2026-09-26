@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.data.repository.ProfileRepositoryImpl
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.functions.Functions
-import kotlinx.serialization.Serializable
+import com.neochildclinic.data.repository.StaffManagementRepositoryImpl
+import com.neochildclinic.data.repository.CreateStaffRequest
+import com.neochildclinic.data.repository.StaffActionRequest
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +25,7 @@ data class AdminUiState(
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val profileRepository: ProfileRepositoryImpl,
-    private val auth: Auth,
-    private val functions: Functions
+    private val staffRepository: StaffManagementRepositoryImpl
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminUiState())
@@ -79,7 +78,7 @@ class AdminViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                functions.invoke("manage-staff", CreateStaffRequest(
+                staffRepository.createStaff(CreateStaffRequest(
                     name = name, 
                     email = email, 
                     password = pass, 
@@ -110,7 +109,7 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                functions.invoke("manage-staff", StaffActionRequest(action = "RESET_PASSWORD_EMAIL", staffId = staffId))
+                staffRepository.runStaffAction(StaffActionRequest(action = "RESET_PASSWORD_EMAIL", staffId = staffId))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     success = "Password reset email sent"
@@ -152,7 +151,7 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
         viewModelScope.launch {
             try {
-                functions.invoke("manage-staff", request)
+                staffRepository.runStaffAction(request)
                 _uiState.value = _uiState.value.copy(isLoading = false, success = successMessage)
                 fetchStaff()
             } catch (e: Exception) {
@@ -165,27 +164,3 @@ class AdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null, success = null)
     }
 }
-
-@Serializable
-data class StaffActionRequest(
-    val action: String,
-    val staffId: String? = null,
-    val name: String? = null,
-    val email: String? = null,
-    val password: String? = null,
-    val role: String? = null,
-    val employeeId: String? = null,
-    val phoneNumber: String? = null,
-    val isActive: Boolean? = null
-)
-
-@Serializable
-data class CreateStaffRequest(
-    val name: String,
-    val email: String,
-    val password: String,
-    val role: String,
-    val employeeId: String? = null,
-    val phoneNumber: String? = null,
-    val action: String = "CREATE"
-)

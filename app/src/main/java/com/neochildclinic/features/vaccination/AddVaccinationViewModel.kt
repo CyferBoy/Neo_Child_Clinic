@@ -16,7 +16,7 @@ import com.neochildclinic.data.repository.ReminderRepositoryImpl
 import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.VaccinationEditEngine
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -81,7 +81,7 @@ class AddVaccinationViewModel @Inject constructor(
     private val profileRepository: com.neochildclinic.data.repository.ProfileRepositoryImpl,
     private val clinicalService: ClinicalVaccinationService,
     private val vaccinationEditEngine: VaccinationEditEngine,
-    private val auth: Auth,
+    private val sessionManager: SessionManager,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase
 ) : ViewModel() {
 
@@ -277,7 +277,7 @@ class AddVaccinationViewModel @Inject constructor(
                         (it.isActive || (!editId.isNullOrBlank() && (it.employeeId == editId || it.id == editId)))
                 }.sortedBy { it.displayName }
 
-                val currentUserId = auth.currentSessionOrNull()?.user?.id
+                val currentUserId = sessionManager.getCurrentUserId()
                 val currentUserProfile = profiles.find { it.id == currentUserId }
                 val defaultDoctor = if (currentUserProfile?.role == UserRole.doctor) currentUserProfile else null
 
@@ -473,7 +473,7 @@ class AddVaccinationViewModel @Inject constructor(
         val group = _uiState.value.nextVaccinationGroups.find { it.id == groupId } ?: return
         viewModelScope.launch {
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 group.items.forEach { item ->
                     item.reminderId?.let { rId ->
                         val reminder = reminderRepository.getReminderById(rId) ?: return@let
@@ -503,7 +503,7 @@ class AddVaccinationViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val reminder = reminderRepository.getReminderById(reminderId) ?: return@launch
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
 
                 if (reminder.nxtVaccineId != null && reminder.nxtVaccineId.size > 1 && item.vaccine != null) {
                     // It's a multi-vaccine reminder, but our UI redesign treats them as separate items.
@@ -618,7 +618,7 @@ class AddVaccinationViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
 
                 val existingVaccination = if (isEdit) {

@@ -3,9 +3,8 @@ package com.neochildclinic.features.audit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.data.repository.AuditLogRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +18,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class FullAuditLogViewModel @Inject constructor(
-    private val postgrest: Postgrest
+    private val auditLogRepository: AuditLogRepositoryImpl
 ) : ViewModel() {
 
     companion object {
@@ -93,12 +92,6 @@ class FullAuditLogViewModel @Inject constructor(
     }
 
     private suspend fun fetchPage(offset: Int): List<AuditLogEntity> {
-        val from = offset.toLong()
-        val to = (offset + PAGE_SIZE - 1).toLong()
-
-        return postgrest.from("audit_logs").select {
-            order("timestamp", Order.DESCENDING)
-            range(from, to)
-        }.decodeList<AuditLogEntity>()
+        return auditLogRepository.getPaged(null, offset, PAGE_SIZE)
     }
 }

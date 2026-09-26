@@ -4,6 +4,8 @@ import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.InventoryTransactionType
+import com.neochildclinic.data.local.entity.InventoryDeductionEntity
+import com.neochildclinic.data.local.entity.VaccineEntity
 import kotlinx.coroutines.flow.Flow
 
 interface InventoryRepository {
@@ -12,6 +14,7 @@ interface InventoryRepository {
         filter: InventoryFilter = InventoryFilter.ALL,
         sort: InventorySort = InventorySort.ALPHABETICAL
     ): Flow<List<InventoryItem>>
+    fun getAllVaccines(): Flow<List<VaccineEntity>>
     suspend fun deductStockFromBatch(
         batchId: String,
         quantity: Int,
@@ -32,5 +35,6 @@ interface InventoryRepository {
         transactionGroupId: String? = null
     )
     suspend fun transferPatientTransactions(duplicateId: String, masterId: String)
+    suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeductionEntity>
     suspend fun refreshInventory()
 }

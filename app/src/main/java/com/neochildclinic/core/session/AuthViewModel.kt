@@ -1,4 +1,4 @@
-package com.neochildclinic.features.dashboard
+package com.neochildclinic.core.session
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -132,13 +132,13 @@ class AuthViewModel @Inject constructor(
                     p = Profile(
                         id = currentUser.id,
                         email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("display_name").metadataString() 
-                            ?: currentUser.userMetadata?.get("name").metadataString() 
+                        displayName = currentUser.userMetadata?.get("display_name").metadataString()
+                            ?: currentUser.userMetadata?.get("name").metadataString()
                             ?: currentUser.email?.substringBefore("@") ?: "User",
                         phoneNumber = currentUser.userMetadata?.get("phone_number").metadataString() ?: "",
                         employeeId = currentUser.userMetadata?.get("employee_id").metadataString(),
-                        role = try { 
-                            com.neochildclinic.domain.model.UserRole.valueOf(currentUser.userMetadata?.get("role").metadataString() ?: "nurse") 
+                        role = try {
+                            com.neochildclinic.domain.model.UserRole.valueOf(currentUser.userMetadata?.get("role").metadataString() ?: "nurse")
                         } catch (_: Exception) { com.neochildclinic.domain.model.UserRole.nurse },
                         lastLogin = authLastLogin
                     )
@@ -156,7 +156,7 @@ class AuthViewModel @Inject constructor(
             }
 
             _profile.value = p
-            
+
             // Background refresh
             profileRepository.refreshProfiles()
             profileRepository.getProfileById(userId)?.let { refreshed ->
@@ -181,14 +181,14 @@ class AuthViewModel @Inject constructor(
         }
         _isLoading.value = true
         _error.value = null
-        
+
         viewModelScope.launch {
             try {
                 auth.signInWith(Email) {
                     this.email = email
                     this.password = pass
                 }
-                
+
                 auth.currentSessionOrNull()?.user?.id?.let {
                     fetchProfile(it)
                     // Device registration is best-effort and must not delay or block

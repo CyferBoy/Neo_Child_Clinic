@@ -9,16 +9,11 @@ import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.domain.model.Profile
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.realtime.Realtime
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
-import io.github.jan.supabase.realtime.PostgresAction
+import com.neochildclinic.core.session.SessionManager
+import com.neochildclinic.data.manager.RealtimeChangeSubscriptions
+import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -50,9 +45,9 @@ class PatientListViewModel @Inject constructor(
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepositoryImpl,
-    private val auth: Auth,
-    private val postgrest: Postgrest,
-    private val realtime: Realtime
+    private val profileRepository: ProfileRepositoryImpl,
+    private val sessionManager: SessionManager,
+    private val realtimeChangeSubscriptions: RealtimeChangeSubscriptions
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -112,89 +107,29 @@ class PatientListViewModel @Inject constructor(
 
     private fun observeRealtimeChanges() {
         viewModelScope.launch {
-            try {
-                // Ensure any previous subscription with the same name is removed to avoid "already joined" error
-                realtime.subscriptions["realtime:patients-db-changes"]?.let {
-                    Log.d("Realtime", "Removing existing channel before re-subscription")
-                    realtime.removeChannel(it)
-                }
-
-                val channel = realtime.channel("patients-db-changes")
-                
-                // postgresChangeFlow MUST be called BEFORE channel.subscribe()
-                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "patients"
-                }.onEach {
-                    Log.d("Realtime", "Patient change detected: $it")
-                    refresh()
-                }.catch { e ->
-                    Log.e("Realtime", "Error in patients change flow", e)
-                }.launchIn(this)
-
-                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "vaccinations"
-                }.onEach {
-                    Log.d("Realtime", "Vaccination change detected: $it")
-                    refresh()
-                }.catch { e ->
-                    Log.e("Realtime", "Error in vaccinations change flow", e)
-                }.launchIn(this)
-
-                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "consultations"
-                }.onEach {
-                    Log.d("Realtime", "Consultation change detected: $it")
-                    refresh()
-                }.catch { e ->
-                    Log.e("Realtime", "Error in consultations change flow", e)
-                }.launchIn(this)
-
-                channel.subscribe()
-                Log.d("Realtime", "Subscribed to channel: patients-db-changes")
-            } catch (e: Exception) {
-                Log.e("Realtime", "Error setting up realtime changes", e)
-            }
-        }
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
-    override fun onCleared() {
-        super.onCleared()
-        // Clean up realtime channel to prevent leaks and "already joined" errors on ViewModel recreation
-        val channelId = "realtime:patients-db-changes"
-        val channel = realtime.subscriptions[channelId]
-        if (channel != null) {
-            // Use GlobalScope for cleanup as viewModelScope is being cancelled
-            GlobalScope.launch {
-                try {
-                    realtime.removeChannel(channel)
-                    Log.d("Realtime", "Channel patients-db-changes removed successfully")
-                } catch (e: Exception) {
-                    Log.e("Realtime", "Failed to remove channel on cleared", e)
-                }
-            }
+            realtimeChangeSubscriptions.tableChanges(
+                "patients-db-changes", "patients", "vaccinations", "consultations"
+            ).onEach {
+                refresh()
+            }.catch { e ->
+                Log.e("Realtime", "Error in patient realtime changes", e)
+            }.collect()
         }
     }
 
     private fun fetchStaffProfile() {
-        val currentUser = auth.currentSessionOrNull()?.user ?: return
+        val currentUserId = sessionManager.getCurrentUserId() ?: return
         viewModelScope.launch {
             try {
-                val staff = postgrest.from("profiles").select {
-                    filter { eq("id", currentUser.id) }
-                }.decodeSingleOrNull<Profile>()
+                val staff = profileRepository.fetchProfileFromRemote(currentUserId)
 
                 if (staff != null) {
                     _staff.value = staff
                 } else {
-                    val email = currentUser.email
-                    if (email != null) {
-                        val staffByEmail = postgrest.from("profiles").select {
-                            filter { eq("email", email) }
-                        }.decodeSingleOrNull<Profile>()
-                        
-                        if (staffByEmail != null) {
-                            _staff.value = staffByEmail
+                    val email = sessionManager.getCurrentUserEmail()
+                    if (email != "Unknown") {
+                        profileRepository.getProfileByEmail(email)?.let {
+                            _staff.value = it
                         }
                     }
                 }

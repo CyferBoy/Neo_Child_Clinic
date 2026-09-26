@@ -9,7 +9,7 @@ import com.neochildclinic.data.repository.DocumentRepositoryImpl
 import com.neochildclinic.data.repository.ExpenseRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +43,7 @@ data class AddExpenseUiState(
 class AddExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepositoryImpl,
     private val documentRepository: DocumentRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddExpenseUiState())
@@ -155,7 +155,7 @@ class AddExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 // Persist as ISO (yyyy-MM-dd), not the picker's display format - a plain
                 // string comparison in SQL only sorts/range-filters correctly on ISO dates
                 // (see ExpenseDao.getFilteredExpensesPage).

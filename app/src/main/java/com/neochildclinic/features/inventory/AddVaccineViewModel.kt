@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +27,7 @@ data class AddVaccineUiState(
 @HiltViewModel
 class AddVaccineViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddVaccineUiState())
@@ -84,7 +84,7 @@ class AddVaccineViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 val vaccineId = id ?: UUID.randomUUID().toString()
                 val vaccine = VaccineEntity(
                     id = vaccineId,

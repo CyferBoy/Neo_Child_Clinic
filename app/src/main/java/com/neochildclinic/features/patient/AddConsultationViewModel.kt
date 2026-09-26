@@ -15,7 +15,7 @@ import com.neochildclinic.domain.service.ClinicalVaccinationService
 import com.neochildclinic.domain.service.ConsultationEditEngine
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.core.utils.PatientUtils
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -41,7 +41,7 @@ class AddConsultationViewModel @Inject constructor(
     private val clinicalService: ClinicalVaccinationService,
     private val patientRepository: PatientRepositoryImpl,
     private val profileRepository: ProfileRepositoryImpl,
-    private val auth: Auth,
+    private val sessionManager: SessionManager,
     private val consultationRepository: ConsultationRepositoryImpl,
     private val consultationEditEngine: ConsultationEditEngine,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase
@@ -97,7 +97,7 @@ class AddConsultationViewModel @Inject constructor(
                             (it.employeeId == editId || it.id == editId)))
                 }.sortedBy { it.displayName }
 
-                val currentUserId = auth.currentSessionOrNull()?.user?.id
+                val currentUserId = sessionManager.getCurrentUserId()
                 val currentUserProfile = profiles.find { it.id == currentUserId }
                 val defaultDoctor = if (currentUserProfile?.role == com.neochildclinic.domain.model.UserRole.doctor) currentUserProfile else null
 
@@ -183,7 +183,7 @@ class AddConsultationViewModel @Inject constructor(
                     return@launch
                 }
 
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 val original = state.editingConsultation
 
                 if (original != null) {

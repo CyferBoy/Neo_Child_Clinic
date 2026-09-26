@@ -1,8 +1,7 @@
 package com.neochildclinic.features.audit
 
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.postgrest.query.Order
+import com.neochildclinic.data.repository.AuditLogRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +23,7 @@ import kotlinx.coroutines.launch
  * per-ViewModel pagination code.
  */
 class PatientAuditLogPager(
-    private val postgrest: Postgrest,
+    private val auditLogRepository: AuditLogRepositoryImpl,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -99,14 +98,6 @@ class PatientAuditLogPager(
         _state.value = State()
     }
 
-    private suspend fun fetchPage(patientId: String, offset: Int): List<AuditLogEntity> {
-        val from = offset.toLong()
-        val to = (offset + PAGE_SIZE - 1).toLong()
-
-        return postgrest.from("audit_logs").select {
-            filter { eq("patient_id", patientId) }
-            order("timestamp", Order.DESCENDING)
-            range(from, to)
-        }.decodeList<AuditLogEntity>()
-    }
+    private suspend fun fetchPage(patientId: String, offset: Int): List<AuditLogEntity> =
+        auditLogRepository.getPaged(patientId, offset, PAGE_SIZE)
 }

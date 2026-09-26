@@ -23,6 +23,7 @@ import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.session.AuthViewModel
 
 @Composable
 fun LoginScreen(

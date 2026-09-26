@@ -2,7 +2,6 @@ package com.neochildclinic.features.patient
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
 import com.neochildclinic.data.local.entity.toVaccination
@@ -13,10 +12,10 @@ import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.data.repository.ConsultationRepositoryImpl
 import com.neochildclinic.data.repository.DocumentRepositoryImpl
+import com.neochildclinic.data.repository.AuditLogRepositoryImpl
 import io.github.jan.supabase.storage.FileObject
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.core.utils.PatientUtils
-import io.github.jan.supabase.postgrest.Postgrest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -37,8 +36,7 @@ class PatientViewModel @Inject constructor(
     private val profileRepository: com.neochildclinic.data.repository.ProfileRepositoryImpl,
     private val inventoryRepository: com.neochildclinic.data.repository.InventoryRepositoryImpl,
     private val documentRepository: DocumentRepositoryImpl,
-    private val database: AppDatabase,
-    private val postgrest: Postgrest
+    private val auditLogRepository: AuditLogRepositoryImpl
 ) : ViewModel() {
 
     private val _documents = MutableStateFlow<List<FileObject>>(emptyList())
@@ -210,7 +208,7 @@ class PatientViewModel @Inject constructor(
      * Patient audit history is online-only (see PatientAuditLogPager) - the dialog drives this
      * directly via load()/loadMore()/clear() rather than through a Flow.
      */
-    val auditLogPager = com.neochildclinic.features.audit.PatientAuditLogPager(postgrest, viewModelScope)
+    val auditLogPager = com.neochildclinic.features.audit.PatientAuditLogPager(auditLogRepository, viewModelScope)
 
     /**
      * Emits each patient's vaccination history as one Room transaction snapshot.
@@ -239,6 +237,6 @@ class PatientViewModel @Inject constructor(
     }
 
     suspend fun getInventoryDeductions(vaccinationId: String): List<com.neochildclinic.data.local.entity.InventoryDeductionEntity> {
-        return database.inventoryDeductionDao().getForVaccination(vaccinationId)
+        return inventoryRepository.getInventoryDeductionsForVaccination(vaccinationId)
     }
 }

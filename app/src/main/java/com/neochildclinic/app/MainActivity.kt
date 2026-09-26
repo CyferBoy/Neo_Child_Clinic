@@ -29,7 +29,7 @@ import com.neochildclinic.features.update.AppUpdateDialog
 import com.neochildclinic.features.update.AppUpdateViewModel
 import com.neochildclinic.data.manager.SyncManagerImpl
 import com.neochildclinic.data.repository.DeviceRepositoryImpl
-import com.neochildclinic.features.dashboard.AuthViewModel
+import com.neochildclinic.core.session.AuthViewModel
 import com.neochildclinic.data.settings.NotificationSettingsManager
 import com.neochildclinic.notification.NotificationHelper
 import io.github.jan.supabase.auth.Auth

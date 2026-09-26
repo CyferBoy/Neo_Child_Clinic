@@ -6,7 +6,7 @@ import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -25,7 +25,7 @@ data class VaccineInventoryUiState(
 @HiltViewModel
 class VaccineInventoryViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -87,7 +87,7 @@ class VaccineInventoryViewModel @Inject constructor(
     fun deleteBatch(batchId: String) {
         viewModelScope.launch {
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 inventoryRepository.deleteBatch(batchId, user)
             } catch (e: Exception) {
                 android.util.Log.e("VaccineInventoryVM", "Delete batch failed", e)
@@ -98,7 +98,7 @@ class VaccineInventoryViewModel @Inject constructor(
     fun deleteVaccine(vaccineId: String, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                val user = auth.currentSessionOrNull()?.user?.email ?: "Unknown"
+                val user = sessionManager.getCurrentUserEmail()
                 inventoryRepository.deleteVaccine(vaccineId, user)
             } catch (e: Exception) {
                 onError(e.message ?: "Failed to delete vaccine")

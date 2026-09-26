@@ -10,7 +10,7 @@ import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.data.repository.DoctorAvailabilityRepositoryImpl
 import com.neochildclinic.data.repository.ProfileRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.auth.Auth
+import com.neochildclinic.core.session.SessionManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -33,7 +33,7 @@ data class WeeklyDoctorSlotsUiState(
 class WeeklyDoctorSlotsViewModel @Inject constructor(
     private val profileRepository: ProfileRepositoryImpl,
     private val repository: DoctorAvailabilityRepositoryImpl,
-    private val auth: Auth
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WeeklyDoctorSlotsUiState())
@@ -60,7 +60,7 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val currentUserId = auth.currentSessionOrNull()?.user?.id
+            val currentUserId = sessionManager.getCurrentUserId()
             profileRepository.allProfiles.collect { profiles ->
                 val me = profiles.find { it.id == currentUserId }
                 val doctors = profiles.filter { it.role == UserRole.doctor && it.isActive }.sortedBy { it.displayName }
@@ -104,7 +104,7 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
 
     fun selectDoctor(doctor: Profile) {
         val state = _uiState.value
-        if (state.currentUserRole == UserRole.doctor && doctor.id != auth.currentSessionOrNull()?.user?.id) {
+        if (state.currentUserRole == UserRole.doctor && doctor.id != sessionManager.getCurrentUserId()) {
             return
         }
         _uiState.update {
@@ -208,7 +208,7 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
-    private fun currentActor(): String? = auth.currentSessionOrNull()?.user?.email
+    private fun currentActor(): String? = sessionManager.getCurrentUserEmail().takeIf { it != "Unknown" }
 
     companion object {
         val WEEKDAYS: List<Pair<Int, String>> = listOf(
