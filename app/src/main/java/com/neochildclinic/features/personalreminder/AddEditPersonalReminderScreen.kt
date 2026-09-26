@@ -268,7 +268,7 @@ private fun Modifier.clickableSelect(onClick: () -> Unit): Modifier = this.click
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VaccineDropdown(
-    vaccines: List<com.neochildclinic.data.local.entity.VaccineEntity>,
+    vaccines: List<com.neochildclinic.domain.model.Vaccine>,
     selectedVaccineId: String?,
     onSelect: (String) -> Unit,
     isError: Boolean

@@ -6,7 +6,7 @@ import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.constants.Constants
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.PatientRepository
@@ -27,7 +27,7 @@ import javax.inject.Inject
 data class VaccineSelectionState(
     val id: String = UUID.randomUUID().toString(),
     val selectedVaccine: InventoryItem? = null,
-    val selectedBatch: VaccineBatchEntity? = null,
+    val selectedBatch: VaccineBatch? = null,
     val quantity: Int = 1
 )
 
@@ -162,7 +162,7 @@ class AddVaccinationViewModel @Inject constructor(
             val inventory = _uiState.value.inventory
             originalVaccinationItems = vaccination.items
 
-            val items = buildVaccineSelectionRows(vaccination.items, inventory) { inventoryRepository.getBatchById(it) }
+            val items = buildVaccineSelectionRows(vaccination.items, inventory) { inventoryRepository.getBatchById(it)?.toDomain() }
 
             // Load existing Next Vaccination entries directly from reminders.
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
@@ -315,7 +315,7 @@ class AddVaccinationViewModel @Inject constructor(
         }
     }
 
-    fun selectBatch(rowId: String, batch: VaccineBatchEntity) {
+    fun selectBatch(rowId: String, batch: VaccineBatch) {
         _uiState.update { state ->
             val updated = state.vaccinesGiven.map { row ->
                 if (row.id == rowId) row.copy(selectedBatch = batch)

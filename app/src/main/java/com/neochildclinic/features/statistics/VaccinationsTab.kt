@@ -22,7 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
-import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.utils.PatientUtils
 import java.util.*
@@ -41,7 +41,7 @@ private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: 
     }
 
 @Composable
-fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<ReminderEntity> = emptyList(), vaccines: List<InventoryItem> = emptyList(), onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
+fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<Reminder> = emptyList(), vaccines: List<InventoryItem> = emptyList(), onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
@@ -90,7 +90,7 @@ private fun VaccinationsContent(
     doses: List<AdministeredDose>,
     prevDoses: List<AdministeredDose>,
     stats: List<Pair<String, Int>>,
-    vaccinationReminders: List<ReminderEntity>,
+    vaccinationReminders: List<Reminder>,
     validVaccineIds: Set<String>,
     filterMode: String,
     fyQuarter: Int,
@@ -241,7 +241,7 @@ private fun VaccinationSectionSelector(
 }
 
 @Composable
-private fun UpcomingVaccineNeedSection(reminders: List<ReminderEntity>, validVaccineIds: Set<String>, onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
+private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineIds: Set<String>, onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
     val stats = remember(reminders, validVaccineIds) {
         calculateUpcomingVaccineNeeds(reminders, validVaccineIds)
     }
@@ -349,7 +349,7 @@ private data class UpcomingVaccineTypeStat(
 )
 
 private fun calculateUpcomingVaccineNeeds(
-    reminders: List<ReminderEntity>,
+    reminders: List<Reminder>,
     validVaccineIds: Set<String>
 ): List<UpcomingVaccineTypeStat> {
     val active = reminders.filter {

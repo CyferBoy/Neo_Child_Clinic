@@ -19,14 +19,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.PersonalReminderStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonalReminderDetailsSheet(
-    reminder: PersonalReminderEntity,
+    reminder: PersonalReminder,
     patient: Patient?,
     vaccineLabel: String,
     onDismiss: () -> Unit,

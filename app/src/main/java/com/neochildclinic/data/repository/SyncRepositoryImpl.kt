@@ -24,11 +24,11 @@ class SyncRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest,
     private val syncManager: SyncManagerImpl,
-    private val auth: Auth
+    private val auth: Auth,
+    private val uploader: SyncUploader
 ) : SyncRepository {
 
     private val syncDao = database.syncQueueDao()
-    private val uploader = SyncUploader(database, postgrest)
 
     // At most one manual session refresh is allowed per processNextItems() run (used both
     // by the batch-start prerequisite and by the per-item 401 retry). This keeps the app

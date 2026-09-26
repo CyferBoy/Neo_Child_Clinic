@@ -12,6 +12,7 @@ import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.VaccineEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.data.settings.NotificationSettingsManager
@@ -79,7 +80,7 @@ class InventoryRepositoryImpl @Inject constructor(
                     company = vaccine.companyName,
                     mrp = displayMrp,
                     netRate = displayNetRate,
-                    batches = batches.sortedBy { parseDate(it.expiryDate) },
+                    batches = batches.sortedBy { parseDate(it.expiryDate) }.map { it.toDomain() },
                     isLowStock = isLowStock,
                     isNearExpiry = isNearExpiry,
                     hasExpired = hasExpired,
@@ -473,7 +474,6 @@ class InventoryRepositoryImpl @Inject constructor(
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
         database.withTransaction {
-            // Ensure stock is available before proceeding
             val totalAvailable = vaccineDao.getTotalStockForVaccine(vaccineId) ?: 0
             if (totalAvailable < quantity) {
                 throw IllegalStateException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
@@ -486,37 +486,16 @@ class InventoryRepositoryImpl @Inject constructor(
             for (batch in batches) {
                 if (remaining <= 0) break
                 val deduct = minOf(batch.remainingQuantity, remaining)
-                val userName = sessionManager.getCurrentUserName()
-                
-                vaccineDao.updateBatch(batch.deducted(deduct, transactionType, userName))
-                val transaction = InventoryTransactionEntity(
-                    vaccineId = vaccineId,
+                deductStockFromBatch(
                     batchId = batch.batchId,
-                    patientId = patientId,
+                    quantity = deduct,
+                    user = user,
+                    transactionType = transactionType,
                     visitId = visitId,
-                    transactionType = transactionType.name,
-                    quantity = -deduct,
-                    previousQuantity = batch.remainingQuantity,
-                    currentQuantity = batch.remainingQuantity - deduct,
-                    user = userName,
-                    timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-                    createdBy = userName,
-                    updatedBy = userName
-                )
-                vaccineDao.insertTransaction(transaction)
-                
-                syncRepository.enqueue(
-                    entityName = "INVENTORY_TRANSACTION",
-                    entityId = transaction.transactionId,
-                    operation = SyncOperation.CREATE,
-                    priority = SyncPriority.HIGH,
-                    transactionGroupId = transactionGroupId
-                )
-                syncRepository.enqueue(
-                    entityName = "BATCH",
-                    entityId = batch.batchId,
-                    operation = SyncOperation.UPDATE,
-                    priority = SyncPriority.MEDIUM,
+                    patientId = patientId,
+                    notes = null,
+                    allowExpired = false,
+                    givenDate = null,
                     transactionGroupId = transactionGroupId
                 )
                 remaining -= deduct
@@ -544,7 +523,8 @@ class InventoryRepositoryImpl @Inject constructor(
         patientId: String?,
         notes: String?,
         allowExpired: Boolean,
-        givenDate: String?
+        givenDate: String?,
+        transactionGroupId: String?
     ) {
         database.withTransaction {
             val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
@@ -580,7 +560,7 @@ class InventoryRepositoryImpl @Inject constructor(
             )
             vaccineDao.insertTransaction(transaction)
 
-            enqueueBatchStockChange(batchId, transaction.transactionId)
+            enqueueBatchStockChange(batchId, transaction.transactionId, transactionGroupId)
         }
     }
 

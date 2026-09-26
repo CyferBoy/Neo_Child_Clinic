@@ -24,8 +24,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
-import com.neochildclinic.data.local.entity.FinanceEntity
-import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.domain.model.FinanceTransaction
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -270,8 +270,8 @@ private fun StatisticsTabContent(
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
     inventory: List<InventoryItem>,
-    financeTransactions: List<FinanceEntity>,
-    vaccinationReminders: List<ReminderEntity>,
+    financeTransactions: List<FinanceTransaction>,
+    vaccinationReminders: List<Reminder>,
     expenses: List<Expense>,
     onMonthClick: (String) -> Unit,
     onMilestoneClick: (String) -> Unit,

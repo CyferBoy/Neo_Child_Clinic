@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.domain.model.PersonalReminder
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -90,4 +91,23 @@ data class PersonalReminderEntity(
     @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
     @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
     @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+)
+
+fun PersonalReminderEntity.toDomain() = PersonalReminder(
+    id = id,
+    patientId = patientId,
+    patientName = patientName,
+    patientPhone = patientPhone,
+    vaccineId = vaccineId,
+    vaccineLabel = vaccineLabel,
+    note = note,
+    advanceReceived = advanceReceived,
+    advanceAmount = advanceAmount,
+    advanceDate = advanceDate,
+    reminderDate = reminderDate,
+    status = status,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    completedAt = completedAt,
+    cancelledAt = cancelledAt
 )

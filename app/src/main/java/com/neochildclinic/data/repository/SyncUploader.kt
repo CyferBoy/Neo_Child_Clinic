@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
+import javax.inject.Inject
 
 // Decoder used for remote rows pulled back into the local DB (downloadAndReplaceLocal).
 // ignoreUnknownKeys/coerceInputValues: the remote row may carry columns Room doesn't know
@@ -351,7 +352,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
 // remote-into-local download for the sync queue. Owns no queue state itself - the batch
 // orchestration (grouping, session gate, retries/FAILED classification) stays in
 // SyncRepositoryImpl and drives this class item by item.
-internal class SyncUploader(
+class SyncUploader @Inject constructor(
     private val database: AppDatabase,
     private val postgrest: Postgrest
 ) {

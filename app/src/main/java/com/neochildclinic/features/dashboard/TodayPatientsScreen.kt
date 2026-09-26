@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
-import com.neochildclinic.data.local.entity.ConsultationTodoEntity
-import com.neochildclinic.data.local.entity.VaccinationTodoEntity
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -67,8 +67,8 @@ fun TodayPatientsScreen(
         val targetId = pendingHighlightId ?: return@LaunchedEffect
         val pendingIndex = pendingList.indexOfFirst { item ->
             when (item) {
-                is ConsultationTodoEntity -> item.id == targetId
-                is VaccinationTodoEntity -> item.id == targetId
+                is ConsultationTodo -> item.id == targetId
+                is VaccinationTodo -> item.id == targetId
                 else -> false
             }
         }
@@ -78,8 +78,8 @@ fun TodayPatientsScreen(
         } else {
             val visitedIndex = visitedList.indexOfFirst { item ->
                 when (item) {
-                    is ConsultationTodoEntity -> item.id == targetId
-                    is VaccinationTodoEntity -> item.id == targetId
+                    is ConsultationTodo -> item.id == targetId
+                    is VaccinationTodo -> item.id == targetId
                     else -> false
                 }
             }
@@ -225,15 +225,15 @@ fun TodayPatientsScreen(
                         items = pendingList,
                         key = { _, item ->
                             when (item) {
-                                is ConsultationTodoEntity -> "c_${item.id}"
-                                is VaccinationTodoEntity -> "v_${item.id}"
+                                is ConsultationTodo -> "c_${item.id}"
+                                is VaccinationTodo -> "v_${item.id}"
                                 else -> item.hashCode()
                             }
                         }
                     ) { index, item ->
                         val itemId = when (item) {
-                            is ConsultationTodoEntity -> item.id
-                            is VaccinationTodoEntity -> item.id
+                            is ConsultationTodo -> item.id
+                            is VaccinationTodo -> item.id
                             else -> null
                         }
                         TodayPatientItem(
@@ -243,8 +243,8 @@ fun TodayPatientsScreen(
                             onStatusToggle = { viewModel.toggleTodoStatus(item) },
                             onDelete = {
                                 when (item) {
-                                    is ConsultationTodoEntity -> viewModel.deleteConsultation(item.id)
-                                    is VaccinationTodoEntity -> viewModel.deleteVaccination(item.id)
+                                    is ConsultationTodo -> viewModel.deleteConsultation(item.id)
+                                    is VaccinationTodo -> viewModel.deleteVaccination(item.id)
                                 }
                             },
                             onEdit = { editingTodo = item }
@@ -266,15 +266,15 @@ fun TodayPatientsScreen(
                             items = visitedList,
                             key = { _, item ->
                                 when (item) {
-                                    is ConsultationTodoEntity -> "cv_${item.id}"
-                                    is VaccinationTodoEntity -> "vv_${item.id}"
+                                    is ConsultationTodo -> "cv_${item.id}"
+                                    is VaccinationTodo -> "vv_${item.id}"
                                     else -> item.hashCode()
                                 }
                             }
                         ) { index, item ->
                             val itemId = when (item) {
-                                is ConsultationTodoEntity -> item.id
-                                is VaccinationTodoEntity -> item.id
+                                is ConsultationTodo -> item.id
+                                is VaccinationTodo -> item.id
                                 else -> null
                             }
                             TodayPatientItem(
@@ -284,8 +284,8 @@ fun TodayPatientsScreen(
                                 onStatusToggle = { viewModel.toggleTodoStatus(item) },
                                 onDelete = {
                                     when (item) {
-                                        is ConsultationTodoEntity -> viewModel.deleteConsultation(item.id)
-                                        is VaccinationTodoEntity -> viewModel.deleteVaccination(item.id)
+                                        is ConsultationTodo -> viewModel.deleteConsultation(item.id)
+                                        is VaccinationTodo -> viewModel.deleteVaccination(item.id)
                                     }
                                 },
                                 onEdit = { editingTodo = item }
@@ -321,8 +321,8 @@ fun TodayPatientsScreen(
 
     if (showAddDialogForType != null || editingTodo != null) {
         val currentType = when (editingTodo) {
-            is ConsultationTodoEntity -> TodayPatientTab.CONSULTATION
-            is VaccinationTodoEntity -> TodayPatientTab.VACCINATION
+            is ConsultationTodo -> TodayPatientTab.CONSULTATION
+            is VaccinationTodo -> TodayPatientTab.VACCINATION
             else -> showAddDialogForType ?: TodayPatientTab.CONSULTATION
         }
         EnhancedAddTodoDialog(
@@ -339,8 +339,8 @@ fun TodayPatientsScreen(
             },
             onConfirm = { name, mobile, address, vaccineNames, patientId, doctorId, doctorName, slotId ->
                 val id = when (editingTodo) {
-                    is ConsultationTodoEntity -> (editingTodo as ConsultationTodoEntity).id
-                    is VaccinationTodoEntity -> (editingTodo as VaccinationTodoEntity).id
+                    is ConsultationTodo -> (editingTodo as ConsultationTodo).id
+                    is VaccinationTodo -> (editingTodo as VaccinationTodo).id
                     else -> null
                 }
                 if (currentType == TodayPatientTab.CONSULTATION) {

@@ -3,6 +3,7 @@ package com.neochildclinic.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.domain.model.AuditLog
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -37,4 +38,16 @@ data class AuditLogEntity(
     val device: String? = null,
     @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("patient_id") val patientId: String? = null // Helper field for fast timeline filtering
+)
+
+fun AuditLogEntity.toDomain() = AuditLog(
+    id = id,
+    timestamp = timestamp,
+    user = user,
+    module = module,
+    entityType = entityType,
+    entityId = entityId,
+    action = action,
+    remarks = remarks,
+    device = device
 )

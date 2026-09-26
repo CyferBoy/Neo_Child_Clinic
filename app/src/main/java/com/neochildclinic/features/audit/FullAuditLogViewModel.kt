@@ -2,7 +2,8 @@ package com.neochildclinic.features.audit
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.repository.AuditLogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,7 @@ class FullAuditLogViewModel @Inject constructor(
     }
 
     data class AuditLogUiState(
-        val logs: List<AuditLogEntity> = emptyList(),
+        val logs: List<AuditLog> = emptyList(),
         val isLoading: Boolean = false,
         val isRefreshing: Boolean = false,
         val isLoadingMore: Boolean = false,
@@ -91,7 +92,7 @@ class FullAuditLogViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchPage(offset: Int): List<AuditLogEntity> {
-        return auditLogRepository.getPaged(null, offset, PAGE_SIZE)
+    private suspend fun fetchPage(offset: Int): List<AuditLog> {
+        return auditLogRepository.getPaged(null, offset, PAGE_SIZE).map { it.toDomain() }
     }
 }

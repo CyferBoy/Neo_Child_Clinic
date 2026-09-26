@@ -3,12 +3,13 @@ package com.neochildclinic.features.inventory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.entity.InventoryTransactionEntity
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
+import com.neochildclinic.domain.model.InventoryTransaction
 import com.neochildclinic.domain.model.StockHistoryTypeFilter
+import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,9 +25,9 @@ import javax.inject.Inject
 private const val PAGE_SIZE = 40
 
 data class StockHistoryUiState(
-    val transactions: List<InventoryTransactionEntity> = emptyList(),
+    val transactions: List<InventoryTransaction> = emptyList(),
     val vaccines: List<InventoryItem> = emptyList(),
-    val batchesForSelectedVaccine: List<VaccineBatchEntity> = emptyList(),
+    val batchesForSelectedVaccine: List<VaccineBatch> = emptyList(),
     // batchId -> "batchNumber" and vaccineId -> brandName, built from the same inventory
     // list already loaded for the vaccine filter, so history rows can show readable
     // names without a second lookup query per row.
@@ -79,7 +80,7 @@ class StockHistoryViewModel @Inject constructor(
         if (vaccineId != null) {
             viewModelScope.launch {
                 inventoryRepository.getVaccineBatches(vaccineId).collect { batches ->
-                    _uiState.update { it.copy(batchesForSelectedVaccine = batches) }
+                    _uiState.update { it.copy(batchesForSelectedVaccine = batches.map { it.toDomain() }) }
                 }
             }
         }
@@ -135,7 +136,7 @@ class StockHistoryViewModel @Inject constructor(
                     limit = PAGE_SIZE,
                     offset = 0,
                     remoteOnly = true
-                )
+                ).map { it.toDomain() }
                 _uiState.update {
                     it.copy(
                         transactions = page,
@@ -173,7 +174,7 @@ class StockHistoryViewModel @Inject constructor(
                     limit = PAGE_SIZE,
                     offset = offset,
                     remoteOnly = true
-                )
+                ).map { it.toDomain() }
 
                 _uiState.update {
                     it.copy(

@@ -1,9 +1,9 @@
 package com.neochildclinic.features.vaccination
 
 import com.neochildclinic.data.local.entity.ReminderEntity
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccinationItem
+import com.neochildclinic.domain.model.VaccineBatch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -11,21 +11,18 @@ import org.junit.Test
 
 class AddVaccinationLogicTest {
 
-    private fun batch(batchId: String, exp: String, remaining: Int) = VaccineBatchEntity(
+    private fun batch(batchId: String, exp: String, remaining: Int) = VaccineBatch(
         batchId = batchId,
         vaccineId = "vaccine-1",
         batchNumber = "B-$batchId",
-        manufacturer = "M",
         purchaseDate = "2025-01-01",
         expiryDate = exp,
-        purchaseQuantity = remaining,
         remainingQuantity = remaining,
-        supplier = "S",
         purchaseCost = 10.0,
         sellingPrice = 20.0
     )
 
-    private fun vaccine(id: String, brand: String, vararg batches: VaccineBatchEntity) =
+    private fun vaccine(id: String, brand: String, vararg batches: VaccineBatch) =
         InventoryItem(id = id, brandName = brand, stock = batches.sumOf { it.remainingQuantity }, type = "Booster", company = "C", batches = batches.toList())
 
     // --- bestAvailableBatch ---

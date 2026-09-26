@@ -69,7 +69,8 @@ interface InventoryRepository {
         patientId: String? = null,
         notes: String? = null,
         allowExpired: Boolean = false,
-        givenDate: String? = null
+        givenDate: String? = null,
+        transactionGroupId: String? = null
     )
     suspend fun reverseDeduction(
         batchId: String,

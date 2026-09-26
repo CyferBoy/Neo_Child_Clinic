@@ -4,8 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,7 +16,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class VaccineDetailEntry(
-    val reminder: ReminderEntity,
+    val reminder: Reminder,
     val patient: Patient?,
     val brandName: String
 )
@@ -45,7 +46,7 @@ class VaccineDetailViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                reminderRepository.getAllReminders(),
+                reminderRepository.getAllReminders().map { list -> list.map { it.toDomain() } },
                 patientRepository.allPatients
             ) { reminders, patients ->
                 val patientMap = patients.associateBy { it.id }

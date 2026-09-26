@@ -1,6 +1,7 @@
 package com.neochildclinic.features.audit
 
-import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.repository.AuditLogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -32,7 +33,7 @@ class PatientAuditLogPager(
 
     data class State(
         val patientId: String? = null,
-        val logs: List<AuditLogEntity> = emptyList(),
+        val logs: List<AuditLog> = emptyList(),
         val isLoading: Boolean = false,
         val isLoadingMore: Boolean = false,
         val hasMore: Boolean = true,
@@ -98,6 +99,6 @@ class PatientAuditLogPager(
         _state.value = State()
     }
 
-    private suspend fun fetchPage(patientId: String, offset: Int): List<AuditLogEntity> =
-        auditLogRepository.getPaged(patientId, offset, PAGE_SIZE)
+    private suspend fun fetchPage(patientId: String, offset: Int): List<AuditLog> =
+        auditLogRepository.getPaged(patientId, offset, PAGE_SIZE).map { it.toDomain() }
 }

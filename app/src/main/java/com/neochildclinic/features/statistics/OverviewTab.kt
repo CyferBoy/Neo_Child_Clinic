@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.core.designsystem.*
 import java.util.*
 
@@ -31,7 +31,7 @@ import java.util.*
 fun OverviewTab(
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
-    financeTransactions: List<FinanceEntity>,
+    financeTransactions: List<FinanceTransaction>,
     onFullReportClick: () -> Unit = {}
 ) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }

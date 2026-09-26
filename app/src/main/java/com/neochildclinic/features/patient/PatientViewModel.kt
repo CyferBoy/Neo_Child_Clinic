@@ -2,10 +2,12 @@ package com.neochildclinic.features.patient
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.ReminderEntity
-import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toVaccination
+import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.PatientNote
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientDocument
@@ -24,7 +26,7 @@ import javax.inject.Inject
 
 data class PatientVaccinationCardData(
     val vaccination: Vaccination,
-    val reminders: List<ReminderEntity>
+    val reminders: List<Reminder>
 )
 
 @HiltViewModel
@@ -226,17 +228,17 @@ class PatientViewModel @Inject constructor(
                             vaccination = snapshot.visit.toVaccination().copy(
                                 items = snapshot.items
                             ),
-                            reminders = snapshot.reminders
+                            reminders = snapshot.reminders.map { it.toDomain() }
                         )
                     }
             }
             .flowOn(Dispatchers.Default)
 
-    fun getPatientNotes(patientId: String): Flow<List<PatientNotesEntity>> {
-        return patientRepository.getNotes(patientId)
+    fun getPatientNotes(patientId: String): Flow<List<PatientNote>> {
+        return patientRepository.getNotes(patientId).map { notes -> notes.map { it.toDomain() } }
     }
 
-    suspend fun getInventoryDeductions(vaccinationId: String): List<com.neochildclinic.data.local.entity.InventoryDeductionEntity> {
-        return inventoryRepository.getInventoryDeductionsForVaccination(vaccinationId)
+    suspend fun getInventoryDeductions(vaccinationId: String): List<InventoryDeduction> {
+        return inventoryRepository.getInventoryDeductionsForVaccination(vaccinationId).map { it.toDomain() }
     }
 }

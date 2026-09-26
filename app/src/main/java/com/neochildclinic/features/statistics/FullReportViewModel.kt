@@ -7,10 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
@@ -80,7 +81,7 @@ class FullReportViewModel @Inject constructor(
                 @Suppress("UNCHECKED_CAST")
                 val vaccinations = values[1] as List<Vaccination>
                 @Suppress("UNCHECKED_CAST")
-                val transactions = values[2] as List<FinanceEntity>
+                val transactions = (values[2] as List<com.neochildclinic.data.local.entity.FinanceEntity>).map { it.toDomain() }
                 @Suppress("UNCHECKED_CAST")
                 val expenses = values[3] as List<Expense>
                 val filterMode = values[4] as String
@@ -119,7 +120,7 @@ class FullReportViewModel @Inject constructor(
     private fun computeReport(
         patients: List<Patient>,
         vaccinations: List<Vaccination>,
-        transactions: List<FinanceEntity>,
+        transactions: List<FinanceTransaction>,
         expenses: List<Expense>,
         filterMode: String,
         fyQuarter: Int,
@@ -145,7 +146,7 @@ class FullReportViewModel @Inject constructor(
     private fun computeMonthly(
         patients: List<Patient>,
         validVaccinations: List<Vaccination>,
-        transactions: List<FinanceEntity>,
+        transactions: List<FinanceTransaction>,
         expenses: List<Expense>,
         filterMode: String,
         fyQuarter: Int,
@@ -247,7 +248,7 @@ class FullReportViewModel @Inject constructor(
     private fun computeDaily(
         patients: List<Patient>,
         validVaccinations: List<Vaccination>,
-        transactions: List<FinanceEntity>,
+        transactions: List<FinanceTransaction>,
         expenses: List<Expense>,
         filterMode: String,
         fyQuarter: Int,

@@ -12,8 +12,8 @@ import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.core.ui.AvailableSlotDropdown
 import com.neochildclinic.core.ui.DoctorDropdown
 import com.neochildclinic.core.ui.SlotsUiState
-import com.neochildclinic.data.local.entity.ConsultationTodoEntity
-import com.neochildclinic.data.local.entity.VaccinationTodoEntity
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Profile
@@ -105,8 +105,8 @@ internal fun EnhancedAddTodoDialog(
     var name by rememberSaveable {
         mutableStateOf(
             when (initialItem) {
-                is ConsultationTodoEntity -> initialItem.name
-                is VaccinationTodoEntity -> initialItem.name
+                is ConsultationTodo -> initialItem.name
+                is VaccinationTodo -> initialItem.name
                 else -> ""
             }
         )
@@ -114,8 +114,8 @@ internal fun EnhancedAddTodoDialog(
     var mobile by rememberSaveable {
         mutableStateOf(
             when (initialItem) {
-                is ConsultationTodoEntity -> initialItem.mobile
-                is VaccinationTodoEntity -> initialItem.mobile
+                is ConsultationTodo -> initialItem.mobile
+                is VaccinationTodo -> initialItem.mobile
                 else -> ""
             }
         )
@@ -123,8 +123,8 @@ internal fun EnhancedAddTodoDialog(
     var address by rememberSaveable {
         mutableStateOf(
             when (initialItem) {
-                is ConsultationTodoEntity -> initialItem.address
-                is VaccinationTodoEntity -> initialItem.address
+                is ConsultationTodo -> initialItem.address
+                is VaccinationTodo -> initialItem.address
                 else -> ""
             }
         )
@@ -132,7 +132,7 @@ internal fun EnhancedAddTodoDialog(
     var vaccineNames by rememberSaveable {
         mutableStateOf(
             when (initialItem) {
-                is VaccinationTodoEntity -> initialItem.vaccineNames
+                is VaccinationTodo -> initialItem.vaccineNames
                 else -> ""
             }
         )
@@ -140,16 +140,16 @@ internal fun EnhancedAddTodoDialog(
     var selectedPatientId by remember {
         mutableStateOf(
             when (initialItem) {
-                is ConsultationTodoEntity -> initialItem.patientId
-                is VaccinationTodoEntity -> initialItem.patientId
+                is ConsultationTodo -> initialItem.patientId
+                is VaccinationTodo -> initialItem.patientId
                 else -> null
             }
         )
     }
     val initialDoctorId = remember(initialItem) {
         when (initialItem) {
-            is ConsultationTodoEntity -> initialItem.doctorId
-            is VaccinationTodoEntity -> initialItem.doctorId
+            is ConsultationTodo -> initialItem.doctorId
+            is VaccinationTodo -> initialItem.doctorId
             else -> null
         }
     }
@@ -161,8 +161,8 @@ internal fun EnhancedAddTodoDialog(
     // Preselect the previously saved slot once availability has loaded for this doctor.
     LaunchedEffect(slotsState, initialItem) {
         val savedSlotId = when (initialItem) {
-            is ConsultationTodoEntity -> initialItem.availabilitySlotId
-            is VaccinationTodoEntity -> initialItem.availabilitySlotId
+            is ConsultationTodo -> initialItem.availabilitySlotId
+            is VaccinationTodo -> initialItem.availabilitySlotId
             else -> null
         }
         if (selectedSlot == null && !savedSlotId.isNullOrBlank()) {

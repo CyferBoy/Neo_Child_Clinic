@@ -3,8 +3,10 @@ package com.neochildclinic.domain.manager
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.ClinicStats
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.FinanceRepository
@@ -50,7 +52,7 @@ class ClinicStatsManager @Inject constructor(
             vaccinationRepository.allVaccinations
         ) { args ->
             @Suppress("UNCHECKED_CAST")
-            val transactions = args[0] as List<com.neochildclinic.data.local.entity.FinanceEntity>
+            val transactions = (args[0] as List<com.neochildclinic.data.local.entity.FinanceEntity>).map { it.toDomain() }
             @Suppress("UNCHECKED_CAST")
             val dueVaccinations = args[1] as List<com.neochildclinic.domain.model.Vaccination>
             @Suppress("UNCHECKED_CAST")

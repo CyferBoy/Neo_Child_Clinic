@@ -21,10 +21,10 @@ import com.neochildclinic.core.ui.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.utils.InventoryUtils
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
+import com.neochildclinic.domain.model.VaccineBatch
 
 @Composable
 fun VaccineInventoryScreen(
@@ -39,7 +39,7 @@ fun VaccineInventoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    var batchToDelete by remember { mutableStateOf<VaccineBatchEntity?>(null) }
+    var batchToDelete by remember { mutableStateOf<VaccineBatch?>(null) }
     var vaccineToDelete by remember { mutableStateOf<InventoryItem?>(null) }
     val context = LocalContext.current
 
@@ -104,7 +104,7 @@ private fun VaccineInventoryContent(
     onEditBatch: (String, String, String) -> Unit,
     onAddStock: () -> Unit,
     onStockHistory: () -> Unit,
-    onDeleteBatch: (VaccineBatchEntity) -> Unit,
+    onDeleteBatch: (VaccineBatch) -> Unit,
     onDeleteVaccine: (InventoryItem) -> Unit
 ) {
     var isSearchActive by remember { mutableStateOf(false) }
@@ -232,7 +232,7 @@ private fun VaccineItemCard(
     item: InventoryItem,
     onAddBatch: (String, String) -> Unit,
     onEditBatch: (String, String, String) -> Unit,
-    onDeleteBatch: (VaccineBatchEntity) -> Unit,
+    onDeleteBatch: (VaccineBatch) -> Unit,
     onEditVaccine: (String) -> Unit,
     onDeleteVaccine: (InventoryItem) -> Unit
 ) {
@@ -352,9 +352,9 @@ private fun VaccineItemCard(
 
 @Composable
 private fun BatchRow(
-    batch: VaccineBatchEntity,
+    batch: VaccineBatch,
     onEditBatch: (String, String, String) -> Unit,
-    onDeleteBatch: (VaccineBatchEntity) -> Unit,
+    onDeleteBatch: (VaccineBatch) -> Unit,
     brandName: String
 ) {
     var menuExpanded by remember { mutableStateOf(false) }

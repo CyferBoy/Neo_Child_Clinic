@@ -3,6 +3,7 @@ package com.neochildclinic.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.domain.model.BackupHistory
 import kotlinx.serialization.Serializable
 
 /**
@@ -34,6 +35,15 @@ data class BackupHistoryEntity(
     val storagePath: String? = null, // local SAF URI string, or R2 object path for cloud
     val recordCountsJson: String? = null,
     val triggeredBy: String = "MANUAL" // MANUAL | AUTOMATIC
+)
+
+fun BackupHistoryEntity.toDomain() = BackupHistory(
+    id = id,
+    type = type,
+    location = location,
+    createdAt = createdAt,
+    sizeBytes = sizeBytes,
+    status = status
 )
 
 enum class BackupHistoryType {

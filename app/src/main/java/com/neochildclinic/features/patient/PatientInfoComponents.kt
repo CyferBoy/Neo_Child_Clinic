@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.neochildclinic.data.local.entity.InventoryDeductionEntity
-import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.domain.model.InventoryDeduction
+import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
@@ -40,7 +40,7 @@ fun PatientDetailsContent(
     vaccinationCardData: List<PatientVaccinationCardData>?,
     consultations: List<Consultation>,
     documents: List<PatientDocument>,
-    notes: List<PatientNotesEntity>,
+    notes: List<PatientNote>,
     doctorMap: Map<String, String>,
     vaccineMap: Map<String, String>,
     canEditOrDelete: Boolean,
@@ -58,7 +58,7 @@ fun PatientDetailsContent(
 ) {
     val scope = rememberCoroutineScope()
     var selectedVisitForDeductions by remember { mutableStateOf<String?>(null) }
-    var deductionsForVisit by remember { mutableStateOf<List<InventoryDeductionEntity>>(emptyList()) }
+    var deductionsForVisit by remember { mutableStateOf<List<InventoryDeduction>>(emptyList()) }
 
     if (selectedVisitForDeductions != null) {
         InventoryDeductionsDialog(
@@ -303,7 +303,7 @@ private fun EmptySectionText(text: String) {
 }
 
 @Composable
-fun InventoryDeductionsDialog(deductions: List<InventoryDeductionEntity>, onDismiss: () -> Unit) {
+fun InventoryDeductionsDialog(deductions: List<InventoryDeduction>, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Inventory Deduction Status") },

@@ -20,8 +20,11 @@ import com.neochildclinic.core.ui.loadUiState
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.data.manager.RealtimeChangeSubscriptions
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 import com.neochildclinic.domain.model.Patient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -45,10 +48,10 @@ data class DashboardUiState(
     val isOnline: Boolean = false,
     val pendingSyncCount: Int = 0,
     val errorMessage: String? = null,
-    val todayConsultations: List<ConsultationTodoEntity> = emptyList(),
-    val todayVaccinations: List<VaccinationTodoEntity> = emptyList(),
-    val visitedConsultations: List<ConsultationTodoEntity> = emptyList(),
-    val visitedVaccinations: List<VaccinationTodoEntity> = emptyList(),
+    val todayConsultations: List<ConsultationTodo> = emptyList(),
+    val todayVaccinations: List<VaccinationTodo> = emptyList(),
+    val visitedConsultations: List<ConsultationTodo> = emptyList(),
+    val visitedVaccinations: List<VaccinationTodo> = emptyList(),
     val datesWithData: Set<String> = emptySet(),
     val patients: List<Patient> = emptyList(),
     // Today's Patient doctor+slot picker (req. 15/16) - doctor assignment is optional at
@@ -157,10 +160,10 @@ class DashboardViewModel @Inject constructor(
         }.map { TimeRange(it.startMinute, it.endMinute) }
 
         val slotIds = buildSet {
-            (todos[0] as List<ConsultationTodoEntity>).forEach { add(it.availabilitySlotId) }
-            (todos[1] as List<VaccinationTodoEntity>).forEach { add(it.availabilitySlotId) }
-            (todos[2] as List<ConsultationTodoEntity>).forEach { add(it.availabilitySlotId) }
-            (todos[3] as List<VaccinationTodoEntity>).forEach { add(it.availabilitySlotId) }
+            (todos[0] as List<ConsultationTodo>).forEach { add(it.availabilitySlotId) }
+            (todos[1] as List<VaccinationTodo>).forEach { add(it.availabilitySlotId) }
+            (todos[2] as List<ConsultationTodo>).forEach { add(it.availabilitySlotId) }
+            (todos[3] as List<VaccinationTodo>).forEach { add(it.availabilitySlotId) }
         }.filterNotNull().filter { it.isNotBlank() }
 
         val ranges = slotIds.mapNotNull { id ->
@@ -209,10 +212,10 @@ class DashboardViewModel @Inject constructor(
         },
         _selectedDate.flatMapLatest { date ->
             combine(
-                patientTodoRepository.getConsultationsByDateAndStatus(date, "PENDING"),
-                patientTodoRepository.getVaccinationsByDateAndStatus(date, "PENDING"),
-                patientTodoRepository.getConsultationsByDateAndStatus(date, "COMPLETED"),
-                patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED")
+                patientTodoRepository.getConsultationsByDateAndStatus(date, "PENDING").map { list -> list.map { it.toDomain() } },
+                patientTodoRepository.getVaccinationsByDateAndStatus(date, "PENDING").map { list -> list.map { it.toDomain() } },
+                patientTodoRepository.getConsultationsByDateAndStatus(date, "COMPLETED").map { list -> list.map { it.toDomain() } },
+                patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED").map { list -> list.map { it.toDomain() } }
             ) { pCons, pVacc, cCons, cVacc ->
                 listOf(pCons, pVacc, cCons, cVacc)
             }.flatMapLatest { todos ->
@@ -257,10 +260,10 @@ class DashboardViewModel @Inject constructor(
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
-            todayConsultations = (todos[0] as List<ConsultationTodoEntity>).filter { pass(it.availabilitySlotId) },
-            todayVaccinations = (todos[1] as List<VaccinationTodoEntity>).filter { pass(it.availabilitySlotId) },
-            visitedConsultations = (todos[2] as List<ConsultationTodoEntity>).filter { pass(it.availabilitySlotId) },
-            visitedVaccinations = (todos[3] as List<VaccinationTodoEntity>).filter { pass(it.availabilitySlotId) },
+            todayConsultations = (todos[0] as List<ConsultationTodo>).filter { pass(it.availabilitySlotId) },
+            todayVaccinations = (todos[1] as List<VaccinationTodo>).filter { pass(it.availabilitySlotId) },
+            visitedConsultations = (todos[2] as List<ConsultationTodo>).filter { pass(it.availabilitySlotId) },
+            visitedVaccinations = (todos[3] as List<VaccinationTodo>).filter { pass(it.availabilitySlotId) },
             datesWithData = extra[0] as Set<String>,
             patients = extra[1] as List<Patient>,
             allDoctors = extra[2] as List<Profile>,
@@ -277,11 +280,11 @@ class DashboardViewModel @Inject constructor(
     fun toggleTodoStatus(item: Any) {
         viewModelScope.launch {
             when (item) {
-                is ConsultationTodoEntity -> {
+                is ConsultationTodo -> {
                     val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
                     patientTodoRepository.updateStatus("CONSULTATION_TODO", item.id, newStatus)
                 }
-                is VaccinationTodoEntity -> {
+                is VaccinationTodo -> {
                     val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
                     patientTodoRepository.updateStatus("VACCINATION_TODO", item.id, newStatus)
                 }

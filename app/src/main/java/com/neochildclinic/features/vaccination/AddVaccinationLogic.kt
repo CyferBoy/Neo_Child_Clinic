@@ -3,13 +3,13 @@ package com.neochildclinic.features.vaccination
 import com.neochildclinic.core.utils.InventoryUtils
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.ReminderEntity
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccinationItem
+import com.neochildclinic.domain.model.VaccineBatch
 import java.util.Date
 
 /** The best batch for a vaccine at a given date: in stock, not expired, soonest expiry first. */
-internal fun bestAvailableBatch(vaccine: InventoryItem, givenDate: String): VaccineBatchEntity? =
+internal fun bestAvailableBatch(vaccine: InventoryItem, givenDate: String): VaccineBatch? =
     vaccine.batches
         .filter { it.remainingQuantity > 0 && !InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate) }
         .minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
@@ -57,7 +57,7 @@ internal fun buildNextVaccinationGroups(reminders: List<ReminderEntity>, invento
 internal suspend fun buildVaccineSelectionRows(
     items: List<VaccinationItem>,
     inventory: List<InventoryItem>,
-    getBatch: suspend (String) -> VaccineBatchEntity?
+    getBatch: suspend (String) -> VaccineBatch?
 ): List<VaccineSelectionState> =
     items.map { item ->
         val vaccine = inventory.firstOrNull { it.id == item.vaccineId }

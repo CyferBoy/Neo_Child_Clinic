@@ -1,7 +1,8 @@
 package com.neochildclinic.features.statistics
 
 import androidx.lifecycle.ViewModel
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.PatientRepository
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -27,10 +29,11 @@ class FinanceDetailsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val transactionsFlow = financeRepository.getAllTransactions()
+        .map { list -> list.map { it.toDomain() } }
     private val patientsFlow = patientRepository.allPatients
     private val vaccinationsFlow = vaccinationRepository.allVaccinations
 
-    val transactions: StateFlow<List<FinanceEntity>> = transactionsFlow
+    val transactions: StateFlow<List<FinanceTransaction>> = transactionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val patients = patientsFlow

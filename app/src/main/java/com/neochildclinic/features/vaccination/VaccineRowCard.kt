@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.domain.model.VaccineBatch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +30,7 @@ internal fun VaccineRow(
     inventory: List<InventoryItem>,
     givenDate: String,
     onVaccineSelected: (InventoryItem) -> Unit,
-    onBatchSelected: (com.neochildclinic.data.local.entity.VaccineBatchEntity) -> Unit,
+    onBatchSelected: (VaccineBatch) -> Unit,
     onQuantityChange: (String) -> Unit,
     allowVaccineBatchEdit: Boolean,
     allowQuantityEdit: Boolean,

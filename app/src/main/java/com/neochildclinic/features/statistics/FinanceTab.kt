@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.*
@@ -26,7 +26,7 @@ import java.util.*
 @Composable
 fun FinanceTab(
     vaccinations: List<Vaccination>,
-    transactions: List<FinanceEntity>,
+    transactions: List<FinanceTransaction>,
     expenses: List<Expense> = emptyList(),
     onMonthClick: (String) -> Unit = {}
 ) {
@@ -127,8 +127,8 @@ private fun FinanceContent(
     prevStats: FinanceStatsData,
     filterMode: String,
     availableYears: List<String>,
-    transactions: List<FinanceEntity>,
-    filteredTransactions: List<FinanceEntity>,
+    transactions: List<FinanceTransaction>,
+    filteredTransactions: List<FinanceTransaction>,
     fyQuarter: Int,
     selectedMonth: Int,
     onFilterModeChange: (String) -> Unit,

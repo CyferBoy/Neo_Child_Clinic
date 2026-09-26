@@ -5,8 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.core.utils.DateClassifier
-import com.neochildclinic.data.local.entity.PersonalReminderEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.PersonalReminderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,9 +19,9 @@ enum class PersonalReminderTab { ACTIVE, COMPLETED, CANCELLED }
 
 data class PersonalReminderUiState(
     val selectedTab: PersonalReminderTab = PersonalReminderTab.ACTIVE,
-    val active: List<PersonalReminderEntity> = emptyList(),
-    val completed: List<PersonalReminderEntity> = emptyList(),
-    val cancelled: List<PersonalReminderEntity> = emptyList(),
+    val active: List<PersonalReminder> = emptyList(),
+    val completed: List<PersonalReminder> = emptyList(),
+    val cancelled: List<PersonalReminder> = emptyList(),
     val patientsById: Map<String, Patient> = emptyMap(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false
@@ -51,26 +52,26 @@ class PersonalReminderViewModel @Inject constructor(
         repository.getActiveReminders()
             .onEach { Log.d("PersonalReminder", "Active reminders: ${it.size}") }
             .map { list ->
-                list.sortedWith(
+                list.map { it.toDomain() }.sortedWith(
                     compareBy(
                         { reminderPriority(it.reminderDate) },
                         { it.reminderDate?.let(DateClassifier::getSortWeight) ?: Long.MAX_VALUE }
                     )
                 )
             },
-        repository.getCompletedReminders().onEach { Log.d("PersonalReminder", "Completed reminders: ${it.size}") },
-        repository.getCancelledReminders().onEach { Log.d("PersonalReminder", "Cancelled reminders: ${it.size}") },
+        repository.getCompletedReminders().onEach { Log.d("PersonalReminder", "Completed reminders: ${it.size}") }.map { list -> list.map { it.toDomain() } },
+        repository.getCancelledReminders().onEach { Log.d("PersonalReminder", "Cancelled reminders: ${it.size}") }.map { list -> list.map { it.toDomain() } },
         patientRepository.allPatients.onEach { Log.d("PersonalReminder", "Total patients: ${it.size}") },
         _isRefreshing
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val tab = values[0] as PersonalReminderTab
         @Suppress("UNCHECKED_CAST")
-        val active = values[1] as List<PersonalReminderEntity>
+        val active = values[1] as List<PersonalReminder>
         @Suppress("UNCHECKED_CAST")
-        val completed = values[2] as List<PersonalReminderEntity>
+        val completed = values[2] as List<PersonalReminder>
         @Suppress("UNCHECKED_CAST")
-        val cancelled = values[3] as List<PersonalReminderEntity>
+        val cancelled = values[3] as List<PersonalReminder>
         @Suppress("UNCHECKED_CAST")
         val patients = values[4] as List<Patient>
         val refreshing = values[5] as Boolean

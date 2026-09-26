@@ -16,8 +16,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.core.utils.DateClassifier
-import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.PersonalReminderStatus
 
 private fun statusColor(status: PersonalReminderStatus): Color = when (status) {
@@ -44,7 +44,7 @@ private fun reminderDateBadge(reminderDate: String?): Pair<String, Color> {
 
 @Composable
 fun PersonalReminderCard(
-    reminder: PersonalReminderEntity,
+    reminder: PersonalReminder,
     patient: Patient?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

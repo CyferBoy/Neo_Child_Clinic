@@ -25,7 +25,7 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.utils.PatientUtils.formatDateTimeForDisplay
-import com.neochildclinic.data.local.entity.InventoryTransactionEntity
+import com.neochildclinic.domain.model.InventoryTransaction
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.StockHistoryTypeFilter
 import com.neochildclinic.domain.model.displayLabel
@@ -268,7 +268,7 @@ private fun TransactionTypeChipRow(
 
 @Composable
 private fun StockHistoryEntryCard(
-    transaction: InventoryTransactionEntity,
+    transaction: InventoryTransaction,
     vaccineName: String,
     batchNumber: String
 ) {

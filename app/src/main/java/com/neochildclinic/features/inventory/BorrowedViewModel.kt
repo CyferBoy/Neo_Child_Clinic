@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.model.BorrowReturnRecord
 import com.neochildclinic.core.model.BorrowedVaccine
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventoryTransactionType
+import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.repository.BorrowRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.NewBatchInfo
@@ -93,7 +93,7 @@ class BorrowedViewModel @Inject constructor(
         val refreshing = values[6] as Boolean
 
         val records = activeRecords + returnedRecords
-        val allBatches: List<VaccineBatchEntity> = inv.flatMap { it.batches }
+        val allBatches: List<VaccineBatch> = inv.flatMap { it.batches }
 
         val displayItems = records.map { record ->
             val vaccine = inv.find { it.id == record.vaccineId }

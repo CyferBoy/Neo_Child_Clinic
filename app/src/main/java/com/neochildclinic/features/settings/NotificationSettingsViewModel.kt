@@ -2,6 +2,7 @@ package com.neochildclinic.features.settings
 
 import com.neochildclinic.data.settings.NotificationSettings
 import com.neochildclinic.data.settings.NotificationSettingsManager
+import com.neochildclinic.core.utils.BiometricLockManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,5 +28,9 @@ class NotificationSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsManager.updateSettings(settings)
         }
+    }
+
+    fun setBiometricLock(enabled: Boolean) {
+        BiometricLockManager.setProtectionEnabled(enabled)
     }
 }

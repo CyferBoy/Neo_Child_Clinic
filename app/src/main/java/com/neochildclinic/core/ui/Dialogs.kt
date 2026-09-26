@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.features.audit.AuditLogItem
 
 /**
@@ -70,7 +70,7 @@ fun DeleteConfirmationDialog(
 fun AuditLogDialog(
     show: Boolean,
     onDismiss: () -> Unit,
-    logs: List<AuditLogEntity>,
+    logs: List<AuditLog>,
     isLoading: Boolean = false,
     isLoadingMore: Boolean = false,
     hasMore: Boolean = false,

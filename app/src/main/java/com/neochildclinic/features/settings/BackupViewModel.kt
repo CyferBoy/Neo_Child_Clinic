@@ -3,7 +3,7 @@ package com.neochildclinic.features.settings
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.BackupHistoryEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.domain.repository.BackupRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +16,7 @@ import javax.inject.Inject
 data class BackupUiState(
     val isBusy: Boolean = false,
     val progressLabel: String? = null,
-    val history: List<BackupHistoryEntity> = emptyList(),
+    val history: List<BackupHistory> = emptyList(),
     val autoBackupSettings: AutoBackupSettings = AutoBackupSettings(),
     val cloudConfigured: Boolean = false,
     val cloudBackups: List<CloudBackupMetadata> = emptyList(),
@@ -54,7 +54,7 @@ class BackupViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             backupRepository.observeHistory().collect { history ->
-                _uiState.value = _uiState.value.copy(history = history)
+                _uiState.value = _uiState.value.copy(history = history.map { it.toDomain() })
             }
         }
         viewModelScope.launch {

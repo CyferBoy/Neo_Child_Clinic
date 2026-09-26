@@ -26,7 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.PatientDocument
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -166,7 +166,7 @@ fun DocumentCard(doc: PatientDocument, onView: () -> Unit, onDelete: () -> Unit)
 }
 
 @Composable
-fun ClinicalNoteCard(note: PatientNotesEntity) {
+fun ClinicalNoteCard(note: PatientNote) {
     val dateDisplay = remember(note.timestamp) { 
         val date = com.neochildclinic.core.utils.PatientUtils.parseDate(note.timestamp) ?: Date(0)
         DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm:ss a", Locale.ENGLISH)

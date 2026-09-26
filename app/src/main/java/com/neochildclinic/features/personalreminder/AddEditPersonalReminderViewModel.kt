@@ -5,8 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.constants.Constants
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
-import com.neochildclinic.data.local.entity.VaccineEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.Vaccine
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.PersonalReminderRepository
 import com.neochildclinic.domain.repository.InventoryRepository
@@ -34,7 +35,7 @@ data class AddEditPersonalReminderUiState(
     val patientName: String = "",
     val patientPhone: String = "",
 
-    val vaccines: List<VaccineEntity> = emptyList(),
+    val vaccines: List<Vaccine> = emptyList(),
     val selectedVaccineId: String? = null, // null = nothing chosen yet; OTHER_VACCINE_SENTINEL = "Other"
 
     val note: String = "",
@@ -72,7 +73,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             inventoryRepository.getAllVaccines().collect { vaccines ->
-                _uiState.update { it.copy(vaccines = vaccines.sortedBy { v -> v.brandName }) }
+                _uiState.update { it.copy(vaccines = vaccines.map { it.toDomain() }.sortedBy { v -> v.brandName }) }
             }
         }
 

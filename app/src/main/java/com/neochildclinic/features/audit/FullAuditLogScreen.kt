@@ -20,7 +20,7 @@ import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.entity.AuditLogEntity
+import com.neochildclinic.domain.model.AuditLog
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,7 +98,7 @@ fun FullAuditLogScreen(
 }
 
 @Composable
-fun AuditLogItem(log: AuditLogEntity) {
+fun AuditLogItem(log: AuditLog) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))

@@ -20,7 +20,7 @@ import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar
@@ -52,7 +52,7 @@ fun MonthlyFinanceDetailsScreen(
             )
             key == monthKey
         }.sortedWith(
-            compareByDescending<FinanceEntity> { FinanceCalculator.resolveReportingDate(it) }
+            compareByDescending<FinanceTransaction> { FinanceCalculator.resolveReportingDate(it) }
                 .thenByDescending { it.timestamp }
         )
     }
@@ -251,7 +251,7 @@ private fun PaymentSummary(label: String, amount: Double, modifier: Modifier) {
 
 @Composable
 private fun FinanceTransactionCard(
-    transaction: FinanceEntity,
+    transaction: FinanceTransaction,
     vaccination: Vaccination?,
     patient: Patient?
 ) {
@@ -334,7 +334,7 @@ private fun categoryLabel(raw: String): String =
     raw.replace('_', ' ').lowercase(Locale.getDefault())
         .replaceFirstChar { it.titlecase(Locale.getDefault()) }
 
-private fun paymentModeLabel(transaction: FinanceEntity): String {
+private fun paymentModeLabel(transaction: FinanceTransaction): String {
     return when {
         transaction.paymentMethod.equals("MIXED", true) ||
             (transaction.cashAmount > 0 && transaction.onlineAmount > 0) -> "Cash + Online"

@@ -2,7 +2,7 @@ package com.neochildclinic.domain.statistics
 
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.startOfDay
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar
 import java.util.Date
@@ -51,7 +51,7 @@ object FinanceCalculator {
      * If transaction_date is missing but a visitId is present, the visit's date
      * can be used as a fallback if provided in the optional visitDates map.
      */
-    fun resolveReportingDate(transaction: FinanceEntity, visitDates: Map<String, String>? = null): String {
+    fun resolveReportingDate(transaction: FinanceTransaction, visitDates: Map<String, String>? = null): String {
         val transactionDate = transaction.transactionDate?.takeIf { it.isNotBlank() }
         if (transactionDate != null) return transactionDate
 
@@ -65,9 +65,9 @@ object FinanceCalculator {
     }
 
     fun calculateFinanceStats(
-        transactions: List<FinanceEntity>,
+        transactions: List<FinanceTransaction>,
         vaccinationsForCogs: List<Vaccination>,
-        allTransactionsForReconciliation: List<FinanceEntity> = transactions,
+        allTransactionsForReconciliation: List<FinanceTransaction> = transactions,
         vaccinationsForReconciliation: List<Vaccination> = vaccinationsForCogs,
         visitDatesById: Map<String, String>? = null
     ): FinanceStatsData {
@@ -144,7 +144,7 @@ object FinanceCalculator {
     }
 
     fun getMonthlyGroupedData(
-        transactions: List<FinanceEntity>,
+        transactions: List<FinanceTransaction>,
         vaccinations: List<Vaccination>,
         filterMode: String = "Overall",
         selectedQuarter: Int = 0,
@@ -279,7 +279,7 @@ object FinanceCalculator {
 
     fun cogsOf(remarks: String?): Double? = parseCogsSnapshot(remarks)
 
-    fun cashAndOnlineOf(tx: FinanceEntity): Pair<Double, Double> {
+    fun cashAndOnlineOf(tx: FinanceTransaction): Pair<Double, Double> {
         val amount = tx.amount.coerceAtLeast(0.0)
         val cash = if (tx.cashAmount > 0.0) tx.cashAmount else if (tx.paymentMethod.equals("CASH", true)) amount else 0.0
         val online = if (tx.onlineAmount > 0.0) tx.onlineAmount else if (tx.paymentMethod.equals("ONLINE", true)) amount else 0.0
@@ -298,7 +298,7 @@ object FinanceCalculator {
         return value?.takeIf { it >= 0.0 }
     }
 
-    private fun deduplicateVaccinationIncome(income: List<FinanceEntity>): List<FinanceEntity> {
+    private fun deduplicateVaccinationIncome(income: List<FinanceTransaction>): List<FinanceTransaction> {
         return income
             .filter { it.category.equals(VACCINATION, true) }
             .groupBy { it.visitId?.takeIf(String::isNotBlank) ?: it.id }
@@ -306,7 +306,7 @@ object FinanceCalculator {
             .map { group -> group.maxByOrNull { it.timestamp }!! }
     }
 
-    private fun paymentAmount(transactions: List<FinanceEntity>, cash: Boolean): Double =
+    private fun paymentAmount(transactions: List<FinanceTransaction>, cash: Boolean): Double =
         transactions.sumOf { tx ->
             val explicit = if (cash) tx.cashAmount else tx.onlineAmount
             if (explicit > 0.0) explicit else when {

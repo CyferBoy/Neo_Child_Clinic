@@ -5,13 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.domain.model.FinanceTransaction
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.data.local.entity.FinanceEntity
-import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.model.Expense
@@ -25,8 +26,8 @@ data class StatisticsUiState(
     val patients: List<Patient> = emptyList(),
     val vaccinations: List<Vaccination> = emptyList(),
     val inventory: List<InventoryItem> = emptyList(),
-    val financeTransactions: List<FinanceEntity> = emptyList(),
-    val vaccinationReminders: List<ReminderEntity> = emptyList(),
+    val financeTransactions: List<FinanceTransaction> = emptyList(),
+    val vaccinationReminders: List<Reminder> = emptyList(),
     val expenses: List<Expense> = emptyList(),
     val isLoading: Boolean = false,
     val selectedTab: Int = 0,
@@ -68,8 +69,8 @@ class StatisticsViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST") val patients = values[0] as List<Patient>
         @Suppress("UNCHECKED_CAST") val vaccinations = values[1] as List<Vaccination>
         @Suppress("UNCHECKED_CAST") val inventory = values[2] as List<InventoryItem>
-        @Suppress("UNCHECKED_CAST") val financeTransactions = values[3] as List<FinanceEntity>
-        @Suppress("UNCHECKED_CAST") val vaccinationReminders = values[4] as List<ReminderEntity>
+        @Suppress("UNCHECKED_CAST") val financeEntities = values[3] as List<com.neochildclinic.data.local.entity.FinanceEntity>
+        @Suppress("UNCHECKED_CAST") val reminderEntities = values[4] as List<com.neochildclinic.data.local.entity.ReminderEntity>
         @Suppress("UNCHECKED_CAST") val expenses = values[5] as List<Expense>
         val tab = values[6] as Int
         val refreshing = values[7] as Boolean
@@ -79,8 +80,8 @@ class StatisticsViewModel @Inject constructor(
             patients = patients,
             vaccinations = vaccinations,
             inventory = inventory,
-            financeTransactions = financeTransactions,
-            vaccinationReminders = vaccinationReminders,
+            financeTransactions = financeEntities.map { it.toDomain() },
+            vaccinationReminders = reminderEntities.map { it.toDomain() },
             expenses = expenses,
             selectedTab = tab,
             isRefreshing = refreshing,

@@ -16,7 +16,7 @@ import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
-import com.neochildclinic.data.local.entity.PersonalReminderEntity
+import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.features.reminder.FilterTabRow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,7 +29,7 @@ fun PersonalReminderScreen(
     viewModel: PersonalReminderViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedReminder by remember { mutableStateOf<PersonalReminderEntity?>(null) }
+    var selectedReminder by remember { mutableStateOf<PersonalReminder?>(null) }
 
     AppBackground {
         Scaffold(

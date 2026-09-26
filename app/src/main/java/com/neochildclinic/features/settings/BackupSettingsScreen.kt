@@ -17,7 +17,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.entity.BackupHistoryEntity
 import com.neochildclinic.domain.model.*
 import java.text.NumberFormat
 
@@ -301,7 +300,7 @@ private fun RetentionStepper(value: Int, onChange: (Int) -> Unit) {
 }
 
 @Composable
-private fun HistoryRow(entry: BackupHistoryEntity) {
+private fun HistoryRow(entry: BackupHistory) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,

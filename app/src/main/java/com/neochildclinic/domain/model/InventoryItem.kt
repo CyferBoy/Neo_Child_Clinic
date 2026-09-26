@@ -1,7 +1,5 @@
 package com.neochildclinic.domain.model
 
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
-
 data class InventoryItem(
     val id: String,
     val brandName: String,
@@ -10,7 +8,7 @@ data class InventoryItem(
     val company: String,
     val mrp: Double = 0.0,
     val netRate: Double = 0.0,
-    val batches: List<VaccineBatchEntity> = emptyList(),
+    val batches: List<VaccineBatch> = emptyList(),
     val isLowStock: Boolean = false,
     val isNearExpiry: Boolean = false,
     val hasExpired: Boolean = false,

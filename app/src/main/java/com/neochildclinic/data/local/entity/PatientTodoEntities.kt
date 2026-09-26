@@ -4,6 +4,8 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -38,6 +40,33 @@ data class ConsultationTodoEntity(
     @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
     @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
     @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+)
+
+fun ConsultationTodoEntity.toDomain() = ConsultationTodo(
+    id = id,
+    patientId = patientId,
+    name = name,
+    mobile = mobile,
+    address = address,
+    todoDate = todoDate,
+    status = status,
+    doctorId = doctorId,
+    doctorName = doctorName,
+    availabilitySlotId = availabilitySlotId
+)
+
+fun VaccinationTodoEntity.toDomain() = VaccinationTodo(
+    id = id,
+    patientId = patientId,
+    name = name,
+    mobile = mobile,
+    vaccineNames = vaccineNames,
+    address = address,
+    todoDate = todoDate,
+    status = status,
+    doctorId = doctorId,
+    doctorName = doctorName,
+    availabilitySlotId = availabilitySlotId
 )
 
 @Serializable

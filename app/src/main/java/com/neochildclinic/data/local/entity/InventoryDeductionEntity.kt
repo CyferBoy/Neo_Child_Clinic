@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.domain.model.InventoryDeduction
 import kotlinx.serialization.Serializable
 
 // @Serializable added for Backup & Restore (see data/backup/BackupModels.kt) so this
@@ -30,4 +31,13 @@ data class InventoryDeductionEntity(
     val resolvedAt: Long,       // System.currentTimeMillis()
     @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+)
+
+fun InventoryDeductionEntity.toDomain() = InventoryDeduction(
+    id = id,
+    vaccinationId = vaccinationId,
+    vaccineName = vaccineName,
+    quantity = quantity,
+    status = status,
+    errorMessage = errorMessage
 )

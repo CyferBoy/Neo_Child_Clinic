@@ -1,6 +1,7 @@
 package com.neochildclinic.data.local.entity
 
 import androidx.room.*
+import com.neochildclinic.domain.model.Reminder
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -77,6 +78,18 @@ data class ReminderEntity(
     @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
     @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
     @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+)
+
+fun ReminderEntity.toDomain() = Reminder(
+    id = id,
+    patientId = patientId,
+    vaccineName = vaccineName,
+    dueDate = dueDate,
+    status = status,
+    category = category,
+    reminderEnabled = reminderEnabled,
+    type = type,
+    nxtVaccineId = nxtVaccineId
 )
 
 /**

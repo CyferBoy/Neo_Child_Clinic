@@ -6,6 +6,9 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.BatchStatus
+import com.neochildclinic.domain.model.InventoryTransaction
+import com.neochildclinic.domain.model.Vaccine
+import com.neochildclinic.domain.model.VaccineBatch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -74,6 +77,28 @@ data class VaccineBatchEntity(
     @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
 )
 
+fun VaccineBatchEntity.toDomain() = VaccineBatch(
+    batchId = batchId,
+    vaccineId = vaccineId,
+    batchNumber = batchNumber,
+    purchaseDate = purchaseDate,
+    expiryDate = expiryDate,
+    remainingQuantity = remainingQuantity,
+    purchaseCost = purchaseCost,
+    sellingPrice = sellingPrice
+)
+
+fun VaccineEntity.toDomain() = Vaccine(
+    id = id,
+    type = type,
+    brandName = brandName,
+    companyName = companyName,
+    mrp = mrp,
+    netRate = netRate,
+    createdBy = createdBy,
+    updatedBy = updatedBy
+)
+
 @Serializable
 @Entity(
     tableName = "inventory_transactions",
@@ -101,4 +126,18 @@ data class InventoryTransactionEntity(
     @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+)
+
+fun InventoryTransactionEntity.toDomain() = InventoryTransaction(
+    transactionId = transactionId,
+    vaccineId = vaccineId,
+    batchId = batchId,
+    patientId = patientId,
+    visitId = visitId,
+    transactionType = transactionType,
+    quantity = quantity,
+    timestamp = timestamp,
+    user = user,
+    notes = notes,
+    isSynced = isSynced
 )

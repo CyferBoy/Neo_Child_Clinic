@@ -27,8 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.designsystem.LocalCustomColors
-import com.neochildclinic.data.local.entity.ConsultationTodoEntity
-import com.neochildclinic.data.local.entity.VaccinationTodoEntity
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -44,31 +44,31 @@ internal fun TodayPatientItem(
     var menuExpanded by remember { mutableStateOf(false) }
 
     val status = when (item) {
-        is ConsultationTodoEntity -> item.status
-        is VaccinationTodoEntity -> item.status
+        is ConsultationTodo -> item.status
+        is VaccinationTodo -> item.status
         else -> "PENDING"
     }
     val isCompleted = status == "COMPLETED"
 
     val nameLine = when (item) {
-        is ConsultationTodoEntity -> item.name
-        is VaccinationTodoEntity -> "${item.name} (${item.vaccineNames})"
+        is ConsultationTodo -> item.name
+        is VaccinationTodo -> "${item.name} (${item.vaccineNames})"
         else -> ""
     }
     val addressLine = when (item) {
-        is ConsultationTodoEntity -> item.address
-        is VaccinationTodoEntity -> item.address
+        is ConsultationTodo -> item.address
+        is VaccinationTodo -> item.address
         else -> ""
     }
     val phoneNumber = when (item) {
-        is ConsultationTodoEntity -> item.mobile
-        is VaccinationTodoEntity -> item.mobile
+        is ConsultationTodo -> item.mobile
+        is VaccinationTodo -> item.mobile
         else -> ""
     }
 
     val customColors = LocalCustomColors.current
-    val color = if (item is ConsultationTodoEntity) customColors.softBlue else customColors.softGreen
-    val textColor = if (item is ConsultationTodoEntity) customColors.textBlue else customColors.textGreen
+    val color = if (item is ConsultationTodo) customColors.softBlue else customColors.softGreen
+    val textColor = if (item is ConsultationTodo) customColors.textBlue else customColors.textGreen
 
     // Brief visual anchor for a notification-driven arrival (req. 9) - fades back to the
     // card's normal border once TodayPatientsScreen clears pendingHighlightId below.

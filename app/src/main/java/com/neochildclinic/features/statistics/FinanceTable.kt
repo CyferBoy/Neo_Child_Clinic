@@ -15,13 +15,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Locale
 
 @Composable
 fun FinanceTable(
-    transactions: List<FinanceEntity>,
+    transactions: List<FinanceTransaction>,
     vaccinations: List<Vaccination>,
     filterMode: String,
     fyQuarter: Int = 0,

@@ -22,16 +22,16 @@ import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.data.local.entity.ConsultationTodoEntity
-import com.neochildclinic.data.local.entity.VaccinationTodoEntity
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 
 private enum class TodoTab { CONSULTATION, VACCINATION }
 
 @Composable
 fun TodayPatientsCard(
     modifier: Modifier = Modifier,
-    consultations: List<ConsultationTodoEntity>,
-    vaccinations: List<VaccinationTodoEntity>,
+    consultations: List<ConsultationTodo>,
+    vaccinations: List<VaccinationTodo>,
     patients: List<Patient>,
     onTodayPatients: () -> Unit,
     onAddConsultation: (Patient) -> Unit,

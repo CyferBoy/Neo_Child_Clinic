@@ -16,8 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.utils.PatientUtils.cleanVaccineName
 import com.neochildclinic.core.utils.PatientUtils.formatDateForDisplay
@@ -45,7 +45,7 @@ fun VaccinationRecordCard(
     vaccination: Vaccination,
     patient: Patient,
     doctorName: String = "",
-    reminders: List<ReminderEntity> = emptyList(),
+    reminders: List<Reminder> = emptyList(),
     vaccineMap: Map<String, String> = emptyMap(),
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},

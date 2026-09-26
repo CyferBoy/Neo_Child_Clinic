@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.neochildclinic.domain.model.FinanceTransaction
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -34,4 +35,19 @@ data class FinanceEntity(
     @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
     @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
     @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+)
+
+fun FinanceEntity.toDomain() = FinanceTransaction(
+    id = id,
+    timestamp = timestamp,
+    transactionDate = transactionDate,
+    type = type,
+    category = category,
+    amount = amount,
+    cashAmount = cashAmount,
+    onlineAmount = onlineAmount,
+    paymentMethod = paymentMethod,
+    patientId = patientId,
+    visitId = visitId,
+    remarks = remarks
 )
