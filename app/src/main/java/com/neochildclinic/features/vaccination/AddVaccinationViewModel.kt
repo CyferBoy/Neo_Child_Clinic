@@ -6,8 +6,6 @@ import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.constants.Constants
-import com.neochildclinic.core.utils.InventoryUtils
-import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
@@ -164,56 +162,11 @@ class AddVaccinationViewModel @Inject constructor(
             val inventory = _uiState.value.inventory
             originalVaccinationItems = vaccination.items
 
-            val items = vaccination.items.map { item ->
-                val vaccine = inventory.firstOrNull { it.id == item.vaccineId }
-                    ?: InventoryItem(
-                        id = item.vaccineId,
-                        brandName = item.vaccineName.ifBlank { "Saved vaccine" },
-                        stock = 0,
-                        type = "",
-                        company = ""
-                    )
-                // Do not depend on the batch being present in the filtered UI list.
-                // An old batch can have zero stock and therefore be unavailable in the
-                // dropdown, while it is still a valid batch reference for this vaccination.
-                val batch = inventory
-                    .firstOrNull { it.id == item.vaccineId }
-                    ?.batches
-                    ?.firstOrNull { it.batchId == item.batchId }
-                    ?: inventoryRepository.getBatchById(item.batchId)
-                // Row id = the persisted vaccination_items id, so the save path can tell
-                // edited rows apart from added ones (EditReconciler matches on it).
-                VaccineSelectionState(
-                    id = item.id,
-                    selectedVaccine = vaccine,
-                    selectedBatch = batch,
-                    quantity = item.quantity
-                )
-            }
+            val items = buildVaccineSelectionRows(vaccination.items, inventory) { inventoryRepository.getBatchById(it) }
 
             // Load existing Next Vaccination entries directly from reminders.
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)
-            val groups = reminders.filter { it.status == "ACTIVE" && it.reminderEnabled }
-                .groupBy { it.dueDate }
-                .map { (dueDate, groupReminders) ->
-                    NextVaccinationGroup(
-                        dueDate = dueDate,
-                        items = groupReminders.flatMap { reminder ->
-                            val nextVaccineIds = reminder.nxtVaccineId ?: emptyList()
-                            if (nextVaccineIds.isEmpty()) {
-                                listOf(NextVaccinationItem(reminderId = reminder.id, type = reminder.type, vaccine = null))
-                            } else {
-                                nextVaccineIds.map { id ->
-                                    NextVaccinationItem(
-                                        reminderId = reminder.id,
-                                        type = reminder.type,
-                                        vaccine = inventory.find { it.id == id }
-                                    )
-                                }
-                            }
-                        }
-                    )
-                }
+            val groups = buildNextVaccinationGroups(reminders, inventory)
 
             val existingDoctor = _uiState.value.allDoctors.firstOrNull {
                 it.employeeId == vaccination.doctorId || it.id == vaccination.doctorId
@@ -333,18 +286,7 @@ class AddVaccinationViewModel @Inject constructor(
             // Re-validate every row's current batch selection against the new given date -
             // a batch that's still in stock but expires before the new date is no longer a
             // valid selection and must be swapped for the next valid batch (or cleared).
-            val revalidated = state.vaccinesGiven.map { row ->
-                val batch = row.selectedBatch
-                if (batch == null || !InventoryUtils.isExpiredAsOf(batch.expiryDate, date)) {
-                    row
-                } else {
-                    val replacement = row.selectedVaccine?.batches
-                        ?.filter { it.remainingQuantity > 0 && !InventoryUtils.isExpiredAsOf(it.expiryDate, date) }
-                        ?.minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
-                    row.copy(selectedBatch = replacement)
-                }
-            }
-            state.copy(givenDate = date, vaccinesGiven = revalidated)
+            state.copy(givenDate = date, vaccinesGiven = revalidateRowsForDate(state.vaccinesGiven, date))
         }
         // Date change recalculates availability too (req. 22), same as a doctor change.
         loadAvailableSlots()
@@ -362,9 +304,7 @@ class AddVaccinationViewModel @Inject constructor(
 
     fun selectVaccine(rowId: String, vaccine: InventoryItem) {
         val givenDate = _uiState.value.givenDate
-        val bestBatch = vaccine.batches
-            .filter { it.remainingQuantity > 0 && !InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate) }
-            .minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
+        val bestBatch = bestAvailableBatch(vaccine, givenDate)
 
         _uiState.update { state ->
             val updated = state.vaccinesGiven.map { row ->
@@ -585,29 +525,13 @@ class AddVaccinationViewModel @Inject constructor(
         }
 
         val nextGroups = state.nextVaccinationGroups
-        var firstInvalidGroup: String? = null
-        var firstInvalidItem: String? = null
 
         if (editNextVaccination) {
-            nextGroups.forEach { group ->
-                if (group.dueDate.isBlank()) {
-                    if (firstInvalidGroup == null) firstInvalidGroup = group.id
-                }
-                group.items.forEach { item ->
-                    if (item.type.isBlank()) {
-                        if (firstInvalidGroup == null) firstInvalidGroup = group.id
-                        if (firstInvalidItem == null) firstInvalidItem = item.id
-                    }
-                }
-            }
-
-            if (firstInvalidGroup != null) {
+            validateNextGroups(nextGroups)?.let { validation ->
                 _uiState.update { s ->
                     s.copy(
-                        errorMessage = "Each Next Vaccination entry requires a Type and Due Date.",
-                        nextVaccinationGroups = s.nextVaccinationGroups.map { g ->
-                            g.copy(items = g.items.map { it.copy(typeError = it.type.isBlank()) })
-                        }
+                        errorMessage = validation.errorMessage,
+                        nextVaccinationGroups = validation.groupsWithErrors
                     )
                 }
                 return

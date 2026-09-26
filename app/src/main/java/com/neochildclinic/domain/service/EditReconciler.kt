@@ -1,8 +1,13 @@
 package com.neochildclinic.domain.service
 
 import com.neochildclinic.data.local.entity.ReminderEntity
-import com.neochildclinic.data.local.entity.VaccinationItemEntity
+import com.neochildclinic.domain.model.VaccinationItem
 import java.util.UUID
+
+// ponytail: ReminderEntity crosses domain/data wholesale (same deliberate DTO pass-through
+// as ReminderRepository -- the reminder IS a persistent row and deleteReminder/saveNext
+// operate on it whole). A parallel domain reminder model would double the constructors for
+// zero gain. Items use the VaccinationItem domain alias from domain/model/Vaccination.kt.
 
 /**
  * Item-level classification for edit saves. Old rows are matched to edited rows by
@@ -22,20 +27,20 @@ object EditReconciler {
     data class ItemPlan(
         val keepIds: Set<String>,
         val deleteIds: List<String>,
-        val inserts: List<VaccinationItemEntity>
+        val inserts: List<VaccinationItem>
     ) {
         val anyChange: Boolean get() = deleteIds.isNotEmpty() || inserts.isNotEmpty()
     }
 
     fun classifyItems(
-        existing: List<VaccinationItemEntity>,
-        edited: List<VaccinationItemEntity>
+        existing: List<VaccinationItem>,
+        edited: List<VaccinationItem>
     ): ItemPlan {
         val oldById = existing.associateBy { it.id }
         val claimed = mutableSetOf<String>()
         val keep = linkedSetOf<String>()
         val dels = mutableListOf<String>()
-        val inserts = mutableListOf<VaccinationItemEntity>()
+        val inserts = mutableListOf<VaccinationItem>()
 
         for (incoming in edited) {
             val prior = incoming.id
@@ -71,7 +76,7 @@ object EditReconciler {
         return ItemPlan(keep, dels, inserts)
     }
 
-    private fun sameItem(a: VaccinationItemEntity, b: VaccinationItemEntity): Boolean =
+    private fun sameItem(a: VaccinationItem, b: VaccinationItem): Boolean =
         a.vaccineId == b.vaccineId &&
             a.vaccineName == b.vaccineName &&
             a.batchId == b.batchId &&

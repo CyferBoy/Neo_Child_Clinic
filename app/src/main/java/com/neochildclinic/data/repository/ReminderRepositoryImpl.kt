@@ -86,8 +86,7 @@ class ReminderRepositoryImpl @Inject constructor(
             dueReminderDao.getAllReminders(),
             patientDao.getAllPatients()
         ) { vaccEntities, reminderEntities, patientEntities ->
-            val processed = processDueListInternal(vaccEntities, reminderEntities)
-            processed to patientEntities
+            ReminderDueListProcessor.process(vaccEntities, reminderEntities) to patientEntities
         }
     }
 
@@ -119,101 +118,7 @@ class ReminderRepositoryImpl @Inject constructor(
         dueReminderDao.getAllReminders(),
         patientDao.getAllPatients()
     ) { vaccs, reminders, _ ->
-        val dueList = processDueListInternal(vaccs, reminders)
-        
-        val todayCal = DateClassifier.getTodayStart()
-        val todayStart = todayCal.timeInMillis
-
-        ReminderStats(
-            dueToday = dueList.count { 
-                val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Today
-            },
-            dueTomorrow = dueList.count { DateClassifier.classify(it.nextDueDate, todayCal) is DateCategory.Tomorrow },
-            overdue = dueList.count { 
-                val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-                cat is DateCategory.Overdue
-            },
-            completedToday = reminders.count { it.status == "COMPLETED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.completionDate) >= todayStart },
-            dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.utils.PatientUtils.isoToLong(it.dismissalDate) >= todayStart },
-            notificationsSentToday = reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }
-        )
-    }
-
-    private fun processDueListInternal(
-        vaccEntities: List<VisitEntity>,
-        reminderEntities: List<ReminderEntity>
-    ): List<Vaccination> {
-        val allVaccinations = vaccEntities.map { it.toVaccination() }
-        val result = mutableListOf<Vaccination>()
-
-        // The reminders table is the source of truth for the Due section.
-        val activeReminders = reminderEntities.filter { it.status == "ACTIVE" && it.reminderEnabled }
-        val groupedActive = activeReminders.groupBy { it.patientId to it.dueDate }
-
-        groupedActive.forEach { (key, group) ->
-            val (patientId, dueDate) = key
-            val firstInGroup = group.first()
-            val status = ReminderStatus.ACTIVE
-            
-            // Link to original visit if available, otherwise create a shell
-            val baseVaccination = allVaccinations.find { it.id == firstInGroup.originalVisitId } ?: Vaccination(
-                id = UUID.randomUUID().toString(),
-                patientId = patientId,
-                visitType = "VACCINATION",
-                status = status
-            )
-
-            result.add(baseVaccination.copy(
-                nextVaccinations = group.map {
-                    NextVaccinationSummary(
-                        reminderId = it.id,
-                        type = it.type,
-                        vaccineNames = it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank),
-                        dueDate = it.dueDate
-                    )
-                },
-                status = status,
-                performedBy = firstInGroup.performedBy ?: ""
-            ))
-        }
-
-        // Completed and dismissed records remain in reminders and are grouped for display.
-        val terminalReminders = reminderEntities.filter {
-            (it.status == "COMPLETED" && !it.reminderEnabled) ||
-                (it.status == "DISMISSED" && it.reminderEnabled)
-        }
-        val groupedTerminal = terminalReminders.groupBy { Triple(it.patientId, it.dueDate, it.status) }
-
-        groupedTerminal.forEach { (key, group) ->
-            val (patientId, dueDate, statusStr) = key
-            val status = try { ReminderStatus.valueOf(statusStr) } catch (_: Exception) { ReminderStatus.ACTIVE }
-            
-            val firstState = group.first()
-            val vaccination = allVaccinations.find { it.id == firstState.originalVisitId }
-            if (vaccination != null) {
-                result.add(vaccination.copy(
-                    nextVaccinations = group.map {
-                        NextVaccinationSummary(
-                            reminderId = it.id,
-                            type = it.type,
-                            vaccineNames = it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank),
-                            dueDate = it.dueDate
-                        )
-                    },
-                    status = status,
-                    dateGiven = when (status) {
-                        ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.utils.PatientUtils.isoToLong(firstState.completionDate)))
-                        ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.utils.PatientUtils.isoToLong(firstState.dismissalDate)))
-                        else -> ""
-                    },
-                    performedBy = firstState.performedBy ?: "",
-                    notes = group.mapNotNull { it.notes ?: it.dismissalReason }.distinct().joinToString(", ")
-                ))
-            }
-        }
-
-        return result
+        ReminderDueListProcessor.stats(ReminderDueListProcessor.process(vaccs, reminders), reminders)
     }
 
     private suspend fun enqueueReminderSync(
@@ -599,12 +504,3 @@ class ReminderRepositoryImpl @Inject constructor(
         WidgetUtils.updateWidget(context)
     }
 }
-
-data class ReminderStats(
-    val dueToday: Int = 0,
-    val dueTomorrow: Int = 0,
-    val overdue: Int = 0,
-    val completedToday: Int = 0,
-    val dismissedToday: Int = 0,
-    val notificationsSentToday: Int = 0
-)
