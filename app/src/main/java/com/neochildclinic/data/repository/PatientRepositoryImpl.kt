@@ -232,45 +232,10 @@ class PatientRepositoryImpl @Inject constructor(
 
     override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
 
-    suspend fun getTotalPatientCount(): Int = patientDao.getTotalPatientCount()
-
     // NOTE: patient audit history is loaded online-only via PatientAuditLogPager now, not
     // through this repository - see PatientViewModel/PatientListViewModel.
 
     override fun getNotes(patientId: String): Flow<List<PatientNotesEntity>> {
         return notesDao.getNotesForPatient(patientId)
-    }
-
-    suspend fun addNote(patientId: String, content: String, author: String) {
-        val userName = sessionManager.getCurrentUserName()
-        val note = PatientNotesEntity(
-            patientId = patientId,
-            content = content,
-            author = author,
-            createdBy = userName,
-            updatedBy = userName
-        )
-        notesDao.insertNote(note)
-        syncRepository.enqueue("PATIENT_NOTE", note.id, SyncOperation.CREATE, SyncPriority.LOW)
-        auditLogger.recordLog(
-            module = "PATIENT",
-            entityType = "PATIENT_NOTE",
-            entityId = note.id,
-            action = "CREATED",
-            patientId = patientId
-        )
-    }
-
-    suspend fun deleteNote(noteId: String) {
-        val userName = sessionManager.getCurrentUserName()
-        val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-        notesDao.deleteNote(noteId, now, userName)
-        syncRepository.enqueue("PATIENT_NOTE", noteId, SyncOperation.UPDATE, SyncPriority.LOW)
-        auditLogger.recordLog(
-            module = "PATIENT",
-            entityType = "PATIENT_NOTE",
-            entityId = noteId,
-            action = "SOFT_DELETED"
-        )
     }
 }

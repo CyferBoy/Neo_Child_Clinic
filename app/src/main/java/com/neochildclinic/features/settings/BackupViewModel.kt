@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.data.local.entity.BackupHistoryEntity
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.data.repository.BackupRepositoryImpl
+import com.neochildclinic.domain.repository.BackupRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +45,7 @@ data class BackupUiMessage(val text: String, val isError: Boolean)
 
 @HiltViewModel
 class BackupViewModel @Inject constructor(
-    private val backupRepository: BackupRepositoryImpl
+    private val backupRepository: BackupRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BackupUiState())

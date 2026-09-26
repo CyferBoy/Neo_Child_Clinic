@@ -123,9 +123,6 @@ class InventoryRepositoryImpl @Inject constructor(
             batches.sortedBy { parseDate(it.expiryDate) }
         }
 
-    fun getInventoryTransactions(vaccineId: String): Flow<List<InventoryTransactionEntity>> = 
-        vaccineDao.getTransactionsForVaccine(vaccineId)
-
     override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeductionEntity> =
         database.inventoryDeductionDao().getForVaccination(vaccinationId)
 

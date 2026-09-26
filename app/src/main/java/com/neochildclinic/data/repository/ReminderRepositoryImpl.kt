@@ -485,21 +485,11 @@ class ReminderRepositoryImpl @Inject constructor(
                 android.util.Log.d("ReminderRepo", "Refreshed ${entities.size} reminders")
     }
 
-    suspend fun markCompleted(id: String, timestamp: Long = System.currentTimeMillis()) {
-        withContext(Dispatchers.IO) {
-            val existing = dueReminderDao.getReminderById(id)
-            if (existing != null) {
-                logReminderUndoableChange(existing, "COMPLETED", "Marked done via notification", explicitEntityId = "${existing.patientId}||${existing.originalVisitId}||${existing.vaccineName}||${existing.type}")
-                markReminderCompleted(existing, "SYSTEM_NOTIFICATION")
-            }
-        }
-    }
-
     override suspend fun transferReminders(duplicateId: String, masterId: String) {
         dueReminderDao.updatePatientId(duplicateId, masterId)
     }
 
-    fun triggerImmediateCheck() {
+    private fun triggerImmediateCheck() {
         reminderScheduler.runNow()
         WidgetUtils.updateWidget(context)
     }

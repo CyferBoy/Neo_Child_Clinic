@@ -1,6 +1,7 @@
 package com.neochildclinic.di
 
 import com.neochildclinic.data.repository.AuditLogRepositoryImpl
+import com.neochildclinic.data.repository.BackupRepositoryImpl
 import com.neochildclinic.data.repository.BorrowRepositoryImpl
 import com.neochildclinic.data.repository.ConsultationRepositoryImpl
 import com.neochildclinic.data.repository.DeviceRepositoryImpl
@@ -19,6 +20,7 @@ import com.neochildclinic.data.repository.SyncRepositoryImpl
 import com.neochildclinic.data.repository.VaccinationRepositoryImpl
 import com.neochildclinic.data.repository.WasteRepositoryImpl
 import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.domain.repository.BackupRepository
 import com.neochildclinic.domain.repository.BorrowRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.DeviceRepository
@@ -62,4 +64,5 @@ abstract class RepositoryModule {
     @Binds abstract fun borrowRepository(impl: BorrowRepositoryImpl): BorrowRepository
     @Binds abstract fun deviceRepository(impl: DeviceRepositoryImpl): DeviceRepository
     @Binds abstract fun documentRepository(impl: DocumentRepositoryImpl): DocumentRepository
+    @Binds abstract fun backupRepository(impl: BackupRepositoryImpl): BackupRepository
 }
