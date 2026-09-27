@@ -15,7 +15,7 @@ import com.neochildclinic.domain.model.Visit
 import com.neochildclinic.domain.model.toEntity
 import com.neochildclinic.domain.service.EditReconciler
 import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.data.repository.InventoryRepositoryImpl
+import com.neochildclinic.domain.repository.InventoryRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.*
@@ -36,7 +36,7 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val syncRepository: SyncRepository,
-    private val inventoryRepository: InventoryRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
     private val auditLogger: AuditLogger,
     @ApplicationContext private val appContext: Context
 ) : VaccinationRepository {

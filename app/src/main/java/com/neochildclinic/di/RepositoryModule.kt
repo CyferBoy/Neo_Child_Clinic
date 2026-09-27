@@ -38,6 +38,8 @@ import com.neochildclinic.domain.repository.StaffManagementRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.data.TransactionRunnerImpl
+import com.neochildclinic.domain.TransactionRunner
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -65,4 +67,5 @@ abstract class RepositoryModule {
     @Binds abstract fun deviceRepository(impl: DeviceRepositoryImpl): DeviceRepository
     @Binds abstract fun documentRepository(impl: DocumentRepositoryImpl): DocumentRepository
     @Binds abstract fun backupRepository(impl: BackupRepositoryImpl): BackupRepository
+    @Binds abstract fun transactionRunner(impl: TransactionRunnerImpl): TransactionRunner
 }

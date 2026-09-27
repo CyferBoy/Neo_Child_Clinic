@@ -16,6 +16,7 @@ import com.neochildclinic.domain.statistics.FinanceCalculator
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.PatientUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.UUID
 import javax.inject.Inject
@@ -113,6 +114,8 @@ class ClinicalVaccinationService @Inject constructor(
                     resolvedAt = System.currentTimeMillis()
                 ))
                 completedCount++
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 inventoryRepository.insertInventoryDeduction(InventoryDeductionEntity(
                     vaccinationId = vaccination.id,

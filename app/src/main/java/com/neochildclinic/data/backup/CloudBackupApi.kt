@@ -43,6 +43,7 @@ class CloudBackupApi @Inject constructor(private val auth: Auth) {
     companion object {
         // Must match MAX_BACKUP_BYTES in cloudflare/backup-worker/src/index.ts.
         const val MAX_BACKUP_BYTES = 200L * 1024 * 1024
+        private val LENIENT_JSON = Json { ignoreUnknownKeys = true }
     }
 
     @Serializable
@@ -142,7 +143,7 @@ class CloudBackupApi @Inject constructor(private val auth: Auth) {
             null
         } else {
             val parsed = runCatching {
-                Json { ignoreUnknownKeys = true }.decodeFromString<WorkerErrorBody>(text)
+                LENIENT_JSON.decodeFromString<WorkerErrorBody>(text)
             }.getOrNull()
             (parsed?.error ?: text).replace("\n", " ").replace("\r", "").take(200)
         }

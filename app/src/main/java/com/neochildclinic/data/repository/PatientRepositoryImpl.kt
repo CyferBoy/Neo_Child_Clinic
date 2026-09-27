@@ -10,6 +10,7 @@ import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -43,7 +44,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val sessionManager: SessionManager,
     @ApplicationContext private val context: Context,
-    private val vaccinationRepository: dagger.Lazy<VaccinationRepositoryImpl>
+    private val vaccinationRepository: dagger.Lazy<VaccinationRepository>
 ) : PatientRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
