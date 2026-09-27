@@ -69,6 +69,49 @@ fun VaccinationTodoEntity.toDomain() = VaccinationTodo(
     availabilitySlotId = availabilitySlotId
 )
 
+fun ConsultationTodo.toEntity() = ConsultationTodoEntity(
+    id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+    patientId = patientId,
+    name = name,
+    mobile = mobile,
+    address = address,
+    todoDate = todoDate,
+    status = status,
+    doctorId = doctorId,
+    doctorName = doctorName,
+    availabilitySlotId = availabilitySlotId,
+    createdAt = "",
+    updatedAt = "",
+    isSynced = false,
+    createdBy = null,
+    updatedBy = null,
+    isDeleted = false,
+    deletedAt = null,
+    deletedBy = null
+)
+
+fun VaccinationTodo.toEntity() = VaccinationTodoEntity(
+    id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+    patientId = patientId,
+    name = name,
+    mobile = mobile,
+    vaccineNames = vaccineNames,
+    address = address,
+    todoDate = todoDate,
+    status = status,
+    doctorId = doctorId,
+    doctorName = doctorName,
+    availabilitySlotId = availabilitySlotId,
+    createdAt = "",
+    updatedAt = "",
+    isSynced = false,
+    createdBy = null,
+    updatedBy = null,
+    isDeleted = false,
+    deletedAt = null,
+    deletedBy = null
+)
+
 @Serializable
 @Entity(
     tableName = "vaccination_todos",

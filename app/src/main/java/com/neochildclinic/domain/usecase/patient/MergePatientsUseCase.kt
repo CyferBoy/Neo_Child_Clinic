@@ -1,15 +1,14 @@
 package com.neochildclinic.domain.usecase.patient
 
+import com.neochildclinic.domain.TransactionRunner
 import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
-import androidx.room.withTransaction
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
@@ -18,7 +17,7 @@ import javax.inject.Inject
  * Ensures data integrity across Patients, Vaccinations, Reminders, and Audit logs.
  */
 class MergePatientsUseCase @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val patientRepository: PatientRepository,
     private val vaccinationRepository: VaccinationRepository,
     private val reminderRepository: ReminderRepository,
@@ -29,7 +28,7 @@ class MergePatientsUseCase @Inject constructor(
     suspend operator fun invoke(masterId: String, duplicateIds: List<String>) {
         if (masterId.isBlank() || duplicateIds.isEmpty()) return
 
-        database.withTransaction {
+        transactionRunner.run {
             for (dupId in duplicateIds) {
                 // Fetch record IDs before moving them so we can queue sync properly
                 val vaccIds = vaccinationRepository.getVaccinationsForPatient(dupId).first().map { it.id }

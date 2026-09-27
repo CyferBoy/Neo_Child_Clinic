@@ -12,25 +12,22 @@ import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
+import com.neochildclinic.domain.model.SlotSegment
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
 import com.neochildclinic.data.manager.RealtimeChangeSubscriptions
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.data.local.entity.ConsultationTodoEntity
-import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import com.neochildclinic.domain.model.Patient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import com.neochildclinic.data.repository.SyncRepositoryImpl
-import com.neochildclinic.data.repository.SyncState
 import com.neochildclinic.core.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -44,7 +41,7 @@ data class DashboardUiState(
     val borrowedCount: Int = 0,
     val dueTodayCount: Int = 0,
     val wasteCount: Int = 0,
-    val syncState: SyncState = SyncState.IDLE,
+    val syncState: com.neochildclinic.data.repository.SyncState = com.neochildclinic.data.repository.SyncState.IDLE,
     val isOnline: Boolean = false,
     val pendingSyncCount: Int = 0,
     val errorMessage: String? = null,
@@ -54,24 +51,38 @@ data class DashboardUiState(
     val visitedVaccinations: List<VaccinationTodo> = emptyList(),
     val datesWithData: Set<String> = emptySet(),
     val patients: List<Patient> = emptyList(),
-    // Today's Patient doctor+slot picker (req. 15/16) - doctor assignment is optional at
-    // this quick-add stage (unlike Add Consultation/Add Vaccination, where it's
-    // mandatory), so a receptionist who doesn't yet know the assigned doctor can still
-    // add the patient to today's list; the notification simply broadcasts to all doctors
-    // in that case, same as before this feature existed.
     val allDoctors: List<Profile> = emptyList(),
     val todoSlotsState: SlotsUiState = SlotsUiState.Idle,
-    // Dynamic slot filter segments for the selected date (derived from doctor
-    // availability + the day's bookings - never hard-coded). The control is shown
-    // only when there are 2+ segments; selectedSlotKey is null when filtering is off.
     val slotSegments: List<SlotSegment> = emptyList(),
     val selectedSlotKey: String? = null
+)
+
+data class DashboardStats(
+    val patientCount: Int,
+    val stockCounts: Pair<Int, Int>,
+    val borrowedCount: Int,
+    val dueTodayCount: Int,
+    val wasteCount: Int
+)
+
+data class TodoBundle(
+    val todayConsultations: List<ConsultationTodo>,
+    val todayVaccinations: List<VaccinationTodo>,
+    val visitedConsultations: List<ConsultationTodo>,
+    val visitedVaccinations: List<VaccinationTodo>,
+    val slots: SlotFilterState
+)
+
+data class SlotFilterState(
+    val segments: List<SlotSegment> = emptyList(),
+    val ranges: Map<String, TimeRange> = emptyMap(),
+    val effectiveKey: String? = null
 )
 
 /** Orchestrates Dashboard data using unified data streams. */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val networkMonitor: NetworkMonitor,
     private val patientRepository: PatientRepository,
     private val patientTodoRepository: PatientTodoRepository,
@@ -90,14 +101,6 @@ class DashboardViewModel @Inject constructor(
     private val _selectedSlotKey = MutableStateFlow<String?>(null)
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
-
-    private data class SlotFilterState(
-        val segments: List<SlotSegment> = emptyList(),
-        val ranges: Map<String, TimeRange> = emptyMap(),
-        val effectiveKey: String? = null
-    )
-
-    private data class TodoBundle(val todos: List<Any>, val slots: SlotFilterState)
 
     private var todoSlotLoadToken = 0
 
@@ -149,7 +152,7 @@ class DashboardViewModel @Inject constructor(
      * of the day's availabilitySlotIds to its time range for list filtering.
      */
     private suspend fun computeSlotFilter(
-        todos: List<Any>,
+        todos: TodoBundle,
         doctors: List<Profile>,
         selectedKey: String?,
         date: String
@@ -160,10 +163,10 @@ class DashboardViewModel @Inject constructor(
         }.map { TimeRange(it.startMinute, it.endMinute) }
 
         val slotIds = buildSet {
-            (todos[0] as List<ConsultationTodo>).forEach { add(it.availabilitySlotId) }
-            (todos[1] as List<VaccinationTodo>).forEach { add(it.availabilitySlotId) }
-            (todos[2] as List<ConsultationTodo>).forEach { add(it.availabilitySlotId) }
-            (todos[3] as List<VaccinationTodo>).forEach { add(it.availabilitySlotId) }
+            todos.todayConsultations.forEach { add(it.availabilitySlotId) }
+            todos.todayVaccinations.forEach { add(it.availabilitySlotId) }
+            todos.visitedConsultations.forEach { add(it.availabilitySlotId) }
+            todos.visitedVaccinations.forEach { add(it.availabilitySlotId) }
         }.filterNotNull().filter { it.isNotBlank() }
 
         val ranges = slotIds.mapNotNull { id ->
@@ -202,7 +205,7 @@ class DashboardViewModel @Inject constructor(
             borrowedCount(),
             dueCount(),
             wasteCount()
-        ) { values -> values.toList() },
+        ) { DashboardStats(it[0], it[1], it[2], it[3], it[4]) },
         combine(
             syncRepository.syncState,
             syncRepository.getPendingCount(),
@@ -212,17 +215,17 @@ class DashboardViewModel @Inject constructor(
         },
         _selectedDate.flatMapLatest { date ->
             combine(
-                patientTodoRepository.getConsultationsByDateAndStatus(date, "PENDING").map { list -> list.map { it.toDomain() } },
-                patientTodoRepository.getVaccinationsByDateAndStatus(date, "PENDING").map { list -> list.map { it.toDomain() } },
-                patientTodoRepository.getConsultationsByDateAndStatus(date, "COMPLETED").map { list -> list.map { it.toDomain() } },
-                patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED").map { list -> list.map { it.toDomain() } }
+                patientTodoRepository.getConsultationsByDateAndStatus(date, "PENDING"),
+                patientTodoRepository.getVaccinationsByDateAndStatus(date, "PENDING"),
+                patientTodoRepository.getConsultationsByDateAndStatus(date, "COMPLETED"),
+                patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED")
             ) { pCons, pVacc, cCons, cVacc ->
-                listOf(pCons, pVacc, cCons, cVacc)
-            }.flatMapLatest { todos ->
+                TodoBundle(pCons, pVacc, cCons, cVacc, SlotFilterState())
+            }.flatMapLatest { bundle ->
                 combine(_allDoctors, _selectedSlotKey) { doctors, key -> doctors to key }
                     .flatMapLatest { (doctors, selectedKey) ->
                         flow {
-                            emit(TodoBundle(todos, computeSlotFilter(todos, doctors, selectedKey, date)))
+                            emit(bundle.copy(slots = computeSlotFilter(bundle, doctors, selectedKey, date)))
                         }
                     }
             }
@@ -247,23 +250,23 @@ class DashboardViewModel @Inject constructor(
         }
     ) { stats, sync, bundle, extra ->
         val slots = bundle.slots
-        val todos = bundle.todos
+        val todos = bundle
         fun pass(slotId: String?): Boolean =
             TodaySlotFilter.passes(slots.effectiveKey, slots.ranges, slotId)
         DashboardUiState(
-            patientCount = stats[0] as Int,
-            lowStockCount = (stats[1] as Pair<Int, Int>).first,
-            borrowedCount = stats[2] as Int,
-            dueTodayCount = stats[3] as Int,
-            wasteCount = stats[4] as Int,
-            outOfStockCount = (stats[1] as Pair<Int, Int>).second,
+            patientCount = stats.patientCount,
+            lowStockCount = stats.stockCounts.first,
+            borrowedCount = stats.borrowedCount,
+            dueTodayCount = stats.dueTodayCount,
+            wasteCount = stats.wasteCount,
+            outOfStockCount = stats.stockCounts.second,
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
-            todayConsultations = (todos[0] as List<ConsultationTodo>).filter { pass(it.availabilitySlotId) },
-            todayVaccinations = (todos[1] as List<VaccinationTodo>).filter { pass(it.availabilitySlotId) },
-            visitedConsultations = (todos[2] as List<ConsultationTodo>).filter { pass(it.availabilitySlotId) },
-            visitedVaccinations = (todos[3] as List<VaccinationTodo>).filter { pass(it.availabilitySlotId) },
+            todayConsultations = todos.todayConsultations.filter { pass(it.availabilitySlotId) },
+            todayVaccinations = todos.todayVaccinations.filter { pass(it.availabilitySlotId) },
+            visitedConsultations = todos.visitedConsultations.filter { pass(it.availabilitySlotId) },
+            visitedVaccinations = todos.visitedVaccinations.filter { pass(it.availabilitySlotId) },
             datesWithData = extra[0] as Set<String>,
             patients = extra[1] as List<Patient>,
             allDoctors = extra[2] as List<Profile>,
@@ -277,18 +280,17 @@ class DashboardViewModel @Inject constructor(
         _selectedDate.value = date
     }
 
-    fun toggleTodoStatus(item: Any) {
+    fun toggleTodoStatus(item: ConsultationTodo) {
         viewModelScope.launch {
-            when (item) {
-                is ConsultationTodo -> {
-                    val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
-                    patientTodoRepository.updateStatus("CONSULTATION_TODO", item.id, newStatus)
-                }
-                is VaccinationTodo -> {
-                    val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
-                    patientTodoRepository.updateStatus("VACCINATION_TODO", item.id, newStatus)
-                }
-            }
+            val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
+            patientTodoRepository.updateStatus("CONSULTATION_TODO", item.id, newStatus)
+        }
+    }
+    
+    fun toggleTodoStatus(item: VaccinationTodo) {
+        viewModelScope.launch {
+            val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
+            patientTodoRepository.updateStatus("VACCINATION_TODO", item.id, newStatus)
         }
     }
 
@@ -312,34 +314,17 @@ class DashboardViewModel @Inject constructor(
         availabilitySlotId: String? = null
     ) {
         viewModelScope.launch {
-            val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            val todo = if (id != null) {
-                ConsultationTodoEntity(
-                    id = id,
-                    patientId = patientId,
-                    name = name,
-                    mobile = mobile,
-                    address = address,
-                    todoDate = _selectedDate.value,
-                    doctorId = doctorId,
-                    doctorName = doctorName,
-                    availabilitySlotId = availabilitySlotId,
-                    updatedAt = now
-                )
-            } else {
-                ConsultationTodoEntity(
-                    patientId = patientId,
-                    name = name,
-                    mobile = mobile,
-                    address = address,
-                    todoDate = _selectedDate.value,
-                    doctorId = doctorId,
-                    doctorName = doctorName,
-                    availabilitySlotId = availabilitySlotId,
-                    createdAt = now,
-                    updatedAt = now
-                )
-            }
+            val todo = ConsultationTodo(
+                id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+                patientId = patientId,
+                name = name,
+                mobile = mobile,
+                address = address,
+                todoDate = _selectedDate.value,
+                doctorId = doctorId,
+                doctorName = doctorName,
+                availabilitySlotId = availabilitySlotId
+            )
             patientTodoRepository.addConsultation(todo)
         }
     }
@@ -366,36 +351,18 @@ class DashboardViewModel @Inject constructor(
         availabilitySlotId: String? = null
     ) {
         viewModelScope.launch {
-            val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            val todo = if (id != null) {
-                VaccinationTodoEntity(
-                    id = id,
-                    patientId = patientId,
-                    name = name,
-                    mobile = mobile,
-                    vaccineNames = vaccineNames,
-                    address = address,
-                    todoDate = _selectedDate.value,
-                    doctorId = doctorId,
-                    doctorName = doctorName,
-                    availabilitySlotId = availabilitySlotId,
-                    updatedAt = now
-                )
-            } else {
-                VaccinationTodoEntity(
-                    patientId = patientId,
-                    name = name,
-                    mobile = mobile,
-                    vaccineNames = vaccineNames,
-                    address = address,
-                    todoDate = _selectedDate.value,
-                    doctorId = doctorId,
-                    doctorName = doctorName,
-                    availabilitySlotId = availabilitySlotId,
-                    createdAt = now,
-                    updatedAt = now
-                )
-            }
+            val todo = VaccinationTodo(
+                id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+                patientId = patientId,
+                name = name,
+                mobile = mobile,
+                vaccineNames = vaccineNames,
+                address = address,
+                todoDate = _selectedDate.value,
+                doctorId = doctorId,
+                doctorName = doctorName,
+                availabilitySlotId = availabilitySlotId
+            )
             patientTodoRepository.addVaccination(todo)
         }
     }
@@ -444,7 +411,7 @@ class DashboardViewModel @Inject constructor(
             try {
                 syncRepository.processNextItems()
             } catch (e: Exception) {
-                // Handle error
+                android.util.Log.e("DashboardVM", "Sync refresh failed", e)
             }
             _isRefreshing.value = false
         }

@@ -2,8 +2,8 @@ package com.neochildclinic.domain.repository
 
 import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
 import com.neochildclinic.data.local.entity.VaccinationItemEntity
-import com.neochildclinic.data.local.entity.VisitEntity
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.Visit
 import kotlinx.coroutines.flow.Flow
 
 // ponytail: item sync passes the Room DTO (VaccinationItemEntity) straight through - it only
@@ -24,6 +24,6 @@ interface VaccinationRepository {
     suspend fun getVaccinationById(id: String): Vaccination?
     suspend fun deleteVaccination(id: String)
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
-    suspend fun insertVisit(visit: VisitEntity)
+    suspend fun insertVisit(visit: Visit)
     suspend fun updateVisitInventoryStatus(vaccinationId: String, status: String)
 }

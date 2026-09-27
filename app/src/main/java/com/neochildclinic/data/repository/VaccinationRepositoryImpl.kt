@@ -11,6 +11,7 @@ import com.neochildclinic.core.utils.WidgetUtils
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.Visit
 import com.neochildclinic.domain.service.EditReconciler
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.data.repository.InventoryRepositoryImpl
@@ -74,8 +75,9 @@ class VaccinationRepositoryImpl @Inject constructor(
     override fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
         vaccinationDao.getVaccinationCardsForPatient(patientId)
 
-    override suspend fun insertVisit(visit: com.neochildclinic.data.local.entity.VisitEntity) {
-        vaccinationDao.insertVaccination(visit)
+    override suspend fun insertVisit(visit: Visit) {
+        val entity = visit.toEntity()
+        vaccinationDao.insertVaccination(entity)
     }
 
     override suspend fun updateVisitInventoryStatus(vaccinationId: String, status: String) {

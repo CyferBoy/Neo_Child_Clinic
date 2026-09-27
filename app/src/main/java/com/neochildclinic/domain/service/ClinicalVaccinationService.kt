@@ -1,12 +1,11 @@
 package com.neochildclinic.domain.service
 
-import androidx.room.withTransaction
-import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.domain.TransactionRunner
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.data.local.entity.VisitEntity
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.Visit
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
@@ -24,7 +23,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ClinicalVaccinationService @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val vaccinationRepository: VaccinationRepository,
     private val consultationRepository: ConsultationRepository,
     private val financeRepository: FinanceRepository,
@@ -38,7 +37,7 @@ class ClinicalVaccinationService @Inject constructor(
         isNew: Boolean = true
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
-        database.withTransaction {
+        transactionRunner.run {
             // 1. Add/Update Vaccination Record
             vaccinationRepository.addVaccination(vaccination, transactionGroupId)
 
@@ -151,7 +150,7 @@ class ClinicalVaccinationService @Inject constructor(
         user: String
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
-        database.withTransaction {
+        transactionRunner.run {
             val visitId = if (consultation.visitId.isBlank()) UUID.randomUUID().toString() else consultation.visitId
             
             // 1. Create Visit Header
@@ -159,13 +158,12 @@ class ClinicalVaccinationService @Inject constructor(
             // NOT NULL, and an explicit null in the upsert payload overrides the column's
             // DB-side default, so Supabase rejects the CREATE with a not-null violation.
             val consultationTimestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            val visit = VisitEntity(
+            val visit = Visit(
                 id = visitId,
                 patientId = consultation.patientId,
                 dateGiven = consultation.date,
                 doctorId = consultation.doctorId,
                 doctor = consultation.doctorName,
-                notes = consultation.problem,
                 visitType = "CONSULTATION",
                 cashAmount = consultation.cashAmount,
                 onlineAmount = consultation.onlineAmount,

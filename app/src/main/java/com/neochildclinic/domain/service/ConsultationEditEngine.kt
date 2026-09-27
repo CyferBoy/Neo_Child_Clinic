@@ -1,7 +1,6 @@
 package com.neochildclinic.domain.service
 
-import androidx.room.withTransaction
-import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.domain.TransactionRunner
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.FinanceRepository
@@ -11,7 +10,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ConsultationEditEngine @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val consultationRepository: ConsultationRepository,
     private val financeRepository: FinanceRepository,
 ) {
@@ -21,7 +20,7 @@ class ConsultationEditEngine @Inject constructor(
         if (original == updated) return Result.NO_CHANGES
 
         val transactionGroupId = UUID.randomUUID().toString()
-        database.withTransaction {
+        transactionRunner.run {
             consultationRepository.updateConsultation(updated, transactionGroupId)
 
             val financeChanged =

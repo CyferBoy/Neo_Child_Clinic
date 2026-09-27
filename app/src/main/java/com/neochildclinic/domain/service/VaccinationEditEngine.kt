@@ -1,14 +1,13 @@
 package com.neochildclinic.domain.service
 
-import androidx.room.withTransaction
+import com.neochildclinic.domain.TransactionRunner
 import com.neochildclinic.domain.model.InventoryTransactionType
-import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class VaccinationEditEngine @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val vaccinationRepository: VaccinationRepository,
     private val inventoryRepository: InventoryRepository,
     private val financeRepository: FinanceRepository,
@@ -47,7 +46,7 @@ class VaccinationEditEngine @Inject constructor(
 
         val transactionGroupId = UUID.randomUUID().toString()
 
-        database.withTransaction {
+        transactionRunner.run {
             val inventoryChanged = inventoryDiff(original, updated).isNotEmpty()
             val financeChanged = financeChanged(original, updated)
 
