@@ -27,6 +27,7 @@ class ConsultationRepositoryImpl @Inject constructor(
 
     private val consultationDao = database.consultationDao()
     private val vaccinationDao = database.vaccinationDao()
+    private val financeDao = database.financeDao()
     private val syncQueueDao = database.syncQueueDao()
 
     override fun getConsultationsForPatient(patientId: String): Flow<List<Consultation>> =
@@ -144,14 +145,13 @@ class ConsultationRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteConsultation(id: String) {
+override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
 
         database.withTransaction {
             val existing = consultationDao.getConsultationById(id) ?: return@withTransaction
-            
-            // Financial transactions are historical records and must remain after a clinical record is deleted.
+
             // 1. Soft-Delete Consultation (Child)
             consultationDao.deleteConsultation(id, now, userName)
             syncRepository.enqueue(
@@ -160,6 +160,20 @@ class ConsultationRepositoryImpl @Inject constructor(
                 operation = SyncOperation.UPDATE,
                 priority = SyncPriority.MEDIUM
             )
+
+            // 2. Soft-Delete associated finance transactions for the visit
+            if (existing.visitId.isNotBlank()) {
+                val visitFinanceTxns = financeDao.getTransactionsByVisitId(existing.visitId)
+                for (txn in visitFinanceTxns) {
+                    financeDao.deleteTransactionById(txn.id, now, userName)
+                    syncRepository.enqueue(
+                        entityName = "FINANCE",
+                        entityId = txn.id,
+                        operation = SyncOperation.UPDATE,
+                        priority = SyncPriority.MEDIUM
+                    )
+                }
+            }
 
             // 3. Soft-Delete Visit Header (Mother)
             if (existing.visitId.isNotBlank()) {

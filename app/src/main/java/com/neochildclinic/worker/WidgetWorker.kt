@@ -13,9 +13,11 @@ import com.neochildclinic.data.repository.PatientRepositoryImpl
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
+import com.neochildclinic.domain.statistics.StatisticsDateUtils
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+import java.time.Instant
 import kotlin.text.get
 
 /**
@@ -78,14 +80,16 @@ class WidgetWorker @AssistedInject constructor(
         // never matched that, so this always silently fell through to the raw
         // value below and the year was never actually trimmed. PatientUtils.parseDate
         // already knows every format the app stores dates in, so reuse it here too.
+        //
+        // The current year is the clinic's IST year, not the device's: a device set to
+        // another zone can disagree with the main app's date near midnight, and the
+        // widget must show the same "15 Jun" / "15 Jun 25" decision the app itself makes.
         val date = PatientUtils.parseDate(value) ?: return value
-
-        val dateYear = date.toInstant().atZone(java.time.ZoneId.systemDefault()).year
-        val currentYear = java.time.LocalDate.now().year
+        val dateInIST = date.toInstant().atZone(StatisticsDateUtils.IST)
+        val currentYear = Instant.now().atZone(StatisticsDateUtils.IST).year
 
         // Same year as today -> "15 Jun". Different year -> "15 Jun 25".
-        val pattern = if (dateYear == currentYear) "d MMM" else "d MMM yy"
-        return date.toInstant().atZone(java.time.ZoneId.systemDefault())
-            .format(java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.ENGLISH))
+        val pattern = if (dateInIST.year == currentYear) "d MMM" else "d MMM yy"
+        return dateInIST.format(java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.ENGLISH))
     }
 }

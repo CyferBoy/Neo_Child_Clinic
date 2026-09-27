@@ -169,8 +169,9 @@ class VaccinationRepositoryImpl @Inject constructor(
 
             database.withTransaction {
                 for (remoteItem in items) {
-                    // FOREIGN KEY CHECK: the visit this item belongs to must exist locally.
-                    val visitExists = vaccinationDao.getVaccinationById(remoteItem.vaccinationId) != null
+                    // FOREIGN KEY CHECK: the visit this item belongs to must exist locally
+                    // and must NOT be soft-deleted. getActiveVaccinationById filters is_deleted = 0.
+                    val visitExists = vaccinationDao.getActiveVaccinationById(remoteItem.vaccinationId) != null
                     if (!visitExists) {
                         itemsSkippedMissingVisit++
                         continue

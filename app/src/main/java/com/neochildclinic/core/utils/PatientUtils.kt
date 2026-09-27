@@ -1,27 +1,8 @@
 package com.neochildclinic.core.utils
 
 import com.neochildclinic.domain.model.Vaccination
-import java.time.ZoneId
 import java.util.Calendar
 import java.util.Date
-
-internal fun Date.toLocalDate(): java.time.LocalDate =
-    toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
-
-internal fun Calendar.toLocalDate(): java.time.LocalDate =
-    toInstant().atZone(timeZone.toZoneId()).toLocalDate()
-
-internal fun Calendar.startOfDay(): Calendar {
-    val zone = timeZone.toZoneId()
-    val zdt = toInstant().atZone(zone).toLocalDate().atStartOfDay(zone)
-    return Calendar.getInstance(timeZone).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
-}
-
-internal fun Calendar.endOfDay(): Calendar {
-    val zone = timeZone.toZoneId()
-    val zdt = toInstant().atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).minusNanos(1)
-    return Calendar.getInstance(timeZone).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
-}
 
 /**
  * Facade over [AgeUtils] and [DateUtils], kept so existing call sites (`PatientUtils.x`)

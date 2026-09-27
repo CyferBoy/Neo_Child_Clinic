@@ -10,9 +10,37 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.Optional
+import java.util.TimeZone as JTimeZone
+import java.util.TimeZone
+
+// Single source of truth for the clinic's timezone. All calendar-date calculations
+// (today, tomorrow, date bucketing, age, due dates) must use this.
+internal const val IST_ZONE_ID = "Asia/Kolkata"
+
+// Extension functions for IST-based date conversions. Placed here (not in PatientUtils)
+// to break circular dependency: PatientUtils -> DateUtils -> StatisticsDateUtils -> PatientUtils
+// and PatientUtils -> AgeUtils -> PatientUtils
+internal fun Date.toLocalDate(): java.time.LocalDate =
+    toInstant().atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
+
+internal fun Calendar.toLocalDate(): java.time.LocalDate =
+    toInstant().atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
+
+internal fun Calendar.startOfDay(): Calendar {
+    val zone = ZoneId.of(IST_ZONE_ID)
+    val zdt = toInstant().atZone(zone).toLocalDate().atStartOfDay(zone)
+    return Calendar.getInstance(JTimeZone.getTimeZone(IST_ZONE_ID)).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
+}
+
+internal fun Calendar.endOfDay(): Calendar {
+    val zone = ZoneId.of(IST_ZONE_ID)
+    val zdt = toInstant().atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).minusNanos(1)
+    return Calendar.getInstance(JTimeZone.getTimeZone(IST_ZONE_ID)).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
+}
 
 /**
  * Date parsing/formatting helpers shared across the app. parseDate() is the single
@@ -150,20 +178,16 @@ object DateUtils {
         return "%.1f GB".format(mb / 1024.0)
     }
 
-    fun getCurrentIsoTimestamp(): String {
-        return DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
-            .format(Instant.now())
-    }
+    // Absolute instants, stored/transported as UTC. The clinic's calendar date is
+    // derived by converting to IST at read time (StatisticsDateUtils.parseToISTLocalDate),
+    // not by baking a device-local offset into the value - see DateUtils.IST.
+    fun getCurrentIsoTimestamp(): String = Instant.now().toString()
 
     /**
      * Returns ISO 8601 timestamp for some minutes ago.
      */
-    fun getIsoTimestampMinutesAgo(minutes: Int): String {
-        return DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
-            .format(Instant.now().minus(minutes.toLong(), ChronoUnit.MINUTES))
-    }
+    fun getIsoTimestampMinutesAgo(minutes: Int): String =
+        Instant.now().minus(minutes.toLong(), ChronoUnit.MINUTES).toString()
 
     /**
      * Safely converts an ISO string or legacy millis string to Long.
@@ -191,12 +215,13 @@ object DateUtils {
 
     /**
      * Unified Logic: Filters pending vaccinations based on a string filter (e.g., "Overdue", "Today").
+     * All date comparisons use the clinic's timezone (IST).
      */
     fun filterVaccinationsByPeriod(
         pendingVaccinations: List<Vaccination>,
         filter: String,
     ): List<Vaccination> {
-        val today = LocalDate.now()
+        val today = Instant.now().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
         val tomorrow = today.plusDays(1)
         val weekStart = today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
         val weekEnd = weekStart.plusDays(6)

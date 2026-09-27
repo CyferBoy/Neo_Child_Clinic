@@ -3,6 +3,7 @@ package com.neochildclinic.domain.manager
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.core.utils.DateClassifier
 import com.neochildclinic.core.utils.DateCategory
+import com.neochildclinic.core.utils.toLocalDate
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.ClinicStats
 import com.neochildclinic.domain.model.InventoryItem
@@ -13,11 +14,11 @@ import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.statistics.FinanceCalculator
 import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.domain.statistics.StatisticsDateUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,17 +38,13 @@ class ClinicStatsManager @Inject constructor(
      * Uses optimized database queries via repositories.
      */
     fun getClinicStats(): Flow<ClinicStats> {
-        val today = Calendar.getInstance()
-        val todayStr = PatientUtils.formatDate(today.time)
-        val monthFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
-
-        // Month pattern for SQLite LIKE: "% May 2026"
-        val monthPattern = "% ${monthFormatter.format(today.time.toInstant())}"
+        val todayIST = StatisticsDateUtils.todayIST()
+        val todayStr = StatisticsDateUtils.formatDateIST(todayIST.toLocalDate())
+        val monthLabel = StatisticsDateUtils.formatDateIST(todayIST.toLocalDate().withDayOfMonth(1))
 
         return combine(
             financeRepository.getAllTransactions(),
-            reminderRepository.getDueList(), // Use full list to re-calculate stats consistently
+            reminderRepository.getDueList(),
             inventoryRepository.getInventoryItems(),
             vaccinationRepository.allVaccinations
         ) { args ->
@@ -61,36 +58,35 @@ class ClinicStatsManager @Inject constructor(
             val allVaccinations = args[3] as List<com.neochildclinic.domain.model.Vaccination>
             val validVaccinations = StatisticsUtils.filterValidVaccinations(allVaccinations)
             val todayCount = validVaccinations.count { it.dateGiven == todayStr }
-            val monthLabel = monthFormatter.format(today.time.toInstant())
             val monthlyCount = validVaccinations.count {
-                val date = PatientUtils.parseDate(it.dateGiven)
-                date != null && monthFormatter.format(date.toInstant()) == monthLabel
+                StatisticsDateUtils.monthKeyIST(it.dateGiven) != null && StatisticsDateUtils.formatDateIST(java.time.LocalDate.parse(it.dateGiven, java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))).startsWith(monthLabel)
             }
 
             val todayTransactions = transactions.filter { tx ->
-                PatientUtils.parseDate(tx.timestamp)?.let { PatientUtils.formatDate(it) == todayStr } == true
+                StatisticsDateUtils.parseToISTLocalDate(tx.timestamp)?.toString() == todayStr
             }
             val todayFinance = FinanceCalculator.calculateFinanceStats(todayTransactions, allVaccinations, transactions)
             val todayRevenue = todayFinance.totalRevenue
             val todayCash = todayFinance.cashTotal
             val todayOnline = todayFinance.onlineTotal
             val monthlyTransactions = transactions.filter { tx ->
-                PatientUtils.parseDate(tx.timestamp)?.let { d -> monthFormatter.format(d.toInstant()) == monthLabel } == true
+                val txDate = StatisticsDateUtils.parseToISTLocalDate(tx.timestamp)
+                txDate != null && StatisticsDateUtils.formatDateIST(txDate.withDayOfMonth(1)) == monthLabel
             }
             val monthlyFinance = FinanceCalculator.calculateFinanceStats(monthlyTransactions, allVaccinations, transactions)
             val monthlyRevenue = monthlyFinance.totalRevenue
 
             val todayCal = DateClassifier.getTodayStart()
-            val dueToday = dueVaccinations.count { 
+            val dueToday = dueVaccinations.count {
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
                 cat is DateCategory.Today
             }
-            val overdue = dueVaccinations.count { 
+            val overdue = dueVaccinations.count {
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
                 cat is DateCategory.Overdue
             }
 
-            val topVaccines = calculateTopVaccines(allVaccinations, monthPattern)
+            val topVaccines = calculateTopVaccines(allVaccinations, monthLabel)
 
             ClinicStats(
                 todayVaccinations = todayCount,
@@ -109,17 +105,14 @@ class ClinicStatsManager @Inject constructor(
 
     private fun calculateTopVaccines(
         vaccinations: List<com.neochildclinic.domain.model.Vaccination>,
-        monthPattern: String
+        monthLabel: String
     ): List<Pair<String, Int>> {
-        val monthLabel = monthPattern.removePrefix("% ").trim()
-        val monthFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
         val counts = mutableMapOf<String, Int>()
         vaccinations
             .filter { it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED || it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL || it.source.equals("EXTERNAL", true) }
             .filter { vaccination ->
-                val date = PatientUtils.parseDate(vaccination.dateGiven)
-                date != null && monthFormatter.format(date.toInstant()) == monthLabel
+                val date = StatisticsDateUtils.parseToISTLocalDate(vaccination.dateGiven)
+                date != null && StatisticsDateUtils.formatDateIST(date.withDayOfMonth(1)) == monthLabel
             }
             .forEach { vaccination ->
                 vaccination.items.forEachIndexed { index, item ->

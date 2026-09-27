@@ -64,20 +64,11 @@ object StatisticsDateUtils {
         if (dateStr.isBlank()) return null
         // For date-only formats (d MMM yyyy, yyyy-MM-dd, d/M/yyyy, dd/MM/yyyy),
         // PatientUtils.parseDate already returns the correct local date.
-        // For timestamps with timezone info (ISO 8601), parse and convert to IST.
-        if (dateStr.contains("T") && (dateStr.contains("+") || dateStr.endsWith("Z"))) {
+        // For timestamps with timezone info (ISO 8601), parse as Instant and convert to IST.
+        if (dateStr.contains("T") && (dateStr.contains("+") || dateStr.contains("-") || dateStr.endsWith("Z"))) {
             return try {
-                val ldt = java.time.LocalDateTime.parse(
-                    dateStr.substringBeforeLast("+").substringBeforeLast("Z").trim(),
-                    DateTimeFormatter.ofPattern(
-                        when {
-                            dateStr.contains(".") -> "yyyy-MM-dd'T'HH:mm:ss.SSS"
-                            else -> "yyyy-MM-dd'T'HH:mm:ss"
-                        },
-                        Locale.ENGLISH
-                    )
-                )
-                ldt.atZone(IST).toLocalDate()
+                val instant = Instant.parse(dateStr.replace(" ", "T"))
+                instant.atZone(IST).toLocalDate()
             } catch (_: Exception) {
                 // Fallback: parse as date-only
                 parseDateOnly(dateStr)
