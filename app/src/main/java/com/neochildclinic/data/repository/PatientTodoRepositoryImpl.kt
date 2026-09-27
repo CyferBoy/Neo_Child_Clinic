@@ -7,11 +7,14 @@ import com.neochildclinic.data.local.dao.PatientTodoDao
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.data.local.entity.toEntity
 import io.github.jan.supabase.postgrest.Postgrest
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,9 +41,9 @@ class PatientTodoRepositoryImpl @Inject constructor(
     }
 
     override fun getConsultationsByDateAndStatus(date: String, status: String): Flow<List<ConsultationTodo>> = 
-        dao.getConsultationsByDateAndStatus(date, status).map { list -> list.map { it.toDomain() } }
+        dao.getConsultationsByDateAndStatus(date, status).map { entities: List<ConsultationTodoEntity> -> entities.map { it.toDomain() } }
     override fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodo>> = 
-        dao.getVaccinationsByDateAndStatus(date, status).map { list -> list.map { it.toDomain() } }
+        dao.getVaccinationsByDateAndStatus(date, status).map { entities: List<VaccinationTodoEntity> -> entities.map { it.toDomain() } }
     override fun getDatesWithData(start: String, end: String): Flow<List<String>> = dao.getDatesWithData(start, end)
 
     override suspend fun updateStatus(type: String, id: String, status: String) {

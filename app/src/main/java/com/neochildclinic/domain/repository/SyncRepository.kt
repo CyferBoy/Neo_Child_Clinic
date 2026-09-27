@@ -2,6 +2,8 @@ package com.neochildclinic.domain.repository
 
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
+import com.neochildclinic.domain.model.SyncState
+import kotlinx.coroutines.flow.StateFlow
 
 // Domain-facing sync contract: only the enqueue entry point the business layer needs.
 // Queue processing, retries, dedup and conflict resolution are data-layer internals behind
@@ -14,4 +16,8 @@ interface SyncRepository {
         priority: SyncPriority = SyncPriority.MEDIUM,
         transactionGroupId: String? = null
     )
+
+    val syncState: StateFlow<SyncState>
+    fun getPendingCount(): kotlinx.coroutines.flow.Flow<Int>
+    suspend fun processNextItems()
 }

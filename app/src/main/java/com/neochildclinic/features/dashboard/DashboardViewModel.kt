@@ -2,6 +2,7 @@ package com.neochildclinic.features.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.repository.BorrowRepository
@@ -16,7 +17,6 @@ import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
-import com.neochildclinic.domain.model.SlotSegment
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
 import com.neochildclinic.core.utils.DateClassifier
@@ -41,7 +41,7 @@ data class DashboardUiState(
     val borrowedCount: Int = 0,
     val dueTodayCount: Int = 0,
     val wasteCount: Int = 0,
-    val syncState: com.neochildclinic.data.repository.SyncState = com.neochildclinic.data.repository.SyncState.IDLE,
+    val syncState: SyncState = SyncState.IDLE,
     val isOnline: Boolean = false,
     val pendingSyncCount: Int = 0,
     val errorMessage: String? = null,
@@ -63,6 +63,13 @@ data class DashboardStats(
     val borrowedCount: Int,
     val dueTodayCount: Int,
     val wasteCount: Int
+)
+
+data class DashboardExtras(
+    val datesWithData: Set<String>,
+    val patients: List<Patient>,
+    val allDoctors: List<Profile>,
+    val todoSlotsState: SlotsUiState
 )
 
 data class TodoBundle(
@@ -205,7 +212,9 @@ class DashboardViewModel @Inject constructor(
             borrowedCount(),
             dueCount(),
             wasteCount()
-        ) { DashboardStats(it[0], it[1], it[2], it[3], it[4]) },
+        ) { pCount, stock, borrowed, due, waste ->
+            DashboardStats(pCount, stock, borrowed, due, waste)
+        },
         combine(
             syncRepository.syncState,
             syncRepository.getPendingCount(),
@@ -246,11 +255,10 @@ class DashboardViewModel @Inject constructor(
             _allDoctors,
             _todoSlotsState
         ) { dates, patients, doctors, slots ->
-            listOf(dates, patients, doctors, slots)
+            DashboardExtras(dates, patients, doctors, slots)
         }
     ) { stats, sync, bundle, extra ->
         val slots = bundle.slots
-        val todos = bundle
         fun pass(slotId: String?): Boolean =
             TodaySlotFilter.passes(slots.effectiveKey, slots.ranges, slotId)
         DashboardUiState(
@@ -263,14 +271,14 @@ class DashboardViewModel @Inject constructor(
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
-            todayConsultations = todos.todayConsultations.filter { pass(it.availabilitySlotId) },
-            todayVaccinations = todos.todayVaccinations.filter { pass(it.availabilitySlotId) },
-            visitedConsultations = todos.visitedConsultations.filter { pass(it.availabilitySlotId) },
-            visitedVaccinations = todos.visitedVaccinations.filter { pass(it.availabilitySlotId) },
-            datesWithData = extra[0] as Set<String>,
-            patients = extra[1] as List<Patient>,
-            allDoctors = extra[2] as List<Profile>,
-            todoSlotsState = extra[3] as SlotsUiState,
+            todayConsultations = bundle.todayConsultations.filter { pass(it.availabilitySlotId) },
+            todayVaccinations = bundle.todayVaccinations.filter { pass(it.availabilitySlotId) },
+            visitedConsultations = bundle.visitedConsultations.filter { pass(it.availabilitySlotId) },
+            visitedVaccinations = bundle.visitedVaccinations.filter { pass(it.availabilitySlotId) },
+            datesWithData = extra.datesWithData,
+            patients = extra.patients,
+            allDoctors = extra.allDoctors,
+            todoSlotsState = extra.todoSlotsState,
             slotSegments = slots.segments,
             selectedSlotKey = slots.effectiveKey
         )
@@ -280,17 +288,18 @@ class DashboardViewModel @Inject constructor(
         _selectedDate.value = date
     }
 
-    fun toggleTodoStatus(item: ConsultationTodo) {
+    fun toggleTodoStatus(item: Any) {
         viewModelScope.launch {
-            val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
-            patientTodoRepository.updateStatus("CONSULTATION_TODO", item.id, newStatus)
-        }
-    }
-    
-    fun toggleTodoStatus(item: VaccinationTodo) {
-        viewModelScope.launch {
-            val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
-            patientTodoRepository.updateStatus("VACCINATION_TODO", item.id, newStatus)
+            when (item) {
+                is ConsultationTodo -> {
+                    val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
+                    patientTodoRepository.updateStatus("CONSULTATION_TODO", item.id, newStatus)
+                }
+                is VaccinationTodo -> {
+                    val newStatus = if (item.status == "PENDING") "COMPLETED" else "PENDING"
+                    patientTodoRepository.updateStatus("VACCINATION_TODO", item.id, newStatus)
+                }
+            }
         }
     }
 
@@ -315,7 +324,7 @@ class DashboardViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val todo = ConsultationTodo(
-                id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+                id = id?.ifBlank { java.util.UUID.randomUUID().toString() } ?: java.util.UUID.randomUUID().toString(),
                 patientId = patientId,
                 name = name,
                 mobile = mobile,
@@ -352,7 +361,7 @@ class DashboardViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val todo = VaccinationTodo(
-                id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+                id = id?.ifBlank { java.util.UUID.randomUUID().toString() } ?: java.util.UUID.randomUUID().toString(),
                 patientId = patientId,
                 name = name,
                 mobile = mobile,

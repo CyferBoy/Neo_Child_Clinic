@@ -12,6 +12,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Visit
+import com.neochildclinic.domain.model.toEntity
 import com.neochildclinic.domain.service.EditReconciler
 import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.data.repository.InventoryRepositoryImpl

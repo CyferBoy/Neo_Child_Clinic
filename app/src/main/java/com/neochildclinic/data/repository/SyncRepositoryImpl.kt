@@ -10,6 +10,7 @@ import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.model.SyncStatus
 import com.neochildclinic.core.model.SyncErrorDetails
 import com.neochildclinic.data.manager.SyncManagerImpl
+import com.neochildclinic.domain.model.SyncState
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -51,7 +52,7 @@ class SyncRepositoryImpl @Inject constructor(
     }
 
     private val _syncState = MutableStateFlow(SyncState.IDLE)
-    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+    override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     override suspend fun enqueue(
         entityName: String,
@@ -76,7 +77,7 @@ class SyncRepositoryImpl @Inject constructor(
         syncManager.scheduleSync()
     }
 
-    fun getPendingCount(): Flow<Int> = syncDao.getPendingCount()
+    override fun getPendingCount(): Flow<Int> = syncDao.getPendingCount()
 
     fun getSyncQueue(): Flow<List<SyncItem>> = 
         syncDao.getAllItems().map { list -> list.map { it.toDomain() } }
@@ -85,7 +86,7 @@ class SyncRepositoryImpl @Inject constructor(
         syncDao.clearSynced()
     }
 
-    suspend fun processNextItems() {
+    override suspend fun processNextItems() {
         syncDao.cleanCorruptedItems()
         syncDao.requeueStaleSyncingItems(
             staleBefore = com.neochildclinic.core.utils.PatientUtils.getIsoTimestampMinutesAgo(5)
@@ -643,8 +644,6 @@ internal fun orderPendingIntoGroups(
             groupId to items.sortedWith(compareBy({ it.createdAt }, { it.queueId }))
         }
 }
-
-enum class SyncState { IDLE, SYNCING, ERROR }
 
 // Outcome of one ordered group upload in processNextItems.
 internal enum class GroupResult {

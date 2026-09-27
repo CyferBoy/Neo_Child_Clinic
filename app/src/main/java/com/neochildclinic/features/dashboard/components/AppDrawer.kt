@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.data.repository.SyncState
+import com.neochildclinic.domain.model.SyncState
 
 @Composable
 fun AppDrawer(
