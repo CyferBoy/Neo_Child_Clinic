@@ -1,6 +1,7 @@
 name = "neochildclinic-backup-worker"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 
 # R2 is bound directly - the Worker calls env.BACKUP_BUCKET.put()/.get()/.delete() natively.
 # There is no R2 access key or secret access key anywhere in this project: a native binding
