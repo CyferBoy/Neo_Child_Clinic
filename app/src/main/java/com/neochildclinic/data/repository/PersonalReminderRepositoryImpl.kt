@@ -172,7 +172,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refresh() = cloudRefresh("PersonalReminder", rethrow = true) {
-        val remote = postgrest.from("personal_vaccine_reminders").select()
+        val remote = postgrest.from("personal_vaccine_reminders").select { filter { eq("is_deleted", false) } }
             .decodeList<PersonalReminderEntity>()
         Log.d("PersonalReminder", "Remote refresh: fetched " + remote.size + " reminders")
         remote.forEach { r ->

@@ -12,29 +12,20 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Type-safe, thread-safe in-memory cache with TTL, size limit, and explicit invalidation.
  * 
+ * Uses lazy expiration: entries are checked for expiry on [get] and [put] operations,
+ * avoiding the need for a background cleanup coroutine.
+ * 
  * @param K Cache key type
  * @param V Cache value type
- * @param defaultTtlMs Default time-to-live in milliseconds (default: 5 minutes)
- * @param maxSize Maximum entries (default: 1000)
+ * @param defaultTtlMs Default time-to-live in milliseconds (default: 5 minutes = 300000ms)
+ * @param maxSize Maximum entries (default: 1000). Excess entries are evicted on [put].
  */
 class MemoryCache<K, V>(
     private val defaultTtlMs: Long = 5 * 60 * 1000,
     private val maxSize: Int = 1000
 ) {
     private val data = ConcurrentHashMap<K, CacheEntry<V>>()
-    private val accessOrder = ConcurrentHashMap<K, AtomicLong>()
     
-    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val cleanupJob = cleanupScope.launch {
-        while (true) {
-            delay(60_000)
-            evictExpired()
-            if (data.size > maxSize) {
-                evictOldest(data.size - maxSize)
-            }
-        }
-    }
-
     private data class CacheEntry<V>(
         val value: V,
         val expiresAt: Long
@@ -45,10 +36,8 @@ class MemoryCache<K, V>(
         if (entry == null) return null
         if (System.currentTimeMillis() > entry.expiresAt) {
             data.remove(key)
-            accessOrder.remove(key)
             return null
         }
-        accessOrder[key]?.set(System.currentTimeMillis())
         return entry.value
     }
 
@@ -58,21 +47,18 @@ class MemoryCache<K, V>(
         }
         val expiresAt = System.currentTimeMillis() + ttlMs
         data[key] = CacheEntry(value, expiresAt)
-        accessOrder[key] = AtomicLong(System.currentTimeMillis())
     }
 
     suspend fun invalidate(key: K) {
         data.remove(key)
-        accessOrder.remove(key)
     }
 
     suspend fun invalidateAll(keys: Iterable<K>) {
-        keys.forEach { data.remove(it); accessOrder.remove(it) }
+        keys.forEach { data.remove(it) }
     }
 
     suspend fun clear() {
         data.clear()
-        accessOrder.clear()
     }
 
     fun size(): Int = data.size
@@ -84,33 +70,21 @@ class MemoryCache<K, V>(
         } else {
             if (entry != null) {
                 data.remove(key)
-                accessOrder.remove(key)
             }
             false
         }
     }
 
-    private fun evictExpired() {
-        val now = System.currentTimeMillis()
-        val keysToRemove = mutableSetOf<K>()
-        data.forEach { (key, entry) ->
-            if (now > entry.expiresAt) {
-                keysToRemove.add(key)
-            }
-        }
-        keysToRemove.forEach { data.remove(it); accessOrder.remove(it) }
-    }
-
     private fun evictOldest(count: Int) {
-        val sorted = accessOrder.entries
-            .sortedBy { it.value.get() }
+        if (data.isEmpty()) return
+        val sorted = data.entries
+            .sortedBy { it.value.expiresAt }
             .take(count)
-        sorted.forEach { data.remove(it.key); accessOrder.remove(it.key) }
+        sorted.forEach { (key, _) -> data.remove(key) }
     }
 
     fun shutdown() {
-        cleanupJob.cancel()
-        cleanupScope.coroutineContext[Job]?.cancel()
+        // No background coroutine to cancel - cleanup is lazy
     }
 }
 

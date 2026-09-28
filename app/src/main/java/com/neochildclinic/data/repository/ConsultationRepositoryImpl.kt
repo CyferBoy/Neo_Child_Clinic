@@ -198,7 +198,7 @@ override suspend fun deleteConsultation(id: String) {
     }
 
     override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo") {
-        val entities = postgrest.from("consultations").select().decodeList<ConsultationEntity>()
+        val entities = postgrest.from("consultations").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationEntity>()
         database.withTransaction {
             for (remote in entities) {
                 if (!syncQueueDao.isUnsynced("CONSULTATION", remote.id)) {

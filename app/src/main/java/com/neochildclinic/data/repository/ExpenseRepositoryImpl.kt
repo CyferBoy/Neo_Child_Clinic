@@ -116,7 +116,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
-        val remoteExpenses = postgrest.from("expenses").select().decodeList<ExpenseEntity>()
+        val remoteExpenses = postgrest.from("expenses").select { filter { eq("is_deleted", false) } }.decodeList<ExpenseEntity>()
         database.withTransaction {
             for (remote in remoteExpenses) {
                 if (!syncQueueDao.isUnsynced("EXPENSE", remote.id)) {

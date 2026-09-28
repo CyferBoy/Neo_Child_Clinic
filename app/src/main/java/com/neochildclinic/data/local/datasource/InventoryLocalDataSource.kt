@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface InventoryLocalDataSource {
     fun getAllVaccines(): Flow<List<VaccineEntity>>
+    fun getAllBatches(): Flow<List<VaccineBatchEntity>>
     fun getBatchesByVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
     suspend fun getVaccineById(vaccineId: String): VaccineEntity?
     suspend fun getBatchById(batchId: String): VaccineBatchEntity?
@@ -37,7 +38,7 @@ interface InventoryLocalDataSource {
     suspend fun getTransactionById(transactionId: String): InventoryTransactionEntity?
     suspend fun updatePatientIdInTransactions(duplicateId: String, masterId: String)
     suspend fun getTotalStockForVaccine(vaccineId: String): Int?
-    fun getActiveBatchesByExpiry(vaccineId: String): Flow<List<VaccineBatchEntity>>
+    suspend fun getActiveBatchesByExpiry(vaccineId: String): List<VaccineBatchEntity>
     suspend fun getCompletedForVaccination(vaccinationId: String): List<InventoryDeductionEntity>
     suspend fun insertDeduction(deduction: InventoryDeductionEntity)
     suspend fun deleteForVaccination(vaccinationId: String)

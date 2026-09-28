@@ -7,7 +7,6 @@ import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.InventoryDeductionEntity
-import com.neochildclinic.domain.model.InventoryTransactionType
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,6 +19,9 @@ class InventoryLocalDataSourceImpl @Inject constructor(
 ) : InventoryLocalDataSource {
 
     override fun getAllVaccines(): Flow<List<VaccineEntity>> = vaccineDao.getAllVaccines()
+
+    override fun getAllBatches(): Flow<List<VaccineBatchEntity>> =
+        vaccineDao.getAllBatches()
 
     override fun getBatchesByVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>> =
         vaccineDao.getBatchesByVaccine(vaccineId)
@@ -75,7 +77,7 @@ class InventoryLocalDataSourceImpl @Inject constructor(
 
     override suspend fun getTotalStockForVaccine(vaccineId: String): Int? = vaccineDao.getTotalStockForVaccine(vaccineId)
 
-    override fun getActiveBatchesByExpiry(vaccineId: String): Flow<List<VaccineBatchEntity>> =
+    override suspend fun getActiveBatchesByExpiry(vaccineId: String): List<VaccineBatchEntity> =
         vaccineDao.getActiveBatchesByExpiry(vaccineId)
 
     override suspend fun getCompletedForVaccination(vaccinationId: String): List<InventoryDeductionEntity> =

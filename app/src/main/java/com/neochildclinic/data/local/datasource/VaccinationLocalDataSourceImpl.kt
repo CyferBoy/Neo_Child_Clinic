@@ -2,10 +2,12 @@ package com.neochildclinic.data.local.datasource
 
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.VaccinationItemDao
+import com.neochildclinic.data.local.dao.InventoryDeductionDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.VaccinationItemEntity
 import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
 import com.neochildclinic.data.local.entity.VisitEntity
+import com.neochildclinic.data.local.entity.FinanceEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 class VaccinationLocalDataSourceImpl @Inject constructor(
     private val vaccinationDao: VaccinationDao,
     private val vaccinationItemDao: VaccinationItemDao,
+    private val inventoryDeductionDao: InventoryDeductionDao,
     private val syncQueueDao: SyncQueueDao
 ) : VaccinationLocalDataSource {
 
@@ -57,4 +60,15 @@ class VaccinationLocalDataSourceImpl @Inject constructor(
         vaccinationDao.updatePatientId(duplicateId, masterId)
 
     override suspend fun isUnsyncedVaccination(id: String): Boolean = syncQueueDao.isUnsynced("VACCINATION", id)
+
+    override suspend fun getCompletedForVaccination(vaccinationId: String): List<Pair<String, Int>> {
+        val deductions = inventoryDeductionDao.getCompletedForVaccination(vaccinationId)
+        return deductions.filter { it.batchId != null }.map { it.batchId!! to it.quantity }
+    }
+
+    override suspend fun getTransactionsByVisitId(visitId: String): List<FinanceEntity> {
+        // Delegating - full finance integration requires FinanceLocalDataSource
+        // This placeholder returns empty list; the repository handles the gap
+        return emptyList()
+    }
 }

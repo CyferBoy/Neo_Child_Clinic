@@ -145,7 +145,7 @@ class WasteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshWaste() = cloudRefresh("WasteRepo") {
-        val wasteRecords = postgrest.from("waste_records").select().decodeList<WasteRecord>()
+        val wasteRecords = postgrest.from("waste_records").select { filter { eq("is_deleted", false) } }.decodeList<WasteRecord>()
         database.withTransaction {
             for (remote in wasteRecords) {
                 if (!syncQueueDao.isUnsynced("WASTE", remote.id)) {

@@ -28,8 +28,8 @@ class PatientTodoRepositoryImpl @Inject constructor(
     private val dao: PatientTodoDao = database.patientTodoDao()
 
     override suspend fun refresh() = cloudRefresh("PatientTodoRepo") {
-        val consultations = postgrest.from("consultation_todos").select().decodeList<ConsultationTodoEntity>()
-        val vaccinations = postgrest.from("vaccination_todos").select().decodeList<VaccinationTodoEntity>()
+        val consultations = postgrest.from("consultation_todos").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationTodoEntity>()
+        val vaccinations = postgrest.from("vaccination_todos").select { filter { eq("is_deleted", false) } }.decodeList<VaccinationTodoEntity>()
         consultations.forEach { remote ->
             val local = dao.getConsultationTodoById(remote.id)
             if (local == null || local.isSynced) dao.insertConsultation(remote.copy(isSynced = true))

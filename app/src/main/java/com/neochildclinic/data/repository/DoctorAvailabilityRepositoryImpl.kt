@@ -138,13 +138,13 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo") {
-        val remoteSlots = postgrest.from("doctor_weekly_slots").select().decodeList<DoctorWeeklySlotEntity>()
+        val remoteSlots = postgrest.from("doctor_weekly_slots").select { filter { eq("is_deleted", false) } }.decodeList<DoctorWeeklySlotEntity>()
         remoteSlots.forEach { remote ->
             val local = dao.getWeeklySlotById(remote.id)
             if (local == null || local.isSynced) dao.upsertWeeklySlot(remote.copy(isSynced = true))
         }
 
-        val remoteExceptions = postgrest.from("doctor_slot_exceptions").select().decodeList<DoctorSlotExceptionEntity>()
+        val remoteExceptions = postgrest.from("doctor_slot_exceptions").select { filter { eq("is_deleted", false) } }.decodeList<DoctorSlotExceptionEntity>()
         remoteExceptions.forEach { remote ->
             val local = dao.getExceptionById(remote.id)
             if (local == null || local.isSynced) dao.upsertException(remote.copy(isSynced = true))

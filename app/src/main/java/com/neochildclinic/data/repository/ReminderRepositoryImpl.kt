@@ -433,7 +433,7 @@ class ReminderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
-                val entities = postgrest.from("reminders").select().decodeList<RemoteReminder>()
+                val entities = postgrest.from("reminders").select { filter { eq("is_deleted", false) } }.decodeList<RemoteReminder>()
                 database.withTransaction {
                     for (remote in entities) {
                         // Guard against reminders whose parent visit no longer exists

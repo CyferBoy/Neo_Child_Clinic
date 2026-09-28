@@ -205,8 +205,8 @@ class BorrowRepositoryImpl @Inject constructor(
 
     override suspend fun refreshBorrows() = cloudRefresh(TAG) {
                 Log.d(TAG, "Refreshing borrow records from Supabase...")
-                val records = postgrest.from("borrow_records").select().decodeList<BorrowEntity>()
-                val returns = postgrest.from("borrow_returns").select().decodeList<BorrowReturnEntity>()
+                val records = postgrest.from("borrow_records").select { filter { eq("is_deleted", false) } }.decodeList<BorrowEntity>()
+                val returns = postgrest.from("borrow_returns").select { filter { eq("is_deleted", false) } }.decodeList<BorrowReturnEntity>()
 
                 Log.d(TAG, "Fetched ${records.size} borrow records and ${returns.size} returns.")
 

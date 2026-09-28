@@ -14,7 +14,7 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.action.actionRunCallback
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.ActionParameters
@@ -25,10 +25,11 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
+import androidx.glance.text.ColorProvider
 import com.neochildclinic.R
 import com.neochildclinic.app.MainActivity
 import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.dao.WidgetDueDao
 import com.neochildclinic.data.local.entity.WidgetDueEntity
 import kotlinx.coroutines.flow.first
 
@@ -44,7 +45,15 @@ class VaccineWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val database = AppDatabase.getDatabase(context)
-        val dueItems = database.widgetDueDao().getDueItems().first()
+        val widgetDueDao = database.widgetDueDao()
+        val dataSource = object : WidgetLocalDataSource(widgetDueDao) {
+            override val dueItemsFlow: Flow<List<WidgetDueEntity>>
+                get() = widgetDueDao.getDueItems()
+
+            override suspend fun getDueItemsFirst(): List<WidgetDueEntity> = widgetDueDao.getDueItems().first()
+        }
+
+        val dueItems = dataSource.getDueItemsFirst().first()
 
         provideContent {
             val prefs = currentState<Preferences>()
@@ -178,51 +187,16 @@ class VaccineWidget : GlanceAppWidget() {
     }
 }
 
-enum class VaccineWidgetTheme(
-    val key: String,
-    val label: String,
-    private val lightBackground: Color,
-    val primaryText: Color,
-    val secondaryText: Color,
-    val accent: Color
+/**
+ * Minimal data source abstraction for widget due vaccination data.
+ * Encapsulates WidgetDueDao access so the widget does not directly depend on Room/DAO.
+ */
+class WidgetLocalDataSource(
+    private val widgetDueDao: WidgetDueDao
 ) {
-    // darkBackground was removed here (dead - colors() below only ever reads
-    // lightBackground; SYSTEM's actual night-mode colors are separately hardcoded as
-    // literals in colors() rather than read from this enum, so no entry's dark value was
-    // ever live). If per-theme dark-mode support is wanted later, colors() needs to
-    // actually branch on isSystemInDarkTheme for every theme, not just SYSTEM.
-    SYSTEM("system", "System", Color(0xFFF7F7F7), Color.Unspecified, Color.Unspecified, Color(0xFF1976D2)),
-    LIGHT("light", "Light", Color.White, Color(0xFF1C1B1F), Color(0xFF5F6368), Color(0xFF1976D2)),
-    DARK("dark", "Dark", Color(0xFF303030), Color.White, Color(0xFFCAC4D0), Color(0xFF90CAF9)),
-    MIDNIGHT("midnight", "Midnight", Color(0xFF050608), Color.White, Color(0xFFB9C1D0), Color(0xFF64B5F6)),
-    GLASS("glass", "Glass", Color(0x99202020), Color.White, Color(0xFFE0E0E0), Color(0xFF90CAF9)),
-    CLINIC_BLUE("clinic_blue", "Clinic Blue", Color(0xFF1565C0), Color.White, Color(0xFFD6E8FF), Color(0xFF90CAF9)),
-    CLINIC_GREEN("clinic_green", "Clinic Green", Color(0xFF2E7D32), Color.White, Color(0xFFD7F2D8), Color(0xFFA5D6A7)),
-    WARM("warm", "Warm", Color(0xFFFFF3E0), Color(0xFF3E2723), Color(0xFF6D4C41), Color(0xFFEF6C00)),
-    HIGH_CONTRAST("high_contrast", "High Contrast", Color.Black, Color.White, Color.White, Color(0xFFFFFF00));
 
-    data class Palette(
-        val background: Color,
-        val primaryText: Color,
-        val secondaryText: Color,
-        val accent: Color
-    )
+    val dueItemsFlow: Flow<List<WidgetDueEntity>>
+        get() = widgetDueDao.getDueItems()
 
-    fun colors(context: Context): Palette {
-        if (this == SYSTEM) {
-            val night = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                android.content.res.Configuration.UI_MODE_NIGHT_YES
-            return if (night) {
-                Palette(Color(0xFF202124), Color.White, Color(0xFFCAC4D0), Color(0xFF90CAF9))
-            } else {
-                Palette(Color(0xFFF7F7F7), Color(0xFF1C1B1F), Color(0xFF5F6368), Color(0xFF1976D2))
-            }
-        }
-        return Palette(lightBackground, primaryText, secondaryText, accent)
-    }
-
-    companion object {
-        fun fromKey(key: String?): VaccineWidgetTheme =
-            entries.firstOrNull { it.key == key } ?: SYSTEM
-    }
+    suspend fun getDueItemsFirst(): List<WidgetDueEntity> = widgetDueDao.getDueItems().first()
 }

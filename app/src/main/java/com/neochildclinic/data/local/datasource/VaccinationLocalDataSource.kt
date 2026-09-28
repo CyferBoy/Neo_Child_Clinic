@@ -3,6 +3,8 @@ package com.neochildclinic.data.local.datasource
 import com.neochildclinic.data.local.entity.VaccinationItemEntity
 import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
 import com.neochildclinic.data.local.entity.VisitEntity
+import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.domain.model.InventoryTransactionType
 import kotlinx.coroutines.flow.Flow
 
 interface VaccinationLocalDataSource {
@@ -22,4 +24,13 @@ interface VaccinationLocalDataSource {
     suspend fun getItemById(id: String): VaccinationItemEntity?
     suspend fun updatePatientId(duplicateId: String, masterId: String)
     suspend fun isUnsyncedVaccination(id: String): Boolean
+    /**
+     * Get completed inventory deductions for a vaccination (used for inventory replenishment
+     * on vaccination deletion). Returns a list of (batchId, quantity) pairs.
+     */
+    suspend fun getCompletedForVaccination(vaccinationId: String): List<Pair<String, Int>>
+    /**
+     * Get finance transactions associated with a vaccination visit.
+     */
+    suspend fun getTransactionsByVisitId(visitId: String): List<FinanceEntity>
 }
