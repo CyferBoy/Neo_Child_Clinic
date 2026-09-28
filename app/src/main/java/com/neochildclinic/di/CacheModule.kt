@@ -33,6 +33,11 @@ object CacheModule {
 
     @Provides
     @Singleton
+    fun provideInventoryItemCache(): MemoryCache<String, com.neochildclinic.domain.model.InventoryItem> =
+        MemoryCache()
+
+    @Provides
+    @Singleton
     fun provideInventoryCache(): MemoryCache<com.neochildclinic.core.cache.QueryCacheKey, List<com.neochildclinic.domain.model.InventoryItem>> =
         MemoryCache()
 
