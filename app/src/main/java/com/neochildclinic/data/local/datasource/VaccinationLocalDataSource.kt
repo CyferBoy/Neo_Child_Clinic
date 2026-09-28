@@ -1,0 +1,25 @@
+package com.neochildclinic.data.local.datasource
+
+import com.neochildclinic.data.local.entity.VaccinationItemEntity
+import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
+import com.neochildclinic.data.local.entity.VisitEntity
+import kotlinx.coroutines.flow.Flow
+
+interface VaccinationLocalDataSource {
+    fun getAllVaccinations(): Flow<List<VisitEntity>>
+    fun getVaccinationsForPatient(patientId: String): Flow<List<VisitEntity>>
+    fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
+    suspend fun getVaccinationById(id: String): VisitEntity?
+    suspend fun getActiveVaccinationById(id: String): VisitEntity?
+    suspend fun insertVaccination(visit: VisitEntity)
+    suspend fun updateInventoryStatus(vaccinationId: String, status: String)
+    suspend fun deleteVaccination(id: String, deletedAt: String, deletedBy: String)
+    suspend fun updateReceiptNumber(id: String, receiptNumber: String)
+    suspend fun getItemsForVaccination(vaccinationId: String): Flow<List<VaccinationItemEntity>>
+    suspend fun insertItems(items: List<VaccinationItemEntity>)
+    suspend fun deleteItemsByIds(ids: List<String>, deletedAt: String, deletedBy: String)
+    suspend fun deleteItemsForVaccination(vaccinationId: String, deletedAt: String, deletedBy: String)
+    suspend fun getItemById(id: String): VaccinationItemEntity?
+    suspend fun updatePatientId(duplicateId: String, masterId: String)
+    suspend fun isUnsyncedVaccination(id: String): Boolean
+}
