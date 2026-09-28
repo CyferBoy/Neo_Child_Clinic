@@ -1,20 +1,28 @@
 package com.neochildclinic.data.repository
-import com.neochildclinic.domain.repository.InventoryRepository
 
+import android.content.Context
+import com.neochildclinic.core.cache.MemoryCache
+import com.neochildclinic.core.cache.QueryCacheKey
 import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
+import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.utils.InventoryUtils
 import com.neochildclinic.core.utils.PatientUtils.parseDate
 import com.neochildclinic.data.local.datasource.InventoryLocalDataSource
+import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.data.remote.datasource.PatientRemoteDataSource
-import com.neochildclinic.core.cache.MemoryCache
-import com.neochildclinic.core.cache.QueryCacheKey
-import com.neochildclinic.core.preferences.PreferenceManager
+import com.neochildclinic.data.settings.NotificationSettingsManager
+import com.neochildclinic.domain.model.InventoryFilter
+import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.domain.model.InventorySort
+import com.neochildclinic.domain.model.InventoryTransactionType
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.*
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -414,284 +422,4 @@ class InventoryRepositoryImpl @Inject constructor(
             throw IllegalStateException("This vaccine cannot be deleted because it has historical records.")
         } else {
             localDataSource.deleteVaccine(vaccineId, now, user)
-            syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-            auditLogger.recordLog(
-                module = "VACCINE",
-                entityType = "VACCINE",
-                entityId = vaccineId,
-                action = "SOFT_DELETED",
-                remarks = "Vaccine: ${vaccine.brandName}"
-            )
-            invalidateVaccinationCache(vaccineId)
-        }
-    }
-
-    override suspend fun deductStock(
-        vaccineId: String,
-        quantity: Int,
-        user: String,
-        transactionType: InventoryTransactionType,
-        visitId: String?,
-        patientId: String?
-    ) {
-        val transactionGroupId = UUID.randomUUID().toString()
-        val totalAvailable = localDataSource.getTotalStockForVaccine(vaccineId) ?: 0
-        if (totalAvailable < quantity) {
-            throw IllegalStateException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
-        }
-
-        var remaining = quantity
-        val batches = localDataSource.getActiveBatchesByExpiry(vaccineId)
-            .filter { !InventoryUtils.isExpired(it.expiryDate) }
-
-        for (batch in batches) {
-            if (remaining <= 0) break
-            val deduct = minOf(batch.remainingQuantity, remaining)
-            deductStockFromBatch(
-                batchId = batch.batchId,
-                quantity = deduct,
-                user = user,
-                transactionType = transactionType,
-                visitId = visitId,
-                patientId = patientId,
-                notes = null,
-                allowExpired = false,
-                givenDate = null,
-                transactionGroupId = transactionGroupId
-            )
-            remaining -= deduct
-        }
-
-        if (remaining > 0) throw IllegalStateException("Insufficient stock")
-        auditLogger.recordLog(
-            module = "INVENTORY",
-            entityType = "VACCINE",
-            entityId = vaccineId,
-            action = "STOCK_DEDUCTED",
-            patientId = patientId,
-            remarks = "Qty: $quantity",
-            transactionGroupId = transactionGroupId
-        )
-    }
-
-    override suspend fun deductStockFromBatch(
-        batchId: String,
-        quantity: Int,
-        user: String,
-        transactionType: InventoryTransactionType,
-        visitId: String?,
-        patientId: String?,
-        notes: String?,
-        allowExpired: Boolean,
-        givenDate: String?,
-        transactionGroupId: String?
-    ) {
-        val batch = localDataSource.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
-        if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired) {
-            // Validity is judged against the vaccination's given date, not today - a
-            // batch that has since expired by today is still valid for a historical
-            // record whose given date fell on or before the batch's expiry.
-            val expired = if (givenDate != null) {
-                InventoryUtils.isExpiredAsOf(batch.expiryDate, givenDate)
-            } else {
-                InventoryUtils.isExpired(batch.expiryDate)
-            }
-            if (expired) throw IllegalStateException("Cannot deduct stock from a batch that had already expired on the vaccination date.")
-        }
-        if (batch.remainingQuantity < quantity) {
-            throw IllegalStateException("Insufficient stock in Batch ${batch.batchNumber}. Available: ${batch.remainingQuantity}")
-        }
-
-        val userName = sessionManager.getCurrentUserName()
-        localDataSource.updateBatch(batch.deducted(quantity, transactionType, userName))
-
-        val transaction = buildStockTransaction(
-            vaccineId = batch.vaccineId,
-            batchId = batchId,
-            transactionType = transactionType,
-            quantity = -quantity,
-            previousQuantity = batch.remainingQuantity,
-            currentQuantity = batch.remainingQuantity - quantity,
-            user = userName,
-            notes = notes,
-            patientId = patientId,
-            visitId = visitId
-        )
-        localDataSource.insertTransaction(transaction)
-
-        enqueueBatchStockChange(batchId, transaction.transactionId, transactionGroupId)
-    }
-
-    override suspend fun addStockToBatch(
-        batchId: String,
-        quantity: Int,
-        user: String,
-        transactionType: InventoryTransactionType,
-        notes: String?
-    ) {
-        val batch = localDataSource.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
-        val userName = sessionManager.getCurrentUserName()
-        
-        val updatedBatch = if (transactionType == InventoryTransactionType.MANUAL_ADJUSTMENT) {
-            // addStockToBatch with MANUAL_ADJUSTMENT is used to restore stock when a
-            // waste record is edited/deleted, so unwind the wasted-quantity bucket too.
-            batch.copy(
-                remainingQuantity = batch.remainingQuantity + quantity,
-                wastedQuantity = (batch.wastedQuantity - quantity).coerceAtLeast(0),
-                updatedBy = userName,
-                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            )
-        } else {
-            batch.copy(
-                remainingQuantity = batch.remainingQuantity + quantity,
-                updatedBy = userName,
-                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            )
-        }
-        localDataSource.updateBatch(updatedBatch)
-
-        val transaction = buildStockTransaction(
-            vaccineId = batch.vaccineId,
-            batchId = batchId,
-            transactionType = transactionType,
-            quantity = quantity,
-            previousQuantity = batch.remainingQuantity,
-            currentQuantity = batch.remainingQuantity + quantity,
-            user = userName,
-            notes = notes
-        )
-        localDataSource.insertTransaction(transaction)
-
-        enqueueBatchStockChange(batchId, transaction.transactionId)
-    }
-
-    // Idempotency note: this always generates a brand-new transactionId and always adds
-    // `quantity` to the batch's remainingQuantity - it has no built-in guard against being
-    // applied twice for the "same" reversal. That's intentional: the guard lives one level
-    // up, in the caller's atomic local transaction (e.g. VaccinationRepositoryImpl.deleteVaccination
-    // only calls this once per completed inventory_deductions row, and deletes that row in
-    // the same transaction - so a rolled-back attempt leaves nothing reversed and nothing
-    // to retry from, and a committed attempt can never be replayed because the row driving
-    // it is gone). Callers must not call this more than once for the same physical
-    // deduction being undone.
-    override suspend fun reverseDeduction(
-        batchId: String,
-        quantity: Int,
-        user: String,
-        visitId: String?,
-        patientId: String?,
-        transactionGroupId: String?
-    ) {
-        val batch = localDataSource.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
-        val userName = sessionManager.getCurrentUserName()
-        localDataSource.updateBatch(batch.copy(
-            remainingQuantity = batch.remainingQuantity + quantity,
-            usedQuantity = (batch.usedQuantity - quantity).coerceAtLeast(0),
-            updatedBy = userName,
-            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-        ))
-
-        val transaction = buildStockTransaction(
-            vaccineId = batch.vaccineId,
-            batchId = batchId,
-            transactionType = InventoryTransactionType.REVERSAL,
-            quantity = quantity,
-            previousQuantity = batch.remainingQuantity,
-            currentQuantity = batch.remainingQuantity + quantity,
-            user = userName,
-            notes = "Stock reversal from edited vaccination${visitId?.let { " (visit: $it)" } ?: ""}",
-            patientId = patientId,
-            visitId = visitId
-        )
-        localDataSource.insertTransaction(transaction)
-        val groupId = transactionGroupId ?: UUID.randomUUID().toString()
-        enqueueBatchStockChange(batchId, transaction.transactionId, groupId)
-    }
-
-    override suspend fun returnBorrowedStock(
-        originalBatchId: String,
-        returnToBatchId: String,
-        quantity: Int,
-        user: String,
-        notes: String?,
-        transactionGroupId: String?
-    ) {
-        val targetBatch = localDataSource.getBatchById(returnToBatchId) ?: throw IllegalStateException("Batch not found")
-        val userName = sessionManager.getCurrentUserName()
-        val sameBatch = returnToBatchId == originalBatchId
-
-        val updatedBatch = if (sameBatch) {
-            targetBatch.copy(
-                remainingQuantity = targetBatch.remainingQuantity + quantity,
-                borrowedQuantity = (targetBatch.borrowedQuantity - quantity).coerceAtLeast(0),
-                updatedBy = userName,
-                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            )
-        } else {
-            targetBatch.copy(
-                remainingQuantity = targetBatch.remainingQuantity + quantity,
-                updatedBy = userName,
-                updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            )
-        }
-        localDataSource.updateBatch(updatedBatch)
-
-        val transaction = buildStockTransaction(
-            vaccineId = targetBatch.vaccineId,
-            batchId = returnToBatchId,
-            transactionType = InventoryTransactionType.BORROW_RETURN,
-            quantity = quantity,
-            previousQuantity = targetBatch.remainingQuantity,
-            currentQuantity = targetBatch.remainingQuantity + quantity,
-            user = userName,
-            notes = notes ?: if (sameBatch) {
-                "Borrow returned"
-            } else {
-                "Borrow returned to different batch (originally borrowed from batch: $originalBatchId)"
-            }
-        )
-        localDataSource.insertTransaction(transaction)
-
-        val groupId = transactionGroupId ?: UUID.randomUUID().toString()
-        enqueueBatchStockChange(returnToBatchId, transaction.transactionId, groupId)
-    }
-
-    override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
-        localDataSource.updatePatientIdInTransactions(duplicateId, masterId)
-    }
-
-    private suspend fun invalidateVaccinationCache(id: String) {
-        repositoryScope.launch {
-            inventoryCache.invalidate(id)
-        }
-    }
-
-    private suspend fun invalidateInventoryListCache() {
-        repositoryScope.launch {
-            inventoryListCache.invalidateAll(
-                listOf(
-                    QueryCacheKey(entityType = "INVENTORY"),
-                    QueryCacheKey(entityType = "INVENTORY", query = "")
-                )
-            )
-        }
-    }
-
-override suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {
-        val vaccines = remoteDataSource.fetchAllVaccines()
-        val batches = remoteDataSource.fetchAllBatches()
-
-        for (v in vaccines) {
-            if (!localDataSource.isUnsyncedVaccine(v.id)) {
-                localDataSource.insertVaccine(v)
-            }
-        }
-        for (b in batches) {
-            if (!localDataSource.isUnsyncedBatch(b.batchId)) {
-                localDataSource.insertBatch(b)
-            }
-        }
-    }
-
-    }
-
+            syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.
