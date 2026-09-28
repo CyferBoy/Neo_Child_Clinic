@@ -693,19 +693,5 @@ override suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {
         }
     }
 
-    private suspend fun invalidateVaccinationCache(id: String) {
-        inventoryCache.invalidate(id)
     }
-
-    private suspend fun invalidateInventoryListCache() {
-        repositoryScope.launch {
-            inventoryListCache.invalidateAll(
-                listOf(
-                    QueryCacheKey(entityType = "INVENTORY"),
-                    QueryCacheKey(entityType = "INVENTORY", query = "")
-                )
-            )
-        }
-    }
-}
 
