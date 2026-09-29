@@ -44,12 +44,9 @@ fun Visit.toEntity() = com.neochildclinic.data.local.entity.VisitEntity(
     source = "CLINIC",
     inventoryStatus = "PENDING",
     availabilitySlotId = null,
-    createdAt = createdAt.ifBlank { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() },
-    updatedAt = updatedAt.ifBlank { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() },
+    createdAt = createdAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() },
+    updatedAt = updatedAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() },
     isSynced = isSynced,
     createdBy = createdBy,
     updatedBy = updatedBy,
-    isDeleted = false,
-    deletedAt = null,
-    deletedBy = null
 )

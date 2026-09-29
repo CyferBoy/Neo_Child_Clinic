@@ -1,7 +1,7 @@
 package com.neochildclinic.domain.statistics
 
-import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.core.utils.startOfDay
+import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.common.startOfDay
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar

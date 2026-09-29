@@ -5,15 +5,15 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
-import com.neochildclinic.notification.ReminderScheduler
-import com.neochildclinic.data.repository.FinanceRepositoryImpl
-import com.neochildclinic.data.repository.VaccinationRepositoryImpl
-import com.neochildclinic.worker.SyncWorker
+import com.neochildclinic.core.notification.ReminderScheduler
+import com.neochildclinic.feature.finance.data.FinanceRepositoryImpl
+import com.neochildclinic.feature.vaccination.data.VaccinationRepositoryImpl
+import com.neochildclinic.core.sync.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
 import android.content.Intent
 import android.content.IntentFilter
-import com.neochildclinic.core.utils.BiometricLockManager
+import com.neochildclinic.core.security.BiometricLockManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
@@ -36,7 +36,7 @@ class NeoChildApp : Application(), Configuration.Provider {
     lateinit var vaccinationRepository: VaccinationRepositoryImpl
 
     @Inject
-    lateinit var backupAutoScheduler: com.neochildclinic.data.manager.BackupAutoScheduler
+    lateinit var backupAutoScheduler: com.neochildclinic.data.backup.BackupAutoScheduler
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()

@@ -1,6 +1,6 @@
 package com.neochildclinic.domain.statistics
 
-import com.neochildclinic.core.utils.PatientUtils
+import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import java.time.LocalDate

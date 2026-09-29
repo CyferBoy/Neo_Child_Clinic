@@ -6,11 +6,11 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.features.statistics.MonthlyFinanceDetailsScreen
-import com.neochildclinic.features.statistics.MilestonePatientsScreen
-import com.neochildclinic.features.statistics.VaccineDetailScreen
-import com.neochildclinic.features.statistics.FullReportScreen
-import com.neochildclinic.features.statistics.StatisticsScreen
+import com.neochildclinic.feature.statistics.presentation.MonthlyFinanceDetailsScreen
+import com.neochildclinic.feature.statistics.presentation.MilestonePatientsScreen
+import com.neochildclinic.feature.statistics.presentation.VaccineDetailScreen
+import com.neochildclinic.feature.statistics.presentation.FullReportScreen
+import com.neochildclinic.feature.statistics.presentation.StatisticsScreen
 
 internal fun NavGraphBuilder.statisticsGraph(
     navController: NavHostController,

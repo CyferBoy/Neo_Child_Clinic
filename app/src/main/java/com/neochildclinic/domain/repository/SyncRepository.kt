@@ -1,7 +1,7 @@
 package com.neochildclinic.domain.repository
 
-import com.neochildclinic.core.model.SyncOperation
-import com.neochildclinic.core.model.SyncPriority
+import com.neochildclinic.domain.model.SyncOperation
+import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.SyncState
 import kotlinx.coroutines.flow.StateFlow
 

@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.neochildclinic.domain.model.AuditLog
-import com.neochildclinic.features.audit.AuditLogItem
+import com.neochildclinic.feature.audit.presentation.AuditLogItem
 
 /**
  * Standardized Delete Confirmation Dialog to maintain UI consistency across the app.

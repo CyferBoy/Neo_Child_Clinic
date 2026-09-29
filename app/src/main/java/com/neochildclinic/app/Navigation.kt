@@ -17,7 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.*
-import com.neochildclinic.core.session.AuthViewModel
+import com.neochildclinic.core.security.AuthViewModel
 import com.neochildclinic.domain.model.UserRole
 
 /** Reads a required nav argument, "" when absent. */
@@ -31,7 +31,7 @@ internal fun androidx.navigation.NavBackStackEntry.nullableStringArg(key: String
 @Composable
 fun AppNavigation(
     navController: androidx.navigation.NavHostController = rememberNavController(),
-    appUpdateViewModel: com.neochildclinic.features.update.AppUpdateViewModel = hiltViewModel()
+    appUpdateViewModel: com.neochildclinic.feature.update.presentation.AppUpdateViewModel = hiltViewModel()
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authProfile by authViewModel.profile.collectAsState()

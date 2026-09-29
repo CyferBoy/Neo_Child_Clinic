@@ -3,8 +3,8 @@ package com.neochildclinic.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.domain.model.BackupHistory
 import kotlinx.serialization.Serializable
+import com.neochildclinic.domain.model.BackupHistory
 
 /**
  * Local record of one backup/restore operation (Settings -> Backup & Restore -> History).
@@ -37,6 +37,14 @@ data class BackupHistoryEntity(
     val triggeredBy: String = "MANUAL" // MANUAL | AUTOMATIC
 )
 
+enum class BackupHistoryType {
+    LOCAL_EXPORT, LOCAL_IMPORT, CLOUD_BACKUP, CLOUD_RESTORE, SAFETY_BACKUP
+}
+
+enum class BackupLocation { LOCAL, CLOUD }
+
+enum class BackupHistoryStatus { SUCCESS, FAILED, IN_PROGRESS }
+
 fun BackupHistoryEntity.toDomain() = BackupHistory(
     id = id,
     type = type,
@@ -45,11 +53,3 @@ fun BackupHistoryEntity.toDomain() = BackupHistory(
     sizeBytes = sizeBytes,
     status = status
 )
-
-enum class BackupHistoryType {
-    LOCAL_EXPORT, LOCAL_IMPORT, CLOUD_BACKUP, CLOUD_RESTORE, SAFETY_BACKUP
-}
-
-enum class BackupLocation { LOCAL, CLOUD }
-
-enum class BackupHistoryStatus { SUCCESS, FAILED, IN_PROGRESS }

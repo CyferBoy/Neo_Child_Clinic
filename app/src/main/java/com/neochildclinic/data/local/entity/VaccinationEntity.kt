@@ -65,10 +65,7 @@ data class VisitEntity(
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("is_synced") val isSynced: Boolean = true,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 // Map legacy VaccinationEntity name to VisitEntity for easier refactoring
@@ -102,7 +99,7 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = run {
     // updatedAt is blank for a brand-new vaccination (nothing sets it before this point),
     // and createdAt/updatedAt were previously left as null in that case - which Supabase's
     // patient_visits.created_at (NOT NULL) rejects outright, failing every new record's sync.
-    val timestamp = updatedAt.ifBlank { com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() }
+    val timestamp = updatedAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
     VisitEntity(
     id = id,
     patientId = patientId,
@@ -135,3 +132,16 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = run {
     nextDueDate = ""
     )
 }
+
+fun VaccinationItem.toEntity() = VaccinationItemEntity(
+    id = if (id.isBlank()) java.util.UUID.randomUUID().toString() else id,
+    vaccinationId = vaccinationId,
+    vaccineId = vaccineId,
+    vaccineName = vaccineName,
+    batchId = batchId,
+    batchNumber = batchNumber,
+    quantity = quantity,
+    mrp = mrp,
+    netRate = netRate,
+    expiryDate = expiryDate
+)

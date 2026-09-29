@@ -3,10 +3,10 @@ package com.neochildclinic.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.core.model.SyncItem
-import com.neochildclinic.core.model.SyncOperation
-import com.neochildclinic.core.model.SyncPriority
-import com.neochildclinic.core.model.SyncStatus
+import com.neochildclinic.domain.model.SyncItem
+import com.neochildclinic.domain.model.SyncOperation
+import com.neochildclinic.domain.model.SyncPriority
+import com.neochildclinic.domain.model.SyncStatus
 
 @Entity(
     tableName = "sync_queue",
@@ -22,8 +22,8 @@ data class SyncQueueEntity(
     val transactionGroupId: String? = null,
     val retryCount: Int = 0,
     val lastError: String? = null,
-    val createdAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-    val updatedAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+    val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
 )
 
 fun SyncQueueEntity.toDomain() = SyncItem(
@@ -36,6 +36,20 @@ fun SyncQueueEntity.toDomain() = SyncItem(
     transactionGroupId = transactionGroupId,
     retryCount = retryCount,
     lastError = lastError,
-    createdAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(createdAt),
-    updatedAt = com.neochildclinic.core.utils.PatientUtils.isoToLong(updatedAt)
+    createdAt = com.neochildclinic.core.common.PatientUtils.isoToLong(createdAt),
+    updatedAt = com.neochildclinic.core.common.PatientUtils.isoToLong(updatedAt)
+)
+
+fun SyncItem.toEntity() = SyncQueueEntity(
+    queueId = id,
+    entityName = entityName,
+    entityId = entityId,
+    operation = operation.name,
+    priority = priority.name,
+    status = status.name,
+    transactionGroupId = transactionGroupId,
+    retryCount = retryCount,
+    lastError = lastError,
+    createdAt = com.neochildclinic.core.common.PatientUtils.formatDate(java.util.Date(createdAt)), 
+    updatedAt = com.neochildclinic.core.common.PatientUtils.formatDate(java.util.Date(updatedAt))
 )

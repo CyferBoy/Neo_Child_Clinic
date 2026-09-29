@@ -50,7 +50,7 @@
         </activity>
 
         <activity
-            android:name=".features.widget.VaccineWidgetConfigurationActivity"
+            android:name=".feature.widget.presentation.VaccineWidgetConfigurationActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
@@ -58,7 +58,7 @@
         </activity>
 
         <receiver
-            android:name=".features.widget.VaccineWidgetReceiver"
+            android:name=".feature.widget.presentation.VaccineWidgetReceiver"
             android:exported="true"
             android:label="Vaccine Schedule">
             <intent-filter>
@@ -70,7 +70,7 @@
         </receiver>
 
         <receiver
-            android:name=".features.update.AppUpdateInstallReceiver"
+            android:name=".feature.update.data.AppUpdateInstallReceiver"
             android:exported="false" />
 
         <!-- Without this, Android never routes FCM messages/token-refresh events
@@ -78,7 +78,7 @@
              (notify-update) never arrive, and a rotated FCM token never gets
              re-registered until the user happens to log out and back in. -->
         <service
-            android:name=".notification.NeoChildFirebaseMessagingService"
+            android:name=".core.notification.NeoChildFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

@@ -13,9 +13,9 @@ import com.neochildclinic.domain.model.InventoryStatus
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.local.entity.InventoryDeductionEntity
 import com.neochildclinic.domain.statistics.FinanceCalculator
-import com.neochildclinic.core.model.SyncOperation
-import com.neochildclinic.core.model.SyncPriority
-import com.neochildclinic.core.utils.PatientUtils
+import com.neochildclinic.domain.model.SyncOperation
+import com.neochildclinic.domain.model.SyncPriority
+import com.neochildclinic.core.common.PatientUtils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.UUID
@@ -143,8 +143,8 @@ class ClinicalVaccinationService @Inject constructor(
         syncRepository.enqueue(
             entityName = "VACCINATION",
             entityId = vaccination.id,
-            operation = com.neochildclinic.core.model.SyncOperation.UPDATE,
-            priority = com.neochildclinic.core.model.SyncPriority.LOW
+            operation = com.neochildclinic.domain.model.SyncOperation.UPDATE,
+            priority = com.neochildclinic.domain.model.SyncPriority.LOW
         )
     }
 
@@ -160,7 +160,7 @@ class ClinicalVaccinationService @Inject constructor(
             // createdAt must be set here (not left null): patient_visits.created_at is
             // NOT NULL, and an explicit null in the upsert payload overrides the column's
             // DB-side default, so Supabase rejects the CREATE with a not-null violation.
-            val consultationTimestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            val consultationTimestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             val visit = Visit(
                 id = visitId,
                 patientId = consultation.patientId,

@@ -4,10 +4,10 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.domain.model.ConsultationTodo
-import com.neochildclinic.domain.model.VaccinationTodo
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.neochildclinic.domain.model.ConsultationTodo
+import com.neochildclinic.domain.model.VaccinationTodo
 
 @Serializable
 @Entity(
@@ -36,10 +36,35 @@ data class ConsultationTodoEntity(
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+)
+
+@Serializable
+@Entity(
+    tableName = "vaccination_todos",
+    indices = [
+        Index("todo_date"),
+        Index("status"),
+        Index("patient_id")
+    ]
+)
+data class VaccinationTodoEntity(
+    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String? = null,
+    val name: String,
+    val mobile: String,
+    @SerialName("vaccine_names") @ColumnInfo(name = "vaccine_names") val vaccineNames: String,
+    val address: String,
+    @SerialName("todo_date") @ColumnInfo(name = "todo_date") val todoDate: String,
+    val status: String = "PENDING",
+    @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
+    @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
+    @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,
+    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
+    @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
+    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun ConsultationTodoEntity.toDomain() = ConsultationTodo(
@@ -85,9 +110,6 @@ fun ConsultationTodo.toEntity() = ConsultationTodoEntity(
     isSynced = false,
     createdBy = null,
     updatedBy = null,
-    isDeleted = false,
-    deletedAt = null,
-    deletedBy = null
 )
 
 fun VaccinationTodo.toEntity() = VaccinationTodoEntity(
@@ -107,38 +129,4 @@ fun VaccinationTodo.toEntity() = VaccinationTodoEntity(
     isSynced = false,
     createdBy = null,
     updatedBy = null,
-    isDeleted = false,
-    deletedAt = null,
-    deletedBy = null
-)
-
-@Serializable
-@Entity(
-    tableName = "vaccination_todos",
-    indices = [
-        Index("todo_date"),
-        Index("status"),
-        Index("patient_id")
-    ]
-)
-data class VaccinationTodoEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
-    @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String? = null,
-    val name: String,
-    val mobile: String,
-    @SerialName("vaccine_names") @ColumnInfo(name = "vaccine_names") val vaccineNames: String,
-    val address: String,
-    @SerialName("todo_date") @ColumnInfo(name = "todo_date") val todoDate: String,
-    val status: String = "PENDING",
-    @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
-    @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
-    @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,
-    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
-    @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
-    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
-    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
 )

@@ -1,7 +1,7 @@
 package com.neochildclinic.data.backup
 
 import androidx.room.withTransaction
-import com.neochildclinic.core.utils.PatientUtils
+import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.data.local.dao.BackupDao
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.*
@@ -287,8 +287,8 @@ class BackupRestorer(
                 entries += SyncQueueEntity(
                     entityName = entityName,
                     entityId = id,
-                    operation = com.neochildclinic.core.model.SyncOperation.UPDATE.name,
-                    priority = com.neochildclinic.core.model.SyncPriority.MEDIUM.name,
+                    operation = com.neochildclinic.domain.model.SyncOperation.UPDATE.name,
+                    priority = com.neochildclinic.domain.model.SyncPriority.MEDIUM.name,
                     createdAt = now,
                     updatedAt = now
                 )

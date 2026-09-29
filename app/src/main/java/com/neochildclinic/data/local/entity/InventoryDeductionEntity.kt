@@ -4,8 +4,8 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.domain.model.InventoryDeduction
 import kotlinx.serialization.Serializable
+import com.neochildclinic.domain.model.InventoryDeduction
 
 // @Serializable added for Backup & Restore (see data/backup/BackupModels.kt) so this
 // table can be exported/imported the same way every other entity already is. Purely

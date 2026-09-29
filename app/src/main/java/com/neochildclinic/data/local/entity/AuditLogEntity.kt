@@ -3,9 +3,9 @@ package com.neochildclinic.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.domain.model.AuditLog
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.neochildclinic.domain.model.AuditLog
 
 /**
  * Unified Audit Log for all clinic activities.
@@ -26,7 +26,7 @@ import kotlinx.serialization.Serializable
 )
 data class AuditLogEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
-    val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    val timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     val user: String,
     val module: String, // PATIENT, VACCINE, FINANCE, INVENTORY, STAFF, USERS, SYNC
     @SerialName("entity_type") val entityType: String, // PATIENT, VISIT, REMINDER, BATCH, PAYMENT, etc.

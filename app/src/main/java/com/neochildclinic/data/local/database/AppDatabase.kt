@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
-import com.neochildclinic.core.utils.SecurityUtils
+import com.neochildclinic.core.security.SecurityUtils
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
@@ -39,7 +39,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 31,
+    version = 30,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -76,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 31
+        const val DB_VERSION = 30
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -353,62 +353,6 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
-                // 23→24: no-op. Commit 0e67fb9 bumped 22→24 in one step; its only schema
-                // change (expenses table) is already created by migration22_23, so devices
-                // at 23 have nothing left to apply before 24_25.
-                val migration23_24 = object : androidx.room.migration.Migration(23, 24) {
-                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
-                }
-
-                // start_minute/end_minute were retroactively added to migration27_28 (b37fa48)
-                // and version later jumped to 30 (dae2354) with no 28→29 / 29→30 migrations.
-                // Devices at 28/29 therefore crash (or, with destructive fallback, wipe).
-                // This shared guard is called from BOTH migrations so every historical path
-                // (old 27_28 without cols, new 27_28 with cols, at 28 or at 29) ends with
-                // exactly the two columns, added at most once.
-                fun addSlotMinuteColumnsIfMissing(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    val cols = mutableSetOf<String>()
-                    db.query("PRAGMA table_info(doctor_slot_exceptions)").use { c ->
-                        val nameIdx = c.getColumnIndex("name")
-                        while (c.moveToNext()) c.getString(nameIdx)?.let { cols.add(it) }
-                    }
-                    if ("start_minute" !in cols) {
-                        db.execSQL("ALTER TABLE doctor_slot_exceptions ADD COLUMN start_minute INTEGER DEFAULT NULL")
-                    }
-                    if ("end_minute" !in cols) {
-                        db.execSQL("ALTER TABLE doctor_slot_exceptions ADD COLUMN end_minute INTEGER DEFAULT NULL")
-                    }
-                }
-
-                val migration28_29 = object : androidx.room.migration.Migration(28, 29) {
-                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        addSlotMinuteColumnsIfMissing(db)
-                    }
-                }
-
-                val migration29_30 = object : androidx.room.migration.Migration(29, 30) {
-                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        addSlotMinuteColumnsIfMissing(db)
-                    }
-                }
-
-                val migration30_31 = object : androidx.room.migration.Migration(30, 31) {
-                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        val tables = listOf(
-                            "patients", "patient_visits", "vaccination_items", "consultations",
-                            "reminders", "personal_vaccine_reminders", "finance_transactions",
-                            "expenses", "borrow_records", "borrow_returns", "waste_records",
-                            "consultation_todos", "vaccination_todos", "vaccines", "vaccine_batches",
-                            "doctor_weekly_slots", "doctor_slot_exceptions", "patient_notes", "profiles"
-                        )
-                        tables.forEach { table ->
-                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `is_deleted` INTEGER NOT NULL DEFAULT 0")
-                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `deleted_at` TEXT")
-                            db.execSQL("ALTER TABLE `$table` ADD COLUMN `deleted_by` TEXT")
-                        }
-                    }
-                }
-
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -416,12 +360,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(
-                    migration17_18, migration18_19, migration19_20, migration20_21,
-                    migration21_22, migration22_23, migration23_24, migration24_25,
-                    migration25_26, migration26_27, migration27_28, migration28_29,
-                    migration29_30, migration30_31
-                )
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28)
                 // No destructive fallback: a future missing migration must crash loudly,
                 // never silently wipe a clinic's local patient data.
                 .build()

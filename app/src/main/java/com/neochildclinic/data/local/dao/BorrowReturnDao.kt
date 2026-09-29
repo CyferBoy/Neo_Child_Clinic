@@ -13,15 +13,20 @@ interface BorrowReturnDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: BorrowReturnEntity)
 
-    @Query("SELECT * FROM borrow_returns WHERE borrow_record_id = :borrowRecordId AND is_deleted = 0 ORDER BY returned_date DESC, created_at DESC")
+    @Query("SELECT * FROM borrow_returns WHERE borrow_record_id = :borrowRecordId ORDER BY returned_date DESC, created_at DESC")
     fun getReturnsForRecord(borrowRecordId: String): Flow<List<BorrowReturnEntity>>
 
-    @Query("SELECT * FROM borrow_returns WHERE is_deleted = 0")
+    @Query("SELECT * FROM borrow_returns")
     fun getAllReturns(): Flow<List<BorrowReturnEntity>>
 
-    @Query("SELECT * FROM borrow_returns WHERE id = :id AND is_deleted = 0 LIMIT 1")
+    // --- Pagination (large-data scalability pass) --- additive, existing Flow method
+    // above is untouched.
+    @Query("SELECT * FROM borrow_returns ORDER BY returned_date DESC, created_at DESC LIMIT :limit OFFSET :offset")
+    suspend fun getAllReturnsPage(limit: Int, offset: Int): List<BorrowReturnEntity>
+
+    @Query("SELECT * FROM borrow_returns WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): BorrowReturnEntity?
 
-    @Query("UPDATE borrow_returns SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, is_synced = 0, updated_by = :deletedBy WHERE id = :id AND is_deleted = 0")
-    suspend fun deleteById(id: String, deletedAt: String, deletedBy: String?)
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM borrow_returns WHERE borrow_record_id = :borrowRecordId")
+    suspend fun getTotalReturnedQuantity(borrowRecordId: String): Int
 }

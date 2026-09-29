@@ -5,9 +5,9 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.domain.model.PersonalReminder
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.neochildclinic.domain.model.PersonalReminder
 
 /**
  * A personal follow-up reminder about a vaccine requirement for a patient.
@@ -87,10 +87,7 @@ data class PersonalReminderEntity(
 
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun PersonalReminderEntity.toDomain() = PersonalReminder(

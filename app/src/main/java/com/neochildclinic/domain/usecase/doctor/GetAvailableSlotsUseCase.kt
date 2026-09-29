@@ -74,7 +74,7 @@ class GetAvailableSlotsUseCase @Inject constructor(
         val formatters = listOf(
             java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH),
             java.time.format.DateTimeFormatter.ofPattern(
-                com.neochildclinic.core.constants.Constants.DATE_FORMAT,
+                com.neochildclinic.core.common.Constants.DATE_FORMAT,
                 java.util.Locale.ENGLISH
             )
         )

@@ -6,8 +6,8 @@ import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.core.model.SyncOperation
-import com.neochildclinic.core.model.SyncPriority
+import com.neochildclinic.domain.model.SyncOperation
+import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject

@@ -5,8 +5,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.neochildclinic.features.reminder.DueScreen
-import com.neochildclinic.features.reminder.CompletedDismissedScreen
+import com.neochildclinic.feature.reminder.presentation.DueScreen
+import com.neochildclinic.feature.reminder.presentation.CompletedDismissedScreen
 
 internal fun NavGraphBuilder.reminderGraph(
     navController: NavHostController,
@@ -39,7 +39,7 @@ internal fun NavGraphBuilder.reminderGraph(
     }
 
     composable(Routes.PERSONAL_REMINDERS) {
-        com.neochildclinic.features.personalreminder.PersonalReminderScreen(
+        com.neochildclinic.feature.personalreminder.presentation.PersonalReminderScreen(
             onBack = goBack,
             onAddReminder = { navController.navigate("add_personal_reminder") },
             onEditReminder = { reminderId ->
@@ -56,7 +56,7 @@ internal fun NavGraphBuilder.reminderGraph(
         arguments = listOf(navArgument("patientId") { type = NavType.StringType; nullable = true })
     ) { backStackEntry ->
         val patientId = backStackEntry.nullableStringArg("patientId")
-        com.neochildclinic.features.personalreminder.AddEditPersonalReminderScreen(
+        com.neochildclinic.feature.personalreminder.presentation.AddEditPersonalReminderScreen(
             reminderId = null,
             prefillPatientId = patientId,
             onBack = goBack,
@@ -69,7 +69,7 @@ internal fun NavGraphBuilder.reminderGraph(
         arguments = listOf(navArgument("reminderId") { type = NavType.StringType })
     ) { backStackEntry ->
         val reminderId = backStackEntry.stringArg("reminderId")
-        com.neochildclinic.features.personalreminder.AddEditPersonalReminderScreen(
+        com.neochildclinic.feature.personalreminder.presentation.AddEditPersonalReminderScreen(
             reminderId = reminderId,
             prefillPatientId = null,
             onBack = goBack,

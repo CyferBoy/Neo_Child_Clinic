@@ -1,0 +1,24 @@
+package com.neochildclinic.feature.widget.data
+
+import android.content.Context
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
+
+object WidgetUtils {
+    /**
+     * Refreshes the widget data cache in the background.
+     * WidgetWorker updates the actual Glance widget after the cache is written.
+     */
+    fun updateWidget(context: Context) {
+        val workRequest = OneTimeWorkRequestBuilder<WidgetWorker>()
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "vaccine_widget_refresh",
+            androidx.work.ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
+    }
+}

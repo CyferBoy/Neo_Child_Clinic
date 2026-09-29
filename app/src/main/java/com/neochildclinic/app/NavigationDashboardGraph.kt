@@ -7,26 +7,26 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.neochildclinic.core.session.AuthViewModel
+import com.neochildclinic.core.security.AuthViewModel
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.features.dashboard.AddStaffScreen
-import com.neochildclinic.features.dashboard.EditStaffScreen
-import com.neochildclinic.features.dashboard.LoginScreen
-import com.neochildclinic.features.dashboard.ManageStaffScreen
-import com.neochildclinic.features.dashboard.StaffDetailsScreen
-import com.neochildclinic.features.dashboard.DashboardScreen
-import com.neochildclinic.features.sync.SyncScreen
-import com.neochildclinic.features.audit.FullAuditLogScreen
-import com.neochildclinic.features.settings.SettingsScreen
-import com.neochildclinic.features.update.AppUpdateScreen
-import com.neochildclinic.features.settings.TermsOfServiceScreen
-import com.neochildclinic.features.settings.PrivacyPolicyScreen
-import com.neochildclinic.features.settings.HelpSupportScreen
-import com.neochildclinic.features.settings.SecuritySettingsScreen
-import com.neochildclinic.features.settings.BackupSettingsScreen
-import com.neochildclinic.features.settings.InventorySettingsScreen
-import com.neochildclinic.features.settings.NotificationSettingsScreen
-import com.neochildclinic.features.profile.ProfileScreen
+import com.neochildclinic.feature.staff.presentation.AddStaffScreen
+import com.neochildclinic.feature.staff.presentation.EditStaffScreen
+import com.neochildclinic.feature.auth.presentation.LoginScreen
+import com.neochildclinic.feature.staff.presentation.ManageStaffScreen
+import com.neochildclinic.feature.staff.presentation.StaffDetailsScreen
+import com.neochildclinic.feature.dashboard.presentation.DashboardScreen
+import com.neochildclinic.feature.sync.presentation.SyncScreen
+import com.neochildclinic.feature.audit.presentation.FullAuditLogScreen
+import com.neochildclinic.feature.settings.presentation.SettingsScreen
+import com.neochildclinic.feature.update.presentation.AppUpdateScreen
+import com.neochildclinic.feature.settings.presentation.TermsOfServiceScreen
+import com.neochildclinic.feature.settings.presentation.PrivacyPolicyScreen
+import com.neochildclinic.feature.settings.presentation.HelpSupportScreen
+import com.neochildclinic.feature.settings.presentation.SecuritySettingsScreen
+import com.neochildclinic.feature.settings.presentation.BackupSettingsScreen
+import com.neochildclinic.feature.settings.presentation.InventorySettingsScreen
+import com.neochildclinic.feature.settings.presentation.NotificationSettingsScreen
+import com.neochildclinic.feature.profile.presentation.ProfileScreen
 
 @Composable
 internal fun AdminGuard(userRole: UserRole?, onBack: () -> Unit, content: @Composable () -> Unit) {
@@ -38,7 +38,7 @@ internal fun NavGraphBuilder.dashboardNavGraph(
     authViewModel: AuthViewModel,
     userRole: UserRole?,
     goBack: () -> Unit,
-    appUpdateViewModel: com.neochildclinic.features.update.AppUpdateViewModel
+    appUpdateViewModel: com.neochildclinic.feature.update.presentation.AppUpdateViewModel
 ) {
     composable(Routes.LOGIN) {
         LoginScreen(
@@ -80,7 +80,7 @@ internal fun NavGraphBuilder.dashboardNavGraph(
     }
 
     composable(Routes.SETTINGS) {
-        val settingsViewModel: com.neochildclinic.features.settings.SettingsViewModel = hiltViewModel()
+        val settingsViewModel: com.neochildclinic.feature.settings.presentation.SettingsViewModel = hiltViewModel()
         SettingsScreen(
             viewModel = settingsViewModel,
             onBack = goBack,
@@ -196,7 +196,7 @@ internal fun NavGraphBuilder.dashboardNavGraph(
     }
 
     composable(Routes.EXPENSES) {
-        com.neochildclinic.features.expenses.ExpenseListScreen(
+        com.neochildclinic.feature.finance.presentation.ExpenseListScreen(
             onBack = goBack,
             onAddExpense = { navController.navigate(Routes.ADD_EXPENSE) },
             onEditExpense = { expenseId -> navController.navigate("edit_expense/$expenseId") }
@@ -204,13 +204,13 @@ internal fun NavGraphBuilder.dashboardNavGraph(
     }
 
     composable(Routes.DOCTOR_TIMINGS) {
-        com.neochildclinic.features.doctorslots.WeeklyDoctorSlotsScreen(
+        com.neochildclinic.feature.doctor.presentation.WeeklyDoctorSlotsScreen(
             onBack = goBack
         )
     }
 
     composable(Routes.ADD_EXPENSE) {
-        com.neochildclinic.features.expenses.AddExpenseScreen(
+        com.neochildclinic.feature.finance.presentation.AddExpenseScreen(
             expenseId = null,
             onBack = goBack
         )
@@ -221,7 +221,7 @@ internal fun NavGraphBuilder.dashboardNavGraph(
         arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
     ) { backStackEntry ->
         val expenseId = backStackEntry.nullableStringArg("expenseId")
-        com.neochildclinic.features.expenses.AddExpenseScreen(
+        com.neochildclinic.feature.finance.presentation.AddExpenseScreen(
             expenseId = expenseId,
             onBack = goBack
         )

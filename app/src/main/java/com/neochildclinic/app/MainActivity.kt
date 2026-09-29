@@ -20,18 +20,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.neochildclinic.core.utils.BiometricLockManager
-import com.neochildclinic.core.utils.BiometricAuthenticator
+import com.neochildclinic.core.security.BiometricLockManager
+import com.neochildclinic.core.security.BiometricAuthenticator
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.ui.LockScreen
-import com.neochildclinic.features.update.AppUpdateDialog
-import com.neochildclinic.features.update.AppUpdateViewModel
-import com.neochildclinic.data.manager.SyncManagerImpl
-import com.neochildclinic.data.repository.DeviceRepositoryImpl
-import com.neochildclinic.core.session.AuthViewModel
-import com.neochildclinic.data.settings.NotificationSettingsManager
-import com.neochildclinic.notification.NotificationHelper
+import com.neochildclinic.feature.update.presentation.AppUpdateDialog
+import com.neochildclinic.feature.update.presentation.AppUpdateViewModel
+import com.neochildclinic.core.sync.SyncManagerImpl
+import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
+import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.core.preferences.NotificationSettingsManager
+import com.neochildclinic.core.notification.NotificationHelper
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.postgrest.Postgrest
@@ -120,7 +120,7 @@ class MainActivity : FragmentActivity() {
                     // lastStartupPopupInfo keeps the banner's content available while it
                     // plays its slide/fade-out exit animation, since startupPopup itself
                     // is already null by the time that animation starts.
-                    var lastStartupPopupInfo by remember { mutableStateOf<com.neochildclinic.features.update.AppUpdateInfo?>(null) }
+                    var lastStartupPopupInfo by remember { mutableStateOf<com.neochildclinic.feature.update.data.AppUpdateInfo?>(null) }
                     startupPopup?.let { lastStartupPopupInfo = it }
                     androidx.compose.animation.AnimatedVisibility(
                         visible = startupPopup != null,
@@ -129,7 +129,7 @@ class MainActivity : FragmentActivity() {
                         modifier = Modifier.align(Alignment.TopCenter),
                     ) {
                         lastStartupPopupInfo?.let { info ->
-                            com.neochildclinic.features.update.StartupUpdateBanner(
+                            com.neochildclinic.feature.update.presentation.StartupUpdateBanner(
                                 info = info,
                                 onTap = { appUpdateViewModel.openUpdateFromStartupPopup() },
                                 onDismiss = { appUpdateViewModel.dismissStartupPopup() }

@@ -1,0 +1,497 @@
+package com.neochildclinic.feature.reminder.data
+import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.domain.repository.ReminderRepository
+
+import android.content.Context
+import com.neochildclinic.data.local.dao.*
+import com.neochildclinic.data.local.entity.*
+import com.neochildclinic.domain.model.*
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.core.notification.ReminderScheduler
+import com.neochildclinic.domain.model.SyncOperation
+import com.neochildclinic.domain.model.SyncPriority
+import com.neochildclinic.core.logger.AuditLogger
+import io.github.jan.supabase.postgrest.Postgrest
+import com.neochildclinic.feature.widget.data.WidgetUtils
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.*
+import javax.inject.Inject
+import javax.inject.Singleton
+import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.sync.cloudRefresh
+
+/**
+ * Production-ready implementation of [ReminderRepositoryImpl].
+ * Manages the lifecycle of vaccination reminders, audits, and synchronization.
+ */
+@Singleton
+class ReminderRepositoryImpl @Inject constructor(
+    private val transactionRunner: TransactionRunner,
+    private val postgrest: Postgrest,
+    private val dueReminderDao: DueReminderDao,
+    private val vaccinationDao: VaccinationDao,
+    private val vaccineDao: VaccineDao,
+    private val patientDao: PatientDao,
+    private val auditLogDao: AuditLogDao,
+    private val syncQueueDao: SyncQueueDao,
+    private val syncRepository: SyncRepository,
+    private val reminderScheduler: ReminderScheduler,
+    private val auditLogger: AuditLogger,
+    private val sessionManager: com.neochildclinic.core.security.SessionManager,
+    @ApplicationContext private val context: Context
+) : ReminderRepository {
+
+    private val json = Json { 
+        ignoreUnknownKeys = true 
+        coerceInputValues = true
+    }
+
+    private suspend fun logReminderUndoableChange(
+        reminder: ReminderEntity?,
+        action: String,
+        remarks: String? = null,
+        newValue: String? = null,
+        explicitEntityId: String? = null,
+        transactionGroupId: String? = null
+    ) {
+        val oldValueJson = reminder?.let { json.encodeToString(it) }
+        val entityId = explicitEntityId ?: if (reminder != null) {
+            "${reminder.patientId}||${reminder.originalVisitId}||${reminder.vaccineName}||${reminder.type}"
+        } else "UNKNOWN"
+        
+        auditLogger.recordLog(
+            module = "PATIENT",
+            entityType = "REMINDER",
+            entityId = entityId,
+            patientId = reminder?.patientId,
+            action = action,
+            oldValue = oldValueJson,
+            newValue = newValue,
+            remarks = remarks,
+            transactionGroupId = transactionGroupId
+        )
+    }
+
+    /**
+     * Authoritative logic to combine raw entities into a processed list of vaccinations.
+     * The `reminders` table is the sole source of truth for Next Vaccinations.
+     */
+    private fun getProcessedDueFlow(): Flow<Pair<List<Vaccination>, List<PatientEntity>>> {
+        return combine(
+            vaccinationDao.getAllVaccinations(),
+            dueReminderDao.getAllReminders(),
+            patientDao.getAllPatients()
+        ) { vaccEntities, reminderEntities, patientEntities ->
+            ReminderDueListProcessor.process(vaccEntities, reminderEntities) to patientEntities
+        }
+    }
+
+    override fun getDueList(
+        searchQuery: String,
+        filterStatus: List<ReminderStatus>?
+    ): Flow<List<Vaccination>> = getProcessedDueFlow().map { (processed, patientEntities) ->
+        val patientMap = patientEntities.associateBy { it.id }
+        
+        val stateFiltered = if (filterStatus == null || filterStatus.isEmpty()) {
+            processed.filter { it.status == ReminderStatus.ACTIVE }
+        } else {
+            processed.filter { filterStatus.contains(it.status) }
+        }
+
+        stateFiltered.filter { vacc ->
+            val patient = patientMap[vacc.patientId]
+            val matchesSearch = if (searchQuery.isBlank()) true else {
+                patient?.name?.contains(searchQuery, ignoreCase = true) == true ||
+                patient?.phone?.contains(searchQuery) == true ||
+                vacc.nxtVaccineNames.any { it.contains(searchQuery, ignoreCase = true) }
+            }
+            matchesSearch
+        }
+    }
+
+    override fun getDashboardStats(): Flow<ReminderStats> = combine(
+        vaccinationDao.getAllVaccinations(),
+        dueReminderDao.getAllReminders(),
+        patientDao.getAllPatients()
+    ) { vaccs, reminders, _ ->
+        ReminderDueListProcessor.stats(ReminderDueListProcessor.process(vaccs, reminders), reminders)
+    }
+
+    private suspend fun enqueueReminderSync(
+        entityName: String,
+        reminderId: String,
+        operation: SyncOperation,
+        priority: SyncPriority,
+        transactionGroupId: String? = null
+    ) {
+        syncRepository.enqueue(entityName, reminderId, operation, priority, transactionGroupId)
+    }
+
+    override suspend fun saveNextVaccination(
+        patientId: String,
+        originalVisitId: String,
+        type: String,
+        vaccineNames: List<String>,
+        nxtVaccineId: List<String>,
+        dueDate: String,
+        notes: String,
+        priority: String,
+        reminderEnabled: Boolean,
+        performedBy: String
+    ) {
+        // A Next Vaccination may be type-only, or may contain one/many vaccines.
+        // Each selected vaccine is persisted as its own reminder row.
+        if (type.isBlank() || dueDate.isBlank()) return
+
+        withContext(Dispatchers.IO) {
+            transactionRunner.run {
+                val now = PatientUtils.getCurrentIsoTimestamp()
+                val userName = sessionManager.getCurrentUserName()
+
+                // Pair each selected vaccine name with its corresponding vaccines.id.
+                // The UI is populated from the vaccines table; we additionally verify the
+                // ID here so reminders never persist a fabricated/unrelated vaccine ID.
+                val vaccinePairs = vaccineNames.mapIndexedNotNull { index, rawName ->
+                    val vaccineId = nxtVaccineId.getOrNull(index)?.trim().orEmpty()
+                    if (rawName.isBlank() || vaccineId.isBlank()) return@mapIndexedNotNull null
+
+                    val catalogVaccine = vaccineDao.getVaccineById(vaccineId) ?: return@mapIndexedNotNull null
+                    val catalogName = catalogVaccine.brandName.trim()
+                    if (catalogName.isBlank()) return@mapIndexedNotNull null
+
+                    catalogName to vaccineId
+                }.distinctBy { it.second }
+
+                // If no vaccine is selected, still persist the type-only reminder.
+                // If vaccine names were supplied but none could be verified, do not create
+                // an invalid vaccine reminder; preserve the valid type-only use case.
+                val rows = if (vaccinePairs.isEmpty()) {
+                    listOf(null)
+                } else {
+                    vaccinePairs
+                }
+
+                rows.forEach { pair ->
+                    val vaccineName = pair?.first.orEmpty()
+                    val vaccineId = pair?.second
+
+                    // Unique-event reuse: the edit path hard-deletes its paired old row
+                    // before calling this, so a hit here can only mean this event already
+                    // has another row (e.g. two UI rows collapsed onto one event) - update
+                    // it instead of violating the unique index or orphaning a kept row.
+                    val existing = dueReminderDao.getReminderByUniqueEvent(
+                        patientId,
+                        originalVisitId,
+                        dueDate,
+                        vaccineName,
+                        type
+                    )
+                    val reused = existing
+
+                    val reminder = if (reused != null) {
+                        reused.copy(
+                            patientId = patientId,
+                            originalVisitId = originalVisitId,
+                            vaccineName = vaccineName,
+                            dueDate = dueDate,
+                            status = "ACTIVE",
+                            priority = priority,
+                            reminderEnabled = reminderEnabled,
+                            category = "VACCINATION",
+                            type = type,
+                            nxtVaccineId = vaccineId?.let { listOf(it) },
+                            notes = notes,
+                            updatedAt = now,
+                            isSynced = false,
+                            createdBy = reused.createdBy ?: userName,
+                            updatedBy = userName
+                        )
+                    } else {
+                        ReminderEntity(
+                            id = UUID.randomUUID().toString(),
+                            serverId = null,
+                            patientId = patientId,
+                            originalVisitId = originalVisitId,
+                            vaccineName = vaccineName,
+                            dueDate = dueDate,
+                            status = "ACTIVE",
+                            priority = priority,
+                            reminderEnabled = reminderEnabled,
+                            category = "VACCINATION",
+                            type = type,
+                            nxtVaccineId = vaccineId?.let { listOf(it) },
+                            notes = notes,
+                            createdAt = now,
+                            updatedAt = now,
+                            isSynced = false,
+                            createdBy = userName,
+                            updatedBy = userName
+                        )
+                    }
+
+                    dueReminderDao.insertReminder(reminder)
+
+                    val displayLabel = if (vaccineName.isBlank()) type else vaccineName
+                    logReminderUndoableChange(
+                        reminder = reminder,
+                        action = if (reused == null) "SCHEDULED" else "UPDATED",
+                        remarks = "Next Vaccination ($displayLabel) scheduled by $userName",
+                        newValue = dueDate
+                    )
+
+                    val operation = if (reused == null) {
+                        SyncOperation.CREATE
+                    } else {
+                        SyncOperation.UPDATE
+                    }
+                    enqueueReminderSync(
+                        "REMINDERS",
+                        reminder.id,
+                        operation,
+                        SyncPriority.MEDIUM
+                    )
+                }
+            }
+
+            if (reminderEnabled) triggerImmediateCheck()
+        }
+    }
+
+    override suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) {
+        withContext(Dispatchers.IO) {
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
+                val userName = sessionManager.getCurrentUserName()
+                val patientName = patientDao.getPatientById(existing.patientId)?.name ?: "Unknown Patient"
+                val vaccineDisplay = existing.vaccineName.ifBlank { existing.type }
+                logReminderUndoableChange(
+                    existing,
+                    "COMPLETED",
+                    "Patient: $patientName, Vaccine: $vaccineDisplay, Completed by: $userName",
+                    transactionGroupId = transactionGroupId
+                )
+                dueReminderDao.moveDueToCompleted(existing.copy(updatedBy = userName), userName, "Reminder completed")
+                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
+
+            }
+            triggerImmediateCheck()
+        }
+    }
+
+    override suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String) {
+        withContext(Dispatchers.IO) {
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
+                val userName = sessionManager.getCurrentUserName()
+                val updated = existing.copy(
+                    dueDate = newDate,
+                    status = "ACTIVE",
+                    updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                    isSynced = false,
+                    updatedBy = userName
+                )
+                dueReminderDao.insertReminder(updated)
+                logReminderUndoableChange(updated, "RESCHEDULED", "Rescheduled: $reason by $userName", newValue = newDate)
+                enqueueReminderSync("REMINDERS", updated.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            }
+            triggerImmediateCheck()
+        }
+    }
+
+
+    override suspend fun cancelNextVaccinationVaccine(
+        reminder: ReminderEntity,
+        vaccineId: String,
+        reason: String,
+        performedBy: String
+    ) {
+        withContext(Dispatchers.IO) {
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
+                val ids = existing.nxtVaccineId.orEmpty().toMutableList()
+                val names = existing.vaccineName.split(",").map(String::trim).filter(String::isNotBlank).toMutableList()
+                val index = ids.indexOf(vaccineId)
+                if (index < 0) return@run
+
+                ids.removeAt(index)
+                if (index < names.size) names.removeAt(index)
+
+                val userName = sessionManager.getCurrentUserName()
+                if (ids.isEmpty()) {
+                    logReminderUndoableChange(existing, "DISMISSED", "Next Vaccination cancelled: $reason by $userName")
+                    dueReminderDao.moveDueToDismissed(existing, userName, reason)
+                    enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                } else {
+                    val updated = existing.copy(
+                        vaccineName = names.joinToString(", "),
+                        nxtVaccineId = ids.ifEmpty { null },
+                        status = "ACTIVE",
+                        reminderEnabled = true,
+                        updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                        updatedBy = userName,
+                        isSynced = false
+                    )
+                    dueReminderDao.updateReminder(updated)
+                    logReminderUndoableChange(updated, "VACCINE_CANCELLED", "Cancelled vaccine $vaccineId: $reason by $userName")
+                    enqueueReminderSync("REMINDERS", updated.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+                }
+            }
+            triggerImmediateCheck()
+        }
+    }
+
+    override suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
+        withContext(Dispatchers.IO) {
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
+                val userName = sessionManager.getCurrentUserName()
+                logReminderUndoableChange(existing, "DISMISSED", "Dismissed: $reason by $userName")
+                dueReminderDao.moveDueToDismissed(existing.copy(updatedBy = userName), userName, reason)
+                enqueueReminderSync("REMINDERS", existing.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+
+            }
+            triggerImmediateCheck()
+        }
+    }
+
+    override suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String) {
+        withContext(Dispatchers.IO) {
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
+                val userName = sessionManager.getCurrentUserName()
+                val restored = existing.copy(
+                    status = "ACTIVE",
+                    reminderEnabled = true,
+                    updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                    isSynced = false,
+                    updatedBy = userName
+                )
+                logReminderUndoableChange(existing, "RESTORED", "Restored by $userName")
+                dueReminderDao.insertReminder(restored)
+                enqueueReminderSync("REMINDERS", restored.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            }
+            triggerImmediateCheck()
+        }
+    }
+
+    override suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
+        withContext(Dispatchers.IO) {
+            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
+                logReminderUndoableChange(existing, "SOFT_DELETED", "Soft Deleted by $performedBy")
+                dueReminderDao.deleteReminderById(existing.id)
+                enqueueReminderSync(
+                    "REMINDERS",
+                    existing.serverId ?: existing.id,
+                    SyncOperation.UPDATE,
+                    SyncPriority.LOW
+                )
+            }
+            triggerImmediateCheck()
+        }
+    }
+
+    override fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
+        return dueReminderDao.getDueRemindersForPatient(patientId)
+    }
+
+
+    override fun getAllReminders(): Flow<List<ReminderEntity>> = dueReminderDao.getAllReminders()
+
+    override suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
+        return dueReminderDao.getRemindersByVisitId(visitId)
+    }
+
+    override suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
+
+    override fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
+        return auditLogDao.getLogsForPatient(patientId).map { logs ->
+            logs.map { log ->
+                ReminderAuditEntity(
+                    patientId = log.patientId ?: "",
+                    originalVisitId = log.entityId,
+                    vaccineName = log.remarks ?: "",
+                    action = log.action,
+                    oldStatus = log.oldValue,
+                    newStatus = log.newValue ?: "",
+                    oldDate = null,
+                    newDate = log.newValue,
+                    priority = null,
+                    reminderEnabled = null,
+                    performedBy = log.user,
+                    timestamp = com.neochildclinic.core.common.PatientUtils.isoToLong(log.timestamp),
+                    notes = log.remarks,
+                    isSynced = log.isSynced
+                )
+            }
+        }
+    }
+
+    override suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
+                val entities = postgrest.from("reminders").select { filter { eq("is_deleted", false) } }.decodeList<RemoteReminder>()
+                transactionRunner.run {
+                    for (remote in entities) {
+                        // Guard against reminders whose parent visit no longer exists
+                        // locally. A visit deletion that didn't (or hadn't yet) cleaned up
+                        // its Supabase-side reminder leaves an orphaned remote row - pulling
+                        // it back down here would just resurrect it locally with no valid
+                        // parent, and any future sync attempt for it would permanently fail
+                        // with a foreign key violation. Skip it instead.
+                        val visitExists = vaccinationDao.getVaccinationById(remote.originalVisitId) != null
+                        if (!visitExists) {
+                            android.util.Log.e("ReminderRepo", "Skipping orphaned remote reminder for missing visit ${remote.originalVisitId}")
+                            continue
+                        }
+
+                        // Check if we have a local version and if it's unsynced
+                        val local = dueReminderDao.getReminderByStableId(
+                            remote.patientId, 
+                            remote.originalVisitId, 
+                            remote.vaccineName,
+                            remote.type
+                        )
+                        
+                        // Pending DELETE enqueues entityId = serverId ?: local id — check
+                        // both identities so a queued hard-delete is never overwritten by a pull.
+                        val remoteId = remote.id
+                        if (remoteId != null && syncQueueDao.isUnsynced("REMINDERS", remoteId)) {
+                            continue
+                        }
+                        if (local != null && syncQueueDao.isUnsynced("REMINDERS", local.id)) {
+                            continue
+                        }
+
+                        // local == null + no pending DELETE = first-time download (a completed
+                        // hard-delete means the remote row is already gone and won't appear here).
+                        if (local == null) {
+                            dueReminderDao.insertReminder(remote.toLocal())
+                            continue
+                        }
+
+                        if (local.isSynced) {
+                            // Safe to overwrite; preserve the local id to avoid row replacement
+                            dueReminderDao.insertReminder(remote.toLocal(localId = local.id))
+                        } else {
+                            // Local has unsynced changes, keep it for now
+                            // The sync engine will eventually push local changes to Supabase
+                        }
+                    }
+                }
+                android.util.Log.d("ReminderRepo", "Refreshed ${entities.size} reminders")
+    }
+
+    override suspend fun transferReminders(duplicateId: String, masterId: String) {
+        dueReminderDao.updatePatientId(duplicateId, masterId)
+    }
+
+    private fun triggerImmediateCheck() {
+        reminderScheduler.runNow()
+        WidgetUtils.updateWidget(context)
+    }
+}

@@ -7,4 +7,4 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable"
-    android:configure="com.neochildclinic.features.widget.VaccineWidgetConfigurationActivity" />
+    android:configure="com.neochildclinic.feature.widget.presentation.VaccineWidgetConfigurationActivity" />

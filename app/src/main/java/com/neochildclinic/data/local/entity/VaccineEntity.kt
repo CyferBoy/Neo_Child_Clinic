@@ -6,11 +6,11 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.neochildclinic.domain.model.BatchStatus
-import com.neochildclinic.domain.model.InventoryTransaction
 import com.neochildclinic.domain.model.Vaccine
-import com.neochildclinic.domain.model.VaccineBatch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.neochildclinic.domain.model.InventoryTransaction
+import com.neochildclinic.domain.model.VaccineBatch
 
 @Serializable
 @Entity(tableName = "vaccines")
@@ -30,10 +30,7 @@ data class VaccineEntity(
     
     @SerialName("last_updated") val lastUpdated: String = "",
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 @Serializable
@@ -71,32 +68,7 @@ data class VaccineBatchEntity(
     val status: String = BatchStatus.ACTIVE.name,
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
-)
-
-fun VaccineBatchEntity.toDomain() = VaccineBatch(
-    batchId = batchId,
-    vaccineId = vaccineId,
-    batchNumber = batchNumber,
-    purchaseDate = purchaseDate,
-    expiryDate = expiryDate,
-    remainingQuantity = remainingQuantity,
-    purchaseCost = purchaseCost,
-    sellingPrice = sellingPrice
-)
-
-fun VaccineEntity.toDomain() = Vaccine(
-    id = id,
-    type = type,
-    brandName = brandName,
-    companyName = companyName,
-    mrp = mrp,
-    netRate = netRate,
-    createdBy = createdBy,
-    updatedBy = updatedBy
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 @Serializable
@@ -126,6 +98,39 @@ data class InventoryTransactionEntity(
     @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+)
+
+// Mappers for compatibility
+fun VaccineEntity.toVaccine(totalStock: Int = 0) = Vaccine(
+    id = id,
+    type = type,
+    brandName = brandName,
+    companyName = companyName,
+    stock = totalStock,
+    mrp = mrp,
+    netRate = netRate
+)
+
+fun VaccineBatchEntity.toDomain() = VaccineBatch(
+    batchId = batchId,
+    vaccineId = vaccineId,
+    batchNumber = batchNumber,
+    purchaseDate = purchaseDate,
+    expiryDate = expiryDate,
+    remainingQuantity = remainingQuantity,
+    purchaseCost = purchaseCost,
+    sellingPrice = sellingPrice
+)
+
+fun VaccineEntity.toDomain() = Vaccine(
+    id = id,
+    type = type,
+    brandName = brandName,
+    companyName = companyName,
+    mrp = mrp,
+    netRate = netRate,
+    createdBy = createdBy,
+    updatedBy = updatedBy
 )
 
 fun InventoryTransactionEntity.toDomain() = InventoryTransaction(

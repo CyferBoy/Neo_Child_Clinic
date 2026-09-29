@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.neochildclinic.core.model.BorrowReturnRecord
+import com.neochildclinic.domain.model.BorrowReturnRecord
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -52,13 +52,10 @@ data class BorrowReturnEntity(
 
     val notes: String? = null,
 
-    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun BorrowReturnEntity.toDomain() = BorrowReturnRecord(
@@ -79,6 +76,6 @@ fun BorrowReturnRecord.toEntity(isSynced: Boolean = false) = BorrowReturnEntity(
     quantity = quantity,
     returnedDate = returnedDate,
     notes = notes,
-    createdAt = createdAt ?: com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    createdAt = createdAt ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     isSynced = isSynced
 )

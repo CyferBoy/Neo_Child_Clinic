@@ -1,6 +1,6 @@
 package com.neochildclinic.domain.model
 
-/** Dashboard Due-section counts, produced by [com.neochildclinic.data.repository.ReminderDueListProcessor]. */
+/** Dashboard Due-section counts, produced by [com.neochildclinic.feature.reminder.data.ReminderDueListProcessor]. */
 data class ReminderStats(
     val dueToday: Int = 0,
     val dueTomorrow: Int = 0,

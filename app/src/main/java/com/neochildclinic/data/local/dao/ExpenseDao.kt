@@ -12,23 +12,22 @@ interface ExpenseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: ExpenseEntity)
 
-    @Query("SELECT * FROM expenses WHERE id = :id AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM expenses WHERE id = :id LIMIT 1")
     suspend fun getExpenseById(id: String): ExpenseEntity?
 
-    @Query("UPDATE expenses SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, isSynced = 0, updatedAt = :deletedAt, updated_by = :deletedBy WHERE id = :id AND is_deleted = 0")
-    suspend fun deleteExpense(id: String, deletedAt: String, deletedBy: String?)
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteExpense(id: String)
 
-    @Query("SELECT * FROM expenses WHERE is_deleted = 0 ORDER BY expenseDate DESC")
+    @Query("SELECT * FROM expenses ORDER BY expenseDate DESC")
     fun getAllExpenses(): Flow<List<ExpenseEntity>>
 
-    @Query("SELECT * FROM expenses WHERE is_deleted = 0")
+    @Query("SELECT * FROM expenses")
     suspend fun getAllExpensesSnapshot(): List<ExpenseEntity>
 
     @Query(
         """
         SELECT * FROM expenses
-        WHERE is_deleted = 0
-        AND (:category IS NULL OR category = :category)
+        WHERE (:category IS NULL OR category = :category)
         AND (:paymentMethod IS NULL OR paymentMethod = :paymentMethod)
         AND (:fromDate IS NULL OR expenseDate >= :fromDate)
         AND (:toDate IS NULL OR expenseDate <= :toDate)
@@ -52,6 +51,6 @@ interface ExpenseDao {
         offset: Int
     ): List<ExpenseEntity>
 
-    @Query("SELECT COUNT(*) FROM expenses WHERE is_deleted = 0")
+    @Query("SELECT COUNT(*) FROM expenses")
     fun getExpenseCount(): Flow<Int>
 }

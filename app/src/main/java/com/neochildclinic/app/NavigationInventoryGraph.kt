@@ -5,13 +5,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.neochildclinic.features.inventory.AddVaccineScreen
-import com.neochildclinic.features.inventory.AddBatchScreen
-import com.neochildclinic.features.inventory.AddStockScreen
-import com.neochildclinic.features.inventory.StockHistoryScreen
-import com.neochildclinic.features.inventory.BorrowedScreen
-import com.neochildclinic.features.inventory.VaccineInventoryScreen
-import com.neochildclinic.features.inventory.WasteScreen
+import com.neochildclinic.feature.inventory.presentation.AddVaccineScreen
+import com.neochildclinic.feature.inventory.presentation.AddBatchScreen
+import com.neochildclinic.feature.inventory.presentation.AddStockScreen
+import com.neochildclinic.feature.inventory.presentation.StockHistoryScreen
+import com.neochildclinic.feature.borrowed.presentation.BorrowedScreen
+import com.neochildclinic.feature.inventory.presentation.VaccineInventoryScreen
+import com.neochildclinic.feature.waste.presentation.WasteScreen
 
 internal fun NavGraphBuilder.inventoryGraph(
     navController: NavHostController,

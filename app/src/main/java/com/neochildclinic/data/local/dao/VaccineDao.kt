@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VaccineDao {
     // Vaccine Definition
-    @Query("SELECT * FROM vaccines WHERE is_deleted = 0")
+    @Query("SELECT * FROM vaccines")
     fun getAllVaccines(): Flow<List<VaccineEntity>>
 
-    @Query("SELECT * FROM vaccines WHERE id = :id AND is_deleted = 0")
+    @Query("SELECT * FROM vaccines WHERE id = :id")
     suspend fun getVaccineById(id: String): VaccineEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -22,32 +22,32 @@ interface VaccineDao {
     @Update
     suspend fun updateVaccine(vaccine: VaccineEntity)
 
-    @Query("UPDATE vaccines SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, lastUpdated = :deletedAt, updated_by = :deletedBy WHERE id = :id AND is_deleted = 0")
-    suspend fun deleteVaccine(id: String, deletedAt: String, deletedBy: String?)
+    @Query("DELETE FROM vaccines WHERE id = :id")
+    suspend fun deleteVaccine(id: String)
 
     @Delete
     suspend fun deleteVaccinePermanently(vaccine: VaccineEntity)
 
     // Batches
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND remainingQuantity > 0 AND is_deleted = 0 ORDER BY expiryDate ASC")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND remainingQuantity > 0 ORDER BY expiryDate ASC")
     suspend fun getActiveBatchesByExpiry(vaccineId: String): List<VaccineBatchEntity>
 
-    @Query("SELECT * FROM vaccine_batches WHERE is_deleted = 0")
+    @Query("SELECT * FROM vaccine_batches")
     fun getAllBatches(): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
     fun getBatchesForVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
     fun getBatchesByVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
     suspend fun getBatchesByVaccineSync(vaccineId: String): List<VaccineBatchEntity>
 
-    @Query("SELECT * FROM vaccine_batches WHERE batchId = :batchId AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM vaccine_batches WHERE batchId = :batchId LIMIT 1")
     suspend fun getBatchById(batchId: String): VaccineBatchEntity?
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND batchNumber = :batchNumber AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND batchNumber = :batchNumber LIMIT 1")
     suspend fun getBatchByVaccineAndNumber(vaccineId: String, batchNumber: String): VaccineBatchEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -57,8 +57,8 @@ interface VaccineDao {
     @Update
     suspend fun updateBatch(batch: VaccineBatchEntity)
 
-    @Query("UPDATE vaccine_batches SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, updatedAt = :deletedAt, updated_by = :deletedBy WHERE batchId = :batchId AND is_deleted = 0")
-    suspend fun deleteBatch(batchId: String, deletedAt: String, deletedBy: String?)
+    @Query("DELETE FROM vaccine_batches WHERE batchId = :batchId")
+    suspend fun deleteBatch(batchId: String)
 
     // Transactions
     @Insert
@@ -102,17 +102,17 @@ interface VaccineDao {
     ): List<InventoryTransactionEntity>
 
     // Stock Summary
-    @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
+    @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId")
     suspend fun getTotalStockForVaccine(vaccineId: String): Int?
 
     // Reference Checks
-    @Query("SELECT COUNT(*) FROM vaccine_batches WHERE vaccineId = :vaccineId AND is_deleted = 0")
+    @Query("SELECT COUNT(*) FROM vaccine_batches WHERE vaccineId = :vaccineId")
     suspend fun getBatchCountForVaccine(vaccineId: String): Int
 
-    @Query("SELECT COUNT(*) FROM patient_visits WHERE vaccineIds LIKE '%' || :vaccineId || '%' AND is_deleted = 0")
+    @Query("SELECT COUNT(*) FROM patient_visits WHERE vaccineIds LIKE '%' || :vaccineId || '%'")
     suspend fun getVaccinationCountForVaccine(vaccineId: String): Int
 
-    @Query("SELECT COUNT(*) FROM waste_records WHERE vaccineId = :vaccineId AND is_deleted = 0")
+    @Query("SELECT COUNT(*) FROM waste_records WHERE vaccineId = :vaccineId")
     suspend fun getWasteCountForVaccine(vaccineId: String): Int
 
     @Query("SELECT COUNT(*) FROM inventory_transactions WHERE vaccineId = :vaccineId")

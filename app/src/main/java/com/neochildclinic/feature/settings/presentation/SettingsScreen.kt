@@ -1,0 +1,125 @@
+package com.neochildclinic.feature.settings.presentation
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.BackTopAppBar
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onNotifications: () -> Unit,
+    onInventory: () -> Unit,
+    onBackup: () -> Unit,
+    onSecurity: () -> Unit,
+    onHelpSupport: () -> Unit,
+    onPrivacyPolicy: () -> Unit,
+    onTermsOfService: () -> Unit,
+    onCheckForUpdates: () -> Unit,
+    viewModel: SettingsViewModel
+) {
+    val themeMode by viewModel.themeMode.collectAsState()
+
+    AppBackground {
+        Scaffold(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            topBar = {
+                BackTopAppBar(
+                    title = { Text("Settings") },
+                    onBack = onBack,
+                    colors = TopAppBarDefaults.topAppBarColors()
+                )
+            }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 10.dp, bottom = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    SettingsSection("Theme") {
+                        ThemeOption("Light", themeMode == "light") { viewModel.setThemeMode("light") }
+                        SettingsDivider()
+                        ThemeOption("Dark", themeMode == "dark") { viewModel.setThemeMode("dark") }
+                        SettingsDivider()
+                        ThemeOption("System Default", themeMode == "system") { viewModel.setThemeMode("system") }
+                    }
+                }
+                item {
+                    SettingsSection("App") {
+                        SettingsRow(Icons.Default.Notifications, "Notifications", onNotifications)
+                        SettingsDivider()
+                        SettingsRow(Icons.Default.Inventory, "Inventory", onInventory)
+                        SettingsDivider()
+                        SettingsRow(Icons.Default.Backup, "Backup", onBackup)
+                    }
+                }
+                item {
+                    SettingsSection("Security") {
+                        SettingsRow(Icons.Default.Security, "Security", onSecurity)
+                    }
+                }
+                item {
+                    SettingsSection("Help & About") {
+                        SettingsRow(Icons.Default.HeadsetMic, "Help & Support", onHelpSupport)
+                        SettingsDivider()
+                        SettingsRow(Icons.Default.Lock, "Privacy Policy", onPrivacyPolicy)
+                        SettingsDivider()
+                        SettingsRow(Icons.Default.Description, "Terms of Service", onTermsOfService)
+                        SettingsDivider()
+                        SettingsRow(Icons.Default.CloudUpload, "Check for Updates", onCheckForUpdates)
+                    }
+                }
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Version: ${com.neochildclinic.BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "© 2026 Neo Child Clinic. All rights reserved.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeOption(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        RadioButton(selected = selected, onClick = onClick)
+    }
+}

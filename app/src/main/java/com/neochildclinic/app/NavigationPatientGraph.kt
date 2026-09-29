@@ -6,12 +6,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.neochildclinic.features.patient.AddPatientScreen
-import com.neochildclinic.features.patient.AddConsultationScreen
-import com.neochildclinic.features.patient.PatientDetailsScreen
-import com.neochildclinic.features.patient.PatientListScreen
-import com.neochildclinic.features.search.SearchScreen
-import com.neochildclinic.features.vaccination.AddVaccinationScreen
+import com.neochildclinic.feature.patient.presentation.AddPatientScreen
+import com.neochildclinic.feature.patient.presentation.AddConsultationScreen
+import com.neochildclinic.feature.patient.presentation.PatientDetailsScreen
+import com.neochildclinic.feature.patient.presentation.PatientListScreen
+import com.neochildclinic.feature.search.presentation.SearchScreen
+import com.neochildclinic.feature.vaccination.presentation.AddVaccinationScreen
 
 internal fun NavGraphBuilder.patientGraph(
     navController: NavHostController,
@@ -146,8 +146,8 @@ internal fun NavGraphBuilder.patientGraph(
             navArgument("highlightId") { type = NavType.StringType; nullable = true; defaultValue = null }
         )
     ) { backStackEntry ->
-        val dashboardViewModel: com.neochildclinic.features.dashboard.DashboardViewModel = hiltViewModel()
-        com.neochildclinic.features.dashboard.TodayPatientsScreen(
+        val dashboardViewModel: com.neochildclinic.feature.dashboard.presentation.DashboardViewModel = hiltViewModel()
+        com.neochildclinic.feature.dashboard.presentation.TodayPatientsScreen(
             viewModel = dashboardViewModel,
             initialTab = backStackEntry.nullableStringArg("tab"),
             highlightId = backStackEntry.nullableStringArg("highlightId"),

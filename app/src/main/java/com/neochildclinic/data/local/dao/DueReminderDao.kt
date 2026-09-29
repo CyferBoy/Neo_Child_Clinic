@@ -9,28 +9,40 @@ interface DueReminderDao {
     
     // Unified Reminder Queries
     
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dueDate ASC")
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC")
     fun getAllDueReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 AND is_deleted = 0 ORDER BY completionDate DESC")
+    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC")
     fun getAllCompletedReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dismissalDate DESC")
+    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC")
     fun getAllDismissedReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type AND is_deleted = 0 LIMIT 1")
+    // --- Pagination (large-data scalability pass) ---
+    // Due/Completed/Dismissed are explicitly called out in the spec; `status` is indexed
+    // (see ReminderEntity). Additive - existing Flow methods above are untouched.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getDueRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getCompletedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getDismissedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type LIMIT 1")
     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String, type: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE originalVisitId = :visitId AND is_deleted = 0")
+    @Query("SELECT * FROM reminders WHERE originalVisitId = :visitId")
     suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity>
 
-    @Query("SELECT * FROM reminders WHERE id = :id AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE id = :id LIMIT 1")
     suspend fun getReminderById(id: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND dueDate = :dueDate AND vaccineName = :vaccineName AND type = :type AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND dueDate = :dueDate AND vaccineName = :vaccineName AND type = :type LIMIT 1")
     suspend fun getReminderByUniqueEvent(patientId: String, visitId: String, dueDate: String, vaccineName: String, type: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE patientId = :pId AND originalVisitId = :vId AND vaccineName = :name AND type = :type AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE patientId = :pId AND originalVisitId = :vId AND vaccineName = :name AND type = :type LIMIT 1")
     suspend fun getReminderByStableId(pId: String, vId: String, name: String, type: String): ReminderEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -42,14 +54,14 @@ interface DueReminderDao {
     @Update
     suspend fun updateReminder(reminder: ReminderEntity)
 
-    @Query("UPDATE reminders SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, isSynced = 0, updatedAt = :deletedAt, updated_by = :deletedBy WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type")
-    suspend fun deleteReminder(patientId: String, visitId: String, vaccineName: String, type: String, deletedAt: String, deletedBy: String?)
+    @Query("DELETE FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type")
+    suspend fun deleteReminder(patientId: String, visitId: String, vaccineName: String, type: String)
 
-    @Query("UPDATE reminders SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, isSynced = 0, updatedAt = :deletedAt, updated_by = :deletedBy WHERE id = :id")
-    suspend fun deleteReminderById(id: String, deletedAt: String, deletedBy: String?)
+    @Query("DELETE FROM reminders WHERE id = :id")
+    suspend fun deleteReminderById(id: String)
 
-    @Query("UPDATE reminders SET is_deleted = 1, deleted_at = :deletedAt, deleted_by = :deletedBy, isSynced = 0, updatedAt = :deletedAt, updated_by = :deletedBy WHERE patientId = :patientId AND is_deleted = 0")
-    suspend fun deleteRemindersByPatientId(patientId: String, deletedAt: String, deletedBy: String?)
+    @Query("DELETE FROM reminders WHERE patientId = :patientId")
+    suspend fun deleteRemindersByPatientId(patientId: String)
 
     @Query("UPDATE reminders SET serverId = :serverId, isSynced = 1 WHERE id = :localId")
     suspend fun updateServerId(localId: String, serverId: String)
@@ -57,10 +69,10 @@ interface DueReminderDao {
     @Query("UPDATE reminders SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)
 
-    @Query("SELECT * FROM reminders WHERE is_deleted = 0")
+    @Query("SELECT * FROM reminders")
     fun getAllReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND is_deleted = 0")
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId")
     fun getDueRemindersForPatient(patientId: String): Flow<List<ReminderEntity>>
 
     @Transaction
@@ -80,8 +92,8 @@ interface DueReminderDao {
     }
 
     @Transaction
-    suspend fun clearAllStates(patientId: String, visitId: String, vaccineName: String, type: String, deletedAt: String, deletedBy: String?) {
-        deleteReminder(patientId, visitId, vaccineName, type, deletedAt, deletedBy)
+    suspend fun clearAllStates(patientId: String, visitId: String, vaccineName: String, type: String) {
+        deleteReminder(patientId, visitId, vaccineName, type)
     }
 
     @Transaction
@@ -89,10 +101,10 @@ interface DueReminderDao {
         val updated = reminder.copy(
             status = "COMPLETED",
             reminderEnabled = false,
-            completionDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+            completionDate = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             performedBy = completedBy,
             notes = notes ?: reminder.notes,
-            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         insertReminder(updated)
@@ -103,10 +115,10 @@ interface DueReminderDao {
         val updated = reminder.copy(
             status = "DISMISSED",
             reminderEnabled = true,
-            dismissalDate = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+            dismissalDate = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             performedBy = dismissedBy,
             dismissalReason = reason,
-            updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         insertReminder(updated)

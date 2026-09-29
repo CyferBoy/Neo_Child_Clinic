@@ -1,12 +1,12 @@
 package com.neochildclinic.core.logger
 
 import android.os.Build
-import com.neochildclinic.core.session.SessionManager
+import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.data.repository.SyncRepositoryImpl
-import com.neochildclinic.core.model.SyncOperation
-import com.neochildclinic.core.model.SyncPriority
+import com.neochildclinic.core.sync.SyncRepositoryImpl
+import com.neochildclinic.domain.model.SyncOperation
+import com.neochildclinic.domain.model.SyncPriority
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
@@ -58,7 +58,7 @@ class AuditLogger @Inject constructor(
     ) {
         try {
             val userLabel = sessionManager.getCurrentUserName()
-            val timestamp = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
+            val timestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             val device = "${Build.MANUFACTURER} ${Build.MODEL}"
 
             val logEntity = AuditLogEntity(

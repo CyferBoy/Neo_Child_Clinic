@@ -1,0 +1,143 @@
+package com.neochildclinic.core.di
+
+import android.content.Context
+import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.dao.PatientDao
+import com.neochildclinic.data.local.dao.DueReminderDao
+import com.neochildclinic.data.local.dao.AuditLogDao
+import com.neochildclinic.data.local.dao.VaccinationDao
+import com.neochildclinic.data.local.dao.VaccineDao
+import com.neochildclinic.data.local.dao.PatientNotesDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
+import com.neochildclinic.data.local.dao.WasteDao
+import com.neochildclinic.data.local.dao.WidgetDueDao
+import com.neochildclinic.data.local.dao.FinanceDao
+import com.neochildclinic.data.local.dao.ProfileDao
+import com.neochildclinic.data.local.dao.BorrowDao
+import com.neochildclinic.data.local.dao.InventoryDeductionDao
+import com.neochildclinic.data.local.dao.VaccinationItemDao
+import com.neochildclinic.data.local.dao.BorrowReturnDao
+import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
+import com.neochildclinic.data.local.dao.PatientTodoDao
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    @Provides
+    @Singleton
+    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
+        return AppDatabase.getDatabase(context)
+    }
+
+    @Provides
+    fun providePatientDao(database: AppDatabase): PatientDao {
+        return database.patientDao()
+    }
+
+    @Provides
+    fun provideVaccinationDao(database: AppDatabase): VaccinationDao {
+        return database.vaccinationDao()
+    }
+
+    @Provides
+    fun provideDueReminderDao(database: AppDatabase): DueReminderDao {
+        return database.dueReminderDao()
+    }
+
+    @Provides
+    fun provideAuditLogDao(database: AppDatabase): AuditLogDao {
+        return database.auditLogDao()
+    }
+
+    @Provides
+    fun provideVaccineDao(database: AppDatabase): VaccineDao {
+        return database.vaccineDao()
+    }
+
+    @Provides
+    fun providePatientNotesDao(database: AppDatabase): PatientNotesDao {
+        return database.patientNotesDao()
+    }
+
+    @Provides
+    fun provideSyncQueueDao(database: AppDatabase): SyncQueueDao {
+        return database.syncQueueDao()
+    }
+
+    @Provides
+    fun provideWasteDao(database: AppDatabase): WasteDao {
+        return database.wasteDao()
+    }
+
+    @Provides
+    fun provideWidgetDueDao(database: AppDatabase): WidgetDueDao {
+        return database.widgetDueDao()
+    }
+
+    @Provides
+    fun provideFinanceDao(database: AppDatabase): FinanceDao {
+        return database.financeDao()
+    }
+
+    @Provides
+    fun provideExpenseDao(database: AppDatabase): com.neochildclinic.data.local.dao.ExpenseDao {
+        return database.expenseDao()
+    }
+
+    @Provides
+    fun provideProfileDao(database: AppDatabase): ProfileDao {
+        return database.profileDao()
+    }
+
+    @Provides
+    fun provideBorrowDao(database: AppDatabase): BorrowDao {
+        return database.borrowDao()
+    }
+
+    @Provides
+    fun provideInventoryDeductionDao(database: AppDatabase): InventoryDeductionDao {
+        return database.inventoryDeductionDao()
+    }
+
+    @Provides
+    fun providePersonalReminderDao(database: AppDatabase): com.neochildclinic.data.local.dao.PersonalReminderDao {
+        return database.personalReminderDao()
+    }
+
+    @Provides
+    fun provideConsultationDao(database: AppDatabase): com.neochildclinic.data.local.dao.ConsultationDao {
+        return database.consultationDao()
+    }
+
+    @Provides
+    fun provideVaccinationItemDao(database: AppDatabase): VaccinationItemDao {
+        return database.vaccinationItemDao()
+    }
+
+    @Provides
+    fun provideBorrowReturnDao(database: AppDatabase): BorrowReturnDao {
+        return database.borrowReturnDao()
+    }
+
+    @Provides
+    fun provideDoctorAvailabilityDao(database: AppDatabase): DoctorAvailabilityDao {
+        return database.doctorAvailabilityDao()
+    }
+
+    @Provides
+    fun providePatientTodoDao(database: AppDatabase): PatientTodoDao {
+        return database.patientTodoDao()
+    }
+
+    // Note: BackupRepositoryImpl (Backup & Restore feature) takes AppDatabase directly
+    // and calls database.backupDao() / database.consultationDao() / etc. itself, matching
+    // the existing convention already used by ConsultationRepositoryImpl, SyncRepositoryImpl,
+    // and others in this file's sibling repositories - so no new DAO providers are needed here.
+}

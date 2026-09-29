@@ -1,7 +1,7 @@
 package com.neochildclinic.domain.repository
 
-import com.neochildclinic.core.model.BorrowReturnRecord
-import com.neochildclinic.core.model.BorrowedVaccine
+import com.neochildclinic.domain.model.BorrowReturnRecord
+import com.neochildclinic.domain.model.BorrowedVaccine
 import kotlinx.coroutines.flow.Flow
 
 interface BorrowRepository {

@@ -1,0 +1,406 @@
+package com.neochildclinic.feature.patient.presentation
+
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.domain.model.UserRole
+import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.core.ui.*
+import com.neochildclinic.core.security.AuthViewModel
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PatientDetailsScreen(
+    patientId: String, 
+    onBack: () -> Unit = {}, 
+    onAddVaccine: (String) -> Unit = {},
+    onAddConsultation: (String) -> Unit = {},
+    onEditConsultation: (String) -> Unit = {},
+    onEditVaccination: (String) -> Unit = {},
+    onViewVaccination: (String) -> Unit = {},
+    onEditPatient: (String) -> Unit = {},
+    viewModel: PatientViewModel = hiltViewModel()
+) {
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val allPatients by viewModel.allPatients.collectAsState()
+    val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
+    val profile by authViewModel.profile.collectAsState()
+    val isAdmin = profile?.role == UserRole.admin
+    val canEditOrDelete = isAdmin || profile?.role == UserRole.doctor
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            val bytes = context.contentResolver.openInputStream(it)?.readBytes()
+            if (bytes != null) {
+                val fileName = it.lastPathSegment ?: "doc_${System.currentTimeMillis()}"
+                viewModel.uploadDocument(patientId, fileName, bytes)
+            }
+        }
+    }
+    
+    // Flows are created once per patientId (not on every recomposition). Calling
+    // viewModel.getPatientVaccinationCards(...) etc. directly in the composable body
+    // would return a brand-new Flow instance on every recomposition (e.g. whenever
+    // allPatients changes after an edit), and since collectAsState keys its internal
+    // state on the Flow instance, that reset the displayed list to its initial value
+    // (null / empty) every time - making vaccination history appear to "vanish" until
+    // something else (like a fresh navigation) repopulated it.
+    val vaccinationCardsFlow = remember(patientId) { viewModel.getPatientVaccinationCards(patientId) }
+    val consultationsFlow = remember(patientId) { viewModel.getPatientConsultations(patientId) }
+    val notesFlow = remember(patientId) { viewModel.getPatientNotes(patientId) }
+
+    val patientVaccinationCards by vaccinationCardsFlow.collectAsState(initial = null)
+    val patientConsultations by consultationsFlow.collectAsState(initial = emptyList())
+    val documents by viewModel.documents.collectAsState()
+    val documentError by viewModel.documentError.collectAsState()
+    val patientNotes by notesFlow.collectAsState(initial = emptyList())
+    val doctorMap by viewModel.doctorMap.collectAsState()
+    val vaccineMap by viewModel.vaccineMap.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val deletingVaccinationIds by viewModel.deletingVaccinationIds.collectAsState()
+
+    LaunchedEffect(patientId) {
+        viewModel.loadDocuments(patientId)
+    }
+
+    var selectedSegment by remember { mutableIntStateOf(0) }
+    var vaccinationToDelete by remember { mutableStateOf<Vaccination?>(null) }
+    var consultationToDelete by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
+    var patientToDelete by remember { mutableStateOf<com.neochildclinic.domain.model.Patient?>(null) }
+    var showAuditLog by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
+    var fabExpanded by remember { mutableStateOf(false) }
+
+    var selectedVaccinationForAction by remember { mutableStateOf<Vaccination?>(null) }
+    var selectedConsultationForAction by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
+    var documentToDelete by remember { mutableStateOf<String?>(null) }
+
+    MessageEffect(documentError) { viewModel.clearDocumentError() }
+    val sheetState = rememberModalBottomSheetState()
+    var showSheet by remember { mutableStateOf(false) }
+
+    DeleteConfirmationDialog(
+        show = vaccinationToDelete != null,
+        onDismiss = { vaccinationToDelete = null },
+        onConfirm = {
+            val vId = vaccinationToDelete?.id
+            if (vId != null) {
+                // Dialog stays open (with its busy state, see isDeleting below) until the
+                // delete transaction actually finishes, instead of dismissing instantly -
+                // so a slow/offline attempt visibly shows "Deleting..." rather than
+                // silently closing before the local transaction has even committed.
+                viewModel.deleteVaccination(vId) { success ->
+                    val msg = if (success) "Vaccination record deleted" else "Failed to delete"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    vaccinationToDelete = null
+                }
+            } else {
+                vaccinationToDelete = null
+            }
+        },
+        title = "Delete Vaccination",
+        message = "Are you sure you want to delete this vaccination record?",
+        isDeleting = vaccinationToDelete?.id?.let { it in deletingVaccinationIds } == true
+    )
+
+    DeleteConfirmationDialog(
+        show = consultationToDelete != null,
+        onDismiss = { consultationToDelete = null },
+        onConfirm = {
+            val cId = consultationToDelete?.id
+            if (cId != null) {
+                viewModel.deleteConsultation(cId) { success ->
+                    val msg = if (success) "Consultation record deleted" else "Failed to delete"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+            }
+            consultationToDelete = null
+        },
+        title = "Delete Consultation",
+        message = "Are you sure you want to delete this consultation record?"
+    )
+
+    DeleteConfirmationDialog(
+        show = patientToDelete != null,
+        onDismiss = { patientToDelete = null },
+        onConfirm = {
+            val pId = patientToDelete?.id
+            if (pId != null) {
+                viewModel.deletePatient(pId) { success ->
+                    if (success) {
+                        Toast.makeText(context, "Patient record deleted", Toast.LENGTH_SHORT).show()
+                        onBack()
+                    } else {
+                        Toast.makeText(context, "Failed to delete", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            patientToDelete = null
+        },
+        title = "Delete Patient",
+        message = "Are you sure you want to delete this patient? All vaccination history will be lost."
+    )
+
+    DeleteConfirmationDialog(
+        show = documentToDelete != null,
+        onDismiss = { documentToDelete = null },
+        onConfirm = {
+            documentToDelete?.let { path ->
+                viewModel.deleteDocument(path, patientId)
+            }
+            documentToDelete = null
+        },
+        title = "Delete Document",
+        message = "Are you sure you want to delete this document?"
+    )
+
+    if (showAuditLog) {
+        val auditState by viewModel.auditLogPager.state.collectAsState()
+        LaunchedEffect(showAuditLog, patientId) {
+            viewModel.auditLogPager.load(patientId)
+        }
+        AuditLogDialog(
+            show = showAuditLog,
+            onDismiss = {
+                showAuditLog = false
+                viewModel.auditLogPager.clear()
+            },
+            logs = auditState.logs,
+            isLoading = auditState.isLoading,
+            isLoadingMore = auditState.isLoadingMore,
+            hasMore = auditState.hasMore,
+            error = auditState.error,
+            onLoadMore = { viewModel.auditLogPager.loadMore() }
+        )
+    }
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = if (selectedVaccinationForAction != null) "Vaccination Actions" else "Consultation Actions",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                if (selectedVaccinationForAction != null) {
+                    ListItem(
+                        headlineContent = { Text("Print Receipt") },
+                        leadingContent = { Icon(Icons.Default.Print, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            val doctorName = doctorMap[selectedVaccinationForAction!!.doctorId] ?: selectedVaccinationForAction!!.performedBy
+                            com.neochildclinic.feature.patient.presentation.ReceiptPrinter.printReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text("Download Receipt") },
+                        leadingContent = { Icon(Icons.Default.Download, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            scope.launch {
+                                val doctorName = doctorMap[selectedVaccinationForAction!!.doctorId] ?: selectedVaccinationForAction!!.performedBy
+                                com.neochildclinic.feature.patient.presentation.ReceiptGenerator.downloadReceipt(context, patient!!, selectedVaccinationForAction!!, doctorName)
+                            }
+                        }
+                    )
+                    if (canEditOrDelete) {
+                        ListItem(
+                            headlineContent = { Text("Edit Record") },
+                            leadingContent = { Icon(Icons.Default.Edit, null) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                onEditVaccination(selectedVaccinationForAction!!.id)
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("Delete Record", color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                vaccinationToDelete = selectedVaccinationForAction
+                            }
+                        )
+                    }
+                } else if (selectedConsultationForAction != null) {
+                    if (canEditOrDelete) {
+                        ListItem(
+                            headlineContent = { Text("Edit Record") },
+                            leadingContent = { Icon(Icons.Default.Edit, null) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                onEditConsultation(selectedConsultationForAction!!.id)
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("Delete Record", color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            modifier = Modifier.clickable {
+                                showSheet = false
+                                consultationToDelete = selectedConsultationForAction
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    AppBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                BackTopAppBar(
+                    title = { Text("Patient Details") },
+                    onBack = onBack,
+                    actions = {
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false }
+                            ) {
+                                if (canEditOrDelete) {
+                                    DropdownMenuItem(
+                                        text = { Text("Edit Patient") },
+                                        leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            onEditPatient(patientId)
+                                        }
+                                    )
+                                }
+                                if (isAdmin) {
+                                    DropdownMenuItem(
+                                        text = { Text("View Audit History") },
+                                        leadingIcon = { Icon(Icons.Default.History, null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            showAuditLog = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Delete Patient", color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            patientToDelete = patient
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    FloatingActionButton(
+                        onClick = { fabExpanded = true },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Icon(Icons.Default.Add, "Add")
+                    }
+
+                    DropdownMenu(
+                        expanded = fabExpanded,
+                        onDismissRequest = { fabExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add Vaccination") },
+                            leadingIcon = { Icon(Icons.Default.Vaccines, null) },
+                            onClick = {
+                                fabExpanded = false
+                                onAddVaccine(patientId)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add Consultation") },
+                            leadingIcon = { Icon(Icons.Default.MedicalServices, null) },
+                            onClick = {
+                                fabExpanded = false
+                                onAddConsultation(patientId)
+                            }
+                        )
+                    }
+                }
+            }
+        ) { paddingValues ->
+            if (patient == null) {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    Text("Patient not found", style = MaterialTheme.typography.titleLarge)
+                }
+            } else {
+                PatientDetailsContent(
+                    paddingValues = paddingValues,
+                    patient = patient,
+                    vaccinations = patientVaccinationCards?.map { it.vaccination }.orEmpty(),
+                    vaccinationCardData = patientVaccinationCards,
+                    consultations = patientConsultations,
+                    documents = documents,
+                    notes = patientNotes,
+                    doctorMap = doctorMap,
+                    vaccineMap = vaccineMap,
+                    canEditOrDelete = canEditOrDelete,
+                    selectedSegment = selectedSegment,
+                    onSegmentSelected = { selectedSegment = it },
+                    onLongClickVaccination = { 
+                        selectedVaccinationForAction = it
+                        selectedConsultationForAction = null
+                        showSheet = true
+                    },
+                    onLongClickConsultation = { 
+                        selectedConsultationForAction = it
+                        selectedVaccinationForAction = null
+                        showSheet = true
+                    },
+                    onOpenVaccinationDetails = { onViewVaccination(it.id) },
+                    onUploadDocument = { launcher.launch("*/*") },
+                    onDeleteDocument = { documentToDelete = it },
+                    onViewDocument = { path ->
+                        scope.launch {
+                            val url = viewModel.getDocumentUrl(path)
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        }
+                    },
+                    isRefreshing = isRefreshing,
+                    onRefresh = {
+                        viewModel.refresh()
+                        viewModel.loadDocuments(patientId)
+                    },
+                    viewModel = viewModel
+                )
+            }
+        }
+    }
+}

@@ -48,15 +48,12 @@ data class ExpenseEntity(
     @SerialName("payment_method") val paymentMethod: String,
     @SerialName("reference_number") val referenceNumber: String? = null,
     @SerialName("attachment_path") val attachmentPath: String? = null,
-    @SerialName("created_at") val createdAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-    @SerialName("updated_at") val updatedAt: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    @SerialName("created_at") val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    @SerialName("updated_at") val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
     @SerialName("is_synced") val isSynced: Boolean = false,
-    @SerialName("synced_at") val syncedAt: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("synced_at") val syncedAt: String? = null
 )
 
 fun ExpenseEntity.toDomain() = Expense(
@@ -86,10 +83,10 @@ fun Expense.toEntity(isSynced: Boolean = false) = ExpenseEntity(
     paymentMethod = paymentMethod.name,
     referenceNumber = referenceNumber,
     attachmentPath = attachmentPath,
-    createdAt = createdAt ?: com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
-    updatedAt = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    createdAt = createdAt ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     createdBy = createdBy,
     updatedBy = updatedBy,
     isSynced = isSynced,
-    syncedAt = if (isSynced) com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp() else null
+    syncedAt = if (isSynced) com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() else null
 )

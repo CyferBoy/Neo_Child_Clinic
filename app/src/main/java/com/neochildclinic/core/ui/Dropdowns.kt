@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.core.constants.Constants
+import com.neochildclinic.core.common.Constants
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*

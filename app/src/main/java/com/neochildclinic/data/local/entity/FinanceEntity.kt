@@ -15,7 +15,7 @@ import kotlinx.serialization.Serializable
 )
 data class FinanceEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
-    val timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp(),
+    val timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("transaction_date") @ColumnInfo(name = "transaction_date") val transactionDate: String? = null,
     val type: String, // INCOME, EXPENSE
     val category: String, // VACCINATION, CONSULTATION, PURCHASE, etc.
@@ -31,10 +31,7 @@ data class FinanceEntity(
     @SerialName("recorded_by") val recordedBy: String,
     @SerialName("is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @SerialName("deleted_at") @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @SerialName("deleted_by") @ColumnInfo(name = "deleted_by") val deletedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun FinanceEntity.toDomain() = FinanceTransaction(

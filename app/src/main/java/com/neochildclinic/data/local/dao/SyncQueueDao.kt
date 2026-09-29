@@ -16,16 +16,16 @@ interface SyncQueueDao {
     suspend fun getItemById(id: Long): SyncQueueEntity?
 
     @Query("UPDATE sync_queue SET status = :status, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun updateStatus(id: Long, status: String, timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun updateStatus(id: Long, status: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
 
     @Query("UPDATE sync_queue SET status = :status, retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun markFailed(id: Long, status: String, error: String, timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun markFailed(id: Long, status: String, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
 
     @Query("DELETE FROM sync_queue WHERE entityId = 'kotlin.Unit' OR entityId = 'Unit' OR entityId = 'null'")
     suspend fun cleanCorruptedItems()
 
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
 
     @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND updatedAt < :staleBefore")
     suspend fun requeueStaleSyncingItems(staleBefore: String)
