@@ -52,6 +52,13 @@ neochildclinic-release
 # Firebase / Google service credentials
 **/google-services.json
 
+# Logs (JVM crash dumps, build output)
+*.log
+build_log.txt
+build_output.txt
+compilation_output.txt
+errors.txt
+
 # OS/editor files
 .DS_Store
 Thumbs.db
