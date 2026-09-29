@@ -15,6 +15,10 @@ import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.dao.ProfileDao
 import com.neochildclinic.data.local.dao.BorrowDao
 import com.neochildclinic.data.local.dao.InventoryDeductionDao
+import com.neochildclinic.data.local.dao.VaccinationItemDao
+import com.neochildclinic.data.local.dao.BorrowReturnDao
+import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
+import com.neochildclinic.data.local.dao.PatientTodoDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -110,6 +114,26 @@ object DatabaseModule {
     @Provides
     fun provideConsultationDao(database: AppDatabase): com.neochildclinic.data.local.dao.ConsultationDao {
         return database.consultationDao()
+    }
+
+    @Provides
+    fun provideVaccinationItemDao(database: AppDatabase): VaccinationItemDao {
+        return database.vaccinationItemDao()
+    }
+
+    @Provides
+    fun provideBorrowReturnDao(database: AppDatabase): BorrowReturnDao {
+        return database.borrowReturnDao()
+    }
+
+    @Provides
+    fun provideDoctorAvailabilityDao(database: AppDatabase): DoctorAvailabilityDao {
+        return database.doctorAvailabilityDao()
+    }
+
+    @Provides
+    fun providePatientTodoDao(database: AppDatabase): PatientTodoDao {
+        return database.patientTodoDao()
     }
 
     // Note: BackupRepositoryImpl (Backup & Restore feature) takes AppDatabase directly

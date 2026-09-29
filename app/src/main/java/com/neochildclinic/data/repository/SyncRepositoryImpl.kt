@@ -1,8 +1,8 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.repository.SyncRepository
 
-import com.neochildclinic.data.local.database.AppDatabase
-import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.model.SyncItem
 import com.neochildclinic.core.model.SyncOperation
@@ -22,14 +22,15 @@ import javax.inject.Singleton
 
 @Singleton
 class SyncRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val postgrest: Postgrest,
     private val syncManager: SyncManagerImpl,
     private val auth: Auth,
-    private val uploader: SyncUploader
+    private val uploader: SyncUploader,
+    private val syncQueueDao: SyncQueueDao
 ) : SyncRepository {
 
-    private val syncDao = database.syncQueueDao()
+    private val syncDao = syncQueueDao
 
     // At most one manual session refresh is allowed per processNextItems() run (used both
     // by the batch-start prerequisite and by the per-item 401 retry). This keeps the app
@@ -237,7 +238,7 @@ class SyncRepositoryImpl @Inject constructor(
      */
     private suspend fun processGroup(groupId: String, groupItems: List<SyncQueueEntity>): GroupResult {
         return try {
-            database.withTransaction {
+            transactionRunner.run {
                 for (item in groupItems) {
                     syncDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
                 }

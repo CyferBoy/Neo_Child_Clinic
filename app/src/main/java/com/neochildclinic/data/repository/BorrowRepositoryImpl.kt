@@ -1,18 +1,21 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
 
 import android.util.Log
-import androidx.room.withTransaction
 import com.neochildclinic.core.model.BorrowReturnRecord
 import com.neochildclinic.core.model.BorrowedVaccine
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.BorrowEntity
 import com.neochildclinic.data.local.entity.BorrowReturnEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
+import com.neochildclinic.data.local.dao.BorrowDao
+import com.neochildclinic.data.local.dao.BorrowReturnDao
+import com.neochildclinic.data.local.dao.VaccineDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.repository.BorrowRepository
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.NewBatchInfo
@@ -28,18 +31,17 @@ import javax.inject.Singleton
 
 @Singleton
 class BorrowRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
+    private val syncQueueDao: SyncQueueDao,
+    private val vaccineDao: VaccineDao,
+    private val borrowReturnDao: BorrowReturnDao,
+    private val borrowDao: BorrowDao,
     private val postgrest: Postgrest,
     private val inventoryRepository: InventoryRepository,
     private val syncRepository: SyncRepository,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : BorrowRepository {
-
-    private val borrowDao = database.borrowDao()
-    private val borrowReturnDao = database.borrowReturnDao()
-    private val vaccineDao = database.vaccineDao()
-    private val syncQueueDao = database.syncQueueDao()
 
     companion object {
         private const val TAG = "BorrowRepositoryImpl"
@@ -55,7 +57,7 @@ class BorrowRepositoryImpl @Inject constructor(
         borrowReturnDao.getAllReturns().map { list -> list.map { it.toDomain() } }
 
     override suspend fun saveBorrowedItem(item: BorrowedVaccine) {
-        database.withTransaction {
+        transactionRunner.run {
             val user = sessionManager.getCurrentUserName()
             val isNew = item.id.isEmpty()
             val finalItem = if (isNew) item.copy(id = UUID.randomUUID().toString()) else item
@@ -94,7 +96,7 @@ class BorrowRepositoryImpl @Inject constructor(
     override suspend fun deleteBorrowedItem(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-        database.withTransaction {
+        transactionRunner.run {
             borrowDao.getRecordById(id)?.let { record ->
                 borrowDao.deleteById(id, now, userName)
                 syncRepository.enqueue(
@@ -124,7 +126,7 @@ class BorrowRepositoryImpl @Inject constructor(
         notes: String?,
         newBatchInfo: NewBatchInfo?
     ) {
-        database.withTransaction {
+        transactionRunner.run {
             val user = sessionManager.getCurrentUserName()
             val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
             val transactionGroupId = UUID.randomUUID().toString()
@@ -210,7 +212,7 @@ class BorrowRepositoryImpl @Inject constructor(
 
                 Log.d(TAG, "Fetched ${records.size} borrow records and ${returns.size} returns.")
 
-                database.withTransaction {
+                transactionRunner.run {
                     for (r in records) {
                         if (!syncQueueDao.isUnsynced("BORROW", r.id)) {
                             borrowDao.insertRecord(r.copy(isSynced = true))

@@ -1,9 +1,9 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.repository.SyncRepository
 
-import com.neochildclinic.data.local.database.AppDatabase
-import androidx.room.withTransaction
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.domain.model.Vaccination
@@ -18,8 +18,9 @@ import javax.inject.Singleton
 
 @Singleton
 class FinanceRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val financeDao: FinanceDao,
+    private val vaccinationDao: VaccinationDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
@@ -45,7 +46,7 @@ class FinanceRepositoryImpl @Inject constructor(
 
     private suspend fun resolveTransactionDate(visitId: String?): String? {
         if (visitId.isNullOrBlank()) return null
-        val dateGiven = database.vaccinationDao().getVaccinationById(visitId)?.dateGiven
+        val dateGiven = vaccinationDao.getVaccinationById(visitId)?.dateGiven
         if (dateGiven.isNullOrBlank()) return null
         
         val parsed = com.neochildclinic.core.utils.PatientUtils.parseDate(dateGiven) ?: return null
@@ -68,7 +69,7 @@ class FinanceRepositoryImpl @Inject constructor(
         recordedBy: String,
         transactionGroupId: String?
     ) {
-        database.withTransaction {
+        transactionRunner.run {
             val userName = sessionManager.getCurrentUserName()
             // A visit is only supposed to ever have one VACCINATION income row (see
             // vaccinationIncomeRowId doc above) - use the deterministic id here too so this
@@ -133,7 +134,7 @@ class FinanceRepositoryImpl @Inject constructor(
         recordedBy: String,
         transactionGroupId: String?
     ) {
-        database.withTransaction {
+        transactionRunner.run {
             val consultationTransactions = financeDao.getTransactionsByVisitId(visitId)
                 .filter { it.type == "INCOME" && it.category == "CONSULTATION" }
 
@@ -241,7 +242,7 @@ class FinanceRepositoryImpl @Inject constructor(
         recordedBy: String,
         transactionGroupId: String?
     ) {
-        database.withTransaction {
+        transactionRunner.run {
             val transactions = financeDao.getTransactionsByVisitId(visitId)
                 .filter { it.type == "INCOME" && it.category == "VACCINATION" }
 
@@ -281,7 +282,7 @@ class FinanceRepositoryImpl @Inject constructor(
                 )
                 financeDao.insertTransaction(transaction)
                 syncRepository.enqueue(entityName = "FINANCE", entityId = transaction.id, operation = SyncOperation.CREATE, priority = SyncPriority.MEDIUM, transactionGroupId = transactionGroupId)
-                return@withTransaction
+                return@run
             }
 
             val existingTransaction = existing
@@ -334,7 +335,7 @@ class FinanceRepositoryImpl @Inject constructor(
 
 
     override suspend fun migrateLegacyVaccinationCogs(vaccinations: List<Vaccination>) {
-        database.withTransaction {
+        transactionRunner.run {
             val validById = vaccinations.associateBy { it.id }
             val transactions = financeDao.getAllTransactionsSnapshot()
             transactions
@@ -370,8 +371,8 @@ class FinanceRepositoryImpl @Inject constructor(
 
     override suspend fun refreshTransactions() = cloudRefresh("FinanceRepo") {
                 val transactions = postgrest.from("finance_transactions").select().decodeList<FinanceEntity>()
-                database.withTransaction {
-                    val visitDao = database.vaccinationDao()
+                transactionRunner.run {
+                    val visitDao = vaccinationDao
                     for (remote in transactions) {
                         var normalizedRemote = remote
                         

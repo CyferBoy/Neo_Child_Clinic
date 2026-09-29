@@ -51,3 +51,38 @@ Security testing must not:
 ## Security Updates
 
 Users should keep Neo Child Clinic updated to the latest supported release to receive available security fixes and improvements.
+
+## Supabase database authorization baseline
+
+The repository now includes `supabase/migrations/20260929000000_security_baseline.sql`.
+It establishes the server-side baseline used by the Android client:
+
+- protected business tables require an authenticated, active, non-deleted staff profile;
+- `profiles` is read-only through the normal client path; privileged staff management is performed by the `manage-staff` Edge Function;
+- `user_devices` is scoped to the authenticated owner;
+- audit logs are append-only from the normal client path;
+- the authorization helper is `SECURITY DEFINER` with a fixed `search_path` and is executable only by authenticated users.
+
+### Deployment requirement
+
+Apply the migration to the real Supabase project before treating these protections as active. The Android APK cannot enforce RLS by itself.
+
+### Important limitation
+
+The current schema does not expose an explicit `clinic_id`/tenant column across business tables. Therefore this migration deliberately uses active-staff membership as the compatible authorization boundary. If the application later supports multiple clinics/tenants, add an explicit tenant/clinic ownership model and change RLS to enforce it; do not rely on the current global-staff policy for multi-tenant isolation.
+
+### Rate limiting
+
+RLS does **not** provide rate limiting. Direct PostgREST traffic from an authenticated client is still subject to whatever API/service limits are configured by the backend. If abuse protection beyond those limits is required, put the affected operation behind a server-side Edge Function/API and enforce rate limits there (Redis is an optional backend component, not an Android cache).
+
+## Server-side write abuse protection
+
+The security baseline includes a database-backed write rate limit for authenticated client mutations. The default limit is **600 INSERT/UPDATE/DELETE operations per authenticated user per UTC minute** across the protected business tables. Trusted service-role operations bypass this client limit.
+
+This is a database safety net, not a substitute for an API gateway/WAF or a distributed Redis limiter. It protects direct PostgREST mutations too, whereas an Android-only limiter could be bypassed. If traffic grows to multiple API instances or substantially higher volume, add a distributed edge/API rate limiter (Redis is appropriate there) and keep the database trigger as a final guard.
+
+The rate-limit table is not client-readable/writable. Old counters should be periodically cleaned with `public.cleanup_write_rate_limits()` using a trusted scheduler.
+
+## Database constraints
+
+RLS answers **who may perform an operation**; database constraints answer **whether the data is valid**. Before adding CHECK constraints to production, compare them against the live schema and existing data. The repository does not contain the complete historical Supabase schema, so this project intentionally does not invent column-level constraints that may not match the deployed database.

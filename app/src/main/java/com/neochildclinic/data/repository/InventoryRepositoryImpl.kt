@@ -1,7 +1,7 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
 
 import android.content.Context
-import androidx.room.withTransaction
 import com.neochildclinic.core.cache.MemoryCache
 import com.neochildclinic.core.cache.QueryCacheKey
 import com.neochildclinic.core.logger.AuditLogger
@@ -10,7 +10,6 @@ import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.utils.InventoryUtils
 import com.neochildclinic.core.utils.PatientUtils.parseDate
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.datasource.InventoryLocalDataSource
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.data.remote.datasource.PatientRemoteDataSource
@@ -19,6 +18,8 @@ import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.InventoryTransactionType
+import com.neochildclinic.data.local.dao.VaccineDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.domain.repository.SyncRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,7 +32,9 @@ import javax.inject.Singleton
 
 @Singleton
 class InventoryRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
+    private val syncQueueDao: SyncQueueDao,
+    private val vaccineDao: VaccineDao,
     private val postgrest: Postgrest,
     private val localDataSource: InventoryLocalDataSource,
     private val remoteDataSource: PatientRemoteDataSource,
@@ -45,8 +48,6 @@ class InventoryRepositoryImpl @Inject constructor(
 ) : InventoryRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val vaccineDao = database.vaccineDao()
-    private val syncQueueDao = database.syncQueueDao()
 
     private suspend fun enqueueBatchStockChange(batchId: String, transactionId: String, groupId: String? = null) {
         syncRepository.enqueue("INVENTORY_TRANSACTION", transactionId, SyncOperation.CREATE, SyncPriority.HIGH, groupId)
@@ -678,7 +679,7 @@ class InventoryRepositoryImpl @Inject constructor(
         val vaccines = postgrest.from("vaccines").select { filter { eq("is_deleted", false) } }.decodeList<VaccineEntity>()
         val batches = postgrest.from("vaccine_batches").select { filter { eq("is_deleted", false) } }.decodeList<VaccineBatchEntity>()
 
-        database.withTransaction {
+        transactionRunner.run {
             for (v in vaccines) {
                 if (!syncQueueDao.isUnsynced("VACCINE", v.id)) {
                     vaccineDao.insertVaccine(v)

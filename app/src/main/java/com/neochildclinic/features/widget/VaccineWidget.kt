@@ -28,11 +28,12 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.neochildclinic.R
 import com.neochildclinic.app.MainActivity
-import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.data.local.dao.WidgetDueDao
+import com.neochildclinic.data.local.datasource.WidgetLocalDataSource
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import com.neochildclinic.data.local.entity.WidgetDueEntity
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 
 class VaccineWidget : GlanceAppWidget() {
 
@@ -45,10 +46,11 @@ class VaccineWidget : GlanceAppWidget() {
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val database = AppDatabase.getDatabase(context)
-        val widgetDueDao = database.widgetDueDao()
-        val dataSource = WidgetLocalDataSource(widgetDueDao)
-        val dueItems = dataSource.getDueItemsFirst()
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            WidgetEntryPoint::class.java
+        )
+        val dueItems = entryPoint.widgetLocalDataSource().getDueItemsFirst()
 
         provideContent {
             val prefs = currentState<Preferences>()
@@ -182,16 +184,8 @@ class VaccineWidget : GlanceAppWidget() {
     }
 }
 
-/**
- * Minimal data source abstraction for widget due vaccination data.
- * Encapsulates WidgetDueDao access so the widget does not directly depend on Room/DAO.
- */
-class WidgetLocalDataSource(
-    private val widgetDueDao: WidgetDueDao
-) {
-
-    val dueItemsFlow: Flow<List<WidgetDueEntity>>
-        get() = widgetDueDao.getDueItems()
-
-    suspend fun getDueItemsFirst(): List<WidgetDueEntity> = widgetDueDao.getDueItems().first()
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface WidgetEntryPoint {
+    fun widgetLocalDataSource(): WidgetLocalDataSource
 }

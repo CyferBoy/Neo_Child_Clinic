@@ -1,8 +1,15 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.data.local.dao.VaccinationDao
+import com.neochildclinic.data.local.dao.VaccinationItemDao
+import com.neochildclinic.data.local.dao.InventoryDeductionDao
+import com.neochildclinic.data.local.dao.PatientDao
+import com.neochildclinic.data.local.dao.VaccineDao
+import com.neochildclinic.data.local.dao.FinanceDao
+import com.neochildclinic.data.local.dao.DueReminderDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.repository.VaccinationRepository
 
-import com.neochildclinic.data.local.database.AppDatabase
-import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
@@ -32,7 +39,15 @@ fun completedQuantityByBatch(rows: List<InventoryDeductionEntity>): Map<String, 
 
 @Singleton
 class VaccinationRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
+    private val dueReminderDao: DueReminderDao,
+    private val financeDao: FinanceDao,
+    private val vaccineDao: VaccineDao,
+    private val patientDao: PatientDao,
+    private val inventoryDeductionDao: InventoryDeductionDao,
+    private val vaccinationItemDao: VaccinationItemDao,
+    private val vaccinationDao: VaccinationDao,
+    private val syncQueueDao: SyncQueueDao,
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager,
     private val syncRepository: SyncRepository,
@@ -40,14 +55,6 @@ class VaccinationRepositoryImpl @Inject constructor(
     private val auditLogger: AuditLogger,
     @ApplicationContext private val appContext: Context
 ) : VaccinationRepository {
-
-    private val vaccinationDao = database.vaccinationDao()
-    private val vaccinationItemDao = database.vaccinationItemDao()
-    private val inventoryDeductionDao = database.inventoryDeductionDao()
-    private val patientDao = database.patientDao()
-    private val vaccineDao = database.vaccineDao()
-    private val financeDao = database.financeDao()
-    private val dueReminderDao = database.dueReminderDao()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override val allVaccinations: Flow<List<Vaccination>> = 
@@ -99,7 +106,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 var failedValidation = 0
                 var skippedMissingPatient = 0
 
-                database.withTransaction {
+                transactionRunner.run {
                     for (remote in entities) {
                         // Basic Validation before Room insert
                         if (remote.id.isBlank() || remote.patientId.isBlank()) {
@@ -117,7 +124,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                         }
 
                         val local = vaccinationDao.getVaccinationById(remote.id)
-                        if ((local == null || local.isSynced) && !database.syncQueueDao().isUnsynced("VACCINATION", remote.id)) {
+                        if ((local == null || local.isSynced) && !syncQueueDao.isUnsynced("VACCINATION", remote.id)) {
                             vaccinationDao.insertVaccination(remote.copy(isSynced = true))
                             imported++
                         }
@@ -167,7 +174,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             var itemsHealed = 0
             val acceptedByVisit = mutableMapOf<String, MutableSet<String>>()
 
-            database.withTransaction {
+            transactionRunner.run {
                 for (remoteItem in items) {
                     // FOREIGN KEY CHECK: the visit this item belongs to must exist locally
                     // and must NOT be soft-deleted. getActiveVaccinationById filters is_deleted = 0.
@@ -184,7 +191,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                     // why Edit Vaccination can end up showing both the old and the new
                     // vaccine. Once the push lands, the remote copy no longer contains the
                     // removed rows, so nothing is lost by skipping here.
-                    if (database.syncQueueDao().isUnsynced("VACCINATION", remoteItem.vaccinationId)) {
+                    if (syncQueueDao.isUnsynced("VACCINATION", remoteItem.vaccinationId)) {
                         itemsSkippedUnsyncedVisit++
                         continue
                     }
@@ -210,7 +217,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 // resurrected while the DELETE was still queued (see the guard above) has no
                 // remote row anymore - drop the straggler.
                 for ((visitId, acceptedIds) in acceptedByVisit) {
-                    if (database.syncQueueDao().isUnsynced("VACCINATION", visitId)) continue
+                    if (syncQueueDao.isUnsynced("VACCINATION", visitId)) continue
                     val local = vaccinationItemDao.getItemsForVaccination(visitId).first()
                     val resurrected = local.filter { it.id !in acceptedIds }
                     if (resurrected.isEmpty()) continue
@@ -246,7 +253,7 @@ class VaccinationRepositoryImpl @Inject constructor(
      */
     override suspend fun addVaccination(vaccination: Vaccination, transactionGroupId: String? ): Boolean {
         var itemsChanged = false
-        database.withTransaction {
+        transactionRunner.run {
             val existing = vaccinationDao.getVaccinationById(vaccination.id)
 
             // Receipt numbers are assigned by the database (patient_visits trigger), never
@@ -371,8 +378,8 @@ class VaccinationRepositoryImpl @Inject constructor(
     //   the retry/backoff and DELETE-idempotency guarantees that apply once they're queued.
     override suspend fun deleteVaccination(id: String) {
         val transactionGroupId = java.util.UUID.randomUUID().toString()
-        database.withTransaction {
-            val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@withTransaction
+        transactionRunner.run {
+            val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@run
 
             val user = sessionManager.getCurrentUserName()
 

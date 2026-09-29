@@ -7,7 +7,6 @@ import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.core.utils.PatientUtils
 import com.neochildclinic.data.local.dao.PersonalReminderDao
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.domain.model.PersonalReminderStatus
 import com.neochildclinic.domain.repository.SyncRepository
@@ -18,14 +17,13 @@ import javax.inject.Singleton
 
 @Singleton
 class PersonalReminderRepositoryImpl @Inject constructor(
-    database: AppDatabase,
+    private val dao: PersonalReminderDao,
     private val syncRepository: SyncRepository,
     private val postgrest: Postgrest,
     private val sessionManager: SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : PersonalReminderRepository {
 
-    private val dao: PersonalReminderDao = database.personalReminderDao()
 
     companion object {
         private const val ENTITY_NAME = "PERSONAL_REMINDER"

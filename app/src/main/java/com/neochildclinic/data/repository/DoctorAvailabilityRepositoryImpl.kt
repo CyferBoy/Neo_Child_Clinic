@@ -1,10 +1,10 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
 import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.DoctorSlotExceptionEntity
 import com.neochildclinic.data.local.entity.DoctorWeeklySlotEntity
 import com.neochildclinic.data.local.entity.toDomain
@@ -20,13 +20,12 @@ import javax.inject.Singleton
 
 @Singleton
 class DoctorAvailabilityRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val dao: DoctorAvailabilityDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : DoctorAvailabilityRepository {
 
-    private val dao = database.doctorAvailabilityDao()
 
     override fun getWeeklySlots(doctorId: String): Flow<List<DoctorWeeklySlot>> =
         dao.getActiveWeeklySlotsForDoctor(doctorId)

@@ -1,10 +1,9 @@
 package com.neochildclinic.data.repository
 import com.neochildclinic.domain.repository.PatientTodoRepository
+import com.neochildclinic.data.local.dao.PatientTodoDao
 
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
-import com.neochildclinic.data.local.dao.PatientTodoDao
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ConsultationTodoEntity
 import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import com.neochildclinic.data.local.entity.toDomain
@@ -20,12 +19,11 @@ import javax.inject.Singleton
 
 @Singleton
 class PatientTodoRepositoryImpl @Inject constructor(
-    database: AppDatabase,
+    private val dao: PatientTodoDao,
     private val syncRepository: SyncRepository,
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : PatientTodoRepository {
-    private val dao: PatientTodoDao = database.patientTodoDao()
 
     override suspend fun refresh() = cloudRefresh("PatientTodoRepo") {
         val consultations = postgrest.from("consultation_todos").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationTodoEntity>()

@@ -1,8 +1,11 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.data.local.dao.ConsultationDao
+import com.neochildclinic.data.local.dao.VaccinationDao
+import com.neochildclinic.data.local.dao.FinanceDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.repository.ConsultationRepository
 
-import com.neochildclinic.data.local.database.AppDatabase
-import androidx.room.withTransaction
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.repository.SyncRepository
@@ -18,17 +21,16 @@ import javax.inject.Singleton
 
 @Singleton
 class ConsultationRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
+    private val syncQueueDao: SyncQueueDao,
+    private val financeDao: FinanceDao,
+    private val vaccinationDao: VaccinationDao,
+    private val consultationDao: ConsultationDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.session.SessionManager
 ) : ConsultationRepository {
-
-    private val consultationDao = database.consultationDao()
-    private val vaccinationDao = database.vaccinationDao()
-    private val financeDao = database.financeDao()
-    private val syncQueueDao = database.syncQueueDao()
 
     override fun getConsultationsForPatient(patientId: String): Flow<List<Consultation>> =
         consultationDao.getConsultationsForPatient(patientId).map { list -> list.map { it.toDomain() } }
@@ -64,7 +66,7 @@ class ConsultationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateConsultation(consultation: Consultation, transactionGroupId: String? ) {
-        database.withTransaction {
+        transactionRunner.run {
             val existing = consultationDao.getConsultationById(consultation.id)
                 ?: throw IllegalArgumentException("Consultation not found")
 
@@ -149,8 +151,8 @@ override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
 
-        database.withTransaction {
-            val existing = consultationDao.getConsultationById(id) ?: return@withTransaction
+        transactionRunner.run {
+            val existing = consultationDao.getConsultationById(id) ?: return@run
 
             // 1. Soft-Delete Consultation (Child)
             consultationDao.deleteConsultation(id, now, userName)
@@ -199,7 +201,7 @@ override suspend fun deleteConsultation(id: String) {
 
     override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo") {
         val entities = postgrest.from("consultations").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationEntity>()
-        database.withTransaction {
+        transactionRunner.run {
             for (remote in entities) {
                 if (!syncQueueDao.isUnsynced("CONSULTATION", remote.id)) {
                     consultationDao.insertConsultation(remote.copy(isSynced = true))

@@ -1,9 +1,8 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
 import com.neochildclinic.domain.repository.ReminderRepository
 
 import android.content.Context
-import androidx.room.withTransaction
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.*
@@ -31,13 +30,14 @@ import javax.inject.Singleton
  */
 @Singleton
 class ReminderRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
     private val postgrest: Postgrest,
     private val dueReminderDao: DueReminderDao,
     private val vaccinationDao: VaccinationDao,
     private val vaccineDao: VaccineDao,
     private val patientDao: PatientDao,
     private val auditLogDao: AuditLogDao,
+    private val syncQueueDao: SyncQueueDao,
     private val syncRepository: SyncRepository,
     private val reminderScheduler: ReminderScheduler,
     private val auditLogger: AuditLogger,
@@ -148,7 +148,7 @@ class ReminderRepositoryImpl @Inject constructor(
         if (type.isBlank() || dueDate.isBlank()) return
 
         withContext(Dispatchers.IO) {
-            database.withTransaction {
+            transactionRunner.run {
                 val now = PatientUtils.getCurrentIsoTimestamp()
                 val userName = sessionManager.getCurrentUserName()
 
@@ -263,8 +263,8 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 val userName = sessionManager.getCurrentUserName()
                 val patientName = patientDao.getPatientById(existing.patientId)?.name ?: "Unknown Patient"
                 val vaccineDisplay = existing.vaccineName.ifBlank { existing.type }
@@ -284,8 +284,8 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 val userName = sessionManager.getCurrentUserName()
                 val updated = existing.copy(
                     dueDate = newDate,
@@ -310,12 +310,12 @@ class ReminderRepositoryImpl @Inject constructor(
         performedBy: String
     ) {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 val ids = existing.nxtVaccineId.orEmpty().toMutableList()
                 val names = existing.vaccineName.split(",").map(String::trim).filter(String::isNotBlank).toMutableList()
                 val index = ids.indexOf(vaccineId)
-                if (index < 0) return@withTransaction
+                if (index < 0) return@run
 
                 ids.removeAt(index)
                 if (index < names.size) names.removeAt(index)
@@ -346,8 +346,8 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 val userName = sessionManager.getCurrentUserName()
                 logReminderUndoableChange(existing, "DISMISSED", "Dismissed: $reason by $userName")
                 dueReminderDao.moveDueToDismissed(existing.copy(updatedBy = userName), userName, reason)
@@ -360,8 +360,8 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 val userName = sessionManager.getCurrentUserName()
                 val restored = existing.copy(
                     status = "ACTIVE",
@@ -381,8 +381,8 @@ class ReminderRepositoryImpl @Inject constructor(
     override suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
         withContext(Dispatchers.IO) {
             val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-            database.withTransaction {
-                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@withTransaction
+            transactionRunner.run {
+                val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 logReminderUndoableChange(existing, "SOFT_DELETED", "Soft Deleted by $performedBy")
                 dueReminderDao.deleteReminderById(existing.id, now, performedBy)
                 enqueueReminderSync(
@@ -434,7 +434,7 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
                 val entities = postgrest.from("reminders").select { filter { eq("is_deleted", false) } }.decodeList<RemoteReminder>()
-                database.withTransaction {
+                transactionRunner.run {
                     for (remote in entities) {
                         // Guard against reminders whose parent visit no longer exists
                         // locally. A visit deletion that didn't (or hadn't yet) cleaned up
@@ -442,7 +442,7 @@ class ReminderRepositoryImpl @Inject constructor(
                         // it back down here would just resurrect it locally with no valid
                         // parent, and any future sync attempt for it would permanently fail
                         // with a foreign key violation. Skip it instead.
-                        val visitExists = database.vaccinationDao().getVaccinationById(remote.originalVisitId) != null
+                        val visitExists = vaccinationDao.getVaccinationById(remote.originalVisitId) != null
                         if (!visitExists) {
                             android.util.Log.e("ReminderRepo", "Skipping orphaned remote reminder for missing visit ${remote.originalVisitId}")
                             continue
@@ -459,10 +459,10 @@ class ReminderRepositoryImpl @Inject constructor(
                         // Pending DELETE enqueues entityId = serverId ?: local id — check
                         // both identities so a queued hard-delete is never overwritten by a pull.
                         val remoteId = remote.id
-                        if (remoteId != null && database.syncQueueDao().isUnsynced("REMINDERS", remoteId)) {
+                        if (remoteId != null && syncQueueDao.isUnsynced("REMINDERS", remoteId)) {
                             continue
                         }
-                        if (local != null && database.syncQueueDao().isUnsynced("REMINDERS", local.id)) {
+                        if (local != null && syncQueueDao.isUnsynced("REMINDERS", local.id)) {
                             continue
                         }
 

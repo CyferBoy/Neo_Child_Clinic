@@ -1,13 +1,14 @@
 package com.neochildclinic.data.repository
+import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.data.local.dao.ExpenseDao
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.repository.ExpenseRepository
 
-import androidx.room.withTransaction
 import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.core.model.SyncOperation
 import com.neochildclinic.core.model.SyncPriority
 import com.neochildclinic.core.session.SessionManager
 import com.neochildclinic.core.utils.PatientUtils
-import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ExpenseEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
@@ -21,15 +22,14 @@ import javax.inject.Singleton
 
 @Singleton
 class ExpenseRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner,
+    private val syncQueueDao: SyncQueueDao,
+    private val expenseDao: ExpenseDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val sessionManager: SessionManager
 ) : ExpenseRepository {
-
-    private val expenseDao = database.expenseDao()
-    private val syncQueueDao = database.syncQueueDao()
 
     override fun getAllExpenses(): Flow<List<Expense>> =
         expenseDao.getAllExpenses().map { list -> list.map { it.toDomain() } }
@@ -38,7 +38,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         expenseDao.getExpenseById(id)?.toDomain()
 
     override suspend fun addExpense(expense: Expense, user: String) {
-        database.withTransaction {
+        transactionRunner.run {
             val userName = sessionManager.getCurrentUserName()
             val entity = expense.copy(createdBy = userName, updatedBy = userName)
                 .toEntity(isSynced = false)
@@ -63,7 +63,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateExpense(expense: Expense, user: String) {
-        database.withTransaction {
+        transactionRunner.run {
             val existing = expenseDao.getExpenseById(expense.id)
             val userName = sessionManager.getCurrentUserName()
             val entity = expense.copy(
@@ -94,8 +94,8 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun deleteExpense(id: String, user: String) {
         val now = com.neochildclinic.core.utils.PatientUtils.getCurrentIsoTimestamp()
-        database.withTransaction {
-            val existing = expenseDao.getExpenseById(id) ?: return@withTransaction
+        transactionRunner.run {
+            val existing = expenseDao.getExpenseById(id) ?: return@run
             expenseDao.deleteExpense(id, now, user)
 
             syncRepository.enqueue(
@@ -117,7 +117,7 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
         val remoteExpenses = postgrest.from("expenses").select { filter { eq("is_deleted", false) } }.decodeList<ExpenseEntity>()
-        database.withTransaction {
+        transactionRunner.run {
             for (remote in remoteExpenses) {
                 if (!syncQueueDao.isUnsynced("EXPENSE", remote.id)) {
                     expenseDao.insertExpense(remote.copy(isSynced = true))
