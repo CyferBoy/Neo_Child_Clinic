@@ -108,3 +108,16 @@ fun PersonalReminderEntity.toDomain() = PersonalReminder(
     completedAt = completedAt,
     cancelledAt = cancelledAt
 )
+
+fun com.neochildclinic.domain.model.PersonalReminder.toEntity(
+    existing: PersonalReminderEntity? = null,
+    isSynced: Boolean = existing?.isSynced ?: false,
+    createdBy: String? = existing?.createdBy,
+    updatedBy: String? = existing?.updatedBy
+) = PersonalReminderEntity(
+    id = id, patientId = patientId, patientName = patientName, patientPhone = patientPhone,
+    vaccineId = vaccineId, vaccineLabel = vaccineLabel, note = note, advanceReceived = advanceReceived,
+    advanceAmount = advanceAmount, advanceDate = advanceDate, reminderDate = reminderDate, status = status,
+    createdAt = createdAt, updatedAt = updatedAt, completedAt = completedAt, cancelledAt = cancelledAt,
+    isSynced = isSynced, createdBy = createdBy, updatedBy = updatedBy
+)

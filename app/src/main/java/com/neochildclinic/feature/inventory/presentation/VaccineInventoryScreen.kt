@@ -19,7 +19,7 @@ import android.widget.Toast
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.*
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.domain.service.InventoryUtils
+import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem

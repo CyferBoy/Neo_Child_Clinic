@@ -1,8 +1,8 @@
 package com.neochildclinic.feature.vaccination.presentation
 
-import com.neochildclinic.domain.service.InventoryUtils
+import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils
-import com.neochildclinic.data.local.entity.ReminderEntity
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.VaccineBatch
@@ -30,7 +30,7 @@ internal fun revalidateRowsForDate(rows: List<VaccineSelectionState>, date: Stri
  * Maps the persisted reminders of a vaccination into the UI's due-date grouped structure.
  * ACTIVE + enabled reminders only; a multi-vaccine reminder expands to one item per vaccine.
  */
-internal fun buildNextVaccinationGroups(reminders: List<ReminderEntity>, inventory: List<InventoryItem>): List<NextVaccinationGroup> =
+internal fun buildNextVaccinationGroups(reminders: List<Reminder>, inventory: List<InventoryItem>): List<NextVaccinationGroup> =
     reminders.filter { it.status == "ACTIVE" && it.reminderEnabled }
         .groupBy { it.dueDate }
         .map { (dueDate, groupReminders) ->

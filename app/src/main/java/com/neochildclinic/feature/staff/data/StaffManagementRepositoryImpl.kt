@@ -1,8 +1,8 @@
 package com.neochildclinic.feature.staff.data
 
-import com.neochildclinic.domain.repository.CreateStaffRequest
-import com.neochildclinic.domain.repository.StaffActionRequest
-import com.neochildclinic.domain.repository.StaffManagementRepository
+import com.neochildclinic.feature.staff.domain.repository.CreateStaffRequest
+import com.neochildclinic.feature.staff.domain.repository.StaffActionRequest
+import com.neochildclinic.feature.staff.domain.repository.StaffManagementRepository
 import io.github.jan.supabase.functions.Functions
 import javax.inject.Inject
 import javax.inject.Singleton

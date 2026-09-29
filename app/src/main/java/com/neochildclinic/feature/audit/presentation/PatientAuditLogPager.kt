@@ -1,8 +1,7 @@
 package com.neochildclinic.feature.audit.presentation
 
-import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.AuditLog
-import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,5 +99,5 @@ class PatientAuditLogPager(
     }
 
     private suspend fun fetchPage(patientId: String, offset: Int): List<AuditLog> =
-        auditLogRepository.getPaged(patientId, offset, PAGE_SIZE).map { it.toDomain() }
+        auditLogRepository.getPaged(patientId, offset, PAGE_SIZE)
 }

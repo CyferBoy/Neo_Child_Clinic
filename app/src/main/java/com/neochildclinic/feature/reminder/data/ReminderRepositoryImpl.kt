@@ -1,12 +1,14 @@
 package com.neochildclinic.feature.reminder.data
-import com.neochildclinic.domain.TransactionRunner
-import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.core.database.TransactionRunner
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.domain.model.Reminder
+import com.neochildclinic.domain.model.ReminderAudit
 
 import android.content.Context
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.core.notification.ReminderScheduler
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
@@ -262,7 +264,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markReminderCompleted(reminder: ReminderEntity, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) {
+    override suspend fun markReminderCompleted(reminder: Reminder, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) {
         withContext(Dispatchers.IO) {
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
@@ -283,7 +285,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun reschedule(reminder: ReminderEntity, newDate: String, reminderDate: String, reason: String, performedBy: String) {
+    override suspend fun reschedule(reminder: Reminder, newDate: String, reminderDate: String, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
@@ -305,7 +307,7 @@ class ReminderRepositoryImpl @Inject constructor(
 
 
     override suspend fun cancelNextVaccinationVaccine(
-        reminder: ReminderEntity,
+        reminder: Reminder,
         vaccineId: String,
         reason: String,
         performedBy: String
@@ -345,7 +347,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun dismissReminder(reminder: ReminderEntity, reason: String, performedBy: String) {
+    override suspend fun dismissReminder(reminder: Reminder, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
@@ -359,7 +361,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun restoreReminder(reminder: ReminderEntity, performedBy: String) {
+    override suspend fun restoreReminder(reminder: Reminder, performedBy: String) {
         withContext(Dispatchers.IO) {
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
@@ -379,7 +381,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteReminder(reminder: ReminderEntity, performedBy: String) {
+    override suspend fun deleteReminder(reminder: Reminder, performedBy: String) {
         withContext(Dispatchers.IO) {
             val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             transactionRunner.run {
@@ -397,23 +399,21 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getPatientReminders(patientId: String): Flow<List<ReminderEntity>> {
-        return dueReminderDao.getDueRemindersForPatient(patientId)
-    }
+    override fun getPatientReminders(patientId: String): Flow<List<Reminder>> =
+        dueReminderDao.getDueRemindersForPatient(patientId).map { rows -> rows.map { it.toDomain() } }
 
 
-    override fun getAllReminders(): Flow<List<ReminderEntity>> = dueReminderDao.getAllReminders()
+    override fun getAllReminders(): Flow<List<Reminder>> = dueReminderDao.getAllReminders().map { rows -> rows.map { it.toDomain() } }
 
-    override suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity> {
-        return dueReminderDao.getRemindersByVisitId(visitId)
-    }
+    override suspend fun getRemindersByVisitId(visitId: String): List<Reminder> =
+        dueReminderDao.getRemindersByVisitId(visitId).map { it.toDomain() }
 
-    override suspend fun getReminderById(id: String): ReminderEntity? = dueReminderDao.getReminderById(id)
+    override suspend fun getReminderById(id: String): Reminder? = dueReminderDao.getReminderById(id)?.toDomain()
 
-    override fun getAuditTrail(patientId: String): Flow<List<ReminderAuditEntity>> {
+    override fun getAuditTrail(patientId: String): Flow<List<ReminderAudit>> {
         return auditLogDao.getLogsForPatient(patientId).map { logs ->
             logs.map { log ->
-                ReminderAuditEntity(
+                ReminderAudit(
                     patientId = log.patientId ?: "",
                     originalVisitId = log.entityId,
                     vaccineName = log.remarks ?: "",

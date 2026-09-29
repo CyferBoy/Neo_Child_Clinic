@@ -5,10 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Reminder
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -46,7 +45,7 @@ class VaccineDetailViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                reminderRepository.getAllReminders().map { list -> list.map { it.toDomain() } },
+                reminderRepository.getAllReminders().map { list -> list },
                 patientRepository.allPatients
             ) { reminders, patients ->
                 val patientMap = patients.associateBy { it.id }

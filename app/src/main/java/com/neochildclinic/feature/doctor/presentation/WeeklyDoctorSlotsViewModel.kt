@@ -7,8 +7,8 @@ import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.SessionManager
 import kotlinx.coroutines.flow.*

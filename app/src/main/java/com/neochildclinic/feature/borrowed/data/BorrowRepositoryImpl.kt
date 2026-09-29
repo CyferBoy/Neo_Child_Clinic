@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.borrowed.data
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 
 import android.util.Log
 import com.neochildclinic.domain.model.BorrowReturnRecord
@@ -16,10 +16,10 @@ import com.neochildclinic.data.local.dao.BorrowDao
 import com.neochildclinic.data.local.dao.BorrowReturnDao
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.domain.repository.BorrowRepository
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.NewBatchInfo
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -148,7 +148,7 @@ class BorrowRepositoryImpl @Inject constructor(
                     sellingPrice = newBatchInfo.sellingPrice,
                     updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
                 )
-                inventoryRepository.addBatch(newBatch, user, transactionGroupId)
+                inventoryRepository.addBatch(newBatch.toDomain(), user, transactionGroupId)
                 newBatch.batchId
             } else {
                 batchId

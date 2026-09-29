@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*

@@ -1,9 +1,9 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.domain.statistics.FinanceStatsData
-import com.neochildclinic.domain.statistics.StatisticsDateUtils
-import com.neochildclinic.domain.statistics.VisitTypeStats
-import com.neochildclinic.domain.statistics.StatisticsUtils
-import com.neochildclinic.domain.statistics.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.FinanceStatsData
+import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
+import com.neochildclinic.feature.statistics.domain.VisitTypeStats
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -210,8 +210,8 @@ private fun OverviewContent(
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
-    currentStats: com.neochildclinic.domain.statistics.FinanceStatsData,
-    prevStats: com.neochildclinic.domain.statistics.FinanceStatsData,
+    currentStats: com.neochildclinic.feature.statistics.domain.FinanceStatsData,
+    prevStats: com.neochildclinic.feature.statistics.domain.FinanceStatsData,
     patientsCount: Int,
     prevPatientsCount: Int,
     vaccPatientsCount: Int,

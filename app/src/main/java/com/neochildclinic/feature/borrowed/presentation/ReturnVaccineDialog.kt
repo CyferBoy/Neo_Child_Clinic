@@ -17,7 +17,7 @@ import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccineBatch
-import com.neochildclinic.domain.repository.NewBatchInfo
+import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

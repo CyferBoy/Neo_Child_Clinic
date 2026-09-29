@@ -13,7 +13,7 @@ import com.neochildclinic.feature.patient.data.PatientRepositoryImpl
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
-import com.neochildclinic.domain.statistics.StatisticsDateUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first

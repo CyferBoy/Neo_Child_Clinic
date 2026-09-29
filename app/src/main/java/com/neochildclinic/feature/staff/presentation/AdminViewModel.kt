@@ -3,10 +3,10 @@ package com.neochildclinic.feature.staff.presentation
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.ProfileRepository
-import com.neochildclinic.domain.repository.StaffManagementRepository
-import com.neochildclinic.domain.repository.CreateStaffRequest
-import com.neochildclinic.domain.repository.StaffActionRequest
+import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.feature.staff.domain.repository.StaffManagementRepository
+import com.neochildclinic.feature.staff.domain.repository.CreateStaffRequest
+import com.neochildclinic.feature.staff.domain.repository.StaffActionRequest
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

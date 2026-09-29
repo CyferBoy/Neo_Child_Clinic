@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.personalreminder.data
-import com.neochildclinic.domain.repository.PersonalReminderRepository
+import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
 
 import android.util.Log
 import com.neochildclinic.domain.model.SyncOperation
@@ -8,10 +8,14 @@ import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.data.local.dao.PersonalReminderDao
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.data.local.entity.toEntity
+import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.PersonalReminderStatus
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
@@ -30,22 +34,18 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         private const val ENTITY_NAME = "PERSONAL_REMINDER"
     }
 
-    override fun getActiveReminders(): Flow<List<PersonalReminderEntity>> = dao.getActiveReminders()
-    override fun getCompletedReminders(): Flow<List<PersonalReminderEntity>> = dao.getCompletedReminders()
-    override fun getCancelledReminders(): Flow<List<PersonalReminderEntity>> = dao.getCancelledReminders()
-    override suspend fun getById(id: String): PersonalReminderEntity? = dao.getById(id)
+    override fun getActiveReminders(): Flow<List<PersonalReminder>> = dao.getActiveReminders().map { it.map(PersonalReminderEntity::toDomain) }
+    override fun getCompletedReminders(): Flow<List<PersonalReminder>> = dao.getCompletedReminders().map { it.map(PersonalReminderEntity::toDomain) }
+    override fun getCancelledReminders(): Flow<List<PersonalReminder>> = dao.getCancelledReminders().map { it.map(PersonalReminderEntity::toDomain) }
+    override suspend fun getById(id: String): PersonalReminder? = dao.getById(id)?.toDomain()
 
-    override suspend fun createReminder(reminder: PersonalReminderEntity) {
+    override suspend fun createReminder(reminder: PersonalReminder) {
         val userName = sessionManager.getCurrentUserName()
         val now = PatientUtils.getCurrentIsoTimestamp()
         dao.insert(
-            reminder.copy(
-                createdAt = now,
-                updatedAt = now,
-                createdBy = userName,
-                updatedBy = userName,
-                isSynced = false
-            )
+            reminder.toEntity(
+                isSynced = false, createdBy = userName, updatedBy = userName
+            ).copy(createdAt = now, updatedAt = now)
         )
         syncRepository.enqueue(ENTITY_NAME, reminder.id, SyncOperation.CREATE, SyncPriority.MEDIUM)
         auditLogger.log(
@@ -57,14 +57,12 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun updateReminder(reminder: PersonalReminderEntity) {
+    override suspend fun updateReminder(reminder: PersonalReminder) {
         val userName = sessionManager.getCurrentUserName()
+        val existing = dao.getById(reminder.id)
         dao.insert(
-            reminder.copy(
-                updatedAt = PatientUtils.getCurrentIsoTimestamp(),
-                updatedBy = userName,
-                isSynced = false
-            )
+            reminder.toEntity(existing = existing, isSynced = false, updatedBy = userName)
+                .copy(updatedAt = PatientUtils.getCurrentIsoTimestamp())
         )
         syncRepository.enqueue(ENTITY_NAME, reminder.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         auditLogger.log(

@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

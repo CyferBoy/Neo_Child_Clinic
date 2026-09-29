@@ -7,9 +7,9 @@ import com.neochildclinic.domain.model.BorrowedVaccine
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.VaccineBatch
-import com.neochildclinic.domain.repository.BorrowRepository
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.NewBatchInfo
+import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch

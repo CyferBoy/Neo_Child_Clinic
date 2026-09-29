@@ -3,9 +3,9 @@ package com.neochildclinic.feature.inventory.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.BatchStatus
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -19,8 +19,8 @@ data class AddBatchUiState(
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val error: String? = null,
-    val batch: VaccineBatchEntity? = null,
-    val defaultBatch: VaccineBatchEntity? = null,
+    val batch: VaccineBatch? = null,
+    val defaultBatch: VaccineBatch? = null,
     val defaultMrp: Double? = null,
     val defaultNetRate: Double? = null,
     val defaultManufacturer: String? = null
@@ -95,7 +95,7 @@ class AddBatchViewModel @Inject constructor(
                 } else {
                     val newBatchId = UUID.randomUUID().toString()
                     val today = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
-                    val batch = VaccineBatchEntity(
+                    val batch = VaccineBatch(
                         batchId = newBatchId,
                         vaccineId = vaccineId,
                         batchNumber = batchNumber,

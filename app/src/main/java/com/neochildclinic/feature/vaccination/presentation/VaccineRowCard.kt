@@ -78,7 +78,7 @@ internal fun VaccineRow(
             }
 
             val batches = state.selectedVaccine?.batches?.filter {
-                it.remainingQuantity > 0 && !com.neochildclinic.domain.service.InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate)
+                it.remainingQuantity > 0 && !com.neochildclinic.feature.inventory.domain.InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate)
             } ?: emptyList()
             if (allowVaccineBatchEdit) {
                 ExposedDropdownMenuBox(
@@ -118,7 +118,7 @@ internal fun VaccineRow(
                 Text(
                     "Expiry: ${state.selectedBatch.expiryDate}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (com.neochildclinic.domain.service.InventoryUtils.isExpiredAsOf(state.selectedBatch.expiryDate, givenDate)) Color.Red else Color.Gray
+                    color = if (com.neochildclinic.feature.inventory.domain.InventoryUtils.isExpiredAsOf(state.selectedBatch.expiryDate, givenDate)) Color.Red else Color.Gray
                 )
             }
 

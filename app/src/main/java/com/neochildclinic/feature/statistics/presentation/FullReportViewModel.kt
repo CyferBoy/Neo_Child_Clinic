@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.domain.statistics.StatisticsDateUtils
-import com.neochildclinic.domain.statistics.StatisticsUtils
-import com.neochildclinic.domain.statistics.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,12 +9,11 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.repository.ExpenseRepository
-import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
+import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -81,7 +80,7 @@ class FullReportViewModel @Inject constructor(
                 @Suppress("UNCHECKED_CAST")
                 val vaccinations = values[1] as List<Vaccination>
                 @Suppress("UNCHECKED_CAST")
-                val transactions = (values[2] as List<com.neochildclinic.data.local.entity.FinanceEntity>).map { it.toDomain() }
+                val transactions = values[2] as List<com.neochildclinic.domain.model.FinanceTransaction>
                 @Suppress("UNCHECKED_CAST")
                 val expenses = values[3] as List<Expense>
                 val filterMode = values[4] as String

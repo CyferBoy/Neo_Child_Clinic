@@ -3,7 +3,7 @@ package com.neochildclinic.feature.search.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.usecase.patient.SearchPatientsUseCase
+import com.neochildclinic.feature.patient.domain.SearchPatientsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*

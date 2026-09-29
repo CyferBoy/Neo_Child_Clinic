@@ -1,6 +1,6 @@
 package com.neochildclinic.data.local.database
 
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -5,11 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.DateClassifier
-import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.PersonalReminder
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.PersonalReminderRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -52,15 +51,15 @@ class PersonalReminderViewModel @Inject constructor(
         repository.getActiveReminders()
             .onEach { Log.d("PersonalReminder", "Active reminders: ${it.size}") }
             .map { list ->
-                list.map { it.toDomain() }.sortedWith(
+                list.sortedWith(
                     compareBy(
                         { reminderPriority(it.reminderDate) },
                         { it.reminderDate?.let(DateClassifier::getSortWeight) ?: Long.MAX_VALUE }
                     )
                 )
             },
-        repository.getCompletedReminders().onEach { Log.d("PersonalReminder", "Completed reminders: ${it.size}") }.map { list -> list.map { it.toDomain() } },
-        repository.getCancelledReminders().onEach { Log.d("PersonalReminder", "Cancelled reminders: ${it.size}") }.map { list -> list.map { it.toDomain() } },
+        repository.getCompletedReminders().onEach { Log.d("PersonalReminder", "Completed reminders: ${it.size}") }.map { list -> list },
+        repository.getCancelledReminders().onEach { Log.d("PersonalReminder", "Cancelled reminders: ${it.size}") }.map { list -> list },
         patientRepository.allPatients.onEach { Log.d("PersonalReminder", "Total patients: ${it.size}") },
         _isRefreshing
     ) { values ->

@@ -11,17 +11,19 @@ import com.neochildclinic.core.security.SecurityUtils
 import com.neochildclinic.data.backup.*
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.BackupHistoryEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.BackupHistoryStatus
 import com.neochildclinic.data.local.entity.BackupHistoryType
 import com.neochildclinic.data.local.entity.BackupLocation
 import com.neochildclinic.core.sync.SyncManagerImpl
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.BackupRepository
+import com.neochildclinic.feature.settings.domain.repository.BackupRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import java.util.UUID
@@ -49,7 +51,7 @@ class BackupRepositoryImpl @Inject constructor(
     // ============================================================== Local export ====
 
     override suspend fun exportBackupToUri(
-        uri: Uri,
+        uri: String,
         password: CharArray,
         onProgress: suspend (BackupProgress) -> Unit
     ): BackupOperationResult = withContext(Dispatchers.IO) {
@@ -66,12 +68,12 @@ class BackupRepositoryImpl @Inject constructor(
                 val container = BackupSerializer.encodeToContainer(envelope, password)
 
             onProgress(BackupProgress.Stage("Saving..."))
-            writeBytesToUri(uri, container)
+            writeBytesToUri(Uri.parse(uri), container)
 
             recordHistory(
                 id = envelope.backupId, type = BackupHistoryType.LOCAL_EXPORT, location = BackupLocation.LOCAL,
                 sizeBytes = container.size.toLong(), envelope = envelope, status = BackupHistoryStatus.SUCCESS,
-                storagePath = uri.toString(), triggeredBy = "MANUAL"
+                storagePath = uri, triggeredBy = "MANUAL"
             )
             onProgress(BackupProgress.Done)
             BackupOperationResult(true, envelope.backupId, container.size.toLong(), envelope.recordCounts)
@@ -83,10 +85,10 @@ class BackupRepositoryImpl @Inject constructor(
 
     // ============================================================== Local import ====
 
-    override suspend fun peekBackupFromUri(uri: Uri, password: CharArray): BackupValidationResult =
+    override suspend fun peekBackupFromUri(uri: String, password: CharArray): BackupValidationResult =
         withContext(Dispatchers.IO) {
             try {
-                val bytes = readBytesFromUri(uri) ?: return@withContext BackupValidationResult.Invalid(
+                val bytes = readBytesFromUri(Uri.parse(uri)) ?: return@withContext BackupValidationResult.Invalid(
                     BackupFailureReason.CORRUPTED_OR_INCOMPLETE, "Could not read the selected file."
                 )
                 val envelope = BackupSerializer.decodeFromContainer(bytes, password)
@@ -103,7 +105,7 @@ class BackupRepositoryImpl @Inject constructor(
         }
 
     override suspend fun restoreBackupFromUri(
-        uri: Uri,
+        uri: String,
         password: CharArray,
         mode: RestoreMode,
         onProgress: suspend (BackupProgress) -> Unit
@@ -111,7 +113,7 @@ class BackupRepositoryImpl @Inject constructor(
         try {
             runCatching {
                 onProgress(BackupProgress.Stage("Preparing restore..."))
-                val bytes = readBytesFromUri(uri) ?: throw BackupException.Corrupted("Could not read the selected file")
+                val bytes = readBytesFromUri(Uri.parse(uri)) ?: throw BackupException.Corrupted("Could not read the selected file")
 
                 onProgress(BackupProgress.Stage("Validating backup..."))
                 val envelope = BackupSerializer.decodeFromContainer(bytes, password)
@@ -122,7 +124,7 @@ class BackupRepositoryImpl @Inject constructor(
                 recordHistory(
                     id = UUID.randomUUID().toString(), type = BackupHistoryType.LOCAL_IMPORT, location = BackupLocation.LOCAL,
                     sizeBytes = bytes.size.toLong(), envelope = envelope, status = BackupHistoryStatus.SUCCESS,
-                    storagePath = uri.toString(), triggeredBy = "MANUAL", overrideCounts = outcome.appliedRecordCounts
+                    storagePath = uri, triggeredBy = "MANUAL", overrideCounts = outcome.appliedRecordCounts
                 )
                 onProgress(BackupProgress.Done)
                 BackupOperationResult(true, envelope.backupId, bytes.size.toLong(), outcome.appliedRecordCounts)
@@ -282,7 +284,7 @@ class BackupRepositoryImpl @Inject constructor(
 
     // ================================================================= History ====
 
-    override fun observeHistory(): Flow<List<BackupHistoryEntity>> = backupDao.observeHistory()
+    override fun observeHistory(): Flow<List<BackupHistory>> = backupDao.observeHistory().map { it.map { row -> row.toDomain() } }
 
     // ============================================================== Automatic ====
 

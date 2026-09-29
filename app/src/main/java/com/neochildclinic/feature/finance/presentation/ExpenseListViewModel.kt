@@ -7,8 +7,8 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.ExpenseRepository
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
+import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.core.common.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

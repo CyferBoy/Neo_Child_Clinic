@@ -3,9 +3,8 @@ package com.neochildclinic.feature.settings.presentation
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.BackupRepository
+import com.neochildclinic.feature.settings.domain.repository.BackupRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,7 +53,7 @@ class BackupViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             backupRepository.observeHistory().collect { history ->
-                _uiState.value = _uiState.value.copy(history = history.map { it.toDomain() })
+                _uiState.value = _uiState.value.copy(history = history)
             }
         }
         viewModelScope.launch {
@@ -105,7 +104,7 @@ class BackupViewModel @Inject constructor(
 
     fun exportBackup(uri: Uri, password: CharArray) = viewModelScope.launch {
         setBusy("Creating backup...")
-        val result = backupRepository.exportBackupToUri(uri, password) { onProgress(it) }
+        val result = backupRepository.exportBackupToUri(uri.toString(), password) { onProgress(it) }
         showResult(result, "Backup saved successfully.")
     }
 
@@ -118,7 +117,7 @@ class BackupViewModel @Inject constructor(
         // the same password is needed again in confirmRestore() below if the user goes
         // ahead - so peek gets its own copy, and the original survives in RestoreSource
         // until the terminal restore call (or dismissRestoreSummary()) clears it.
-        when (val validation = backupRepository.peekBackupFromUri(uri, password.copyOf())) {
+        when (val validation = backupRepository.peekBackupFromUri(uri.toString(), password.copyOf())) {
             is BackupValidationResult.Valid -> _uiState.value = _uiState.value.copy(
                 isBusy = false, progressLabel = null,
                 pendingRestoreSummary = validation.summary,
@@ -142,7 +141,7 @@ class BackupViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(pendingRestoreSummary = null, pendingRestoreSource = null)
         setBusy("Preparing restore...")
         val result = when (source) {
-            is RestoreSource.Local -> backupRepository.restoreBackupFromUri(source.uri, source.password, mode) { onProgress(it) }
+            is RestoreSource.Local -> backupRepository.restoreBackupFromUri(source.uri.toString(), source.password, mode) { onProgress(it) }
             is RestoreSource.Cloud -> backupRepository.cloudRestore(source.backupId, source.password, mode) { onProgress(it) }
         }
         _uiState.value = _uiState.value.copy(hasSafetyBackup = backupRepository.hasSafetyBackup())

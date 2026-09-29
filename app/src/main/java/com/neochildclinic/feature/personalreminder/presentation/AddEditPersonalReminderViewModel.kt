@@ -4,13 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.common.PatientUtils
-import com.neochildclinic.data.local.entity.PersonalReminderEntity
-import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccine
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.PersonalReminderRepository
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -73,7 +72,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             inventoryRepository.getAllVaccines().collect { vaccines ->
-                _uiState.update { it.copy(vaccines = vaccines.map { it.toDomain() }.sortedBy { v -> v.brandName }) }
+                _uiState.update { it.copy(vaccines = vaccines.sortedBy { v -> v.brandName }) }
             }
         }
 
@@ -227,7 +226,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val existing = editingReminderId?.let { repository.getById(it) }
-                val entity = PersonalReminderEntity(
+                val entity = PersonalReminder(
                     id = existing?.id ?: java.util.UUID.randomUUID().toString(),
                     patientId = patient?.id,
                     patientName = patientName.ifBlank { patient?.name.orEmpty() },
@@ -246,9 +245,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
                     createdAt = existing?.createdAt ?: "",
                     updatedAt = existing?.updatedAt ?: "",
                     completedAt = existing?.completedAt,
-                    cancelledAt = existing?.cancelledAt,
-                    createdBy = existing?.createdBy,
-                    updatedBy = existing?.updatedBy
+                    cancelledAt = existing?.cancelledAt
                 )
 
                 if (existing != null) {

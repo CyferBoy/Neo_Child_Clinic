@@ -1,15 +1,15 @@
 package com.neochildclinic.feature.waste.data
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.WasteDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.feature.waste.domain.repository.WasteRepository
 
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject

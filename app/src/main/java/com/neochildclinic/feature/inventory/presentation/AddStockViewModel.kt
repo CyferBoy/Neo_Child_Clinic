@@ -3,12 +3,12 @@ package com.neochildclinic.feature.inventory.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
-import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -206,7 +206,7 @@ class AddStockViewModel @Inject constructor(
                     .filter { it.vaccineId.isNotBlank() }
                     .associate { section ->
                         section.vaccineId to section.batches.map { batch ->
-                            VaccineBatchEntity(
+                            VaccineBatch(
                                 batchId = UUID.randomUUID().toString(),
                                 vaccineId = section.vaccineId,
                                 batchNumber = batch.batchNumber.trim(),

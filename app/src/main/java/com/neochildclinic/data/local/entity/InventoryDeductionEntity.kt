@@ -36,8 +36,20 @@ data class InventoryDeductionEntity(
 fun InventoryDeductionEntity.toDomain() = InventoryDeduction(
     id = id,
     vaccinationId = vaccinationId,
+    vaccineId = vaccineId,
     vaccineName = vaccineName,
+    batchId = batchId,
     quantity = quantity,
     status = status,
-    errorMessage = errorMessage
+    errorMessage = errorMessage,
+    resolvedAt = resolvedAt,
+    createdBy = createdBy,
+    updatedBy = updatedBy
+)
+
+fun com.neochildclinic.domain.model.InventoryDeduction.toEntity(
+    batchId: String? = null, resolvedAt: Long = System.currentTimeMillis(), createdBy: String? = null, updatedBy: String? = null
+) = InventoryDeductionEntity(
+    id = id, vaccinationId = vaccinationId, vaccineId = vaccineId, vaccineName = vaccineName, batchId = this.batchId,
+    quantity = quantity, status = status, errorMessage = errorMessage, resolvedAt = if (resolvedAt == 0L) this.resolvedAt else resolvedAt, createdBy = createdBy ?: this.createdBy, updatedBy = updatedBy ?: this.updatedBy
 )

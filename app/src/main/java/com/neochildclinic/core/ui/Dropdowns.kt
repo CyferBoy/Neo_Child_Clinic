@@ -167,7 +167,7 @@ sealed class SlotsUiState {
 }
 
 /** Runs GetAvailableSlotsUseCase and maps its result into [SlotsUiState] for display. */
-suspend fun com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase.loadUiState(
+suspend fun com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase.loadUiState(
     doctorId: String,
     date: String
 ): SlotsUiState = try {

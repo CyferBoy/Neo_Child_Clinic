@@ -3,7 +3,19 @@ package com.neochildclinic.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-typealias VaccinationItem = com.neochildclinic.data.local.entity.VaccinationItemEntity
+@Serializable
+data class VaccinationItem(
+    val id: String = "",
+    val vaccinationId: String = "",
+    val vaccineId: String = "",
+    val vaccineName: String = "",
+    val batchId: String = "",
+    val batchNumber: String = "",
+    val quantity: Int = 1,
+    val mrp: Double = 0.0,
+    val netRate: Double = 0.0,
+    val expiryDate: String = ""
+)
 
 @Serializable
 data class Vaccination(
@@ -34,12 +46,8 @@ data class Vaccination(
     @SerialName("created_by") val createdBy: String? = null,
     @SerialName("updated_by") val updatedBy: String? = null
 ) {
-    // Computed properties for legacy support
-    // Falls back to the visit-level snapshot whenever items don't carry a usable name -
-    // either because there are no items yet, or because they exist but vaccineName is
-    // blank (VaccinationItemEntity has no vaccineName column, so it's always "" for any
-    // item loaded from local storage - only the denormalized rawVaccineNames snapshot
-    // captured at save time has the real value for locally-loaded records).
+    // Computed properties for legacy records: fall back to the visit-level snapshot when
+    // no persisted item carries a usable vaccine name.
     val vaccineNames: List<String> get() = items.map { it.vaccineName }.filter { it.isNotBlank() }.ifEmpty { 
         if (rawVaccineNames.isNotBlank()) {
             rawVaccineNames.split(",").map { it.trim() }.filter { it.isNotEmpty() } 

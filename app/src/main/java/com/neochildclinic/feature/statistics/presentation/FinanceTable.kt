@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.domain.statistics.FinanceSummaryItem
-import com.neochildclinic.domain.statistics.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

@@ -1,18 +1,21 @@
 package com.neochildclinic.feature.finance.data
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.VaccinationDao
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
+import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.statistics.FinanceCalculator
+import com.neochildclinic.domain.model.FinanceTransaction
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
@@ -55,9 +58,8 @@ class FinanceRepositoryImpl @Inject constructor(
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH))
     }
 
-    override fun getAllTransactions(): Flow<List<FinanceEntity>> {
-        return financeDao.getAllTransactions()
-    }
+    override fun getAllTransactions(): Flow<List<FinanceTransaction>> =
+        financeDao.getAllTransactions().map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun recordIncome(
         amount: Double,

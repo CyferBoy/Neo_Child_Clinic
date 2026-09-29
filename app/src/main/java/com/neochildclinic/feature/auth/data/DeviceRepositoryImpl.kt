@@ -5,7 +5,7 @@ import android.os.Build
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.neochildclinic.domain.model.UserDevice
-import com.neochildclinic.domain.repository.DeviceRepository
+import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns

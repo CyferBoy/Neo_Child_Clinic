@@ -3,8 +3,8 @@ package com.neochildclinic.feature.waste.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.waste.domain.repository.WasteRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*

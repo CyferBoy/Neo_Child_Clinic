@@ -6,7 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.feature.inventory.data.InventoryRepositoryImpl
-import com.neochildclinic.domain.statistics.ClinicStatsManager
+import com.neochildclinic.feature.statistics.domain.ClinicStatsManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first

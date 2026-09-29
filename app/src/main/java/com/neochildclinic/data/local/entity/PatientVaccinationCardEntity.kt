@@ -22,3 +22,9 @@ data class PatientVaccinationCardEntity(
     )
     val reminders: List<ReminderEntity>
 )
+
+fun PatientVaccinationCardEntity.toDomain() = com.neochildclinic.domain.model.PatientVaccinationCard(
+    vaccination = visit.toVaccination().copy(items = items.map { it.toDomain() }),
+    items = items.map { it.toDomain() },
+    reminders = reminders.map { it.toDomain() }
+)

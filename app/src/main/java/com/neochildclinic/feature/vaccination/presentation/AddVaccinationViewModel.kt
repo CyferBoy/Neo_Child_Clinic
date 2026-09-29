@@ -2,18 +2,17 @@ package com.neochildclinic.feature.vaccination.presentation
 
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
-import com.neochildclinic.domain.usecase.doctor.GetAvailableSlotsUseCase
+import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
-import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.service.ClinicalVaccinationService
-import com.neochildclinic.domain.service.VaccinationEditEngine
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.feature.vaccination.domain.ClinicalVaccinationService
+import com.neochildclinic.feature.vaccination.domain.VaccinationEditEngine
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -76,7 +75,7 @@ class AddVaccinationViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     private val vaccinationRepository: VaccinationRepository,
     private val reminderRepository: ReminderRepository,
-    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
+    private val profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository,
     private val clinicalService: ClinicalVaccinationService,
     private val vaccinationEditEngine: VaccinationEditEngine,
     private val sessionManager: SessionManager,
@@ -162,7 +161,7 @@ class AddVaccinationViewModel @Inject constructor(
             val inventory = _uiState.value.inventory
             originalVaccinationItems = vaccination.items
 
-            val items = buildVaccineSelectionRows(vaccination.items, inventory) { inventoryRepository.getBatchById(it)?.toDomain() }
+            val items = buildVaccineSelectionRows(vaccination.items, inventory) { inventoryRepository.getBatchById(it) }
 
             // Load existing Next Vaccination entries directly from reminders.
             val reminders = reminderRepository.getRemindersByVisitId(vaccinationId)

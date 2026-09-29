@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.vaccination.data
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.VaccinationItemDao
 import com.neochildclinic.data.local.dao.InventoryDeductionDao
@@ -8,7 +8,7 @@ import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.dao.DueReminderDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
 
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.SyncOperation
@@ -19,10 +19,12 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Visit
+import com.neochildclinic.domain.model.VaccinationItem
+import com.neochildclinic.domain.model.PatientVaccinationCard
 import com.neochildclinic.domain.model.toEntity
-import com.neochildclinic.domain.service.EditReconciler
-import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.feature.vaccination.domain.EditReconciler
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.*
@@ -63,7 +65,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
             val flows = list.map { entity ->
                 vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
-                    entity.toVaccination().copy(items = items)
+                    entity.toVaccination().copy(items = items.map { it.toDomain() })
                 }
             }
             combine(flows) { it.toList() }
@@ -75,14 +77,14 @@ class VaccinationRepositoryImpl @Inject constructor(
             if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
             val flows = list.map { entity ->
                 vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
-                    entity.toVaccination().copy(items = items)
+                    entity.toVaccination().copy(items = items.map { it.toDomain() })
                 }
             }
             combine(flows) { it.toList() }
         }
 
-    override fun getVaccinationCardsForPatient(patientId: String): Flow<List<com.neochildclinic.data.local.entity.PatientVaccinationCardEntity>> =
-        vaccinationDao.getVaccinationCardsForPatient(patientId)
+    override fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCard>> =
+        vaccinationDao.getVaccinationCardsForPatient(patientId).map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun insertVisit(visit: Visit) {
         val entity = visit.toEntity()
@@ -97,7 +99,7 @@ class VaccinationRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             val entity = vaccinationDao.getVaccinationById(id) ?: return@withContext null
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
-            entity.toVaccination().copy(items = items)
+            entity.toVaccination().copy(items = items.map { it.toDomain() })
         }
 
     override suspend fun refreshVaccinations() = cloudRefresh("VaccinationRepo") {
@@ -144,10 +146,10 @@ class VaccinationRepositoryImpl @Inject constructor(
 
     // Pure network fetch, no local writes - safe to run in parallel with other
     // startup sync tasks (e.g. inventory) without any ordering dependency.
-    override suspend fun fetchRemoteVaccinationItems(): List<VaccinationItemEntity> =
+    override suspend fun fetchRemoteVaccinationItems(): List<VaccinationItem> =
         withContext(Dispatchers.IO) {
             try {
-                postgrest.from("vaccination_items").select().decodeList<VaccinationItemEntity>()
+                postgrest.from("vaccination_items").select().decodeList<VaccinationItemEntity>().map { it.toDomain() }
             } catch (e: Exception) {
                 android.util.Log.e("VaccinationRepo", "Vaccination items fetch failed", e)
                 emptyList()
@@ -165,9 +167,10 @@ class VaccinationRepositoryImpl @Inject constructor(
     // than crashing the whole transaction, and it will not be retried until the next
     // full refresh. Calling this before inventory sync has completed will skip
     // everything on a fresh install/cleared data.
-    override suspend fun applyDownloadedVaccinationItems(items: List<VaccinationItemEntity>) {
+    override suspend fun applyDownloadedVaccinationItems(items: List<VaccinationItem>) {
+        val entities = items.map { it.toEntity() }
         withContext(Dispatchers.IO) {
-            val totalItemsDownloaded = items.size
+            val totalItemsDownloaded = entities.size
             var itemsImported = 0
             var itemsSkippedMissingVisit = 0
             var itemsSkippedUnsyncedVisit = 0
@@ -176,7 +179,7 @@ class VaccinationRepositoryImpl @Inject constructor(
             val acceptedByVisit = mutableMapOf<String, MutableSet<String>>()
 
             transactionRunner.run {
-                for (remoteItem in items) {
+                for (remoteItem in entities) {
                     // FOREIGN KEY CHECK: the visit this item belongs to must exist locally
                     // and must NOT be soft-deleted. getActiveVaccinationById filters is_deleted = 0.
                     val visitExists = vaccinationDao.getActiveVaccinationById(remoteItem.vaccinationId) != null
@@ -226,7 +229,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                     val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
                     vaccinationItemDao.deleteItemsForVaccination(visitId)
                     vaccinationItemDao.insertItems(
-                        items.filter { it.vaccinationId == visitId && it.id in acceptedIds }
+                        items.filter { it.vaccinationId == visitId && it.id in acceptedIds }.map { it.toEntity() }
                     )
                     itemsHealed += resurrected.size
                 }
@@ -282,7 +285,7 @@ class VaccinationRepositoryImpl @Inject constructor(
 
             val itemPlan = EditReconciler.classifyItems(
                 existing = if (existing == null) emptyList()
-                    else vaccinationItemDao.getItemsForVaccination(vaccination.id).first(),
+                    else vaccinationItemDao.getItemsForVaccination(vaccination.id).first().map { it.toDomain() },
                 edited = vaccination.items.map { it.copy(vaccinationId = vaccination.id) }
             )
             itemsChanged = itemPlan.anyChange
@@ -329,7 +332,7 @@ class VaccinationRepositoryImpl @Inject constructor(
                 }
             }
             if (itemPlan.inserts.isNotEmpty()) {
-                vaccinationItemDao.insertItems(itemPlan.inserts)
+                vaccinationItemDao.insertItems(itemPlan.inserts.map { it.toEntity() })
                 itemPlan.inserts.forEach { item ->
                     syncRepository.enqueue(
                         entityName = "VACCINATION_ITEM",

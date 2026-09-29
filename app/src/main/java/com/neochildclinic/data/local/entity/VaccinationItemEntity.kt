@@ -67,3 +67,8 @@ fun VaccinationItemEntity.toDomain() = VaccinationItem(
     netRate = netRate,
     expiryDate = expiryDate
 )
+
+fun com.neochildclinic.domain.model.VaccinationItem.toEntity() = VaccinationItemEntity(
+    id = id, vaccinationId = vaccinationId, vaccineId = vaccineId, vaccineName = vaccineName,
+    batchId = batchId, batchNumber = batchNumber, quantity = quantity, mrp = mrp, netRate = netRate, expiryDate = expiryDate
+)

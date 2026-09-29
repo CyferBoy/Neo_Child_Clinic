@@ -1,17 +1,19 @@
 package com.neochildclinic.feature.patient.data
 
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.data.remote.PatientRemoteDataSource
 import com.neochildclinic.data.local.entity.PatientEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.repository.SyncRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
-import com.neochildclinic.feature.patient.domain.PatientIdGenerator
+import com.neochildclinic.feature.patient.data.PatientIdGenerator
 import com.neochildclinic.core.cache.MemoryCache
 import com.neochildclinic.core.cache.QueryCacheKey
 import com.neochildclinic.core.preferences.PreferenceManager
@@ -226,9 +228,8 @@ class PatientRepositoryImpl @Inject constructor(
 
     override fun getPatientCount(): Flow<Int> = localDataSource.getPatientCount()
 
-    override fun getNotes(patientId: String): Flow<List<PatientNotesEntity>> {
-        return localDataSource.getNotesForPatient(patientId)
-    }
+    override fun getNotes(patientId: String): Flow<List<PatientNote>> =
+        localDataSource.getNotesForPatient(patientId).map { rows -> rows.map { it.toDomain() } }
 
     private suspend fun invalidatePatientCache(id: String) {
         patientCache.invalidate(id)

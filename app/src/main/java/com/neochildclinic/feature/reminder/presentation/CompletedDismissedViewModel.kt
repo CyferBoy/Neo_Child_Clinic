@@ -3,8 +3,8 @@ package com.neochildclinic.feature.reminder.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*

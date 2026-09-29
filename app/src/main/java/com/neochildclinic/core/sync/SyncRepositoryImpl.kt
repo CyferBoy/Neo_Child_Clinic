@@ -1,7 +1,7 @@
 package com.neochildclinic.core.sync
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.SyncItem

@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.personalreminder.presentation
 
-import com.neochildclinic.domain.statistics.StatisticsUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape

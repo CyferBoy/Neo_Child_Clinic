@@ -7,14 +7,13 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Reminder
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.FinanceRepository
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.domain.repository.ReminderRepository
-import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.model.Expense
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -69,8 +68,8 @@ class StatisticsViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST") val patients = values[0] as List<Patient>
         @Suppress("UNCHECKED_CAST") val vaccinations = values[1] as List<Vaccination>
         @Suppress("UNCHECKED_CAST") val inventory = values[2] as List<InventoryItem>
-        @Suppress("UNCHECKED_CAST") val financeEntities = values[3] as List<com.neochildclinic.data.local.entity.FinanceEntity>
-        @Suppress("UNCHECKED_CAST") val reminderEntities = values[4] as List<com.neochildclinic.data.local.entity.ReminderEntity>
+        @Suppress("UNCHECKED_CAST") val financeEntities = values[3] as List<com.neochildclinic.domain.model.FinanceTransaction>
+        @Suppress("UNCHECKED_CAST") val reminders = values[4] as List<com.neochildclinic.domain.model.Reminder>
         @Suppress("UNCHECKED_CAST") val expenses = values[5] as List<Expense>
         val tab = values[6] as Int
         val refreshing = values[7] as Boolean
@@ -80,8 +79,8 @@ class StatisticsViewModel @Inject constructor(
             patients = patients,
             vaccinations = vaccinations,
             inventory = inventory,
-            financeTransactions = financeEntities.map { it.toDomain() },
-            vaccinationReminders = reminderEntities.map { it.toDomain() },
+            financeTransactions = financeEntities,
+            vaccinationReminders = reminders,
             expenses = expenses,
             selectedTab = tab,
             isRefreshing = refreshing,

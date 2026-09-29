@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.core.common.metadataString
 import dagger.hilt.android.lifecycle.HiltViewModel

@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.patient.data
-import com.neochildclinic.domain.repository.PatientTodoRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientTodoRepository
 import com.neochildclinic.data.local.dao.PatientTodoDao
 
 import com.neochildclinic.domain.model.SyncOperation
@@ -9,7 +9,7 @@ import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import io.github.jan.supabase.postgrest.Postgrest
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import kotlinx.coroutines.flow.Flow

@@ -1,5 +1,5 @@
 package com.neochildclinic.feature.inventory.data
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 
 import android.content.Context
 import com.neochildclinic.core.cache.MemoryCache
@@ -8,9 +8,13 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.preferences.PreferenceManager
-import com.neochildclinic.domain.service.InventoryUtils
+import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils.parseDate
 import com.neochildclinic.data.local.entity.*
+import com.neochildclinic.domain.model.InventoryDeduction
+import com.neochildclinic.domain.model.Vaccine
+import com.neochildclinic.domain.model.VaccineBatch
+import com.neochildclinic.domain.model.InventoryTransaction
 import com.neochildclinic.data.remote.PatientRemoteDataSource
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.domain.model.InventoryFilter
@@ -19,8 +23,8 @@ import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.domain.repository.InventoryRepository
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.*
@@ -125,33 +129,31 @@ class InventoryRepositoryImpl @Inject constructor(
         }.flowOn(Dispatchers.Default)
     }
 
-    override fun getAllVaccines(): Flow<List<VaccineEntity>> = localDataSource.getAllVaccines()
+    override fun getAllVaccines(): Flow<List<Vaccine>> = localDataSource.getAllVaccines().map { it.map { row -> row.toDomain() } }
 
-    override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatchEntity>> =
-        localDataSource.getBatchesByVaccine(vaccineId).map { batches ->
+    override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatch>> =
+        localDataSource.getBatchesByVaccine(vaccineId).map { it.map { row -> row.toDomain() } }.map { batches ->
             batches.sortedBy { parseDate(it.expiryDate) }
         }
 
-    override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeductionEntity> =
-        localDataSource.getForVaccination(vaccinationId)
+    override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeduction> =
+        localDataSource.getForVaccination(vaccinationId).map { it.toDomain() }
 
-    override suspend fun insertInventoryDeduction(entity: InventoryDeductionEntity) =
-        localDataSource.insertDeduction(entity)
+    override suspend fun insertInventoryDeduction(entity: InventoryDeduction) =
+        localDataSource.insertDeduction(entity.toEntity())
 
     override suspend fun deleteInventoryDeductionsForVaccination(vaccinationId: String) =
         localDataSource.deleteForVaccination(vaccinationId)
 
-    override suspend fun getBatchById(batchId: String): VaccineBatchEntity? =
-        localDataSource.getBatchById(batchId)
+    override suspend fun getBatchById(batchId: String): VaccineBatch? =
+        localDataSource.getBatchById(batchId)?.toDomain()
 
-    override suspend fun getVaccineById(vaccineId: String): VaccineEntity? {
-        return localDataSource.getVaccineById(vaccineId)
-    }
+    override suspend fun getVaccineById(vaccineId: String): Vaccine? = localDataSource.getVaccineById(vaccineId)?.toDomain()
 
-    override suspend fun addVaccine(vaccine: VaccineEntity, user: String) {
+    override suspend fun addVaccine(vaccine: Vaccine, user: String) {
         val isUpdate = localDataSource.getVaccineById(vaccine.id) != null
         val userName = sessionManager.getCurrentUserName()
-        val entity = vaccine.copy(
+        val entity = vaccine.toEntity().copy(
             createdBy = if (isUpdate) vaccine.createdBy else userName,
             updatedBy = userName
         )
@@ -167,11 +169,11 @@ class InventoryRepositoryImpl @Inject constructor(
         invalidateVaccinationCache(vaccine.id)
     }
 
-    override suspend fun updateVaccine(vaccine: VaccineEntity, user: String) {
+    override suspend fun updateVaccine(vaccine: Vaccine, user: String) {
         val isUpdate = localDataSource.getVaccineById(vaccine.id) != null
         val userName = sessionManager.getCurrentUserName()
-        val existing = localDataSource.getVaccineById(vaccine.id) ?: vaccine
-        val updated = vaccine.copy(
+        val existing = localDataSource.getVaccineById(vaccine.id)
+        val updated = vaccine.toEntity().copy(
             lastUpdated = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             createdBy = existing?.createdBy ?: vaccine.createdBy ?: userName,
             updatedBy = userName
@@ -189,14 +191,13 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addBatch(
-        batch: VaccineBatchEntity,
+        batch: VaccineBatch,
         user: String,
         transactionGroupId: String?
     ) {
         val vaccine = localDataSource.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
-        
         val userName = sessionManager.getCurrentUserName()
-        val entityWithAudit = batch.copy(
+        val entityWithAudit = batch.toEntity().copy(
             createdBy = userName,
             updatedBy = userName,
             updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
@@ -231,159 +232,83 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addStockBatch(
-        entriesByVaccine: Map<String, List<VaccineBatchEntity>>,
+        entriesByVaccine: Map<String, List<VaccineBatch>>,
         user: String
     ) {
         if (entriesByVaccine.isEmpty()) {
             throw IllegalStateException("Add at least one vaccine with a batch before saving.")
         }
-
         for ((vaccineId, batches) in entriesByVaccine) {
             val vaccine = localDataSource.getVaccineById(vaccineId)
                 ?: throw IllegalStateException("Selected vaccine could not be found. Please refresh and try again.")
-
-            if (batches.isEmpty()) {
-                throw IllegalStateException("${vaccine.brandName}: add at least one batch.")
-            }
-
+            if (batches.isEmpty()) throw IllegalStateException("${vaccine.brandName}: add at least one batch.")
             val seenBatchNumbers = mutableSetOf<String>()
-
             for (batch in batches) {
-                if (batch.vaccineId != vaccineId) {
-                    throw IllegalStateException("${vaccine.brandName}: batch data does not match the selected vaccine.")
-                }
-
+                if (batch.vaccineId != vaccineId) throw IllegalStateException("${vaccine.brandName}: batch data does not match the selected vaccine.")
                 val batchNumber = batch.batchNumber.trim()
-                if (batchNumber.isBlank()) {
-                    throw IllegalStateException("${vaccine.brandName}: batch number is required.")
-                }
-                if (!seenBatchNumbers.add(batchNumber.lowercase())) {
-                    throw IllegalStateException("${vaccine.brandName}: batch number '$batchNumber' was entered more than once in this submission.")
-                }
-                if (batch.expiryDate.isBlank()) {
-                    throw IllegalStateException("${vaccine.brandName} ($batchNumber): expiry date is required.")
-                }
-                if (batch.purchaseQuantity <= 0) {
-                    throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
-                }
-                if (batch.sellingPrice < 0 || batch.purchaseCost < 0) {
-                    throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
-                }
-
-                // Existing DB constraint check - same guard AddBatchViewModel relies on,
-                // just enforced here too since this path can add many batches at once.
+                if (batchNumber.isBlank()) throw IllegalStateException("${vaccine.brandName}: batch number is required.")
+                if (!seenBatchNumbers.add(batchNumber.lowercase())) throw IllegalStateException("${vaccine.brandName}: batch number '$batchNumber' was entered more than once in this submission.")
+                if (batch.expiryDate.isBlank()) throw IllegalStateException("${vaccine.brandName} ($batchNumber): expiry date is required.")
+                if (batch.purchaseQuantity <= 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
+                if (batch.sellingPrice < 0 || batch.purchaseCost < 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
                 val existingBatch = localDataSource.getBatchByVaccineAndNumber(vaccineId, batchNumber)
-                if (existingBatch != null) {
-                    throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
-                }
-
-                val normalizedBatch = batch.copy(
-                    batchNumber = batchNumber,
-                    remainingQuantity = batch.purchaseQuantity
-                )
-
-                // Reuses the existing single-batch save path so batch insert, the
-                // PURCHASE inventory_transaction, audit log, and sync queue entries
-                // stay identical to a normal Add Batch save.
+                if (existingBatch != null) throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
+                val normalizedBatch = batch.copy(batchNumber = batchNumber, remainingQuantity = batch.purchaseQuantity)
                 addBatch(normalizedBatch, user, null)
-
-                // Same "latest batch price becomes the vaccine default" behavior as
-                // AddBatchViewModel.saveBatch - re-read the vaccine since a prior
-                // batch in this same submission may have just updated it.
                 val currentVaccine = localDataSource.getVaccineById(vaccineId) ?: vaccine
                 if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
-                    updateVaccine(
-                        currentVaccine.copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost),
-                        user
-                    )
+                    updateVaccine(currentVaccine.toDomain().copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost), user)
                 }
             }
         }
     }
 
     override suspend fun getStockHistoryPage(
-        vaccineId: String?,
-        batchId: String?,
-        types: List<InventoryTransactionType>,
-        fromDateIso: String?,
-        toDateIso: String?,
-        limit: Int,
-        offset: Int,
-        remoteOnly: Boolean
-    ): List<InventoryTransactionEntity> {
-        if (!remoteOnly) {
-            return localDataSource.getFilteredTransactionsPage(
-                vaccineId = vaccineId,
-                batchId = batchId,
-                types = types.map { it.name },
-                typesEmpty = types.isEmpty(),
-                fromDate = fromDateIso,
-                toDate = toDateIso,
-                limit = limit,
-                offset = offset
+        vaccineId: String?, batchId: String?, types: List<InventoryTransactionType>,
+        fromDateIso: String?, toDateIso: String?, limit: Int, offset: Int, remoteOnly: Boolean
+    ): List<InventoryTransaction> {
+        val rows = if (!remoteOnly) {
+            localDataSource.getFilteredTransactionsPage(
+                vaccineId = vaccineId, batchId = batchId, types = types.map { it.name }, typesEmpty = types.isEmpty(),
+                fromDate = fromDateIso, toDate = toDateIso, limit = limit, offset = offset
+            )
+        } else {
+            remoteDataSource.getStockHistoryPage(
+                vaccineId = vaccineId, batchId = batchId, types = types.map { it.name }, typesEmpty = types.isEmpty(),
+                fromDateIso = fromDateIso, toDateIso = toDateIso, limit = limit, offset = offset
             )
         }
-
-        return remoteDataSource.getStockHistoryPage(
-            vaccineId = vaccineId,
-            batchId = batchId,
-            types = types.map { it.name },
-            typesEmpty = types.isEmpty(),
-            fromDateIso = fromDateIso,
-            toDateIso = toDateIso,
-            limit = limit,
-            offset = offset
-        )
+        return rows.map { it.toDomain() }
     }
 
-    override suspend fun updateBatch(batch: VaccineBatchEntity, user: String, notes: String?) {
-        localDataSource.updateBatch(batch.copy(
+    override suspend fun updateBatch(batch: VaccineBatch, user: String, notes: String?) {
+        val updatedEntity = batch.toEntity().copy(
             updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             createdBy = batch.createdBy,
             updatedBy = user
-        ))
+        )
+        localDataSource.updateBatch(updatedEntity)
         val oldBatch = localDataSource.getBatchById(batch.batchId) ?: return@updateBatch
         val diff = batch.remainingQuantity - oldBatch.remainingQuantity
         val userName = sessionManager.getCurrentUserName()
-
         if (diff != 0) {
             val transaction = InventoryTransactionEntity(
-                vaccineId = batch.vaccineId,
-                batchId = batch.batchId,
+                vaccineId = batch.vaccineId, batchId = batch.batchId,
                 transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT.name,
-                quantity = diff,
-                previousQuantity = oldBatch.remainingQuantity,
-                currentQuantity = batch.remainingQuantity,
-                user = userName,
+                quantity = diff, previousQuantity = oldBatch.remainingQuantity,
+                currentQuantity = batch.remainingQuantity, user = userName,
                 notes = notes ?: "Batch Updated: ${batch.batchNumber}",
                 timestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-                createdBy = userName,
-                updatedBy = userName
+                createdBy = userName, updatedBy = userName
             )
             localDataSource.insertTransaction(transaction)
-
-            syncRepository.enqueue(
-                entityName = "INVENTORY_TRANSACTION",
-                entityId = transaction.transactionId,
-                operation = SyncOperation.CREATE,
-                priority = SyncPriority.MEDIUM
-            )
+            syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM)
         }
-
         auditLogger.recordLog(
-            module = "INVENTORY",
-            entityType = "BATCH",
-            entityId = batch.batchId,
-            action = "UPDATED",
+            module = "INVENTORY", entityType = "BATCH", entityId = batch.batchId, action = "UPDATED",
             remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
         )
-
-        syncRepository.enqueue(
-            entityName = "BATCH",
-            entityId = batch.batchId,
-            operation = SyncOperation.UPDATE,
-            priority = SyncPriority.MEDIUM
-        )
+        syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteBatch(batchId: String, user: String) {

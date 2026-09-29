@@ -5,8 +5,8 @@ import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.repository.ProfileRepository
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import io.github.jan.supabase.auth.Auth

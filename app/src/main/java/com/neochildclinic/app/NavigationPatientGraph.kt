@@ -7,7 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.neochildclinic.feature.patient.presentation.AddPatientScreen
-import com.neochildclinic.feature.patient.presentation.AddConsultationScreen
+import com.neochildclinic.feature.consultation.presentation.AddConsultationScreen
 import com.neochildclinic.feature.patient.presentation.PatientDetailsScreen
 import com.neochildclinic.feature.patient.presentation.PatientListScreen
 import com.neochildclinic.feature.search.presentation.SearchScreen

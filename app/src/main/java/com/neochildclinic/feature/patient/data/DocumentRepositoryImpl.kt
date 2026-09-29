@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.patient.data
 
 import com.neochildclinic.domain.model.PatientDocument
-import com.neochildclinic.domain.repository.DocumentRepository
+import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
 import io.github.jan.supabase.storage.FileObject
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.upload

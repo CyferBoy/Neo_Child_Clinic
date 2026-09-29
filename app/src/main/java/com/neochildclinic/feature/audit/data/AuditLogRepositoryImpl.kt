@@ -1,7 +1,9 @@
 package com.neochildclinic.feature.audit.data
 
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.domain.model.AuditLog
+import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import javax.inject.Inject
@@ -16,13 +18,13 @@ import javax.inject.Singleton
 class AuditLogRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest
 ) : AuditLogRepository {
-    override suspend fun getPaged(patientId: String?, offset: Int, limit: Int): List<AuditLogEntity> {
+    override suspend fun getPaged(patientId: String?, offset: Int, limit: Int): List<AuditLog> {
         val from = offset.toLong()
         val to = (offset + limit - 1).toLong()
         return postgrest.from("audit_logs").select {
             if (patientId != null) filter { eq("patient_id", patientId) }
             order("timestamp", Order.DESCENDING)
             range(from, to)
-        }.decodeList<AuditLogEntity>()
+        }.decodeList<AuditLogEntity>().map { it.toDomain() }
     }
 }

@@ -1,14 +1,14 @@
 package com.neochildclinic.feature.patient.data
-import com.neochildclinic.domain.TransactionRunner
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.ConsultationDao
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
 
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger

@@ -2,8 +2,6 @@ package com.neochildclinic.feature.patient.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.toDomain
-import com.neochildclinic.data.local.entity.toVaccination
 import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.PatientNote
@@ -11,12 +9,12 @@ import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientDocument
-import com.neochildclinic.domain.repository.PatientRepository
-import com.neochildclinic.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.repository.ConsultationRepository
-import com.neochildclinic.domain.repository.DocumentRepository
-import com.neochildclinic.domain.repository.AuditLogRepository
-import com.neochildclinic.domain.usecase.sync.RefreshDataUseCase
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
+import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
+import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
+import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.core.common.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -35,8 +33,8 @@ class PatientViewModel @Inject constructor(
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
     private val consultationRepository: ConsultationRepository,
-    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
-    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
+    private val profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository,
+    private val inventoryRepository: com.neochildclinic.feature.inventory.domain.repository.InventoryRepository,
     private val documentRepository: DocumentRepository,
     private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {
@@ -221,24 +219,22 @@ class PatientViewModel @Inject constructor(
         vaccinationRepository.getVaccinationCardsForPatient(patientId)
             .map { snapshots ->
                 snapshots
-                    .filter { it.visit.visitType == "VACCINATION" }
-                    .sortedByDescending { PatientUtils.parseDate(it.visit.dateGiven)?.time ?: 0L }
+                    .filter { it.vaccination.visitType == "VACCINATION" }
+                    .sortedByDescending { PatientUtils.parseDate(it.vaccination.dateGiven)?.time ?: 0L }
                     .map { snapshot ->
                         PatientVaccinationCardData(
-                            vaccination = snapshot.visit.toVaccination().copy(
-                                items = snapshot.items
-                            ),
-                            reminders = snapshot.reminders.map { it.toDomain() }
+                            vaccination = snapshot.vaccination,
+                            reminders = snapshot.reminders
                         )
                     }
             }
             .flowOn(Dispatchers.Default)
 
     fun getPatientNotes(patientId: String): Flow<List<PatientNote>> {
-        return patientRepository.getNotes(patientId).map { notes -> notes.map { it.toDomain() } }
+        return patientRepository.getNotes(patientId)
     }
 
     suspend fun getInventoryDeductions(vaccinationId: String): List<InventoryDeduction> {
-        return inventoryRepository.getInventoryDeductionsForVaccination(vaccinationId).map { it.toDomain() }
+        return inventoryRepository.getInventoryDeductionsForVaccination(vaccinationId)
     }
 }

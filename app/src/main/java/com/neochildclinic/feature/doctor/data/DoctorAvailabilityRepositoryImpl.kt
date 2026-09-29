@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.doctor.data
 import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
-import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
 
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
@@ -11,7 +11,7 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
-import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

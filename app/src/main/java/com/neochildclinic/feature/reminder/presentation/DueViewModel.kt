@@ -3,11 +3,12 @@ package com.neochildclinic.feature.reminder.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.domain.model.ReminderStats
-import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
@@ -115,7 +116,7 @@ class DueViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
-    private suspend fun remindersFor(vaccination: Vaccination): List<com.neochildclinic.data.local.entity.ReminderEntity> {
+    private suspend fun remindersFor(vaccination: Vaccination): List<Reminder> {
         val reminders = reminderRepository.getRemindersByVisitId(vaccination.id)
         if (vaccination.nextVaccinations.isEmpty()) return reminders
         val ids = vaccination.nextVaccinations.map { it.reminderId }.filter { it.isNotBlank() }.toSet()

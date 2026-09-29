@@ -82,14 +82,35 @@ data class ReminderEntity(
 
 fun ReminderEntity.toDomain() = Reminder(
     id = id,
+    serverId = serverId,
     patientId = patientId,
+    originalVisitId = originalVisitId,
     vaccineName = vaccineName,
     dueDate = dueDate,
     status = status,
-    category = category,
+    priority = priority,
     reminderEnabled = reminderEnabled,
+    category = category,
     type = type,
-    nxtVaccineId = nxtVaccineId
+    nxtVaccineId = nxtVaccineId,
+    notes = notes,
+    completionDate = completionDate,
+    performedBy = performedBy,
+    dismissalDate = dismissalDate,
+    dismissalReason = dismissalReason,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    isSynced = isSynced,
+    createdBy = createdBy,
+    updatedBy = updatedBy,
+    isDeleted = isDeleted,
+    deletedAt = deletedAt,
+    deletedBy = deletedBy,
+    vaccinationSource = vaccinationSource,
+    reminderDate = reminderDate,
+    source = source,
+    lastReminderTime = lastReminderTime,
+    notificationSent = notificationSent
 )
 
 /**

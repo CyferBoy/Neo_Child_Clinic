@@ -2,8 +2,8 @@ package com.neochildclinic.feature.inventory.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.VaccineEntity
-import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.model.Vaccine
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +19,7 @@ data class AddVaccineUiState(
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val error: String? = null,
-    val vaccine: VaccineEntity? = null,
+    val vaccine: Vaccine? = null,
     val allTypes: List<String> = emptyList(),
     val brandSuggestions: Map<String, List<String>> = emptyMap() // Type -> List of Brands
 )
@@ -58,7 +58,7 @@ class AddVaccineViewModel @Inject constructor(
             val items = inventoryRepository.getInventoryItems().first()
             val item = items.find { it.id == vaccineId }
             if (item != null) {
-                val entity = VaccineEntity(
+                val entity = Vaccine(
                     id = item.id,
                     type = item.type,
                     brandName = item.brandName,
@@ -86,7 +86,7 @@ class AddVaccineViewModel @Inject constructor(
             try {
                 val user = sessionManager.getCurrentUserEmail()
                 val vaccineId = id ?: UUID.randomUUID().toString()
-                val vaccine = VaccineEntity(
+                val vaccine = Vaccine(
                     id = vaccineId,
                     type = type,
                     brandName = brandName,

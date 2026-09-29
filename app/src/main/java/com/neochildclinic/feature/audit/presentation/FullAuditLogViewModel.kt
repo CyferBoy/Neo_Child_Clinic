@@ -2,9 +2,8 @@ package com.neochildclinic.feature.audit.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.AuditLog
-import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,6 +92,6 @@ class FullAuditLogViewModel @Inject constructor(
     }
 
     private suspend fun fetchPage(offset: Int): List<AuditLog> {
-        return auditLogRepository.getPaged(null, offset, PAGE_SIZE).map { it.toDomain() }
+        return auditLogRepository.getPaged(null, offset, PAGE_SIZE)
     }
 }

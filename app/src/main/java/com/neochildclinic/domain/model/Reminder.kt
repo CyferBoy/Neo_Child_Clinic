@@ -1,13 +1,35 @@
 package com.neochildclinic.domain.model
 
+/** Domain representation of a due/next-vaccination reminder. Persistence fields are mapped at the data boundary. */
 data class Reminder(
     val id: String,
+    val serverId: String? = null,
     val patientId: String,
+    val originalVisitId: String,
     val vaccineName: String,
     val dueDate: String,
     val status: String,
-    val category: String = "VACCINATION",
+    val priority: String = "NORMAL",
     val reminderEnabled: Boolean = true,
+    val category: String = "VACCINATION",
     val type: String = "",
-    val nxtVaccineId: List<String>? = null
+    val nxtVaccineId: List<String>? = null,
+    val notes: String? = null,
+    val completionDate: String? = null,
+    val performedBy: String? = null,
+    val dismissalDate: String? = null,
+    val dismissalReason: String? = null,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+    val isSynced: Boolean = false,
+    val createdBy: String? = null,
+    val updatedBy: String? = null,
+    val isDeleted: Boolean = false,
+    val deletedAt: String? = null,
+    val deletedBy: String? = null,
+    val vaccinationSource: String? = null,
+    val reminderDate: String? = null,
+    val source: String? = null,
+    val lastReminderTime: Long = 0,
+    val notificationSent: Boolean = false
 )

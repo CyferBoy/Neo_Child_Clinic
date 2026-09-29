@@ -112,37 +112,49 @@ fun VaccineEntity.toVaccine(totalStock: Int = 0) = Vaccine(
 )
 
 fun VaccineBatchEntity.toDomain() = VaccineBatch(
-    batchId = batchId,
-    vaccineId = vaccineId,
-    batchNumber = batchNumber,
-    purchaseDate = purchaseDate,
-    expiryDate = expiryDate,
-    remainingQuantity = remainingQuantity,
-    purchaseCost = purchaseCost,
-    sellingPrice = sellingPrice
+    batchId = batchId, vaccineId = vaccineId, batchNumber = batchNumber, manufacturer = manufacturer,
+    purchaseDate = purchaseDate, expiryDate = expiryDate, purchaseQuantity = purchaseQuantity,
+    remainingQuantity = remainingQuantity, reservedQuantity = reservedQuantity, usedQuantity = usedQuantity,
+    wastedQuantity = wastedQuantity, borrowedQuantity = borrowedQuantity, supplier = supplier,
+    purchaseCost = purchaseCost, sellingPrice = sellingPrice, status = status, updatedAt = updatedAt,
+    createdBy = createdBy, updatedBy = updatedBy
 )
 
 fun VaccineEntity.toDomain() = Vaccine(
-    id = id,
-    type = type,
-    brandName = brandName,
-    companyName = companyName,
-    mrp = mrp,
-    netRate = netRate,
-    createdBy = createdBy,
-    updatedBy = updatedBy
+    id = id, type = type, brandName = brandName, companyName = companyName, manufacturer = manufacturer,
+    category = category, doseSchedule = doseSchedule, storageDetails = storageDetails, mrp = mrp, netRate = netRate,
+    lastUpdated = lastUpdated, createdBy = createdBy, updatedBy = updatedBy
 )
 
 fun InventoryTransactionEntity.toDomain() = InventoryTransaction(
-    transactionId = transactionId,
-    vaccineId = vaccineId,
-    batchId = batchId,
-    patientId = patientId,
-    visitId = visitId,
-    transactionType = transactionType,
-    quantity = quantity,
-    timestamp = timestamp,
-    user = user,
-    notes = notes,
-    isSynced = isSynced
+    transactionId = transactionId, vaccineId = vaccineId, batchId = batchId, patientId = patientId, visitId = visitId,
+    transactionType = transactionType, quantity = quantity, previousQuantity = previousQuantity, currentQuantity = currentQuantity,
+    timestamp = timestamp, user = user, notes = notes, status = status, failureReason = failureReason,
+    processedAt = processedAt, processedBy = processedBy, isSynced = isSynced, createdBy = createdBy, updatedBy = updatedBy
+)
+
+fun com.neochildclinic.domain.model.Vaccine.toEntity() = VaccineEntity(
+    id = id, type = type, brandName = brandName, companyName = companyName,
+    manufacturer = manufacturer, category = category, doseSchedule = doseSchedule,
+    storageDetails = storageDetails, mrp = mrp, netRate = netRate,
+    lastUpdated = lastUpdated, createdBy = createdBy, updatedBy = updatedBy
+)
+
+fun com.neochildclinic.domain.model.VaccineBatch.toEntity() = VaccineBatchEntity(
+    batchId = batchId, vaccineId = vaccineId, batchNumber = batchNumber,
+    manufacturer = manufacturer, purchaseDate = purchaseDate, expiryDate = expiryDate,
+    purchaseQuantity = purchaseQuantity, remainingQuantity = remainingQuantity,
+    reservedQuantity = reservedQuantity, usedQuantity = usedQuantity, wastedQuantity = wastedQuantity,
+    borrowedQuantity = borrowedQuantity, supplier = supplier, purchaseCost = purchaseCost,
+    sellingPrice = sellingPrice, status = status, updatedAt = updatedAt,
+    createdBy = createdBy, updatedBy = updatedBy
+)
+
+fun com.neochildclinic.domain.model.InventoryTransaction.toEntity() = InventoryTransactionEntity(
+    transactionId = transactionId, vaccineId = vaccineId, batchId = batchId,
+    patientId = patientId, visitId = visitId, transactionType = transactionType, quantity = quantity,
+    previousQuantity = previousQuantity, currentQuantity = currentQuantity, timestamp = timestamp,
+    user = user, notes = notes, status = status, failureReason = failureReason,
+    processedAt = processedAt, processedBy = processedBy, isSynced = isSynced,
+    createdBy = createdBy, updatedBy = updatedBy
 )
