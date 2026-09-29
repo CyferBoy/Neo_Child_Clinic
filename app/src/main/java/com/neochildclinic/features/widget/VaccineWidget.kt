@@ -14,7 +14,7 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
-import androidx.glance.action.actionRunCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.ActionParameters
@@ -25,12 +25,13 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.text.ColorProvider
+import androidx.glance.unit.ColorProvider
 import com.neochildclinic.R
 import com.neochildclinic.app.MainActivity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.dao.WidgetDueDao
 import com.neochildclinic.data.local.entity.WidgetDueEntity
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
 class VaccineWidget : GlanceAppWidget() {
@@ -46,14 +47,8 @@ class VaccineWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val database = AppDatabase.getDatabase(context)
         val widgetDueDao = database.widgetDueDao()
-        val dataSource = object : WidgetLocalDataSource(widgetDueDao) {
-            override val dueItemsFlow: Flow<List<WidgetDueEntity>>
-                get() = widgetDueDao.getDueItems()
-
-            override suspend fun getDueItemsFirst(): List<WidgetDueEntity> = widgetDueDao.getDueItems().first()
-        }
-
-        val dueItems = dataSource.getDueItemsFirst().first()
+        val dataSource = WidgetLocalDataSource(widgetDueDao)
+        val dueItems = dataSource.getDueItemsFirst()
 
         provideContent {
             val prefs = currentState<Preferences>()
@@ -72,8 +67,8 @@ class VaccineWidget : GlanceAppWidget() {
     ) {
         val colors = theme.colors(context)
         val resolvedBgColor = colors.background.copy(alpha = opacity)
-        val textColorProvider = ColorProvider(colors.primaryText)
-        val secondaryTextProvider = ColorProvider(colors.secondaryText)
+        val textColorProvider = androidx.glance.color.ColorProvider(colors.primaryText, colors.primaryText)
+        val secondaryTextProvider = androidx.glance.color.ColorProvider(colors.secondaryText, colors.secondaryText)
 
         Column(
             modifier = GlanceModifier
@@ -133,7 +128,7 @@ class VaccineWidget : GlanceAppWidget() {
                 Image(
                     provider = ImageProvider(R.drawable.ic_widget_refresh),
                     contentDescription = "Refresh",
-                    colorFilter = androidx.glance.ColorFilter.tint(textColorProvider),
+                    colorFilter = ColorFilter.tint(textColorProvider),
                     modifier = GlanceModifier
                         .size(20.dp)
                         .clickable(actionRunCallback<RefreshWidgetAction>())
@@ -148,7 +143,7 @@ class VaccineWidget : GlanceAppWidget() {
         textColorProvider: ColorProvider,
         accentColor: Color
     ) {
-        val dateColor = if (item.isOverdue) ColorProvider(Color(0xFFD32F2F)) else ColorProvider(accentColor)
+        val dateColor = if (item.isOverdue) androidx.glance.color.ColorProvider(Color(0xFFD32F2F), Color(0xFFD32F2F)) else androidx.glance.color.ColorProvider(accentColor, accentColor)
         Column(
             modifier = GlanceModifier.fillMaxWidth().padding(vertical = 3.dp)
         ) {

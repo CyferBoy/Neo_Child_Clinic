@@ -31,7 +31,7 @@ class MemoryCache<K, V>(
         val expiresAt: Long
     )
 
-    suspend fun get(key: K): V? {
+    fun get(key: K): V? {
         val entry = data[key]
         if (entry == null) return null
         if (System.currentTimeMillis() > entry.expiresAt) {
@@ -41,7 +41,7 @@ class MemoryCache<K, V>(
         return entry.value
     }
 
-    suspend fun put(key: K, value: V, ttlMs: Long = defaultTtlMs) {
+    fun put(key: K, value: V, ttlMs: Long = defaultTtlMs) {
         if (data.size >= maxSize && !data.containsKey(key)) {
             evictOldest(1)
         }
@@ -49,15 +49,15 @@ class MemoryCache<K, V>(
         data[key] = CacheEntry(value, expiresAt)
     }
 
-    suspend fun invalidate(key: K) {
+    fun invalidate(key: K) {
         data.remove(key)
     }
 
-    suspend fun invalidateAll(keys: Iterable<K>) {
+    fun invalidateAll(keys: Iterable<K>) {
         keys.forEach { data.remove(it) }
     }
 
-    suspend fun clear() {
+    fun clear() {
         data.clear()
     }
 

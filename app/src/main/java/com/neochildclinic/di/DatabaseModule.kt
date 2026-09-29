@@ -102,6 +102,16 @@ object DatabaseModule {
         return database.inventoryDeductionDao()
     }
 
+    @Provides
+    fun providePersonalReminderDao(database: AppDatabase): com.neochildclinic.data.local.dao.PersonalReminderDao {
+        return database.personalReminderDao()
+    }
+
+    @Provides
+    fun provideConsultationDao(database: AppDatabase): com.neochildclinic.data.local.dao.ConsultationDao {
+        return database.consultationDao()
+    }
+
     // Note: BackupRepositoryImpl (Backup & Restore feature) takes AppDatabase directly
     // and calls database.backupDao() / database.consultationDao() / etc. itself, matching
     // the existing convention already used by ConsultationRepositoryImpl, SyncRepositoryImpl,
