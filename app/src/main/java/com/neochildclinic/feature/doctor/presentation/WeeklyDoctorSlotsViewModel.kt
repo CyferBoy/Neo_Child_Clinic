@@ -10,6 +10,7 @@ import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SessionManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,7 +34,8 @@ data class WeeklyDoctorSlotsUiState(
 class WeeklyDoctorSlotsViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val repository: DoctorAvailabilityRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val currentUserProvider: CurrentUserProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WeeklyDoctorSlotsUiState())
@@ -61,11 +63,11 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val currentUserId = sessionManager.getCurrentUserId()
+            val myRole = currentUserProvider.getCurrentUserRole()
             profileRepository.allProfiles.collect { profiles ->
-                val me = profiles.find { it.id == currentUserId }
                 val doctors = profiles.filter { it.role == UserRole.doctor && it.isActive }.sortedBy { it.displayName }
 
-                val visibleDoctors = if (me?.role == UserRole.doctor) {
+                val visibleDoctors = if (myRole == UserRole.doctor) {
                     doctors.filter { it.id == currentUserId }
                 } else {
                     doctors
@@ -76,10 +78,10 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                     val defaultDoctor = if (stillValid) state.selectedDoctor else visibleDoctors.firstOrNull()
                     state.copy(
                         allDoctors = visibleDoctors,
-                        currentUserRole = me?.role,
+                        currentUserRole = myRole,
                         selectedDoctor = defaultDoctor,
-                        canManageSelectedDoctor = me?.role == UserRole.admin ||
-                            (me?.role == UserRole.doctor && defaultDoctor?.id == currentUserId),
+                        canManageSelectedDoctor = myRole == UserRole.admin ||
+                            (myRole == UserRole.doctor && defaultDoctor?.id == currentUserId),
                         isLoading = false
                     )
                 }
@@ -103,14 +105,14 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
     private fun defaultDoctor(): Profile? = _uiState.value.selectedDoctor
 
     fun selectDoctor(doctor: Profile) {
-        val state = _uiState.value
-        if (state.currentUserRole == UserRole.doctor && doctor.id != sessionManager.getCurrentUserId()) {
+        val myRole = currentUserProvider.getCurrentUserRole()
+        if (myRole == UserRole.doctor && doctor.id != sessionManager.getCurrentUserId()) {
             return
         }
         _uiState.update {
             it.copy(
                 selectedDoctor = doctor,
-                canManageSelectedDoctor = it.currentUserRole == UserRole.admin || it.currentUserRole == UserRole.doctor,
+                canManageSelectedDoctor = myRole == UserRole.admin || myRole == UserRole.doctor,
                 isWeeklySlotsEditMode = false
             )
         }

@@ -39,9 +39,9 @@ fun PatientDetailsScreen(
     val authViewModel: AuthViewModel = hiltViewModel()
     val allPatients by viewModel.allPatients.collectAsState()
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
-    val profile by authViewModel.profile.collectAsState()
-    val isAdmin = profile?.role == UserRole.admin
-    val canEditOrDelete = isAdmin || profile?.role == UserRole.doctor
+    val role = authViewModel.currentUserRole
+    val isAdmin = role == UserRole.admin
+    val canEditOrDelete = isAdmin || role == UserRole.doctor
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
