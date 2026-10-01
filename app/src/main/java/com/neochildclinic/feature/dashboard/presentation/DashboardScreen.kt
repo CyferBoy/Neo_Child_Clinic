@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.security.AuthViewModel
 import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
@@ -63,10 +62,9 @@ fun DashboardScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Don't render the role-gated dashboard/drawer until the real profile has resolved.
-    // Defaulting to UserRole.nurse while authProfile is still null (the old behavior)
-    // is what made admin/doctor accounts intermittently flash the nurse view on cold
-    // start or a fast reopen.
+    // Hold the skeleton until the profile *display* data (name, etc.) has resolved;
+    // the authorization role no longer comes from it - see `role` below, sourced from
+    // the session's app_metadata instead of the old profile.role nurse-default.
     if (isProfileLoading && authProfile == null) {
         // Skeleton shown while the profile (and therefore the real dashboard content) is
         // still resolving - see the comment above for why this gate exists at all. It renders
@@ -172,7 +170,8 @@ fun DashboardScreen(
         return
     }
 
-    val role = authProfile?.role ?: UserRole.nurse
+    // Authorization role: session app_metadata (via AuthViewModel), never profile.role.
+    val role = authViewModel.currentUserRole
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
