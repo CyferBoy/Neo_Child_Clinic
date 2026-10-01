@@ -58,6 +58,10 @@ fun DashboardScreen(
     val uiState by dashboardViewModel.uiState.collectAsState()
     val authProfile by authViewModel.profile.collectAsState()
     val isProfileLoading by authViewModel.isProfileLoading.collectAsState()
+    // Invalidate this scope when the session (and app_metadata.role) changes —
+    // the role getter below is a plain read, so this collect is the only
+    // recomposition trigger for it.
+    val sessionStatus by authViewModel.sessionStatus.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -171,7 +175,10 @@ fun DashboardScreen(
     }
 
     // Authorization role: session app_metadata (via AuthViewModel), never profile.role.
-    val role = authViewModel.currentUserRole
+    // The `sessionStatus.let` is a deliberate State read: collecting alone does not
+    // subscribe this recompose scope — reading the value here is what re-runs this
+    // line when the session (and app_metadata.role) changes.
+    val role = sessionStatus.let { authViewModel.currentUserRole }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
