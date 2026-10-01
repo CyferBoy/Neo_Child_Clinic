@@ -34,10 +34,10 @@ fun AppNavigation(
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authProfile by authViewModel.profile.collectAsState()
-    // Recompose when the session (and therefore app_metadata.role) changes: this is
-    // the only invalidation source the role getter depends on.
     val sessionStatus by authViewModel.sessionStatus.collectAsState()
-    val userRole = authViewModel.currentUserRole
+    // Read sessionStatus so this scope subscribes to it; the role getter is a
+    // plain read, so this read is what invalidates userRole on session change.
+    val userRole = sessionStatus.let { authViewModel.currentUserRole }
     val goBack: () -> Unit = { navController.popBackStack() }
 
     // The Supabase SDK resolves any session saved to disk asynchronously. Reading
