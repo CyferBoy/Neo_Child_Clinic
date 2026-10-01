@@ -63,8 +63,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val currentUserId = sessionManager.getCurrentUserId()
-            val myRole = currentUserProvider.getCurrentUserRole()
             profileRepository.allProfiles.collect { profiles ->
+                val myRole = currentUserProvider.getCurrentUserRole()
                 val doctors = profiles.filter { it.role == UserRole.doctor && it.isActive }.sortedBy { it.displayName }
 
                 val visibleDoctors = if (myRole == UserRole.doctor) {
