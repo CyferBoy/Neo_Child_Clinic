@@ -15,6 +15,7 @@ import com.neochildclinic.feature.vaccination.domain.ClinicalVaccinationService
 import com.neochildclinic.feature.consultation.domain.ConsultationEditEngine
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
 import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -44,7 +45,8 @@ class AddConsultationViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val consultationRepository: ConsultationRepository,
     private val consultationEditEngine: ConsultationEditEngine,
-    private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase
+    private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
+    private val currentUserProvider: CurrentUserProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddConsultationUiState())
@@ -99,7 +101,9 @@ class AddConsultationViewModel @Inject constructor(
 
                 val currentUserId = sessionManager.getCurrentUserId()
                 val currentUserProfile = profiles.find { it.id == currentUserId }
-                val defaultDoctor = if (currentUserProfile?.role == com.neochildclinic.domain.model.UserRole.doctor) currentUserProfile else null
+                val defaultDoctor =
+                    if (currentUserProvider.getCurrentUserRole() == com.neochildclinic.domain.model.UserRole.doctor) currentUserProfile
+                    else null
 
                 _uiState.update { state ->
                     val editDoctor = editId?.let { id -> doctors.firstOrNull { it.employeeId == id || it.id == id } }

@@ -81,11 +81,7 @@ class ProfileRepositoryImpl @Inject constructor(
         )
     }
 
-override suspend fun saveLocalProfile(profile: Profile) {
-    profileDao.insertProfile(profile.toEntity())
-}
-
-override suspend fun updateAuthName(name: String) {
+    override suspend fun updateAuthName(name: String) {
         auth.updateUser {
             data {
                 put("name", name)
