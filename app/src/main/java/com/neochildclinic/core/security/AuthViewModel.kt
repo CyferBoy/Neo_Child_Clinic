@@ -72,11 +72,9 @@ class AuthViewModel @Inject constructor(
     private val _profile = MutableStateFlow<Profile?>(null)
     val profile: StateFlow<Profile?> = _profile.asStateFlow()
 
-    // True while the authoritative profile (and therefore role) is being resolved.
-    // Screens that gate UI on role (drawer menu, Manage Staff, Statistics, etc.) must
-    // wait for this to go false rather than reading `profile?.role ?: UserRole.nurse` -
-    // treating "not loaded yet" as "nurse" is what caused admin accounts to intermittently
-    // flash the nurse view on cold start / fast reopen.
+    // True while the profile is being resolved. Post-migration this gates only the
+    // display skeleton — authorization role comes from `currentUserRole` (session
+    // app_metadata), not from the profile.
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
@@ -84,11 +82,10 @@ class AuthViewModel @Inject constructor(
     val currentUserRole: UserRole? get() = currentUserProvider.getCurrentUserRole()
 
     init {
-        // Mark loading immediately so the UI doesn't fall through to UserRole.nurse
-        // before the profile has been fetched. On cold start, auth.currentSessionOrNull()
-        // can return null briefly while Supabase resolves the stored session, causing
-        // the ?.let below to skip fetchProfile entirely — leaving isProfileLoading=false
-        // and the UI defaulting to nurse.
+        // Mark loading immediately so the profile skeleton shows instead of stale data.
+        // On cold start, auth.currentSessionOrNull() can return null briefly while
+        // Supabase resolves the stored session, causing the ?.let below to skip
+        // fetchProfile entirely — leaving isProfileLoading=false prematurely.
         _isProfileLoading.value = true
         viewModelScope.launch {
             val userId = auth.currentSessionOrNull()?.user?.id

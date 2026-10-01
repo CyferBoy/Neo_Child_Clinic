@@ -39,7 +39,10 @@ fun PatientDetailsScreen(
     val authViewModel: AuthViewModel = hiltViewModel()
     val allPatients by viewModel.allPatients.collectAsState()
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
-    val role = authViewModel.currentUserRole
+    // Invalidate this scope when the session (and app_metadata.role) changes —
+    // the role getter below is a plain read with no other invalidation source.
+    val sessionStatus by authViewModel.sessionStatus.collectAsState()
+    val role = sessionStatus.let { authViewModel.currentUserRole }
     val isAdmin = role == UserRole.admin
     val canEditOrDelete = isAdmin || role == UserRole.doctor
     val context = LocalContext.current

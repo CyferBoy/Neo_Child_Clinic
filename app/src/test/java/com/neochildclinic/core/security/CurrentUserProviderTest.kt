@@ -25,6 +25,10 @@ class CurrentUserProviderTest {
         UserRole.entries.forEach { role ->
             assertEquals(role, roleFromAppMetadata(meta(role.name)))
         }
+        assertEquals(
+            setOf("admin", "doctor", "receptionist", "nurse", "inventory_manager"),
+            UserRole.entries.map { it.name }.toSet()
+        )
     }
 
     @Test fun missingRoleKeyReturnsNull() {
