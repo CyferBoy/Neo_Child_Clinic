@@ -23,9 +23,9 @@ where raw_user_meta_data ? 'role';
 
 -- 3. is_admin(): role source moves to JWT app_metadata; the activation check
 --    (is_active/is_deleted) and SECURITY DEFINER (recursion avoidance) are
---    preserved verbatim from 20260816. Grants are preserved.
-drop function if exists public.is_admin();
-create function public.is_admin()
+--    preserved verbatim from 20260816. Replaced in place (not dropped: the
+--    profiles_select_own_or_admin policy depends on this function). Grants preserved.
+create or replace function public.is_admin()
 returns boolean
 language sql
 stable
@@ -116,7 +116,8 @@ create policy "doctor_slot_exceptions_write_admin_or_own"
 --   * profiles_select_own_or_admin and protect_profile_privileged_fields call
 --     is_admin() - they migrate automatically.
 --   * is_active_staff() is activation, not role - intentionally unchanged.
---   * Run BEFORE deploying the app update; role changes propagate to existing
---     sessions on their next token refresh (<= 1h).
+--   * Deploy order: run this migration FIRST; then deploy the manage-staff
+--     edge function; then ship the app update. Role changes propagate to
+--     existing sessions on their next token refresh (<= 1h).
 
 commit;
