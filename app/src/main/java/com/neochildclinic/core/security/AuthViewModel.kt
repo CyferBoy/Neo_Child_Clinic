@@ -2,6 +2,7 @@ package com.neochildclinic.core.security
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import com.neochildclinic.core.cache.CacheRegistry
 import com.neochildclinic.core.sync.SyncManagerImpl
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
@@ -26,7 +27,8 @@ class AuthViewModel @Inject constructor(
     private val auth: Auth,
     private val profileRepository: ProfileRepositoryImpl,
     private val deviceRepository: DeviceRepositoryImpl,
-    private val syncManager: SyncManagerImpl
+    private val syncManager: SyncManagerImpl,
+    private val cacheRegistry: CacheRegistry
 ) : ViewModel() {
 
     companion object {
@@ -184,6 +186,9 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // A session can end without logout() (revoked/expired token); never let the
+                // next sign-in inherit the previous user's in-memory data.
+                cacheRegistry.clearAll()
                 auth.signInWith(Email) {
                     this.email = email
                     this.password = pass
@@ -208,9 +213,14 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            deviceRepository.deactivateCurrentDevice()
-            auth.signOut()
-            _profile.value = null
+            try {
+                deviceRepository.deactivateCurrentDevice()
+                auth.signOut()
+            } finally {
+                // Session isolation: in-memory caches must never carry User A's data to User B.
+                cacheRegistry.clearAll()
+                _profile.value = null
+            }
         }
     }
 

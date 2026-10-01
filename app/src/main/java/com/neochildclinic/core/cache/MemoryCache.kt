@@ -1,108 +1,108 @@
 package com.neochildclinic.core.cache
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.TimeUnit
 
-/**
- * Type-safe, thread-safe in-memory cache with TTL, size limit, and explicit invalidation.
- * 
- * Uses lazy expiration: entries are checked for expiry on [get] and [put] operations,
- * avoiding the need for a background cleanup coroutine.
- * 
- * @param K Cache key type
- * @param V Cache value type
- * @param defaultTtlMs Default time-to-live in milliseconds (default: 5 minutes = 300000ms)
- * @param maxSize Maximum entries (default: 1000). Excess entries are evicted on [put].
- */
-class MemoryCache<K, V>(
-    private val defaultTtlMs: Long = 5 * 60 * 1000,
-    private val maxSize: Int = 1000
-) {
-    private val data = ConcurrentHashMap<K, CacheEntry<V>>()
-    
-    private data class CacheEntry<V>(
-        val value: V,
-        val expiresAt: Long
-    )
-
-    fun get(key: K): V? {
-        val entry = data[key]
-        if (entry == null) return null
-        if (System.currentTimeMillis() > entry.expiresAt) {
-            data.remove(key)
-            return null
-        }
-        return entry.value
-    }
-
-    fun put(key: K, value: V, ttlMs: Long = defaultTtlMs) {
-        if (data.size >= maxSize && !data.containsKey(key)) {
-            evictOldest(1)
-        }
-        val expiresAt = System.currentTimeMillis() + ttlMs
-        data[key] = CacheEntry(value, expiresAt)
-    }
-
-    fun invalidate(key: K) {
-        data.remove(key)
-    }
-
-    fun invalidateAll(keys: Iterable<K>) {
-        keys.forEach { data.remove(it) }
-    }
-
-    fun clear() {
-        data.clear()
-    }
-
-    fun size(): Int = data.size
-
-    fun containsKey(key: K): Boolean {
-        val entry = data[key]
-        return if (entry != null && System.currentTimeMillis() <= entry.expiresAt) {
-            true
-        } else {
-            if (entry != null) {
-                data.remove(key)
-            }
-            false
-        }
-    }
-
-    private fun evictOldest(count: Int) {
-        if (data.isEmpty()) return
-        val sorted = data.entries
-            .sortedBy { it.value.expiresAt }
-            .take(count)
-        sorted.forEach { (key, _) -> data.remove(key) }
-    }
-
-    fun shutdown() {
-        // No background coroutine to cancel - cleanup is lazy
-    }
+/** Anything that can be emptied wholesale (used for logout / session teardown). */
+interface ClearableCache {
+    fun clear()
 }
 
 /**
- * Cache key for composite queries (e.g., filtered/sorted lists)
+ * Generic in-memory cache: a temporary performance optimization ONLY.
+ *
+ * Room is the local source of truth. This class answers a single question - "do we already
+ * hold a recently-read copy of this value in memory?" - and never "what is the correct data?".
+ * An empty, expired or cleared cache must always be safe: callers fall back to Room.
+ *
+ * - Thread-safe: every operation is guarded by one lock. The critical sections are O(1)
+ *   except eviction, which is O(n) over at most [maxSize] entries and only runs when the
+ *   cache is full (ponytail: fine for a few hundred entries; switch to LinkedHashMap
+ *   access-order if maxSize ever grows into the thousands).
+ * - TTL is a memory-retention policy, NOT a consistency mechanism. Writers must invalidate
+ *   explicitly; TTL just stops entries living in memory forever.
+ * - Lazy expiration: expired entries are dropped on [get]/[contains]/[put]; there is no
+ *   background cleanup coroutine.
+ * - Bounded: when full, [put] evicts the entry with the EARLIEST EXPIRY (not the least
+ *   recently used), so size never exceeds [maxSize].
+ * - TTL uses a monotonic clock ([System.nanoTime]) so wall-clock changes cannot make
+ *   entries live longer or die earlier.
+ * - Holds only the values it is given: no Context, View, ViewModel, DB or network client.
+ *
+ * @param defaultTtlMs default time-to-live in milliseconds (5 minutes)
+ * @param maxSize hard upper bound on the number of entries
+ * @param nanoClock monotonic time source in nanoseconds; injectable for tests
  */
-data class QueryCacheKey(
-    val entityType: String,
-    val query: String = "",
-    val filter: String = "",
-    val sort: String = ""
-)
+class MemoryCache<K : Any, V : Any>(
+    private val defaultTtlMs: Long = CacheTtl.MEDIUM_MS,
+    private val maxSize: Int = 1000,
+    private val nanoClock: () -> Long = System::nanoTime
+) : ClearableCache {
 
-/**
- * Predefined TTL constants
- */
+    init {
+        require(maxSize > 0) { "maxSize must be positive" }
+        require(defaultTtlMs > 0) { "defaultTtlMs must be positive" }
+    }
+
+    private class Entry<V>(val value: V, val expiresAtNanos: Long)
+
+    private val lock = Any()
+    private val data = HashMap<K, Entry<V>>()
+
+    fun get(key: K): V? = synchronized(lock) {
+        val entry = data[key] ?: return null
+        if (isExpired(entry)) {
+            data.remove(key)
+            return null
+        }
+        entry.value
+    }
+
+    fun put(key: K, value: V, ttlMs: Long = defaultTtlMs) {
+        synchronized(lock) {
+            if (!data.containsKey(key) && data.size >= maxSize) {
+                dropExpired()
+                if (data.size >= maxSize) evictEarliestExpiry()
+            }
+            data[key] = Entry(value, nanoClock() + TimeUnit.MILLISECONDS.toNanos(ttlMs))
+        }
+    }
+
+    fun contains(key: K): Boolean = get(key) != null
+
+    /** Removes one entry. Also the name callers use for "invalidate this key". */
+    fun remove(key: K) {
+        synchronized(lock) { data.remove(key) }
+    }
+
+    fun invalidate(key: K) = remove(key)
+
+    /** Removes every entry whose key matches [predicate] (e.g. all keys with a prefix). */
+    fun invalidateWhere(predicate: (K) -> Boolean) {
+        synchronized(lock) { data.keys.removeAll(predicate) }
+    }
+
+    override fun clear() {
+        synchronized(lock) { data.clear() }
+    }
+
+    fun size(): Int = synchronized(lock) { data.size }
+
+    private fun isExpired(entry: Entry<V>): Boolean = nanoClock() - entry.expiresAtNanos >= 0
+
+    private fun dropExpired() {
+        val now = nanoClock()
+        data.values.removeAll { now - it.expiresAtNanos >= 0 }
+    }
+
+    private fun evictEarliestExpiry() {
+        val victim = data.entries.minByOrNull { it.value.expiresAtNanos }?.key ?: return
+        data.remove(victim)
+    }
+}
+
+/** TTL presets. TTL bounds memory retention only; it never guarantees freshness. */
 object CacheTtl {
-    val SHORT_MS = 60_000L           // 1 minute
-    val MEDIUM_MS = 5 * 60 * 1000L   // 5 minutes (default)
-    val LONG_MS = 30 * 60 * 1000L    // 30 minutes
+    const val SHORT_MS = 60_000L           // 1 minute
+    const val MEDIUM_MS = 5 * 60 * 1000L   // 5 minutes (default)
+    const val LONG_MS = 30 * 60 * 1000L    // 30 minutes
 }

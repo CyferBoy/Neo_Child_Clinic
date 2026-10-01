@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.vaccination.presentation
 
-import com.neochildclinic.data.local.entity.ReminderEntity
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.VaccineBatch
 import org.junit.Assert.assertEquals
@@ -74,7 +74,7 @@ class AddVaccinationLogicTest {
 
     @Test
     fun `next groups group ACTIVE enabled reminders by due date and expand multi-vaccine reminders`() {
-        val reminder = ReminderEntity(
+        val reminder = Reminder(
             id = "r1", patientId = "p1", originalVisitId = "v1", vaccineName = "MMR",
             dueDate = "2026-10-15", status = "ACTIVE", type = "Primary", nxtVaccineId = listOf("m1", "m2")
         )
@@ -89,8 +89,8 @@ class AddVaccinationLogicTest {
 
     @Test
     fun `next groups skip non-active and disabled reminders`() {
-        val inactive = ReminderEntity(id = "r1", patientId = "p1", originalVisitId = "v1", vaccineName = "X", dueDate = "2026-10-15", status = "COMPLETED", reminderEnabled = true)
-        val disabled = ReminderEntity(id = "r2", patientId = "p1", originalVisitId = "v1", vaccineName = "X", dueDate = "2026-10-15", status = "ACTIVE", reminderEnabled = false)
+        val inactive = Reminder(id = "r1", patientId = "p1", originalVisitId = "v1", vaccineName = "X", dueDate = "2026-10-15", status = "COMPLETED", reminderEnabled = true)
+        val disabled = Reminder(id = "r2", patientId = "p1", originalVisitId = "v1", vaccineName = "X", dueDate = "2026-10-15", status = "ACTIVE", reminderEnabled = false)
         assertTrue(buildNextVaccinationGroups(listOf(inactive, disabled), emptyList()).isEmpty())
     }
 

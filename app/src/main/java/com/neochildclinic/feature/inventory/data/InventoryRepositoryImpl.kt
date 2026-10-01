@@ -2,8 +2,6 @@ package com.neochildclinic.feature.inventory.data
 import com.neochildclinic.core.database.TransactionRunner
 
 import android.content.Context
-import com.neochildclinic.core.cache.MemoryCache
-import com.neochildclinic.core.cache.QueryCacheKey
 import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
@@ -46,12 +44,8 @@ class InventoryRepositoryImpl @Inject constructor(
     private val auditLogger: AuditLogger,
     private val settingsManager: NotificationSettingsManager,
     private val sessionManager: com.neochildclinic.core.security.SessionManager,
-    @ApplicationContext private val context: Context,
-    private val inventoryCache: MemoryCache<String, InventoryItem>,
-    private val inventoryListCache: MemoryCache<QueryCacheKey, List<InventoryItem>>
+    @ApplicationContext private val context: Context
 ) : InventoryRepository {
-
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private suspend fun enqueueBatchStockChange(batchId: String, transactionId: String, groupId: String? = null) {
         syncRepository.enqueue("INVENTORY_TRANSACTION", transactionId, SyncOperation.CREATE, SyncPriority.HIGH, groupId)
@@ -166,7 +160,6 @@ class InventoryRepositoryImpl @Inject constructor(
             action = if (isUpdate) "UPDATED" else "CREATED",
             remarks = "Vaccine Definition: ${vaccine.brandName}"
         )
-        invalidateVaccinationCache(vaccine.id)
     }
 
     override suspend fun updateVaccine(vaccine: Vaccine, user: String) {
@@ -187,7 +180,6 @@ class InventoryRepositoryImpl @Inject constructor(
             action = "UPDATED",
             remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
         )
-        invalidateVaccinationCache(vaccine.id)
     }
 
     override suspend fun addBatch(
@@ -345,7 +337,6 @@ class InventoryRepositoryImpl @Inject constructor(
                 action = "SOFT_DELETED",
                 remarks = "Vaccine: ${vaccine.brandName}"
             )
-            invalidateVaccinationCache(vaccineId)
         }
     }
 
@@ -581,23 +572,6 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
         localDataSource.updatePatientIdInTransactions(duplicateId, masterId)
-    }
-
-    private fun invalidateVaccinationCache(id: String) {
-        repositoryScope.launch {
-            inventoryCache.invalidate(id)
-        }
-    }
-
-    private fun invalidateInventoryListCache() {
-        repositoryScope.launch {
-            inventoryListCache.invalidateAll(
-                listOf(
-                    QueryCacheKey(entityType = "INVENTORY"),
-                    QueryCacheKey(entityType = "INVENTORY", query = "")
-                )
-            )
-        }
     }
 
     override suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {

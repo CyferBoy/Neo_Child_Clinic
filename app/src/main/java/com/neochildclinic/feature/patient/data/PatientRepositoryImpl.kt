@@ -14,8 +14,8 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.feature.patient.data.PatientIdGenerator
-import com.neochildclinic.core.cache.MemoryCache
-import com.neochildclinic.core.cache.QueryCacheKey
+import com.neochildclinic.data.local.database.AppDatabase
+import androidx.room.InvalidationTracker
 import com.neochildclinic.core.preferences.PreferenceManager
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -39,13 +39,19 @@ class PatientRepositoryImpl @Inject constructor(
     private val sessionManager: SessionManager,
     @ApplicationContext private val context: Context,
     private val vaccinationRepository: dagger.Lazy<VaccinationRepository>,
-    private val patientCache: MemoryCache<String, Patient>,
-    private val patientListCache: MemoryCache<QueryCacheKey, List<Patient>>
+    private val patientCache: PatientCache,
+    database: AppDatabase
 ) : PatientRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
+        // Room is the source of truth. Any write to `patients` - including ones that bypass
+        // this repository (sync pull/upload, backup restore, ID migration worker) - drops the
+        // in-memory copies so they can never outlive the row they mirror.
+        database.invalidationTracker.addObserver(object : InvalidationTracker.Observer("patients") {
+            override fun onInvalidated(tables: Set<String>) = patientCache.clear()
+        })
         repositoryScope.launch {
             if (!preferenceManager.isPatientIdMigrationCompleted.first()) {
                 schedulePatientIdMigration()
@@ -62,21 +68,11 @@ class PatientRepositoryImpl @Inject constructor(
         )
     }
 
-    override val allPatients: Flow<List<Patient>> =
-        localDataSource.getAllPatients()
-            .onEach { patients ->
-                val key = QueryCacheKey(entityType = "PATIENT")
-                repositoryScope.launch { patientListCache.put(key, patients) }
-            }
+    // Room Flow -> UI directly. Flows are never cached.
+    override val allPatients: Flow<List<Patient>> = localDataSource.getAllPatients()
 
-    override suspend fun getPatientById(id: String): Patient? {
-        val cached = patientCache.get(id)
-        if (cached != null) return cached
-        
-        val entity = localDataSource.getPatientById(id)
-        entity?.let { patientCache.put(id, it) }
-        return entity
-    }
+    override suspend fun getPatientById(id: String): Patient? =
+        patientCache.getOrLoad(id) { localDataSource.getPatientById(id) }
 
     override suspend fun refreshPatients() = cloudRefresh("PatientRepo", rethrow = true) {
         val entities = remoteDataSource.fetchAllPatients()
@@ -121,7 +117,7 @@ class PatientRepositoryImpl @Inject constructor(
         val totalCount = countFlow.first()
         android.util.Log.d("PatientRepo", "Refresh complete. Total local: $totalCount")
         
-        invalidatePatientListCache()
+        patientCache.clear()
     }
 
     override suspend fun addPatient(patient: Patient) {
@@ -164,8 +160,7 @@ class PatientRepositoryImpl @Inject constructor(
             remarks = if (isUpdate) "Patient ${patient.name} updated" else "Patient ${patient.name} registered"
         )
         
-        invalidatePatientCache(patient.id)
-        invalidatePatientListCache()
+        patientCache.invalidate(patient.id)
     }
 
     override suspend fun deletePatient(id: String) {
@@ -211,36 +206,15 @@ class PatientRepositoryImpl @Inject constructor(
             patientId = id
         )
         
-        invalidatePatientCache(id)
-        invalidatePatientListCache()
+        patientCache.invalidate(id)
     }
 
-    override fun searchPatients(query: String): Flow<List<Patient>> {
-        val key = QueryCacheKey(entityType = "PATIENT", query = query)
-        val cached = patientListCache.get(key)
-        if (cached != null) return flowOf(cached)
-        
-        return localDataSource.searchPatients(query)
-            .onEach { patients ->
-                repositoryScope.launch { patientListCache.put(key, patients) }
-            }
-    }
+    // Reactive Room query: always live, never served from memory.
+    override fun searchPatients(query: String): Flow<List<Patient>> =
+        localDataSource.searchPatients(query)
 
     override fun getPatientCount(): Flow<Int> = localDataSource.getPatientCount()
 
     override fun getNotes(patientId: String): Flow<List<PatientNote>> =
         localDataSource.getNotesForPatient(patientId).map { rows -> rows.map { it.toDomain() } }
-
-    private suspend fun invalidatePatientCache(id: String) {
-        patientCache.invalidate(id)
-    }
-
-    private suspend fun invalidatePatientListCache() {
-        patientListCache.invalidateAll(
-            listOf(
-                QueryCacheKey(entityType = "PATIENT"),
-                QueryCacheKey(entityType = "PATIENT", query = ""),
-            )
-        )
-    }
 }
