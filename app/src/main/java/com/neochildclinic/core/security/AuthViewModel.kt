@@ -5,9 +5,9 @@ import androidx.lifecycle.ViewModel
 import com.neochildclinic.core.cache.CacheRegistry
 import com.neochildclinic.core.sync.SyncManagerImpl
 import com.neochildclinic.domain.model.Profile
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
 import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
-import com.neochildclinic.core.common.metadataString
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -28,7 +28,8 @@ class AuthViewModel @Inject constructor(
     private val profileRepository: ProfileRepositoryImpl,
     private val deviceRepository: DeviceRepositoryImpl,
     private val syncManager: SyncManagerImpl,
-    private val cacheRegistry: CacheRegistry
+    private val cacheRegistry: CacheRegistry,
+    private val currentUserProvider: CurrentUserProvider
 ) : ViewModel() {
 
     companion object {
@@ -79,6 +80,9 @@ class AuthViewModel @Inject constructor(
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
+    /** Authorization role from the session's app_metadata — the single source of truth. */
+    val currentUserRole: UserRole? get() = currentUserProvider.getCurrentUserRole()
+
     init {
         // Mark loading immediately so the UI doesn't fall through to UserRole.nurse
         // before the profile has been fetched. On cold start, auth.currentSessionOrNull()
@@ -104,7 +108,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchProfile(userId: String) {
+    private suspend fun fetchProfile(userId: String): Boolean {
         _isProfileLoading.value = true
         try {
             // Get from repository (handles local fallback and remote sync)
@@ -112,49 +116,28 @@ class AuthViewModel @Inject constructor(
             val authLastLogin = auth.currentSessionOrNull()?.user?.lastSignInAt?.toString()
 
             if (p == null) {
-                // No local cache row for this user yet (fresh install, cleared app data,
-                // or first login on this device before the initial sync has pulled the
-                // profiles table down). The profiles table - not Supabase Auth
-                // user_metadata - is the source of truth for role, so fetch this user's
-                // row directly before ever guessing. Previously this jumped straight to
-                // building a profile from user_metadata and defaulting role to "nurse"
-                // whenever that metadata was missing/unset (the common case, since role
-                // is normally managed via Manage Staff, not auth metadata) - silently
-                // persisting the wrong role until a slower background refresh corrected
-                // it, which is exactly the intermittent "opens as nurse" bug.
+                // The profiles table is business/display data (name, phone, activation).
+                // The authorization role is NOT read here - it comes from app_metadata via
+                // CurrentUserProvider.getCurrentUserRole(). user_metadata is never consulted.
                 p = profileRepository.fetchProfileFromRemote(userId)
             }
 
             if (p == null) {
-                // Still nothing - genuinely offline with no cache, or a brand-new signup
-                // whose profile row hasn't been provisioned server-side yet. Fall back to
-                // a synthetic profile from auth metadata only as a last resort.
-                val currentUser = auth.currentSessionOrNull()?.user
-                if (currentUser != null) {
-                    p = Profile(
-                        id = currentUser.id,
-                        email = currentUser.email ?: "",
-                        displayName = currentUser.userMetadata?.get("display_name").metadataString()
-                            ?: currentUser.userMetadata?.get("name").metadataString()
-                            ?: currentUser.email?.substringBefore("@") ?: "User",
-                        phoneNumber = currentUser.userMetadata?.get("phone_number").metadataString() ?: "",
-                        employeeId = currentUser.userMetadata?.get("employee_id").metadataString(),
-                        role = try {
-                            com.neochildclinic.domain.model.UserRole.valueOf(currentUser.userMetadata?.get("role").metadataString() ?: "nurse")
-                        } catch (_: Exception) { com.neochildclinic.domain.model.UserRole.nurse },
-                        lastLogin = authLastLogin
-                    )
-                    profileRepository.saveLocalProfile(p)
-                }
+                // First login / fresh install must happen online: there is deliberately
+                // no metadata-based fallback (user_metadata no longer carries a role;
+                // app_metadata.role is read separately via CurrentUserProvider for
+                // authorization). Fail loudly instead of guessing a profile/role.
+                _error.value = "Unable to load your profile. Check your connection and try again."
+                return false
             } else if (p.lastLogin != authLastLogin) {
                 p = p.copy(lastLogin = authLastLogin)
                 profileRepository.updateProfile(p)
             }
 
-            if (p != null && !p.isActive) {
+            if (!p.isActive) {
                 logout()
                 _error.value = "Account Disabled: Please contact administrator."
-                return
+                return true
             }
 
             _profile.value = p
@@ -169,8 +152,10 @@ class AuthViewModel @Inject constructor(
                     _profile.value = refreshed
                 }
             }
+            return true
         } catch (e: Exception) {
             _error.value = "Failed to load profile: ${e.message}"
+            return false
         } finally {
             _isProfileLoading.value = false
         }
@@ -195,7 +180,10 @@ class AuthViewModel @Inject constructor(
                 }
 
                 auth.currentSessionOrNull()?.user?.id?.let {
-                    fetchProfile(it)
+                    if (!fetchProfile(it)) {
+                        _isLoading.value = false
+                        return@launch // stay on the login screen; error is already set
+                    }
                     // Device registration is best-effort and must not delay or block
                     // the initial application data sync if Supabase/user_devices times out.
                     launch { deviceRepository.registerCurrentDevice() }

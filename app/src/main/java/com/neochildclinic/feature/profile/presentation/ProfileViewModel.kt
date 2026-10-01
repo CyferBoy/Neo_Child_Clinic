@@ -3,10 +3,8 @@ package com.neochildclinic.feature.profile.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.core.security.SessionManager
-import com.neochildclinic.core.common.metadataString
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,24 +42,19 @@ class ProfileViewModel @Inject constructor(
                 var profile = profileRepository.getProfileById(currentUserId)
 
                 if (profile == null) {
-                    // Fallback to initial profile from auth metadata
-                    val metadata = sessionManager.getCurrentUserMetadata()
-                    val email = sessionManager.getCurrentUserEmail().let { if (it == "Unknown") "" else it }
-                    profile = Profile(
-                        id = currentUserId,
-                        email = email,
-                        displayName = metadata?.get("display_name").metadataString()
-                            ?: metadata?.get("name").metadataString()
-                            ?: email.substringBefore("@") ?: "User",
-                        phoneNumber = metadata?.get("phone_number").metadataString() ?: "",
-                        employeeId = metadata?.get("employee_id").metadataString(),
-                        role = try {
-                            UserRole.valueOf(metadata?.get("role").metadataString() ?: "nurse")
-                        } catch (_: Exception) { UserRole.nurse }
-                    )
-                    profileRepository.saveLocalProfile(profile)
+                    // First load requires network: pull once, then re-read Room.
+                    // No metadata-based fallback - user_metadata never carries a role.
+                    profileRepository.refreshProfiles()
+                    profile = profileRepository.getProfileById(currentUserId)
                 }
-                
+
+                if (profile == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Unable to load your profile. Check your connection and try again."
+                    )
+                    return@launch
+                }
                 _uiState.value = _uiState.value.copy(profile = profile, isLoading = false)
                 
                 // Refresh from remote
