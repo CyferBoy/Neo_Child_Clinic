@@ -28,11 +28,14 @@ serve(async (req) => {
 
     const { data: actor, error: actorError } = await admin
       .from("profiles")
-      .select("role,is_active,is_deleted")
+      .select("is_active,is_deleted")
       .eq("id", user.id)
       .single()
 
-    if (actorError || actor?.role !== "admin" || actor.is_active !== true || actor.is_deleted === true) {
+    // Authorization authority = Supabase Auth app_metadata.role (the JWT claim RLS
+    // reads). profiles.is_active/is_deleted remain business gating (account status).
+    const actorRole = (user.app_metadata as { role?: string } | null)?.role
+    if (actorError || actorRole !== "admin" || actor.is_active !== true || actor.is_deleted === true) {
       return json({ error: "Unauthorized: only active administrators can manage staff" }, 403)
     }
 
@@ -53,10 +56,14 @@ serve(async (req) => {
         // phone_number was set (which the app itself reads for display), so the Auth
         // dashboard's Phone field was always empty regardless of what was entered here.
         phone: toE164Phone(phoneNumber),
+        // role is authorization: app_metadata only (GoTrue keeps this out of the
+        // client-writable surface). user_metadata is display data - never a role.
+        app_metadata: {
+          role,
+        },
         user_metadata: {
           display_name: name,
           name,
-          role,
           employee_id: employeeId ?? null,
           phone_number: phoneNumber ?? null,
         },
@@ -110,17 +117,24 @@ serve(async (req) => {
         const { error } = await admin.from("profiles").update(update).eq("id", staffId)
         if (error) throw error
 
-        const { error: authUpdateError } = await admin.auth.admin.updateUserById(staffId, {
+        const profileUpdate: {
+          phone?: string
+          user_metadata: Record<string, unknown>
+          app_metadata?: { role: string }
+        } = {
           // Same top-level `phone` field as CREATE - keeps Auth > Users' Phone column
           // in sync with edits made here, not just the user_metadata copy.
           ...(body.phoneNumber !== undefined ? { phone: toE164Phone(body.phoneNumber) } : {}),
           user_metadata: {
             display_name: body.name,
             name: body.name,
-            role: body.role,
             phone_number: body.phoneNumber,
           },
-        })
+        }
+        if (body.role !== undefined) {
+          profileUpdate.app_metadata = { role: body.role }
+        }
+        const { error: authUpdateError } = await admin.auth.admin.updateUserById(staffId, profileUpdate)
         if (authUpdateError) throw authUpdateError
         return json({ success: true })
       }
@@ -134,7 +148,8 @@ serve(async (req) => {
         if (error) throw error
 
         const { error: authUpdateError } = await admin.auth.admin.updateUserById(staffId, {
-          user_metadata: { role: body.role },
+          // Authorization role lives in app_metadata only; user_metadata carries no role.
+          app_metadata: { role: body.role },
         })
         if (authUpdateError) throw authUpdateError
         return json({ success: true })
