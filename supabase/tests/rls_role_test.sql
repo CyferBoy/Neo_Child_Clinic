@@ -71,3 +71,11 @@ set role authenticated;
 select public.is_admin();                     -- EXPECT f
 reset role;
 reset request.jwt.claims;
+
+-- 7. deactivated admin (JWT says admin, profile is_active=false) must be denied
+-- Placeholder must be a real profile row with is_active = false.
+set request.jwt.claims = '{"sub":"<DEACTIVATED-ADMIN-UUID>","role":"authenticated","app_metadata":{"role":"admin"}}';
+set role authenticated;
+select public.is_admin();                     -- EXPECT f
+reset role;
+reset request.jwt.claims;

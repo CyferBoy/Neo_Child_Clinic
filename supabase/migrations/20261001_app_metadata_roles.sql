@@ -21,17 +21,24 @@ update auth.users
 set raw_user_meta_data = raw_user_meta_data - 'role'
 where raw_user_meta_data ? 'role';
 
--- 3. is_admin(): JWT app_metadata instead of a profiles table read.
---    No longer touches profiles, so SECURITY DEFINER is dropped (it existed to
---    avoid recursive profile-policy evaluation). Grants are preserved.
+-- 3. is_admin(): role source moves to JWT app_metadata; the activation check
+--    (is_active/is_deleted) and SECURITY DEFINER (recursion avoidance) are
+--    preserved verbatim from 20260816. Grants are preserved.
 drop function if exists public.is_admin();
 create function public.is_admin()
 returns boolean
 language sql
 stable
-set search_path = public, auth
+security definer
+set search_path = public
 as $$
-  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') = 'admin';
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and is_active = true
+      and is_deleted = false
+  ) and coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') = 'admin';
 $$;
 
 revoke all on function public.is_admin() from public;
