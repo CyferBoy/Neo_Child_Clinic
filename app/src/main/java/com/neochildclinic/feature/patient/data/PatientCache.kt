@@ -31,12 +31,12 @@ class PatientCache internal constructor(
     /** Cache hit -> cached value. Miss -> [load] from Room, then cache a non-null result. */
     suspend fun getOrLoad(id: String, load: suspend () -> Patient?): Patient? {
         val key = key(id)
-        runCatching { cache.get(key) }.getOrNull()?.let { return it }
+        cache.get(key)?.let { return it }
 
         val startedAt = generation.get()
         val fromRoom = load()
         if (fromRoom != null && generation.get() == startedAt) {
-            runCatching { cache.put(key, fromRoom) } // cache failure must never break the read
+            cache.put(key, fromRoom)
         }
         return fromRoom
     }

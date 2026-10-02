@@ -99,7 +99,7 @@ fun TodayPatientsScreen(
 
     val displayMonthYear = remember(selectedDate) {
         val date = try {
-            java.time.LocalDate.parse(selectedDate, DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+            java.time.LocalDate.parse(selectedDate)
         } catch (_: java.time.format.DateTimeParseException) {
             java.time.LocalDate.now()
         }

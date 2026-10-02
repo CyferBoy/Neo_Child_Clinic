@@ -29,10 +29,10 @@ internal fun MonthYearPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    val isoFmt = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH) }
+    
     val initial = remember(currentDate) {
         try {
-            java.time.LocalDate.parse(currentDate, isoFmt)
+            java.time.LocalDate.parse(currentDate)
         } catch (_: java.time.format.DateTimeParseException) {
             java.time.LocalDate.now()
         }
@@ -47,7 +47,7 @@ internal fun MonthYearPickerDialog(
                 val date = state.selectedDateMillis?.let {
                     java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate()
                 } ?: initial
-                onConfirm(date.withDayOfMonth(1).format(isoFmt))
+                onConfirm(date.withDayOfMonth(1).toString())
             }) { Text("Confirm") }
         },
         dismissButton = {

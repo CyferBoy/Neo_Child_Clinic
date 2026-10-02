@@ -47,18 +47,9 @@ class MemoryCacheTest {
     @Test fun manualInvalidation() {
         val c = cache()
         c.put("a", "1"); c.put("b", "2")
-        c.invalidate("a")
+        c.remove("a")
         assertNull(c.get("a"))
         assertEquals("2", c.get("b"))
-    }
-
-    @Test fun invalidateWhereRemovesMatchingKeys() {
-        val c = cache(maxSize = 10)
-        c.put("PATIENT:1", "x"); c.put("PATIENT:2", "y"); c.put("OTHER:1", "z")
-        c.invalidateWhere { it.startsWith("PATIENT:") }
-        assertFalse(c.contains("PATIENT:1"))
-        assertFalse(c.contains("PATIENT:2"))
-        assertTrue(c.contains("OTHER:1"))
     }
 
     @Test fun clearRemovesEverything() {
@@ -113,7 +104,7 @@ class MemoryCacheTest {
                     val k = (t * 2_000 + i) % 500
                     c.put(k, k)
                     c.get(k)?.let { assertEquals(k, it) }
-                    if (i % 7 == 0) c.invalidate(k)
+                    if (i % 7 == 0) c.remove(k)
                 }
                 done.countDown()
             }

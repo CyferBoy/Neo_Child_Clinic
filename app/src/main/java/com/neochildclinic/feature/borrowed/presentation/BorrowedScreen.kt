@@ -272,7 +272,7 @@ fun BorrowedEditDialog(
     var vaccineSearch by rememberSaveable { mutableStateOf(item?.vaccineName ?: "") }
     var batchId by rememberSaveable { mutableStateOf(item?.record?.batchId ?: "") }
     var batchNumber by rememberSaveable { mutableStateOf(item?.batchNumber ?: "") }
-    var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))) }
+    var borrowedDate by rememberSaveable { mutableStateOf(item?.borrowedDate ?: LocalDate.now().toString()) }
     var quantity by rememberSaveable { mutableStateOf(item?.borrowedQuantity ?: 1) }
     var type by rememberSaveable { mutableStateOf(item?.type ?: defaultType) }
 

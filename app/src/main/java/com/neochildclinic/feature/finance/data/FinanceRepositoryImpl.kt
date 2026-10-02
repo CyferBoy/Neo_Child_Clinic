@@ -54,8 +54,7 @@ class FinanceRepositoryImpl @Inject constructor(
         if (dateGiven.isNullOrBlank()) return null
         
         val parsed = com.neochildclinic.core.common.PatientUtils.parseDate(dateGiven) ?: return null
-        return parsed.toInstant().atZone(java.time.ZoneId.systemDefault())
-            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH))
+        return parsed.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
     }
 
     override fun getAllTransactions(): Flow<List<FinanceTransaction>> =
@@ -385,10 +384,8 @@ class FinanceRepositoryImpl @Inject constructor(
                         if (!visitId.isNullOrBlank()) {
                             val visit = visitDao.getVaccinationById(visitId)
                             if (visit != null) {
-                                val visitDate = com.neochildclinic.core.common.PatientUtils.parseDate(visit.dateGiven)?.let {
-                                    it.toInstant().atZone(java.time.ZoneId.systemDefault())
-                                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH))
-                                }
+                                val visitDate = com.neochildclinic.core.common.PatientUtils.parseDate(visit.dateGiven)
+                                    ?.toInstant()?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()?.toString()
                                 if (visitDate != null && remote.transactionDate != visitDate) {
                                     normalizedRemote = remote.copy(transactionDate = visitDate)
                                     wasHealed = true

@@ -26,7 +26,7 @@ class DailySummaryWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val settings = settingsManager.settingsFlow.first()
-        val todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+        val todayStr = LocalDate.now().toString()
 
         // 1. Daily Summary Logic
         if (settings.dailySummaryEnabled && settings.lastSummarySentDate != todayStr) {

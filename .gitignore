@@ -77,3 +77,6 @@ Thumbs.db
 .opencode/ 
 .superpowers/
 docs/superpowers/
+
+# Graphify generated graph + AST/semantic cache
+graphify-out/

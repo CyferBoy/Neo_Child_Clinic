@@ -1,6 +1,7 @@
 package com.neochildclinic.core.common
 
 import java.time.LocalDate
+import java.time.Period
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.Calendar
@@ -87,15 +88,12 @@ object AgeUtils {
         val today = onDate.toLocalDate()
         if (birth.isAfter(today)) return null
 
-        var years = today.year - birth.year
-        var months = today.monthValue - birth.monthValue
-        if (today.dayOfMonth < birth.dayOfMonth) {
-            months--
-        }
-        if (months < 0) {
-            years--
-            months += 12
-        }
+        // Period handles the borrow-on-day-of-month itself (months decrement when
+        // today.dayOfMonth < birth.dayOfMonth), which is exactly the arithmetic this
+        // used to hand-roll.
+        val period = Period.between(birth, today)
+        val years = period.years
+        val months = period.months
         if (years < 0) return null
 
         val yearLabel = if (years == 1) "year" else "years"
@@ -112,17 +110,9 @@ object AgeUtils {
             val today = LocalDate.now()
             val birth = birthDate.toLocalDate()
 
-            var years = today.year - birth.year
-            var months = today.monthValue - birth.monthValue
-
-            if (today.dayOfMonth < birth.dayOfMonth) {
-                months--
-            }
-
-            if (months < 0) {
-                years--
-                months += 12
-            }
+            val period = Period.between(birth, today)
+            val years = period.years
+            val months = period.months
 
             if (years < 0) return null
 
@@ -160,18 +150,13 @@ object AgeUtils {
                 return if (weeks > 0) weeks to "Weeks" else 0 to "Weeks"
             }
 
-            val years = today.year - birth.year
-            val months = today.monthValue - birth.monthValue
-            val totalMonths = (years * 12) + months
+            val period = Period.between(birth, today)
+            val totalMonths = period.toTotalMonths()
 
             return if (totalMonths < 12) {
-                totalMonths to "Months"
+                totalMonths.toInt() to "Months"
             } else {
-                var ageYears = years
-                if (today.dayOfYear < birth.dayOfYear) {
-                    ageYears--
-                }
-                ageYears to "Years"
+                period.years to "Years"
             }
         } catch (_: Exception) {
             return 0 to "Years"

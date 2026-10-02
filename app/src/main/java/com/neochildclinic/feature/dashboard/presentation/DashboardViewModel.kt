@@ -111,7 +111,7 @@ class DashboardViewModel @Inject constructor(
 
     private var todoSlotLoadToken = 0
 
-    private val todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+    private val todayStr = LocalDate.now().toString()
     private val _selectedDate = MutableStateFlow(todayStr)
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
@@ -242,14 +242,13 @@ class DashboardViewModel @Inject constructor(
         combine(
             _selectedDate.flatMapLatest { date ->
                 val selected = try {
-                    java.time.LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+                    java.time.LocalDate.parse(date)
                 } catch (_: java.time.format.DateTimeParseException) {
                     java.time.LocalDate.now()
                 }
                 val start = selected.withDayOfMonth(1)
                 val end = start.plusMonths(1).minusDays(1)
-                val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH)
-                patientTodoRepository.getDatesWithData(start.format(fmt), end.format(fmt)).map { it.toSet() }
+                patientTodoRepository.getDatesWithData(start.toString(), end.toString()).map { it.toSet() }
             },
             patientRepository.allPatients,
             _allDoctors,

@@ -161,10 +161,7 @@ class AddExpenseViewModel @Inject constructor(
                 // string comparison in SQL only sorts/range-filters correctly on ISO dates
                 // (see ExpenseDao.getFilteredExpensesPage).
                 val isoDate = PatientUtils.parseDate(state.expenseDate)
-                    ?.let {
-                        it.toInstant().atZone(ZoneId.systemDefault())
-                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
-                    }
+                    ?.let { it.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().toString() }
                     ?: state.expenseDate
                 val expense = Expense(
                     id = state.expenseId,

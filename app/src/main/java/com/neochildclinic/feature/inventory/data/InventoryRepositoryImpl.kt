@@ -21,6 +21,7 @@ import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
+import com.neochildclinic.data.local.dao.InventoryDeductionDao
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,8 +38,8 @@ class InventoryRepositoryImpl @Inject constructor(
     private val transactionRunner: TransactionRunner,
     private val syncQueueDao: SyncQueueDao,
     private val vaccineDao: VaccineDao,
+    private val inventoryDeductionDao: InventoryDeductionDao,
     private val postgrest: Postgrest,
-    private val localDataSource: InventoryLocalDataSource,
     private val remoteDataSource: PatientRemoteDataSource,
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
@@ -58,8 +59,8 @@ class InventoryRepositoryImpl @Inject constructor(
         sort: InventorySort
     ): Flow<List<InventoryItem>> {
         return combine(
-            localDataSource.getAllVaccines(),
-            localDataSource.getAllBatches(),
+            vaccineDao.getAllVaccines(),
+            vaccineDao.getAllBatches(),
             settingsManager.settingsFlow
         ) { vaccines, allBatches, settings ->
             val globalThreshold = settings.lowStockThreshold
@@ -123,35 +124,35 @@ class InventoryRepositoryImpl @Inject constructor(
         }.flowOn(Dispatchers.Default)
     }
 
-    override fun getAllVaccines(): Flow<List<Vaccine>> = localDataSource.getAllVaccines().map { it.map { row -> row.toDomain() } }
+    override fun getAllVaccines(): Flow<List<Vaccine>> = vaccineDao.getAllVaccines().map { it.map { row -> row.toDomain() } }
 
     override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatch>> =
-        localDataSource.getBatchesByVaccine(vaccineId).map { it.map { row -> row.toDomain() } }.map { batches ->
+        vaccineDao.getBatchesByVaccine(vaccineId).map { it.map { row -> row.toDomain() } }.map { batches ->
             batches.sortedBy { parseDate(it.expiryDate) }
         }
 
     override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeduction> =
-        localDataSource.getForVaccination(vaccinationId).map { it.toDomain() }
+        inventoryDeductionDao.getForVaccination(vaccinationId).map { it.toDomain() }
 
     override suspend fun insertInventoryDeduction(entity: InventoryDeduction) =
-        localDataSource.insertDeduction(entity.toEntity())
+        inventoryDeductionDao.insert(entity.toEntity())
 
     override suspend fun deleteInventoryDeductionsForVaccination(vaccinationId: String) =
-        localDataSource.deleteForVaccination(vaccinationId)
+        inventoryDeductionDao.deleteForVaccination(vaccinationId)
 
     override suspend fun getBatchById(batchId: String): VaccineBatch? =
-        localDataSource.getBatchById(batchId)?.toDomain()
+        vaccineDao.getBatchById(batchId)?.toDomain()
 
-    override suspend fun getVaccineById(vaccineId: String): Vaccine? = localDataSource.getVaccineById(vaccineId)?.toDomain()
+    override suspend fun getVaccineById(vaccineId: String): Vaccine? = vaccineDao.getVaccineById(vaccineId)?.toDomain()
 
     override suspend fun addVaccine(vaccine: Vaccine, user: String) {
-        val isUpdate = localDataSource.getVaccineById(vaccine.id) != null
+        val isUpdate = vaccineDao.getVaccineById(vaccine.id) != null
         val userName = sessionManager.getCurrentUserName()
         val entity = vaccine.toEntity().copy(
             createdBy = if (isUpdate) vaccine.createdBy else userName,
             updatedBy = userName
         )
-        localDataSource.insertVaccine(entity)
+        vaccineDao.insertVaccine(entity)
         syncRepository.enqueue("VACCINE", vaccine.id, if (isUpdate) SyncOperation.UPDATE else SyncOperation.CREATE, SyncPriority.MEDIUM)
         auditLogger.recordLog(
             module = "VACCINE",
@@ -163,15 +164,15 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateVaccine(vaccine: Vaccine, user: String) {
-        val isUpdate = localDataSource.getVaccineById(vaccine.id) != null
+        val isUpdate = vaccineDao.getVaccineById(vaccine.id) != null
         val userName = sessionManager.getCurrentUserName()
-        val existing = localDataSource.getVaccineById(vaccine.id)
+        val existing = vaccineDao.getVaccineById(vaccine.id)
         val updated = vaccine.toEntity().copy(
             lastUpdated = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             createdBy = existing?.createdBy ?: vaccine.createdBy ?: userName,
             updatedBy = userName
         )
-        localDataSource.updateVaccine(updated)
+        vaccineDao.updateVaccine(updated)
         syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         auditLogger.recordLog(
             module = "VACCINE",
@@ -187,14 +188,14 @@ class InventoryRepositoryImpl @Inject constructor(
         user: String,
         transactionGroupId: String?
     ) {
-        val vaccine = localDataSource.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
+        val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
         val userName = sessionManager.getCurrentUserName()
         val entityWithAudit = batch.toEntity().copy(
             createdBy = userName,
             updatedBy = userName,
             updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
         )
-        localDataSource.insertBatch(entityWithAudit)
+        vaccineDao.insertBatch(entityWithAudit)
 
         val transaction = InventoryTransactionEntity(
             vaccineId = batch.vaccineId,
@@ -209,7 +210,7 @@ class InventoryRepositoryImpl @Inject constructor(
             createdBy = userName,
             updatedBy = userName
         )
-        localDataSource.insertTransaction(transaction)
+        vaccineDao.insertTransaction(transaction)
 
         auditLogger.recordLog(
             module = "INVENTORY",
@@ -231,7 +232,7 @@ class InventoryRepositoryImpl @Inject constructor(
             throw IllegalStateException("Add at least one vaccine with a batch before saving.")
         }
         for ((vaccineId, batches) in entriesByVaccine) {
-            val vaccine = localDataSource.getVaccineById(vaccineId)
+            val vaccine = vaccineDao.getVaccineById(vaccineId)
                 ?: throw IllegalStateException("Selected vaccine could not be found. Please refresh and try again.")
             if (batches.isEmpty()) throw IllegalStateException("${vaccine.brandName}: add at least one batch.")
             val seenBatchNumbers = mutableSetOf<String>()
@@ -243,11 +244,11 @@ class InventoryRepositoryImpl @Inject constructor(
                 if (batch.expiryDate.isBlank()) throw IllegalStateException("${vaccine.brandName} ($batchNumber): expiry date is required.")
                 if (batch.purchaseQuantity <= 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
                 if (batch.sellingPrice < 0 || batch.purchaseCost < 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
-                val existingBatch = localDataSource.getBatchByVaccineAndNumber(vaccineId, batchNumber)
+                val existingBatch = vaccineDao.getBatchByVaccineAndNumber(vaccineId, batchNumber)
                 if (existingBatch != null) throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
                 val normalizedBatch = batch.copy(batchNumber = batchNumber, remainingQuantity = batch.purchaseQuantity)
                 addBatch(normalizedBatch, user, null)
-                val currentVaccine = localDataSource.getVaccineById(vaccineId) ?: vaccine
+                val currentVaccine = vaccineDao.getVaccineById(vaccineId) ?: vaccine
                 if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
                     updateVaccine(currentVaccine.toDomain().copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost), user)
                 }
@@ -260,7 +261,7 @@ class InventoryRepositoryImpl @Inject constructor(
         fromDateIso: String?, toDateIso: String?, limit: Int, offset: Int, remoteOnly: Boolean
     ): List<InventoryTransaction> {
         val rows = if (!remoteOnly) {
-            localDataSource.getFilteredTransactionsPage(
+            vaccineDao.getFilteredTransactionsPage(
                 vaccineId = vaccineId, batchId = batchId, types = types.map { it.name }, typesEmpty = types.isEmpty(),
                 fromDate = fromDateIso, toDate = toDateIso, limit = limit, offset = offset
             )
@@ -279,8 +280,8 @@ class InventoryRepositoryImpl @Inject constructor(
             createdBy = batch.createdBy,
             updatedBy = user
         )
-        localDataSource.updateBatch(updatedEntity)
-        val oldBatch = localDataSource.getBatchById(batch.batchId) ?: return@updateBatch
+        vaccineDao.updateBatch(updatedEntity)
+        val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return@updateBatch
         val diff = batch.remainingQuantity - oldBatch.remainingQuantity
         val userName = sessionManager.getCurrentUserName()
         if (diff != 0) {
@@ -293,7 +294,7 @@ class InventoryRepositoryImpl @Inject constructor(
                 timestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
                 createdBy = userName, updatedBy = userName
             )
-            localDataSource.insertTransaction(transaction)
+            vaccineDao.insertTransaction(transaction)
             syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM)
         }
         auditLogger.recordLog(
@@ -304,31 +305,30 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteBatch(batchId: String, user: String) {
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
-        localDataSource.deleteBatch(batchId, now, user)
+        vaccineDao.deleteBatch(batchId)
         syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteVaccine(vaccineId: String, user: String) {
         val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
-        val vaccine = localDataSource.getVaccineById(vaccineId) ?: return@deleteVaccine
+        val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@deleteVaccine
 
         // Check for batches
-        val batchCount = localDataSource.getBatchCountForVaccine(vaccineId)
+        val batchCount = vaccineDao.getBatchCountForVaccine(vaccineId)
         if (batchCount > 0) {
             throw IllegalStateException("This vaccine cannot be deleted because batch records still exist.")
         }
         
         // Check historical references
-        val vaccinationCount = localDataSource.getVaccinationCountForVaccine(vaccineId)
-        val wasteCount = localDataSource.getWasteCountForVaccine(vaccineId)
-        val transactionCount = localDataSource.getTransactionCountForVaccine(vaccineId)
+        val vaccinationCount = vaccineDao.getVaccinationCountForVaccine(vaccineId)
+        val wasteCount = vaccineDao.getWasteCountForVaccine(vaccineId)
+        val transactionCount = vaccineDao.getTransactionCountForVaccine(vaccineId)
         
         val hasHistory = vaccinationCount > 0 || wasteCount > 0 || transactionCount > 0
         if (hasHistory) {
             throw IllegalStateException("This vaccine cannot be deleted because it has historical records.")
         } else {
-            localDataSource.deleteVaccine(vaccineId, now, user)
+            vaccineDao.deleteVaccine(vaccineId)
             syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
             auditLogger.recordLog(
                 module = "VACCINE",
@@ -349,13 +349,13 @@ class InventoryRepositoryImpl @Inject constructor(
         patientId: String?
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
-        val totalAvailable = localDataSource.getTotalStockForVaccine(vaccineId) ?: 0
+        val totalAvailable = vaccineDao.getTotalStockForVaccine(vaccineId) ?: 0
         if (totalAvailable < quantity) {
             throw IllegalStateException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
         }
 
         var remaining = quantity
-        val batches = localDataSource.getActiveBatchesByExpiry(vaccineId)
+        val batches = vaccineDao.getActiveBatchesByExpiry(vaccineId)
             .filter { !InventoryUtils.isExpired(it.expiryDate) }
 
         for (batch in batches) {
@@ -400,7 +400,7 @@ class InventoryRepositoryImpl @Inject constructor(
         givenDate: String?,
         transactionGroupId: String?
     ) {
-        val batch = localDataSource.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
+        val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
         if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired) {
             // Validity is judged against the vaccination's given date, not today - a
             // batch that has since expired by today is still valid for a historical
@@ -417,7 +417,7 @@ class InventoryRepositoryImpl @Inject constructor(
         }
 
         val userName = sessionManager.getCurrentUserName()
-        localDataSource.updateBatch(batch.deducted(quantity, transactionType, userName))
+        vaccineDao.updateBatch(batch.deducted(quantity, transactionType, userName))
 
         val transaction = buildStockTransaction(
             vaccineId = batch.vaccineId,
@@ -431,7 +431,7 @@ class InventoryRepositoryImpl @Inject constructor(
             patientId = patientId,
             visitId = visitId
         )
-        localDataSource.insertTransaction(transaction)
+        vaccineDao.insertTransaction(transaction)
 
         enqueueBatchStockChange(batchId, transaction.transactionId, transactionGroupId)
     }
@@ -443,7 +443,7 @@ class InventoryRepositoryImpl @Inject constructor(
         transactionType: InventoryTransactionType,
         notes: String?
     ) {
-        val batch = localDataSource.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
+        val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
         val userName = sessionManager.getCurrentUserName()
         
         val updatedBatch = if (transactionType == InventoryTransactionType.MANUAL_ADJUSTMENT) {
@@ -462,7 +462,7 @@ class InventoryRepositoryImpl @Inject constructor(
                 updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             )
         }
-        localDataSource.updateBatch(updatedBatch)
+        vaccineDao.updateBatch(updatedBatch)
 
         val transaction = buildStockTransaction(
             vaccineId = batch.vaccineId,
@@ -474,7 +474,7 @@ class InventoryRepositoryImpl @Inject constructor(
             user = userName,
             notes = notes
         )
-        localDataSource.insertTransaction(transaction)
+        vaccineDao.insertTransaction(transaction)
 
         enqueueBatchStockChange(batchId, transaction.transactionId)
     }
@@ -496,9 +496,9 @@ class InventoryRepositoryImpl @Inject constructor(
         patientId: String?,
         transactionGroupId: String?
     ) {
-        val batch = localDataSource.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
+        val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
         val userName = sessionManager.getCurrentUserName()
-        localDataSource.updateBatch(batch.copy(
+        vaccineDao.updateBatch(batch.copy(
             remainingQuantity = batch.remainingQuantity + quantity,
             usedQuantity = (batch.usedQuantity - quantity).coerceAtLeast(0),
             updatedBy = userName,
@@ -517,7 +517,7 @@ class InventoryRepositoryImpl @Inject constructor(
             patientId = patientId,
             visitId = visitId
         )
-        localDataSource.insertTransaction(transaction)
+        vaccineDao.insertTransaction(transaction)
         val groupId = transactionGroupId ?: UUID.randomUUID().toString()
         enqueueBatchStockChange(batchId, transaction.transactionId, groupId)
     }
@@ -530,7 +530,7 @@ class InventoryRepositoryImpl @Inject constructor(
         notes: String?,
         transactionGroupId: String?
     ) {
-        val targetBatch = localDataSource.getBatchById(returnToBatchId) ?: throw IllegalStateException("Batch not found")
+        val targetBatch = vaccineDao.getBatchById(returnToBatchId) ?: throw IllegalStateException("Batch not found")
         val userName = sessionManager.getCurrentUserName()
         val sameBatch = returnToBatchId == originalBatchId
 
@@ -548,7 +548,7 @@ class InventoryRepositoryImpl @Inject constructor(
                 updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             )
         }
-        localDataSource.updateBatch(updatedBatch)
+        vaccineDao.updateBatch(updatedBatch)
 
         val transaction = buildStockTransaction(
             vaccineId = targetBatch.vaccineId,
@@ -564,14 +564,14 @@ class InventoryRepositoryImpl @Inject constructor(
                 "Borrow returned to different batch (originally borrowed from batch: $originalBatchId)"
             }
         )
-        localDataSource.insertTransaction(transaction)
+        vaccineDao.insertTransaction(transaction)
 
         val groupId = transactionGroupId ?: UUID.randomUUID().toString()
         enqueueBatchStockChange(returnToBatchId, transaction.transactionId, groupId)
     }
 
     override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
-        localDataSource.updatePatientIdInTransactions(duplicateId, masterId)
+        vaccineDao.updatePatientIdInTransactions(duplicateId, masterId)
     }
 
     override suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {

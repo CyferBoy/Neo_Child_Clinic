@@ -393,10 +393,8 @@ private fun calculateUpcomingVaccineNeeds(
         .sortedByDescending { it.count }
 }
 
-private fun calculateVaccineStats(doses: List<AdministeredDose>): List<Pair<String, Int>> {
-    val vaccineCounts = mutableMapOf<String, Int>()
-    doses.forEach { dose ->
-        vaccineCounts[dose.vaccineName] = (vaccineCounts[dose.vaccineName] ?: 0) + dose.quantity
-    }
-    return vaccineCounts.toList().sortedByDescending { it.second }
-}
+private fun calculateVaccineStats(doses: List<AdministeredDose>): List<Pair<String, Int>> =
+    doses.groupingBy { it.vaccineName }.fold(0) { acc, dose -> acc + dose.quantity }
+        .entries
+        .sortedByDescending { it.value }
+        .map { it.key to it.value }

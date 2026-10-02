@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,6 +24,7 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.core.designsystem.*
+import java.time.YearMonth
 import java.util.*
 
 @Composable
@@ -97,59 +97,45 @@ fun OverviewTab(
     }
 
     val patientActivityData = remember(patients, vaccinations, financeTransactions, allValidVaccinations, filterMode, fyQuarter, selectedMonth) {
-        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
-        val months = (0 until 6).reversed().map { monthOffset ->
-            var m = curMonth - monthOffset
-            var y = curYear
-            while (m < 0) { m += 12; y -= 1 }
-            val key = y * 12 + m
-            key to StatisticsUtils.monthNames[m]
-        }
-        val monthKeys = months.map { it.first }.toSet()
+        val months = StatisticsDateUtils.lastNMonths(6)
+        val monthKeys = months.toSet()
 
         val patientCounts = patients.asSequence()
-            .mapNotNull { effectiveRegDates[it.id]?.let { ed -> ed.year * 12 + (ed.monthValue - 1) } }
+            .mapNotNull { effectiveRegDates[it.id]?.let { ed -> YearMonth.from(ed) } }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
         val consultationCounts = allValidVaccinations.asSequence()
             .filter { it.visitType.equals("CONSULTATION", ignoreCase = true) }
-            .mapNotNull { StatisticsDateUtils.monthKeyIST(it.dateGiven) }
+            .mapNotNull { StatisticsDateUtils.monthOfIST(it.dateGiven) }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
         val vaccinationCounts = allValidVaccinations.asSequence()
             .filter { it.visitType.equals("VACCINATION", ignoreCase = true) }
-            .mapNotNull { StatisticsDateUtils.monthKeyIST(it.dateGiven) }
+            .mapNotNull { StatisticsDateUtils.monthOfIST(it.dateGiven) }
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
-        months.map { (key, monthLabel) ->
-            ChartDataPoint(monthLabel, listOf(
-                (patientCounts[key] ?: 0).toFloat(),
-                (consultationCounts[key] ?: 0).toFloat(),
-                (vaccinationCounts[key] ?: 0).toFloat()
+        months.map { month ->
+            ChartDataPoint(StatisticsUtils.monthNames[month.monthValue - 1], listOf(
+                (patientCounts[month] ?: 0).toFloat(),
+                (consultationCounts[month] ?: 0).toFloat(),
+                (vaccinationCounts[month] ?: 0).toFloat()
             ))
         }
     }
 
     // Quick Overview Chart Data — Financial Trend (last 6 months, filter-aware)
     val financialTrendData = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
-        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
-        val months = (0 until 6).reversed().map { monthOffset ->
-            var m = curMonth - monthOffset
-            var y = curYear
-            while (m < 0) { m += 12; y -= 1 }
-            val key = y * 12 + m
-            key to StatisticsUtils.monthNames[m]
-        }
-        val monthKeys = months.map { it.first }.toSet()
+        val months = StatisticsDateUtils.lastNMonths(6)
+        val monthKeys = months.toSet()
 
         data class MonthFinance(val revenue: Double, val cash: Double, val online: Double)
 
-        val financeByMonth = mutableMapOf<Int, MonthFinance>()
+        val financeByMonth = mutableMapOf<YearMonth, MonthFinance>()
         financeTransactions.forEach { tx ->
-            val key = StatisticsDateUtils.monthKeyIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
+            val key = StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
             if (key !in monthKeys) return@forEach
             if (!tx.type.equals("INCOME", true)) return@forEach
             val existing = financeByMonth.getOrDefault(key, MonthFinance(0.0, 0.0, 0.0))
@@ -162,9 +148,9 @@ fun OverviewTab(
             )
         }
 
-        months.map { (key, monthLabel) ->
-            val mf = financeByMonth[key] ?: MonthFinance(0.0, 0.0, 0.0)
-            ChartDataPoint(monthLabel, listOf(
+        months.map { month ->
+            val mf = financeByMonth[month] ?: MonthFinance(0.0, 0.0, 0.0)
+            ChartDataPoint(StatisticsUtils.monthNames[month.monthValue - 1], listOf(
                 (mf.revenue / 1000.0).toFloat(),
                 (mf.online / 1000.0).toFloat(),
                 (mf.cash / 1000.0).toFloat()

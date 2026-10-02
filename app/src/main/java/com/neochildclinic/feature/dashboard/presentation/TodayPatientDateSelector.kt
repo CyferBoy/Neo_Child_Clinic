@@ -26,13 +26,13 @@ internal fun HorizontalDateSelector(
     datesWithData: Set<String>,
     onDateSelected: (String) -> Unit
 ) {
-    val isoFmt = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH) }
+    
     val dayFormat = remember { DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH) }
     val dateFormat = remember { DateTimeFormatter.ofPattern("d", Locale.ENGLISH) }
 
     val daysInMonth = remember(selectedDate) {
         val selected = try {
-            java.time.LocalDate.parse(selectedDate, isoFmt)
+            java.time.LocalDate.parse(selectedDate)
         } catch (_: java.time.format.DateTimeParseException) {
             java.time.LocalDate.now()
         }
@@ -50,7 +50,7 @@ internal fun HorizontalDateSelector(
     val listState = rememberLazyListState()
 
     LaunchedEffect(selectedDate) {
-        val selectedIdx = daysInMonth.indexOfFirst { it.format(isoFmt) == selectedDate }
+        val selectedIdx = daysInMonth.indexOfFirst { it.toString() == selectedDate }
         if (selectedIdx >= 0) {
             listState.animateScrollToItem(selectedIdx)
         }
@@ -65,7 +65,7 @@ internal fun HorizontalDateSelector(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(daysInMonth) { date ->
-            val dateStr = date.format(isoFmt)
+            val dateStr = date.toString()
             val isSelected = dateStr == selectedDate
             val hasData = datesWithData.contains(dateStr)
 

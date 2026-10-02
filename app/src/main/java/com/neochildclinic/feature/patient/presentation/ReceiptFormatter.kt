@@ -2,6 +2,9 @@ package com.neochildclinic.feature.patient.presentation
 
 import android.content.Context
 import android.graphics.*
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.neochildclinic.R
@@ -10,7 +13,6 @@ import com.neochildclinic.domain.model.Vaccination
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
-import kotlin.text.get
 import com.neochildclinic.core.common.PatientUtils
 
 object ReceiptFormatter {
@@ -258,26 +260,14 @@ object ReceiptFormatter {
         canvas.drawText("* Please call before visiting for vaccination.", MARGIN, yPos, paint)
     }
 
+    // StaticLayout needs a TextPaint; TextPaint(paint) copies every Paint field we set.
     fun wrapText(text: String, maxWidth: Float, paint: Paint): List<String> {
-        val words = text.split(" ")
-        val lines = mutableListOf<String>()
-        var currentLine = StringBuilder()
-
-        for (word in words) {
-            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
-            if (paint.measureText(testLine) <= maxWidth) {
-                currentLine.append(if (currentLine.isEmpty()) word else " $word")
-            } else {
-                if (currentLine.isNotEmpty()) lines.add(currentLine.toString())
-                currentLine = StringBuilder(word)
-                while (paint.measureText(currentLine.toString()) > maxWidth && currentLine.length > 1) {
-                    val sub = currentLine.substring(0, currentLine.length - 1)
-                    lines.add(sub)
-                    currentLine = StringBuilder(currentLine.substring(currentLine.length - 1))
-                }
-            }
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, TextPaint(paint), maxWidth.toInt())
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setIncludePad(false)
+            .build()
+        return (0 until layout.lineCount).map { i ->
+            text.substring(layout.getLineStart(i), layout.getLineEnd(i))
         }
-        if (currentLine.isNotEmpty()) lines.add(currentLine.toString())
-        return lines
     }
 }

@@ -6,6 +6,7 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
@@ -46,6 +47,20 @@ object StatisticsDateUtils {
     }
 
     /**
+     * The current IST month, as a YearMonth. Use this rather than a hand-rolled
+     * `year * 12 + month` integer key: YearMonth already has correct equals/hashCode
+     * for use as a map key, and carries the 1-based monthValue (no off-by-one decode
+     * step to get wrong).
+     */
+    fun currentISTYearMonthObj(): YearMonth = YearMonth.now(IST)
+
+    /**
+     * The [n] calendar months ending with the current IST month, oldest first.
+     */
+    fun lastNMonths(n: Int): List<YearMonth> =
+        (0 until n).reversed().map { currentISTYearMonthObj().minusMonths(it.toLong()) }
+
+    /**
      * Convert a date-only string (no time component) to a LocalDate.
      * Handles "d MMM yyyy", "yyyy-MM-dd", "d/M/yyyy", "dd/MM/yyyy".
      * Date-only values are never shifted through UTC.
@@ -78,11 +93,11 @@ object StatisticsDateUtils {
     }
 
     /**
-     * Compute the month key (year * 12 + month) using IST Calendar.
+     * Compute the month bucket (as a YearMonth) for a date string, in IST.
      */
-    fun monthKeyIST(dateStr: String): Int? {
+    fun monthOfIST(dateStr: String): YearMonth? {
         val localDate = parseToISTLocalDate(dateStr) ?: return null
-        return localDate.year * 12 + (localDate.monthValue - 1)
+        return YearMonth.from(localDate)
     }
 
     /**

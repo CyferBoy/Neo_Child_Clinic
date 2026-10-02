@@ -13,8 +13,7 @@ import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.time.YearMonth
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +35,7 @@ class ClinicStatsManager @Inject constructor(
     fun getClinicStats(): Flow<ClinicStats> {
         val todayIST = StatisticsDateUtils.todayIST()
         val todayStr = StatisticsDateUtils.formatDateIST(todayIST.toLocalDate())
-        val monthLabel = StatisticsDateUtils.formatDateIST(todayIST.toLocalDate().withDayOfMonth(1))
+        val currentMonth = YearMonth.from(todayIST.toLocalDate())
 
         return combine(
             financeRepository.getAllTransactions(),
@@ -55,7 +54,7 @@ class ClinicStatsManager @Inject constructor(
             val validVaccinations = StatisticsUtils.filterValidVaccinations(allVaccinations)
             val todayCount = validVaccinations.count { it.dateGiven == todayStr }
             val monthlyCount = validVaccinations.count {
-                StatisticsDateUtils.monthKeyIST(it.dateGiven) != null && StatisticsDateUtils.formatDateIST(java.time.LocalDate.parse(it.dateGiven, java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))).startsWith(monthLabel)
+                StatisticsDateUtils.monthOfIST(it.dateGiven) == currentMonth
             }
 
             val todayTransactions = transactions.filter { tx ->
@@ -66,8 +65,7 @@ class ClinicStatsManager @Inject constructor(
             val todayCash = todayFinance.cashTotal
             val todayOnline = todayFinance.onlineTotal
             val monthlyTransactions = transactions.filter { tx ->
-                val txDate = StatisticsDateUtils.parseToISTLocalDate(tx.timestamp)
-                txDate != null && StatisticsDateUtils.formatDateIST(txDate.withDayOfMonth(1)) == monthLabel
+                StatisticsDateUtils.monthOfIST(tx.timestamp) == currentMonth
             }
             val monthlyFinance = FinanceCalculator.calculateFinanceStats(monthlyTransactions, allVaccinations, transactions)
             val monthlyRevenue = monthlyFinance.totalRevenue
@@ -82,7 +80,7 @@ class ClinicStatsManager @Inject constructor(
                 cat is DateCategory.Overdue
             }
 
-            val topVaccines = calculateTopVaccines(allVaccinations, monthLabel)
+            val topVaccines = calculateTopVaccines(allVaccinations, currentMonth)
 
             ClinicStats(
                 todayVaccinations = todayCount,
@@ -101,15 +99,12 @@ class ClinicStatsManager @Inject constructor(
 
     private fun calculateTopVaccines(
         vaccinations: List<com.neochildclinic.domain.model.Vaccination>,
-        monthLabel: String
+        month: YearMonth
     ): List<Pair<String, Int>> {
         val counts = mutableMapOf<String, Int>()
         vaccinations
             .filter { it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED || it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL || it.source.equals("EXTERNAL", true) }
-            .filter { vaccination ->
-                val date = StatisticsDateUtils.parseToISTLocalDate(vaccination.dateGiven)
-                date != null && StatisticsDateUtils.formatDateIST(date.withDayOfMonth(1)) == monthLabel
-            }
+            .filter { vaccination -> StatisticsDateUtils.monthOfIST(vaccination.dateGiven) == month }
             .forEach { vaccination ->
                 vaccination.items.forEachIndexed { index, item ->
                     val rawName = item.vaccineName.ifBlank { vaccination.vaccineNames.getOrNull(index).orEmpty() }

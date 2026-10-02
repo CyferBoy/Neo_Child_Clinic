@@ -35,12 +35,6 @@ internal fun Calendar.startOfDay(): Calendar {
     return Calendar.getInstance(JTimeZone.getTimeZone(IST_ZONE_ID)).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
 }
 
-internal fun Calendar.endOfDay(): Calendar {
-    val zone = ZoneId.of(IST_ZONE_ID)
-    val zdt = toInstant().atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).minusNanos(1)
-    return Calendar.getInstance(JTimeZone.getTimeZone(IST_ZONE_ID)).apply { timeInMillis = zdt.toInstant().toEpochMilli() }
-}
-
 /**
  * Date parsing/formatting helpers shared across the app. parseDate() is the single
  * entry point for turning any legacy date/ISO string into a Date.

@@ -18,7 +18,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 
 data class FullReportDataPoint(
@@ -154,18 +154,11 @@ class FullReportViewModel @Inject constructor(
     ): FullReportUiState {
         val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, validVaccinations)
 
-        val (currentYear, currentMonth) = StatisticsDateUtils.currentISTYearMonth()
-        val monthKeys: List<Pair<Int, String>>
+        val monthKeys: List<YearMonth>
         val periodLabel: String
 
         if (filterMode == "Overall") {
-            monthKeys = (0 until 6).reversed().map { offset ->
-                var m = currentMonth - offset
-                var y = currentYear
-                while (m < 0) { m += 12; y -= 1 }
-                val key = y * 12 + m
-                key to StatisticsUtils.monthNames[m]
-            }
+            monthKeys = StatisticsDateUtils.lastNMonths(6)
             periodLabel = "Last 6 Months"
         } else {
             val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: 0
@@ -173,38 +166,35 @@ class FullReportViewModel @Inject constructor(
             val monthCount = if (fyQuarter != 0) 3 else 12
             val quarterOffset = (fyQuarter - 1) * 3
 
+            // April is month 4; walk forward from there rather than hand-rolling
+            // year/month rollover arithmetic.
+            val fyStart = YearMonth.of(fyStartYear, 4)
             monthKeys = (0 until monthCount).map { offset ->
-                val rawMonth = if (fyQuarter == 0) 3 + offset else 3 + quarterOffset + offset
-                val yearOffset = rawMonth / 12
-                val m = rawMonth % 12
-                val y = fyStartYear + yearOffset
-                y * 12 + m to StatisticsUtils.monthNames[m]
+                val rawMonth = (if (fyQuarter == 0) 0 else quarterOffset) + offset
+                fyStart.plusMonths(rawMonth.toLong())
             }
             periodLabel = if (fyQuarter != 0) "FY ${filterMode.substringAfter("FY ")} Q$fyQuarter" else "FY ${filterMode.substringAfter("FY ")}"
         }
 
-        val monthKeySet = monthKeys.map { it.first }.toSet()
+        val monthKeySet = monthKeys.toSet()
 
         // Patient buckets use effective registration dates
-        val patientBuckets = mutableMapOf<Int, Int>()
-        effectiveRegDates.values.filterNotNull().forEach { effDate ->
-            val key = effDate.year * 12 + (effDate.monthValue - 1)
-            if (key in monthKeySet) {
-                patientBuckets[key] = (patientBuckets[key] ?: 0) + 1
-            }
-        }
+        val patientBuckets = effectiveRegDates.values.filterNotNull()
+            .map { YearMonth.from(it) }
+            .filter { it in monthKeySet }
+            .groupingBy { it }.eachCount()
 
         val consultBuckets = validVaccinations
             .filter { it.visitType.equals("CONSULTATION", true) }
-            .groupBy { StatisticsDateUtils.monthKeyIST(it.dateGiven) }
+            .groupBy { StatisticsDateUtils.monthOfIST(it.dateGiven) }
         val vaccBuckets = validVaccinations
             .filter { it.visitType.equals("VACCINATION", true) }
-            .groupBy { StatisticsDateUtils.monthKeyIST(it.dateGiven) }
+            .groupBy { StatisticsDateUtils.monthOfIST(it.dateGiven) }
 
         data class MonthFinance(var revenue: Double = 0.0, var cash: Double = 0.0, var online: Double = 0.0, var cogs: Double = 0.0)
-        val financeBuckets = mutableMapOf<Int, MonthFinance>()
+        val financeBuckets = mutableMapOf<YearMonth, MonthFinance>()
         transactions.filter { it.type.equals("INCOME", true) }.forEach { tx ->
-            val key = StatisticsDateUtils.monthKeyIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
+            val key = StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
             if (key !in monthKeySet) return@forEach
             val mf = financeBuckets.getOrPut(key) { MonthFinance() }
             val amount = tx.amount.coerceAtLeast(0.0)
@@ -216,19 +206,19 @@ class FullReportViewModel @Inject constructor(
             if (snapshot != null && snapshot >= 0.0) mf.cogs += snapshot
         }
 
-        val expenseBuckets = mutableMapOf<Int, Double>()
+        val expenseBuckets = mutableMapOf<YearMonth, Double>()
         expenses.forEach { exp ->
-            val key = StatisticsDateUtils.monthKeyIST(exp.expenseDate) ?: return@forEach
+            val key = StatisticsDateUtils.monthOfIST(exp.expenseDate) ?: return@forEach
             if (key !in monthKeySet) return@forEach
             expenseBuckets[key] = (expenseBuckets[key] ?: 0.0) + exp.amountPaise / 100.0
         }
 
-        val dataPoints = monthKeys.map { (key, label) ->
+        val dataPoints = monthKeys.map { key ->
             val mf = financeBuckets[key] ?: MonthFinance()
             val exp = expenseBuckets[key] ?: 0.0
             val netProfit = mf.revenue - mf.cogs - exp
             FullReportDataPoint(
-                label = label,
+                label = StatisticsUtils.monthNames[key.monthValue - 1],
                 patients = (patientBuckets[key] ?: 0).toFloat(),
                 consultations = (consultBuckets[key]?.size ?: 0).toFloat(),
                 vaccinations = (vaccBuckets[key]?.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } } ?: 0).toFloat(),

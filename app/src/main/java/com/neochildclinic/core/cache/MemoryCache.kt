@@ -33,7 +33,7 @@ interface ClearableCache {
  * @param nanoClock monotonic time source in nanoseconds; injectable for tests
  */
 class MemoryCache<K : Any, V : Any>(
-    private val defaultTtlMs: Long = CacheTtl.MEDIUM_MS,
+    private val defaultTtlMs: Long = 5 * 60 * 1000L,
     private val maxSize: Int = 1000,
     private val nanoClock: () -> Long = System::nanoTime
 ) : ClearableCache {
@@ -74,13 +74,6 @@ class MemoryCache<K : Any, V : Any>(
         synchronized(lock) { data.remove(key) }
     }
 
-    fun invalidate(key: K) = remove(key)
-
-    /** Removes every entry whose key matches [predicate] (e.g. all keys with a prefix). */
-    fun invalidateWhere(predicate: (K) -> Boolean) {
-        synchronized(lock) { data.keys.removeAll(predicate) }
-    }
-
     override fun clear() {
         synchronized(lock) { data.clear() }
     }
@@ -98,11 +91,4 @@ class MemoryCache<K : Any, V : Any>(
         val victim = data.entries.minByOrNull { it.value.expiresAtNanos }?.key ?: return
         data.remove(victim)
     }
-}
-
-/** TTL presets. TTL bounds memory retention only; it never guarantees freshness. */
-object CacheTtl {
-    const val SHORT_MS = 60_000L           // 1 minute
-    const val MEDIUM_MS = 5 * 60 * 1000L   // 5 minutes (default)
-    const val LONG_MS = 30 * 60 * 1000L    // 30 minutes
 }

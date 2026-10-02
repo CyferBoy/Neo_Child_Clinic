@@ -129,7 +129,7 @@ class BorrowRepositoryImpl @Inject constructor(
     ) {
         transactionRunner.run {
             val user = sessionManager.getCurrentUserName()
-            val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+            val today = LocalDate.now().toString()
             val transactionGroupId = UUID.randomUUID().toString()
 
             val effectiveBatchId = if (newBatchInfo != null) {

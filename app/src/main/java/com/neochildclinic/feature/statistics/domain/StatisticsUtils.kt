@@ -1,9 +1,10 @@
 package com.neochildclinic.feature.statistics.domain
 
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Locale
 
@@ -68,9 +69,9 @@ object StatisticsUtils {
         if (selectedMonth != -1) return 1
         if (filterMode.startsWith("FY ")) return if (fyQuarter == 0) 12 else 3
         val parsed = dates.mapNotNull { StatisticsDateUtils.parseToISTLocalDate(it) }
-        if (parsed.isEmpty()) return 0
-        val months = parsed.map { it.year * 12 + (it.monthValue - 1) }
-        return (months.maxOrNull()!! - months.minOrNull()!! + 1).coerceAtLeast(1)
+        val min = parsed.minOrNull() ?: return 0
+        val max = parsed.maxOrNull() ?: return 0
+        return (ChronoUnit.MONTHS.between(YearMonth.from(min), YearMonth.from(max)) + 1).toInt().coerceAtLeast(1)
     }
 
     fun isDateInFilter(dateStr: String, filterMode: String, fyQuarter: Int = 0, selectedMonth: Int = -1): Boolean {

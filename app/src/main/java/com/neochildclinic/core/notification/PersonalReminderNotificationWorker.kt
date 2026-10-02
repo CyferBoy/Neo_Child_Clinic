@@ -22,7 +22,7 @@ class PersonalReminderNotificationWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val reminders = database.personalReminderDao().getActiveReminders().first()
-        val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH))
+        val today = LocalDate.now().toString()
         for (r in reminders) {
             val date = r.reminderDate
             if (date.isNullOrBlank()) {
@@ -32,9 +32,8 @@ class PersonalReminderNotificationWorker @AssistedInject constructor(
             when {
                 date == today -> notificationHelper.showPersonalReminderNotification(r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone)
                 date < today -> {
-                    val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH)
                     val days = try {
-                        ChronoUnit.DAYS.between(LocalDate.parse(date, fmt), LocalDate.parse(today, fmt)).toInt()
+                        ChronoUnit.DAYS.between(LocalDate.parse(date), LocalDate.parse(today)).toInt()
                     } catch (_: Exception) { 0 }
                     notificationHelper.showPersonalReminderNotification(r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone, overdueDays = days.coerceAtLeast(1))
                 }

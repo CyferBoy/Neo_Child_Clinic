@@ -72,7 +72,7 @@ class GetAvailableSlotsUseCase @Inject constructor(
     // formats here instead of touching every call site's date convention.
     private fun dayOfWeekFor(date: String): Int? {
         val formatters = listOf(
-            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ENGLISH),
+            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE,
             java.time.format.DateTimeFormatter.ofPattern(
                 com.neochildclinic.core.common.Constants.DATE_FORMAT,
                 java.util.Locale.ENGLISH

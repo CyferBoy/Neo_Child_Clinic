@@ -11,14 +11,49 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.DigestInputStream
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** GitHub release fields this app actually reads; everything else is ignored. */
+@Serializable
+private data class GithubAsset(
+    val name: String = "",
+    @SerialName("browser_download_url") val browserDownloadUrl: String = "",
+    val digest: String = ""
+)
+
+@Serializable
+private data class GithubRelease(
+    @SerialName("tag_name") val tagName: String = "",
+    val body: String = "",
+    @SerialName("html_url") val htmlUrl: String = "",
+    val prerelease: Boolean = false,
+    val draft: Boolean = false,
+    val assets: List<GithubAsset> = emptyList()
+)
+
+/** Sidecar recording which partial .part file belongs to which URL (for Range resume). */
+@Serializable
+private data class ResumeMetadata(
+    val url: String = "",
+    val etag: String = ""
+)
+
+private fun normalizeTag(rawTag: String): String {
+    val trimmed = rawTag.trim()
+    return if (trimmed.startsWith("v", ignoreCase = true)) trimmed.substring(1).trim() else trimmed
+}
+
+private val json = Json { ignoreUnknownKeys = true }
 
 /**
  * Modeled on SpotiFLAC-Mobile's update_checker.dart/apk_downloader.dart: a cached,
@@ -50,6 +85,14 @@ class AppUpdateManager @Inject constructor(
         // from cache within this window and only revalidate (via ETag) after it expires,
         // same reasoning as SpotiFLAC's UpdateChecker._cacheTtl.
         private const val CACHE_TTL_MS = 6L * 60 * 60 * 1000
+
+        // Release-note metadata keys, matched case-insensitively per line.
+        private val RE_VERSION_CODE = Regex("(?im)^\\s*version-code\\s*:\\s*(\\d+)\\s*$")
+        private val RE_MINIMUM_VERSION_CODE = Regex("(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$")
+        private val RE_MANDATORY = Regex("(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$")
+        private val RE_MAJOR_TAG = Regex("^\\d+\\.0\\.0$")
+        private val RE_SHA256_HEX = Regex("^[a-f0-9]{64}$")
+        private val RE_CONTENT_RANGE_START = Regex("bytes\\s+(\\d+)-")
     }
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -123,37 +166,26 @@ class AppUpdateManager @Inject constructor(
         prefs.edit().putBoolean(AUTO_CHECKS_DISABLED, disabled).apply()
     }
 
-    // Shared release-JSON -> AppUpdateInfo parser. Returns null for any release that is
+    // Shared release -> AppUpdateInfo mapper. Returns null for any release that is
     // not strictly newer than the installed version - there is no reinstall-same-version
     // or downgrade-to-older-version path, so a same-or-older release isn't a candidate.
-    private fun parseRelease(json: JSONObject, currentVersionCode: Long, releasesBehind: Int): AppUpdateInfo? {
-        val rawTag = json.optString("tag_name").trim()
-        val tagName = if (rawTag.startsWith("v", ignoreCase = true)) rawTag.substring(1).trim() else rawTag
-        val versionCode = extractVersionCode(json, tagName) ?: return null
+    private fun parseRelease(release: GithubRelease, currentVersionCode: Long, releasesBehind: Int): AppUpdateInfo? {
+        val tagName = normalizeTag(release.tagName)
+        val versionCode = extractVersionCode(release, tagName) ?: return null
         if (versionCode <= currentVersionCode) return null
-        val assets = json.optJSONArray("assets") ?: return null
-        var apkUrl: String? = null
-        var apkSha256: String? = null
-        for (i in 0 until assets.length()) {
-            val asset = assets.optJSONObject(i) ?: continue
-            if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
-                apkUrl = asset.optString("browser_download_url")
-                apkSha256 = normalizeDigest(asset.optString("digest").takeIf { it.isNotBlank() })
-                break
-            }
-        }
-        val downloadUrl = apkUrl ?: return null
-        val body = json.optString("body")
-        val explicitlyMandatory = Regex(
-            "(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$"
-        ).containsMatchIn(body)
-        val minimumVersionCode = Regex(
-            "(?im)^\\s*minimum-version-code\\s*:\\s*(\\d+)\\s*$"
-        ).find(body)?.groupValues?.getOrNull(1)?.toLongOrNull()
+
+        val asset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) } ?: return null
+        val downloadUrl = asset.browserDownloadUrl
+        if (downloadUrl.isEmpty()) return null
+
+        val body = release.body
+        val explicitlyMandatory = RE_MANDATORY.containsMatchIn(body)
+        val minimumVersionCode = RE_MINIMUM_VERSION_CODE.find(body)
+            ?.groupValues?.getOrNull(1)?.toLongOrNull()
 
         val belowMinimumVersion = minimumVersionCode != null && currentVersionCode < minimumVersionCode
         // The sole "forced update" trigger, by explicit instruction - NOT releasesBehind.
-        val isMajorVersionTag = tagName.matches(Regex("^\\d+\\.0\\.0$"))
+        val isMajorVersionTag = RE_MAJOR_TAG.matches(tagName)
         val required = explicitlyMandatory || belowMinimumVersion || isMajorVersionTag
 
         return AppUpdateInfo(
@@ -163,56 +195,40 @@ class AppUpdateManager @Inject constructor(
             minimumVersionCode = minimumVersionCode,
             downloadUrl = downloadUrl,
             releaseNotes = cleanReleaseNotes(body),
-            htmlUrl = json.optString("html_url"),
+            htmlUrl = release.htmlUrl,
             currentVersionCode = currentVersionCode,
-            apkSha256 = apkSha256,
+            apkSha256 = normalizeDigest(asset.digest),
             releasesBehind = releasesBehind
         )
     }
 
-    private fun normalizeDigest(digest: String?): String? {
-        if (digest == null) return null
+    private fun normalizeDigest(digest: String): String? {
         val normalized = digest.trim().lowercase().removePrefix("sha256:")
-        return if (Regex("^[a-f0-9]{64}$").matches(normalized)) normalized else null
+        return if (RE_SHA256_HEX.matches(normalized)) normalized else null
     }
 
     suspend fun checkForUpdate(isManual: Boolean = false): AppUpdateInfo? = withContext(Dispatchers.IO) {
         if (!isManual && areAutoChecksDisabled()) return@withContext null
 
         val releasesJson = fetchReleasesBody() ?: return@withContext null
-        val releases = try {
-            JSONArray(releasesJson)
-        } catch (e: Exception) {
-            return@withContext null
-        }
-        if (releases.length() == 0) return@withContext null
+        val releases = runCatching { json.decodeFromString<List<GithubRelease>>(releasesJson) }
+            .getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+            ?: return@withContext null
 
         val currentCode = currentVersionCode()
 
         // Stable channel only: the first non-prerelease, non-draft release in the list.
-        var candidate: JSONObject? = null
-        for (i in 0 until releases.length()) {
-            val release = releases.optJSONObject(i) ?: continue
-            if (release.optBoolean("prerelease", false)) continue
-            if (release.optBoolean("draft", false)) continue
-            candidate = release
-            break
-        }
-        val candidateJson = candidate ?: return@withContext null
+        val stable = releases.filterNot { it.prerelease || it.draft }
+        val candidate = stable.firstOrNull() ?: return@withContext null
 
         // How many stable releases are newer than the installed version - informational
         // only (shown in the mandatory-update notice), never what decides mandatory.
-        var releasesBehind = 0
-        for (i in 0 until releases.length()) {
-            val release = releases.optJSONObject(i) ?: continue
-            if (release.optBoolean("prerelease", false) || release.optBoolean("draft", false)) continue
-            val rawTag = release.optString("tag_name").trim()
-            val tagName = if (rawTag.startsWith("v", ignoreCase = true)) rawTag.substring(1).trim() else rawTag
-            val code = extractVersionCode(release, tagName)
-            if (code != null && code > currentCode) releasesBehind++
+        val releasesBehind = stable.count { release ->
+            (extractVersionCode(release, normalizeTag(release.tagName)) ?: 0L) > currentCode
         }
 
-        val info = parseRelease(candidateJson, currentCode, releasesBehind) ?: return@withContext null
+        val info = parseRelease(candidate, currentCode, releasesBehind) ?: return@withContext null
 
         val dismissed = prefs.getLong(DISMISSED_VERSION_CODE, -1L)
         if (!info.mandatory && dismissed == info.versionCode) {
@@ -295,7 +311,7 @@ class AppUpdateManager @Inject constructor(
     ) {
         val metadata = readResumeMetadata(metadataFile)
         var resumeOffset = 0L
-        if (partFile.exists() && metadata?.optString("url") == info.downloadUrl) {
+        if (partFile.exists() && metadata?.url == info.downloadUrl) {
             resumeOffset = partFile.length()
         } else {
             partFile.delete()
@@ -305,8 +321,7 @@ class AppUpdateManager @Inject constructor(
         val headers = buildMap {
             if (resumeOffset > 0) {
                 put("Range", "bytes=$resumeOffset-")
-                val etag = metadata?.optString("etag")?.takeIf { it.isNotBlank() }
-                if (etag != null) put("If-Range", etag)
+                metadata?.etag?.takeIf { it.isNotBlank() }?.let { put("If-Range", it) }
             }
         }
         val connection = (URL(info.downloadUrl).openConnection() as HttpURLConnection).apply {
@@ -347,11 +362,7 @@ class AppUpdateManager @Inject constructor(
 
             val newEtag = connection.getHeaderField("ETag") ?: ""
             metadataFile.writeText(
-                JSONObject().apply {
-                    put("url", info.downloadUrl)
-                    put("etag", newEtag)
-                    put("total", totalBytes)
-                }.toString()
+                json.encodeToString(ResumeMetadata(url = info.downloadUrl, etag = newEtag))
             )
 
             var downloadedBytes = effectiveOffset
@@ -410,29 +421,18 @@ class AppUpdateManager @Inject constructor(
     /** "bytes 500-999/1000" -> does the range actually start at [expectedOffset]? */
     private fun contentRangeStartsAt(contentRange: String?, expectedOffset: Long): Boolean {
         if (contentRange == null) return false
-        val match = Regex("bytes\\s+(\\d+)-").find(contentRange) ?: return false
+        val match = RE_CONTENT_RANGE_START.find(contentRange) ?: return false
         return match.groupValues[1].toLongOrNull() == expectedOffset
     }
 
-    private fun readResumeMetadata(metadataFile: File): JSONObject? {
+    private fun readResumeMetadata(metadataFile: File): ResumeMetadata? {
         if (!metadataFile.exists()) return null
-        return try {
-            JSONObject(metadataFile.readText())
-        } catch (e: Exception) {
-            null
-        }
+        return runCatching { json.decodeFromString<ResumeMetadata>(metadataFile.readText()) }.getOrNull()
     }
 
     private fun sha256Hex(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read == -1) break
-                digest.update(buffer, 0, read)
-            }
-        }
+        DigestInputStream(file.inputStream(), digest).use { it.copyTo(OutputStream.nullOutputStream()) }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
@@ -479,10 +479,8 @@ class AppUpdateManager @Inject constructor(
             context.packageManager.getPackageInfo(context.packageName, 0).versionCode.toLong()
         }
 
-    private fun extractVersionCode(json: JSONObject, tagName: String): Long? {
-        val bodyVersion = Regex(
-            "(?im)^\\s*version-code\\s*:\\s*(\\d+)\\s*$"
-        ).find(json.optString("body"))?.groupValues?.getOrNull(1)?.toLongOrNull()
+    private fun extractVersionCode(release: GithubRelease, tagName: String): Long? {
+        val bodyVersion = RE_VERSION_CODE.find(release.body)?.groupValues?.getOrNull(1)?.toLongOrNull()
         if (bodyVersion != null) return bodyVersion
         val parts = tagName.split(".")
         if (parts.size >= 2 && parts.take(3).all { it.toIntOrNull() != null }) {
