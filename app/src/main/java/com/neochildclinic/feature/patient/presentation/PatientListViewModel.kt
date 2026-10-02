@@ -8,10 +8,9 @@ import com.neochildclinic.feature.patient.domain.SearchPatientsUseCase
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
-import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.core.security.SessionManager
+import com.neochildclinic.core.security.CurrentUserProvider
+import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.sync.RealtimeChangeSubscriptions
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -45,10 +44,12 @@ class PatientListViewModel @Inject constructor(
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
-    private val profileRepository: ProfileRepository,
-    private val sessionManager: SessionManager,
+    private val currentUserProvider: CurrentUserProvider,
     private val realtimeChangeSubscriptions: RealtimeChangeSubscriptions
 ) : ViewModel() {
+
+    /** Read once per screen-open; gates are UX-only, RLS enforces independently. */
+    val currentUserRole: UserRole? = currentUserProvider.getCurrentUserRole()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
@@ -59,9 +60,6 @@ class PatientListViewModel @Inject constructor(
     private val _isMerging = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
     private val _isRefreshing = MutableStateFlow(false)
-
-    private val _staff = MutableStateFlow<Profile?>(null)
-    val currentStaff: StateFlow<Profile?> = _staff.asStateFlow()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
     private val _debouncedSearchQuery = _searchQuery.debounce(300).distinctUntilChanged()
@@ -100,7 +98,6 @@ class PatientListViewModel @Inject constructor(
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientListUiState(isLoading = true))
 
     init {
-        fetchStaffProfile()
         refresh()
         observeRealtimeChanges()
     }
@@ -114,26 +111,6 @@ class PatientListViewModel @Inject constructor(
             }.catch { e ->
                 Log.e("Realtime", "Error in patient realtime changes", e)
             }.collect()
-        }
-    }
-
-    private fun fetchStaffProfile() {
-        val currentUserId = sessionManager.getCurrentUserId() ?: return
-        viewModelScope.launch {
-            try {
-                val staff = profileRepository.fetchProfileFromRemote(currentUserId)
-
-                if (staff != null) {
-                    _staff.value = staff
-                } else {
-                    val email = sessionManager.getCurrentUserEmail()
-                    if (email != "Unknown") {
-                        profileRepository.getProfileByEmail(email)?.let {
-                            _staff.value = it
-                        }
-                    }
-                }
-            } catch (_: Exception) { }
         }
     }
 

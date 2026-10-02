@@ -2,13 +2,13 @@ package com.neochildclinic.feature.finance.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.core.common.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +50,7 @@ data class ExpenseListUiState(
 @HiltViewModel
 class ExpenseListViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
-    private val profileRepository: ProfileRepository,
+    private val currentUserProvider: CurrentUserProvider,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -65,18 +65,10 @@ class ExpenseListViewModel @Inject constructor(
     }
 
     private fun loadPermission() {
-        viewModelScope.launch {
-            // Reuses the same edit/delete permission split already used for patient
-            // records (PatientDetailsScreen: isAdmin || role == doctor) - task section 13
-            // explicitly says to reuse an existing financial-adjacent permission rather
-            // than invent a new system, and no dedicated "financial" permission exists
-            // in this codebase to reuse instead. Add/view stays open to every role,
-            // matching Financial Statistics' current (unrestricted) access.
-            val userId = sessionManager.getCurrentUserId()
-            val role = userId?.let { profileRepository.getProfileById(it)?.role }
-            val canManage = role == UserRole.admin || role == UserRole.doctor
-            _uiState.update { it.copy(canManage = canManage) }
-        }
+        // UX mirror of the RLS split: expenses update/delete are admin-or-doctor
+        // (see 20260909/20260919 policies). RLS enforces independently.
+        val role = currentUserProvider.getCurrentUserRole()
+        _uiState.update { it.copy(canManage = role == UserRole.admin || role == UserRole.doctor) }
     }
 
     fun onQueryChange(value: String) {

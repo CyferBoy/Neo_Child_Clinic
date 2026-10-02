@@ -10,7 +10,6 @@ interface ProfileRepository {
     suspend fun fetchProfileFromRemote(id: String): Profile?
     suspend fun refreshProfiles()
     suspend fun updateProfile(profile: Profile)
-    suspend fun saveLocalProfile(profile: Profile)
     suspend fun updateAuthName(name: String)
     suspend fun updateAuthPassword(newPassword: String)
 }

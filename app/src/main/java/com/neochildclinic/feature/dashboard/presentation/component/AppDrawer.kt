@@ -24,7 +24,7 @@ import com.neochildclinic.domain.model.SyncState
 @Composable
 fun AppDrawer(
     userName: String,
-    userRole: UserRole,
+    userRole: UserRole?,
     syncState: SyncState,
     isOnline: Boolean,
     pendingSyncCount: Int,
@@ -79,7 +79,7 @@ fun AppDrawer(
                         ) {}
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = userRole.name.replace("_", " ").uppercase(),
+                            text = userRole?.name?.replace("_", " ")?.uppercase() ?: "STAFF",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )

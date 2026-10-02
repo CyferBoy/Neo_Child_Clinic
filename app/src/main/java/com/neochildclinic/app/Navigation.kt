@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.*
 import com.neochildclinic.core.security.AuthViewModel
-import com.neochildclinic.domain.model.UserRole
 
 /** Reads a required nav argument, "" when absent. */
 internal fun androidx.navigation.NavBackStackEntry.stringArg(key: String, default: String = ""): String =
@@ -35,12 +34,10 @@ fun AppNavigation(
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authProfile by authViewModel.profile.collectAsState()
-    val isProfileLoading by authViewModel.isProfileLoading.collectAsState()
-    // While the authoritative profile is still resolving, don't treat the user as a
-    // nurse for route-guarding purposes (see DashboardScreen for the matching gate on
-    // the dashboard/drawer itself). Falling through to UserRole.nurse here too early
-    // was part of the same intermittent-nurse-view bug.
-    val userRole = authProfile?.role ?: if (isProfileLoading) null else UserRole.nurse
+    val sessionStatus by authViewModel.sessionStatus.collectAsState()
+    // Read sessionStatus so this scope subscribes to it; the role getter is a
+    // plain read, so this read is what invalidates userRole on session change.
+    val userRole = sessionStatus.let { authViewModel.currentUserRole }
     val goBack: () -> Unit = { navController.popBackStack() }
 
     // The Supabase SDK resolves any session saved to disk asynchronously. Reading

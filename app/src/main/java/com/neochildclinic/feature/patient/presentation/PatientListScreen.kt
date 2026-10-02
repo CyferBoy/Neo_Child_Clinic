@@ -49,9 +49,9 @@ fun PatientListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val staff by viewModel.currentStaff.collectAsState()
-    val isAdmin = staff?.role == UserRole.admin
-    val canEditOrDelete = isAdmin || staff?.role == UserRole.doctor
+    val role = viewModel.currentUserRole
+    val isAdmin = role == UserRole.admin
+    val canEditOrDelete = isAdmin || role == UserRole.doctor
     
     var patientToDelete by remember { mutableStateOf<Patient?>(null) }
     var showManualMergeDialog by rememberSaveable { mutableStateOf(false) }

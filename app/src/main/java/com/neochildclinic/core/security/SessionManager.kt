@@ -3,7 +3,6 @@ package com.neochildclinic.core.security
 import com.neochildclinic.core.common.metadataString
 import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
 import io.github.jan.supabase.auth.Auth
-import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,12 +49,5 @@ class SessionManager @Inject constructor(
     fun getCurrentUserDisplayName(fallback: String = "Unknown"): String {
         val user = auth.currentSessionOrNull()?.user ?: return fallback
         return user.userMetadata?.get("name").metadataString() ?: user.email ?: fallback
-    }
-
-    /**
-     * Returns the signed-in user's auth metadata, or null when signed out.
-     */
-    fun getCurrentUserMetadata(): JsonObject? {
-        return auth.currentSessionOrNull()?.user?.userMetadata
     }
 }

@@ -14,6 +14,8 @@ import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.ktor.client.engine.cio.CIO
+import com.neochildclinic.core.security.CurrentUserProvider
+import com.neochildclinic.core.security.SessionCurrentUserProvider
 import kotlinx.serialization.json.Json
 import dagger.Module
 import dagger.Provides
@@ -55,6 +57,11 @@ object SupabaseModule {
     @Provides
     @Singleton
     fun provideSupabaseAuth(client: SupabaseClient): Auth = client.auth
+
+    @Provides
+    @Singleton
+    fun provideCurrentUserProvider(auth: Auth): CurrentUserProvider =
+        SessionCurrentUserProvider(auth)
 
     @Provides
     @Singleton
