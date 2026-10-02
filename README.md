@@ -366,3 +366,5 @@ Clinic administrators are responsible for:
 - Compliance with applicable healthcare and privacy requirements.
 
 Always verify clinical and financial information before relying on it for patient care or accounting.
+
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/CyferBoy/Neo_Child_Clinic?utm_source=oss&utm_medium=github&utm_campaign=CyferBoy%2FNeo_Child_Clinic&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
