@@ -39,7 +39,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 31,
+    version = 32,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -76,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 31
+        const val DB_VERSION = 32
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -353,6 +353,58 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                // 30→31: old-era (2672800) added the soft-delete trio to all 19 tables;
+                // HEAD keeps it only on reminders. Guarded so a new-era 30 (39343af-era
+                // fresh install, already has reminders.is_deleted) is a no-op.
+                val migration30_31 = object : androidx.room.migration.Migration(30, 31) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        var hasIsDeleted = false
+                        db.query("PRAGMA table_info(reminders)").use { c ->
+                            val nameIdx = c.getColumnIndex("name")
+                            while (c.moveToNext()) {
+                                if (c.getString(nameIdx) == "is_deleted") hasIsDeleted = true
+                            }
+                        }
+                        if (!hasIsDeleted) {
+                            db.execSQL("ALTER TABLE reminders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+                            db.execSQL("ALTER TABLE reminders ADD COLUMN deleted_at INTEGER DEFAULT NULL")
+                            db.execSQL("ALTER TABLE reminders ADD COLUMN deleted_by TEXT DEFAULT NULL")
+                        }
+                    }
+                }
+
+                // 31→32: version-number reuse repair. Old-31 carries the soft-delete trio on
+                // 18 tables that HEAD no longer declares; new-31 never had them. Guarded per
+                // table so both histories pass. Old-era DAOs soft-deleted rows
+                // (UPDATE ... SET is_deleted = 1) that HEAD DAOs no longer filter, so hard-delete
+                // them first — dropping the column alone would resurrect every deleted record.
+                val migration31_32 = object : androidx.room.migration.Migration(31, 32) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        listOf(
+                            "borrow_records", "borrow_returns", "consultation_todos",
+                            "consultations", "doctor_slot_exceptions", "doctor_weekly_slots",
+                            "expenses", "finance_transactions", "patient_notes",
+                            "patient_visits", "patients", "personal_vaccine_reminders",
+                            "profiles", "vaccination_items", "vaccination_todos",
+                            "vaccine_batches", "vaccines", "waste_records"
+                        ).forEach { table ->
+                            var hasIsDeleted = false
+                            db.query("PRAGMA table_info(`$table`)").use { c ->
+                                val nameIdx = c.getColumnIndex("name")
+                                while (c.moveToNext()) {
+                                    if (c.getString(nameIdx) == "is_deleted") hasIsDeleted = true
+                                }
+                            }
+                            if (hasIsDeleted) {
+                                db.execSQL("DELETE FROM `$table` WHERE is_deleted = 1")
+                                db.execSQL("ALTER TABLE `$table` DROP COLUMN is_deleted")
+                                db.execSQL("ALTER TABLE `$table` DROP COLUMN deleted_at")
+                                db.execSQL("ALTER TABLE `$table` DROP COLUMN deleted_by")
+                            }
+                        }
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -360,7 +412,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28)
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28, migration30_31, migration31_32)
                 // No destructive fallback: a future missing migration must crash loudly,
                 // never silently wipe a clinic's local patient data.
                 .build()
