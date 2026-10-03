@@ -1,5 +1,9 @@
 package com.neochildclinic.core.ui
 
+import androidx.compose.ui.graphics.Shape
+
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,9 +36,11 @@ fun StandardTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null,
-    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    shape: Shape = MaterialTheme.shapes.medium,
     minLines: Int = 1,
-    singleLine: Boolean = minLines == 1
+    singleLine: Boolean = minLines == 1,
+    isError: Boolean = false,
+    errorText: String? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         if (label.isNotEmpty()) {
@@ -43,7 +49,7 @@ fun StandardTextField(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
             )
         }
         OutlinedTextField(
@@ -59,17 +65,27 @@ fun StandardTextField(
             shape = shape,
             minLines = minLines,
             singleLine = singleLine,
+            isError = isError,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedBorderColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                focusedLabelColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                cursorColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
                 focusedTrailingIconColor = MaterialTheme.colorScheme.primary
             )
         )
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(start = Spacing.xs, top = Spacing.xs)
+            )
+        }
     }
 }
 

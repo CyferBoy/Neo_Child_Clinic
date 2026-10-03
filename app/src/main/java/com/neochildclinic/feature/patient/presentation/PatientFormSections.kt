@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardTextField
+import com.neochildclinic.core.designsystem.*
 
 @Composable
 fun DateSelectionSection(
@@ -23,13 +24,13 @@ fun DateSelectionSection(
     ageUnit: String,
     onAgeUnitChange: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text(
             text = "Date of Birth*",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 4.dp)
+            modifier = Modifier.padding(start = Spacing.xs)
         )
         
         DateDropdownPicker(
@@ -44,10 +45,10 @@ fun DateSelectionSection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+            modifier = Modifier.padding(start = Spacing.xs, top = Spacing.xs)
         )
 
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             StandardTextField(
                 value = ageValue,
                 onValueChange = onAgeValueChange,
@@ -85,16 +86,16 @@ fun GenderSelectionSection(
     selectedGender: String,
     onGenderChange: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text(
             text = "Gender*",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 4.dp)
+            modifier = Modifier.padding(start = Spacing.xs)
         )
         
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             listOf("Male", "Female", "Other").forEach { g ->
                 FilterChip(
                     selected = selectedGender == g,

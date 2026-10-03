@@ -47,7 +47,7 @@ private fun DashboardPatientCard(
             modifier = Modifier
                 .size(55.dp)
                 .align(Alignment.BottomEnd)
-                .clip(RoundedCornerShape(topStart = 16.dp, bottomEnd = 24.dp))
+                .clip(RoundedCornerShape(topStart = Spacing.lg, bottomEnd = Spacing.xl))
                 .background(Color(0xFF03A9F4))
                 .clickable { onAddPatient() },
             contentAlignment = Alignment.Center
@@ -76,12 +76,12 @@ fun DashboardMainGrid(
     val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         // Column 1: Patient List (Larger) and Statistics (Smaller)
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
             DashboardPatientCard(
                 modifier = Modifier.fillMaxWidth().height(210.dp),
@@ -103,7 +103,7 @@ fun DashboardMainGrid(
         // Column 2: Today's Patient (Smaller) and Inventory (Larger)
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
             TodayPatientsCard(
                 modifier = Modifier.fillMaxWidth().height(150.dp), // Slightly smaller height
@@ -138,7 +138,7 @@ fun DashboardSmallActionsRow(
     val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         DashboardCardSmall(
             title = "Borrowed",

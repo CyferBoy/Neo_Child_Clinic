@@ -66,7 +66,7 @@ fun PatientsTab(patients: List<Patient>, allVisits: List<Vaccination>, onMilesto
         calculatePatientStats(prevPatients, patients, effectiveRegDates)
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(Spacing.lg)) {
         FilterSection(
             availableYears = availableYears.reversed().map { "20$it" },
             filterMode = filterMode,
@@ -75,10 +75,10 @@ fun PatientsTab(patients: List<Patient>, allVisits: List<Vaccination>, onMilesto
             onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
             onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
             onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } },
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = Spacing.sm)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
         PatientsContent(
             patients = filteredPatients,
             allPatients = patients,
@@ -103,9 +103,9 @@ private fun PatientsContent(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Total Patients",
@@ -125,7 +125,7 @@ private fun PatientsContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
 
         SummaryCard(
             modifier = Modifier.fillMaxWidth(),
@@ -136,15 +136,15 @@ private fun PatientsContent(
             iconBackground = customColors.softPurple
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         GenderDistributionCard(stats = stats)
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         AgeDistributionSection(ageGroups = stats.ageGroups, totalPatients = patients.size)
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         UpcomingAgeMilestonesSection(patients = allPatients, onMilestoneClick = onMilestoneClick)
     }
@@ -154,13 +154,13 @@ private fun PatientsContent(
 private fun GenderDistributionCard(stats: PatientAnalyticsData) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = ChartContainerShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier.padding(Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Gender Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(Spacing.xl))
             SimpleGenderChart(stats = stats)
         }
     }
@@ -175,7 +175,7 @@ private fun SimpleGenderChart(stats: PatientAnalyticsData) {
     }
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             GenderLegendItem("Male", stats.maleCount, Color(0xFF2196F3), total)
             GenderLegendItem("Female", stats.femaleCount, Color(0xFFE91E63), total)
             GenderLegendItem("Other", stats.otherCount, Color(0xFF9E9E9E), total)
@@ -188,8 +188,8 @@ private fun SimpleGenderChart(stats: PatientAnalyticsData) {
 private fun GenderLegendItem(label: String, count: Int, color: Color, total: Float) {
     val percentage = (count / total * 100).toInt()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(200.dp)) {
-        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(color))
-        Spacer(modifier = Modifier.width(12.dp))
+        Box(modifier = Modifier.size(Spacing.md).clip(CircleShape).background(color))
+        Spacer(modifier = Modifier.width(Spacing.md))
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Text("$percentage%", fontWeight = FontWeight.Bold)
     }
@@ -198,15 +198,15 @@ private fun GenderLegendItem(label: String, count: Int, color: Color, total: Flo
 @Composable
 private fun AgeDistributionSection(ageGroups: Map<String, Int>, totalPatients: Int) {
     Text("Age Group Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(Spacing.lg))
 
     ageGroups.forEach { (label, count) ->
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(vertical = Spacing.sm)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(label, style = MaterialTheme.typography.bodyMedium)
                 Text("$count", fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             val progress = if (totalPatients == 0) 0f else count.toFloat() / totalPatients
             LinearProgressIndicator(
                 progress = { progress },
@@ -237,10 +237,10 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneCli
     }
 
     Text("Upcoming Age Milestones", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(Spacing.lg))
 
     StatisticsUtils.ageMilestones.chunked(3).forEach { row ->
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             row.forEach { (key, label) ->
                 MilestoneCard(
                     modifier = Modifier.weight(1f),
@@ -251,7 +251,7 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneCli
             }
             repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
     }
 }
 
@@ -259,14 +259,14 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneCli
 private fun MilestoneCard(modifier: Modifier = Modifier, label: String, count: Int, onClick: () -> Unit) {
     Card(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 14.dp, horizontal = 8.dp).fillMaxWidth(),
+            modifier = Modifier.padding(vertical = Spacing.lg, horizontal = Spacing.sm).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -275,7 +275,7 @@ private fun MilestoneCard(modifier: Modifier = Modifier, label: String, count: I
                 fontWeight = FontWeight.Bold,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             Text("$count", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text("patients", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

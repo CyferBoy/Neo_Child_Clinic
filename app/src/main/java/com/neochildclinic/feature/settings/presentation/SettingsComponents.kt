@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.settings.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -30,7 +32,7 @@ fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) 
                     title.uppercase(),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)
                 )
             }
             content()
@@ -45,11 +47,11 @@ fun SettingsRow(icon: ImageVector, title: String, onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.surface
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 14.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.lg))
             Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,

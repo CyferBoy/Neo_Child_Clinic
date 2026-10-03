@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.designsystem.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
@@ -38,6 +39,7 @@ fun PatientDetailsScreen(
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     val allPatients by viewModel.allPatients.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
     val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
     // Invalidate this scope when the session (and app_metadata.role) changes —
     // the role getter below is a plain read with no other invalidation source.
@@ -97,7 +99,7 @@ fun PatientDetailsScreen(
     var selectedConsultationForAction by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
     var documentToDelete by remember { mutableStateOf<String?>(null) }
 
-    MessageEffect(documentError) { viewModel.clearDocumentError() }
+    ShowSnackbar(documentError, snackbarHostState) { viewModel.clearDocumentError() }
     val sheetState = rememberModalBottomSheetState()
     var showSheet by remember { mutableStateOf(false) }
 
@@ -113,7 +115,7 @@ fun PatientDetailsScreen(
                 // silently closing before the local transaction has even committed.
                 viewModel.deleteVaccination(vId) { success ->
                     val msg = if (success) "Vaccination record deleted" else "Failed to delete"
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    scope.launch { snackbarHostState.showSnackbar(msg) }
                     vaccinationToDelete = null
                 }
             } else {
@@ -133,7 +135,7 @@ fun PatientDetailsScreen(
             if (cId != null) {
                 viewModel.deleteConsultation(cId) { success ->
                     val msg = if (success) "Consultation record deleted" else "Failed to delete"
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    scope.launch { snackbarHostState.showSnackbar(msg) }
                 }
             }
             consultationToDelete = null
@@ -150,10 +152,10 @@ fun PatientDetailsScreen(
             if (pId != null) {
                 viewModel.deletePatient(pId) { success ->
                     if (success) {
-                        Toast.makeText(context, "Patient record deleted", Toast.LENGTH_SHORT).show()
+                        scope.launch { snackbarHostState.showSnackbar("Patient record deleted") }
                         onBack()
                     } else {
-                        Toast.makeText(context, "Failed to delete", Toast.LENGTH_SHORT).show()
+                        scope.launch { snackbarHostState.showSnackbar("Failed to delete") }
                     }
                 }
             }
@@ -204,13 +206,13 @@ fun PatientDetailsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
-                    .padding(bottom = 32.dp)
+                    .padding(Spacing.lg)
+                    .padding(bottom = Spacing.xxl)
             ) {
                 Text(
                     text = if (selectedVaccinationForAction != null) "Vaccination Actions" else "Consultation Actions",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = Spacing.lg)
                 )
                 
                 if (selectedVaccinationForAction != null) {
@@ -278,6 +280,7 @@ fun PatientDetailsScreen(
 
     AppBackground {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(

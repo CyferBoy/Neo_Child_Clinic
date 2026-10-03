@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.settings.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
@@ -13,9 +15,9 @@ fun TermsOfServiceScreen(onBack: () -> Unit) {
     AppBackground {
         Scaffold(topBar = { SettingsDetailTopBar("Terms of Service", onBack) }) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = Spacing.lg),
+                contentPadding = PaddingValues(vertical = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 item { Text("Terms of Service", style = MaterialTheme.typography.headlineSmall) }
                 item { Text("Last updated: 15 August 2026", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -41,7 +43,7 @@ fun TermsOfServiceScreen(onBack: () -> Unit) {
 
 @Composable
 private fun TermsSection(title: String, body: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(body, style = MaterialTheme.typography.bodyMedium)
     }

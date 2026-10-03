@@ -15,12 +15,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.DateDropdownPicker
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,8 @@ fun AddBatchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     var batchNumber by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("") }
@@ -72,11 +76,12 @@ fun AddBatchScreen(
         }
     }
 
-    MessageEffect(uiState.error) { viewModel.resetState() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.resetState() }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 BackTopAppBar(
                     title = {
@@ -93,9 +98,9 @@ fun AddBatchScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 Text("Adding batch for $brandName", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 
@@ -119,7 +124,7 @@ fun AddBatchScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     StandardTextField(
                         value = mrp,
                         onValueChange = { mrp = it },
@@ -143,12 +148,14 @@ fun AddBatchScreen(
                     placeholder = "e.g. Sanofi"
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
 
                 StandardButton(
                     onClick = {
                         if (batchNumber.isBlank() || quantity.isBlank() || expiryDate.isBlank() || mrp.isBlank() || netRate.isBlank()) {
-                            Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Please fill all required fields")
+                            }
                             return@StandardButton
                         }
                         viewModel.saveBatch(

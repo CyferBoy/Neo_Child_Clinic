@@ -1,9 +1,12 @@
 package com.neochildclinic.feature.audit.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.EmptyState
+import com.neochildclinic.core.ui.ErrorState
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
@@ -50,13 +54,25 @@ fun FullAuditLogScreen(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
                         cardShaped = true,
-                        spacing = 8.dp,
-                        contentPadding = PaddingValues(16.dp)
+                        spacing = Spacing.sm,
+                        contentPadding = PaddingValues(Spacing.lg)
                     )
-                } else if (uiState.error != null) {
-                    EmptyState("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
+                } else if (uiState.error != null && uiState.logs.isEmpty()) {
+                    // Guard on logs.isEmpty(): the ViewModel deliberately keeps existing rows
+                    // on a refresh failure (FullAuditLogViewModel.kt:63), and loadMore() writes
+                    // the same `error` field. Without this guard a failed pull-to-refresh or a
+                    // failed page-2 fetch blanked out rows the user was already reading.
+                    val message = uiState.error
+                    ErrorState(
+                        message = message.orEmpty(),
+                        onRetry = viewModel::refresh
+                    )
                 } else if (uiState.logs.isEmpty()) {
-                    EmptyState("No audit logs found")
+                    EmptyState(
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                        title = "No audit logs found",
+                        message = "Actions taken in the app will be recorded here."
+                    )
                 } else {
                     val listState = rememberLazyListState()
 
@@ -73,8 +89,8 @@ fun FullAuditLogScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         items(uiState.logs, key = { it.id }) { log ->
                             AuditLogItem(log)
@@ -83,11 +99,24 @@ fun FullAuditLogScreen(
                         if (uiState.isLoadingMore) {
                             item(key = "audit_loading_more") {
                                 Box(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                 }
+                            }
+                        }
+
+                        // Non-fatal: the rows above stay readable, and the retry is the
+                        // scroll trigger firing loadMore() again.
+                        if (uiState.error != null) {
+                            item(key = "audit_load_more_error") {
+                                ErrorState(
+                                    message = "Couldn't load more: ${uiState.error}",
+                                    onRetry = viewModel::loadMore,
+                                    retryLabel = "Retry",
+                                    modifier = Modifier.padding(vertical = Spacing.sm)
+                                )
                             }
                         }
                     }
@@ -103,7 +132,7 @@ fun AuditLogItem(log: AuditLog) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -127,7 +156,7 @@ fun AuditLogItem(log: AuditLog) {
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             
             Text(
                 text = "${log.action}: ${log.entityType}",
@@ -143,11 +172,11 @@ fun AuditLogItem(log: AuditLog) {
                 )
             }
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
             
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(Spacing.xs))
                 Text(
                     text = "User: ${log.user}",
                     style = MaterialTheme.typography.labelSmall,

@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.update.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import com.neochildclinic.core.common.PatientUtils
 
 import androidx.compose.foundation.layout.*
@@ -109,12 +111,12 @@ fun AppUpdateDialog(
                         tonalElevation = 1.dp
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(Spacing.lg),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 3.dp)
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(Spacing.md))
                                 Text(
                                     "Downloading…",
                                     style = MaterialTheme.typography.titleMedium,
@@ -211,7 +213,7 @@ fun AppUpdateDialog(
                 if (installing) {
                     TextButton(onClick = onLater, enabled = true) { Text("Cancel") }
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         TextButton(onClick = onDontRemindMe) {
                             Text("Don't remind me", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

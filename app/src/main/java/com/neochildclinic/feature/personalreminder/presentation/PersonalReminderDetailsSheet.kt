@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.personalreminder.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import android.content.Intent
@@ -52,7 +54,7 @@ fun PersonalReminderDetailsSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = Spacing.xxl)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -68,7 +70,7 @@ fun PersonalReminderDetailsSheet(
                 StatusChip(status)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
 
             DetailRow(
                 label = "Patient",
@@ -81,7 +83,7 @@ fun PersonalReminderDetailsSheet(
             val context = androidx.compose.ui.platform.LocalContext.current
             if (phoneNumber.isNotBlank()) {
                 DetailRow(label = "Phone Number", value = phoneNumber)
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 OutlinedButton(
                     onClick = {
                         val intent = Intent(Intent.ACTION_DIAL).apply {
@@ -92,7 +94,7 @@ fun PersonalReminderDetailsSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text("Call")
                 }
             } else {
@@ -117,7 +119,7 @@ fun PersonalReminderDetailsSheet(
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.md))
 
             DetailRow(label = "Created", value = PatientUtils.formatDateTimeForDisplay(reminder.createdAt))
             DetailRow(label = "Last Updated", value = PatientUtils.formatDateTimeForDisplay(reminder.updatedAt))
@@ -136,25 +138,25 @@ fun PersonalReminderDetailsSheet(
                 PersonalReminderStatus.PENDING, PersonalReminderStatus.READY -> {
                     OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.sm))
                         Text("Edit")
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
 
                     if (status == PersonalReminderStatus.PENDING) {
                         OutlinedButton(onClick = onMarkReady, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(Spacing.sm))
                             Text("Mark as Ready")
                         }
                     } else {
                         OutlinedButton(onClick = onMarkPending, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.HourglassEmpty, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(Spacing.sm))
                             Text("Move back to Pending")
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
 
                     Button(
                         onClick = { showCompleteConfirm = true },
@@ -162,10 +164,10 @@ fun PersonalReminderDetailsSheet(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.sm))
                         Text("Mark as Completed")
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
 
                     OutlinedButton(
                         onClick = { showCancelConfirm = true },
@@ -173,10 +175,10 @@ fun PersonalReminderDetailsSheet(
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.sm))
                         Text("Cancel Requirement")
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
                 }
                 PersonalReminderStatus.COMPLETED, PersonalReminderStatus.CANCELLED -> {
                     // Historical record - nothing to change except deleting it entirely.
@@ -189,7 +191,7 @@ fun PersonalReminderDetailsSheet(
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 Text("Delete")
             }
         }

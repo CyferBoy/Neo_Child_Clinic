@@ -85,7 +85,7 @@ private fun AddTodoDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (tab == TodoTab.CONSULTATION) "Add Consultation" else "Add Vaccination") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 OutlinedTextField(
                     value = search, 
                     onValueChange = { search = it }, 

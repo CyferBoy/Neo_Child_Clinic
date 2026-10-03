@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.statistics.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -38,38 +40,38 @@ fun BarLineChart(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
+            .clip(ChartContainerShape)
             .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
+            .padding(Spacing.lg)
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = Spacing.lg)
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             series.forEach { s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (s.isLine) {
-                        Canvas(modifier = Modifier.size(12.dp, 6.dp)) {
+                        Canvas(modifier = Modifier.size(Spacing.md, 6.dp)) {
                             drawLine(color = s.color, start = Offset(0f, size.height / 2), end = Offset(size.width, size.height / 2), strokeWidth = 2.dp.toPx())
                             drawCircle(color = s.color, radius = 3.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
                         }
                     } else {
                         Box(
                             modifier = Modifier
-                                .size(12.dp, 6.dp)
+                                .size(Spacing.md, 6.dp)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(s.color)
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs))
                     Text(
                         text = s.label,
                         style = MaterialTheme.typography.labelSmall,
@@ -130,7 +132,7 @@ fun BarLineChart(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             labels.forEach { label ->

@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.dashboard.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -78,7 +80,7 @@ fun DashboardScreen(
         val customColors = LocalCustomColors.current
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = customColors.bgOffWhite
+            color = MaterialTheme.colorScheme.background
         ) {
             Scaffold(
                 containerColor = Color.Transparent,
@@ -88,7 +90,7 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = Spacing.lg)
                 ) {
                     val isWideScreen = maxWidth > 600.dp
                     Column(
@@ -107,55 +109,55 @@ fun DashboardScreen(
                         ) {
                             SkeletonBox(
                                 modifier = Modifier.size(if (isWideScreen) 180.dp else 140.dp),
-                                shape = RoundedCornerShape(16.dp)
+                                shape = MaterialTheme.shapes.large
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.sm))
 
                         // DashboardMainGrid placeholder: same 2 columns, same tile heights
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
                         ) {
                             Column(
                                 modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                             ) {
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     height = 210.dp,
-                                    shape = RoundedCornerShape(24.dp)
+                                    shape = ChartContainerShape
                                 )
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     height = 150.dp,
-                                    shape = RoundedCornerShape(24.dp)
+                                    shape = ChartContainerShape
                                 )
                             }
                             Column(
                                 modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                             ) {
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     height = 150.dp,
-                                    shape = RoundedCornerShape(24.dp)
+                                    shape = ChartContainerShape
                                 )
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     height = 210.dp,
-                                    shape = RoundedCornerShape(24.dp)
+                                    shape = ChartContainerShape
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(Spacing.lg))
 
                         // DashboardSmallActionsRow placeholder (Borrowed / Due / Waste)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
                         ) {
                             repeat(3) {
                                 SkeletonCard(
@@ -166,7 +168,7 @@ fun DashboardScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xl))
                     }
                 }
             }
@@ -254,7 +256,7 @@ fun DashboardScreen(
         val customColors = LocalCustomColors.current
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = customColors.bgOffWhite
+            color = MaterialTheme.colorScheme.background
         ) { 
             Scaffold(
                 containerColor = Color.Transparent,
@@ -269,7 +271,7 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = Spacing.lg)
                 ) {
                     val isWideScreen = maxWidth > 600.dp
                     val isRefreshing by dashboardViewModel.isRefreshing.collectAsState()
@@ -288,7 +290,7 @@ fun DashboardScreen(
                     ) {
                         ClinicLogo(isWideScreen)
                         
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.sm))
 
                         DashboardMainGrid(
                             isWideScreen = isWideScreen,
@@ -302,7 +304,7 @@ fun DashboardScreen(
                             onStatistics = onStatistics
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(Spacing.lg))
 
                         DashboardSmallActionsRow(
                             uiState = uiState,
@@ -311,7 +313,7 @@ fun DashboardScreen(
                             onWaste = onWaste
                         )
                         
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xl))
                     }
                     }
                 }

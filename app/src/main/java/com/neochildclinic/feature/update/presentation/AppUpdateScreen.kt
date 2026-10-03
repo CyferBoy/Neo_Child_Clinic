@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.update.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,7 +52,7 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
         Scaffold(topBar = { SettingsDetailTopBar("Check for Updates", onBack) }) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 Text("App Updates", style = MaterialTheme.typography.headlineSmall)
                 Text(
@@ -71,7 +73,7 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

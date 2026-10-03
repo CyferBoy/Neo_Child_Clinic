@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.borrowed.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -40,7 +42,7 @@ fun BorrowHistorySheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = Spacing.xxl)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -48,53 +50,53 @@ fun BorrowHistorySheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(item.vaccineName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Surface(color = statusColor(item.status).copy(alpha = 0.15f), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
+                Surface(color = statusColor(item.status).copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
                     Text(
                         statusLabel(item.status),
                         color = statusColor(item.status),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = Spacing.xs)
                     )
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text(
                 "${item.borrowedQuantity} doses \u2022 Borrowed ${formatDateForDisplay(item.borrowedDate)} \u2022 ${item.batchNumber}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.lg))
 
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Return History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
 
             if (item.returns.isEmpty()) {
                 Text(
                     "No returns recorded yet.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(vertical = Spacing.sm)
                 )
             } else {
                 item.returns.forEachIndexed { index, ret ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xs),
+                        shape = MaterialTheme.shapes.medium,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(Spacing.md)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Return ${item.returns.size - index}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                                 Text("Qty: ${ret.quantity}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(Spacing.xs))
                             Text("Batch: ${ret.batchNumber}", style = MaterialTheme.typography.bodySmall)
                             if (ret.expiryDate.isNotBlank()) {
                                 Text("Expiry: ${formatDateForDisplay(ret.expiryDate)}", style = MaterialTheme.typography.bodySmall)
@@ -108,9 +110,9 @@ fun BorrowHistorySheet(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.lg))
             HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.md))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 SummaryStat("Borrowed", item.borrowedQuantity)
@@ -126,7 +128,7 @@ fun BorrowHistorySheet(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text("Mark as Returned")
                 }
             }

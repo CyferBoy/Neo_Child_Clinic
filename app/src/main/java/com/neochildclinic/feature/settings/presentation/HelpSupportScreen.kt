@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.settings.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -35,16 +37,16 @@ fun HelpSupportScreen(onBack: () -> Unit) {
     AppBackground {
         Scaffold(topBar = { SettingsDetailTopBar("Help & Support", onBack) }) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = Spacing.lg),
+                contentPadding = PaddingValues(vertical = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 item {
                     Text("Help & Support", style = MaterialTheme.typography.headlineSmall)
                 }
                 item {
                     Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             Text("Getting Started", style = MaterialTheme.typography.titleMedium)
                             Text("Use Vaccine Manager to manage patient records, vaccination records, due dates, vaccine inventory, notifications, synchronization and backups.")
                             Text("If you need help with a specific feature, contact support and include the app version.")
@@ -53,7 +55,7 @@ fun HelpSupportScreen(onBack: () -> Unit) {
                 }
                 item {
                     Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             Text("Troubleshooting", style = MaterialTheme.typography.titleMedium)
                             Text("If synchronization, notifications, backup, login or an update does not work as expected, first check your internet connection and then contact support.")
                         }
@@ -61,7 +63,7 @@ fun HelpSupportScreen(onBack: () -> Unit) {
                 }
                 item {
                     Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                             Text("Contact Support", style = MaterialTheme.typography.titleMedium)
                             Text(SUPPORT_EMAIL, color = MaterialTheme.colorScheme.primary)
                             Button(onClick = { contactSupport() }, modifier = Modifier.fillMaxWidth()) {

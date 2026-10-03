@@ -9,7 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-
+import com.neochildclinic.core.designsystem.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageDueBottomSheet(
@@ -25,17 +25,17 @@ fun ManageDueBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 32.dp)
+                .padding(bottom = Spacing.xxl)
         ) {
             Text(
                 text = "Manage Due Vaccination",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(Spacing.lg)
             )
             
             ListItem(
                 headlineContent = { Text("Completed") },
-                leadingContent = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                leadingContent = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = LocalCustomColors.current.textGreen) },
                 modifier = Modifier.clickable { onComplete() }
             )
             ListItem(

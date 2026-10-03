@@ -218,9 +218,9 @@ private fun OverviewContent(
     val fyOptions = remember(availableYears) { availableYears.reversed().map { "20$it" } }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 24.dp)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).padding(horizontal = Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        contentPadding = PaddingValues(bottom = Spacing.xl)
     ) {
         item {
             FilterSection(
@@ -231,7 +231,7 @@ private fun OverviewContent(
                 onFilterModeChange = { onFilterModeChange(it) },
                 onQuarterChange = onQuarterChange,
                 onMonthChange = onMonthChange,
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = Spacing.lg)
             )
         }
 
@@ -240,12 +240,12 @@ private fun OverviewContent(
                 "Summary",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.padding(vertical = Spacing.sm)
             )
         }
 
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Total Patients",
@@ -268,7 +268,7 @@ private fun OverviewContent(
         }
 
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Consulted Patients",
@@ -291,7 +291,7 @@ private fun OverviewContent(
         }
 
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Total Consultation",
@@ -314,7 +314,7 @@ private fun OverviewContent(
         }
 
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Total Doses",
@@ -337,7 +337,7 @@ private fun OverviewContent(
         }
 
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Cash",
@@ -372,20 +372,20 @@ private fun OverviewContent(
         }
 
         item {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(vertical = Spacing.sm)) {
                 Text(
                     "Quick Overview",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
                 TrendChart(
                     title = "Patient Activity (Last 6 Months)",
                     data = patientActivityData,
                     seriesLabels = listOf("Patients", "Consultations", "Vaccinations"),
                     seriesColors = listOf(ChartPatients, ChartConsultations, ChartVaccinations)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
                 TrendChart(
                     title = "Financial Trend (Last 6 Months, ₹K)",
                     data = financialTrendData,
@@ -397,7 +397,7 @@ private fun OverviewContent(
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onFullReportClick() },
+                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm).clickable { onFullReportClick() },
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -411,7 +411,7 @@ private fun OverviewContent(
                     Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(Spacing.lg)
                 )
             }
         }

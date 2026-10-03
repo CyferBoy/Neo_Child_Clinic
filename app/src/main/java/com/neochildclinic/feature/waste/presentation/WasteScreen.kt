@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.waste.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -47,16 +50,19 @@ fun WasteScreen(
     viewModel: WasteViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
+val scope = rememberCoroutineScope()
     var editingRecord by remember { mutableStateOf<WasteRecord?>(null) }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var recordToDelete by remember { mutableStateOf<WasteRecord?>(null) }
-    
+
     val context = LocalContext.current
 
-    MessageEffect(uiState.error, Toast.LENGTH_SHORT) { viewModel.clearError() }
+    ShowSnackbar(uiState.error, snackbarHostState, duration = SnackbarDuration.Short) { viewModel.clearError() }
 
     WasteContent(
         uiState = uiState,
+        snackbarHostState = snackbarHostState,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onAddClick = { showAddDialog = true },
@@ -76,12 +82,12 @@ fun WasteScreen(
             onSave = { vaccineId, batchId, brand, batchNum, exp, date, reason, qty ->
                 if (editingRecord != null) {
                     viewModel.updateWaste(editingRecord!!.id, vaccineId, batchId, brand, batchNum, exp, date, reason, qty) {
-                        Toast.makeText(context, "Waste updated", Toast.LENGTH_SHORT).show()
+                        scope.launch { snackbarHostState.showSnackbar("Waste updated") }
                         editingRecord = null
                     }
                 } else {
                     viewModel.recordWaste(vaccineId, batchId, brand, batchNum, exp, date, reason, qty) {
-                        Toast.makeText(context, "Waste recorded", Toast.LENGTH_SHORT).show()
+                        scope.launch { snackbarHostState.showSnackbar("Waste recorded") }
                         showAddDialog = false
                     }
                 }
@@ -118,6 +124,7 @@ fun WasteScreen(
 @Composable
 private fun WasteContent(
     uiState: WasteUiState,
+    snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onAddClick: () -> Unit,
@@ -126,6 +133,7 @@ private fun WasteContent(
 ) {
     AppBackground {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -154,16 +162,16 @@ private fun WasteContent(
                             modifier = Modifier.fillMaxSize(),
                             count = 8,
                             cardShaped = true,
-                            spacing = 8.dp,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
+                            spacing = Spacing.sm,
+                            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.lg)
                         )
                     } else if (uiState.wasteRecords.isEmpty()) {
                         Text("No waste records found", modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(bottom = 88.dp, top = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+                            contentPadding = PaddingValues(bottom = 88.dp, top = Spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                         ) {
                             items(uiState.wasteRecords, key = { it.id }) { record ->
                                 WasteItemCard(
@@ -196,7 +204,7 @@ private fun WasteItemCard(
         )
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -246,12 +254,12 @@ private fun WasteEntryDialog(
     var brandName by rememberSaveable { mutableStateOf(record?.brandName ?: "") }
     var batchNumber by rememberSaveable { mutableStateOf(record?.batchNumber ?: "") }
     var expiryDate by rememberSaveable { mutableStateOf(record?.expiryDate ?: "") }
-    
+
     val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
     var dateWasted by rememberSaveable { mutableStateOf(record?.dateWasted ?: today) }
     var reason by rememberSaveable { mutableStateOf(record?.reason ?: WASTE_REASONS[0]) }
     var quantityStr by rememberSaveable { mutableStateOf(record?.quantity?.toString() ?: "1") }
-    
+
     var expandedBrand by rememberSaveable { mutableStateOf(false) }
     var expandedReason by rememberSaveable { mutableStateOf(false) }
 
@@ -269,7 +277,7 @@ private fun WasteEntryDialog(
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 StandardAutoCompleteField(
                     value = if (selectedBatchId.isNotEmpty() && record != null) "$brandName ($batchNumber)" else brandSearch,
@@ -385,6 +393,7 @@ private fun WastePreview() {
                 isLoading = false,
                 wasteRecords = listOf(WasteRecord("1", "v1", "b1", "BCG", "B123", "2025-01-01", "2024-01-01", "Expired", 1))
             ),
+            snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onRefresh = {},
             onAddClick = {},

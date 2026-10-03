@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.personalreminder.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.layout.*
@@ -58,11 +60,11 @@ fun PersonalReminderCard(
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -80,7 +82,7 @@ fun PersonalReminderCard(
                 StatusChip(status)
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
                 text = "Patient: ${patient?.name?.takeIf { it.isNotBlank() } ?: reminder.patientName}",
@@ -103,15 +105,15 @@ fun PersonalReminderCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
             Surface(
                 color = dateColor.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(8.dp),
+                shape = MaterialTheme.shapes.small,
                 border = androidx.compose.foundation.BorderStroke(1.dp, dateColor.copy(alpha = 0.5f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -124,7 +126,7 @@ fun PersonalReminderCard(
                         modifier = Modifier.size(14.dp),
                         tint = dateColor
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs))
                     Text(
                         text = if (isActive) dateText else "${status.displayName}: $dateText",
                         style = MaterialTheme.typography.labelMedium,
@@ -135,7 +137,7 @@ fun PersonalReminderCard(
             }
 
             if (!reminder.note.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 Text(
                     text = reminder.note,
                     style = MaterialTheme.typography.bodySmall,
@@ -153,14 +155,14 @@ fun StatusChip(status: PersonalReminderStatus) {
     val color = statusColor(status)
     Surface(
         color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(8.dp)
+        shape = MaterialTheme.shapes.small
     ) {
         Text(
             text = status.displayName,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
         )
     }
 }

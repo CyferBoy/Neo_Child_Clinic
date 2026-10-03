@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.sync.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -124,8 +126,8 @@ fun SyncScreen(
                 }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     item {
                         SyncSummary(syncQueue.size, failedItems.size)
@@ -155,7 +157,7 @@ fun SyncScreen(
                             )
                         }
 
-                        item { Spacer(Modifier.height(16.dp)) }
+                        item { Spacer(Modifier.height(Spacing.lg)) }
                     }
 
                     if (pendingItems.isNotEmpty()) {
@@ -218,7 +220,7 @@ private fun SyncSummary(total: Int, failed: Int) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Total Queue", style = MaterialTheme.typography.labelMedium)
                 Text("$total Items", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -258,7 +260,7 @@ private fun SyncItemCard(
         ),
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${item.entityName} Record", fontWeight = FontWeight.Bold)
                 if (isSelected) {
@@ -268,14 +270,14 @@ private fun SyncItemCard(
                 }
             }
             
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text("Operation: ${item.operation.name}", style = MaterialTheme.typography.bodySmall)
             Text("ID: ${item.entityId}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             
             if (item.status == SyncStatus.FAILED) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 HorizontalDivider(modifier = Modifier.alpha(0.3f))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 val errorDetails = remember(item.lastError) {
                     SyncErrorDetails.fromStoredError(item.lastError)
                 }
@@ -287,7 +289,7 @@ private fun SyncItemCard(
 
                 if (isAdmin) {
                     errorDetails.url?.takeIf { it.isNotBlank() }?.let { url ->
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(Spacing.xs))
                         Text(
                             "URL: $url",
                             style = MaterialTheme.typography.labelSmall,
@@ -296,7 +298,7 @@ private fun SyncItemCard(
                     }
 
                     if (errorDetails.headers.isNotEmpty()) {
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(Spacing.xs))
                         Text(
                             "Headers:",
                             style = MaterialTheme.typography.labelSmall,
@@ -313,7 +315,7 @@ private fun SyncItemCard(
                 }
 
                 if (isAdmin) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Failed: ${formatTimestampForDisplay(Date(item.updatedAt))}", style = MaterialTheme.typography.labelSmall)
                         Text("Retries: ${item.retryCount}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)

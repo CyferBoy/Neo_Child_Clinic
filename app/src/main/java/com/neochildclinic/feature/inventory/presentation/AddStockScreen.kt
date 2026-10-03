@@ -18,10 +18,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.DateDropdownPicker
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.InventoryItem
@@ -32,8 +33,9 @@ fun AddStockScreen(
     onBack: () -> Unit = {},
     viewModel: AddStockViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
+val uiState by viewModel.uiState.collectAsState()
+      val context = LocalContext.current
+      val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
@@ -43,11 +45,12 @@ fun AddStockScreen(
         }
     }
 
-    MessageEffect(uiState.error) { viewModel.clearError() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearError() }
 
     AppBackground {
-        Scaffold(
-            containerColor = Color.Transparent,
+Scaffold(
+              containerColor = Color.Transparent,
+              snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 BackTopAppBar(
                     title = { Text("Add Stock") },
@@ -69,9 +72,9 @@ fun AddStockScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 Text(
                     "Add stock for one or more vaccines, each with one or more batches.",
@@ -107,7 +110,7 @@ fun AddStockScreen(
                     Text("Add Vaccine")
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
 
                 StandardButton(
                     onClick = { viewModel.submit() },
@@ -117,7 +120,7 @@ fun AddStockScreen(
                     Text("Save Stock")
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.lg))
             }
         }
     }
@@ -141,7 +144,7 @@ private fun VaccineStockSection(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -156,7 +159,7 @@ private fun VaccineStockSection(
                 if (canRemoveSection) {
                     TextButton(onClick = onRemoveSection) {
                         Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(Spacing.xs))
                         Text("Remove Vaccine")
                     }
                 }
@@ -185,7 +188,7 @@ private fun VaccineStockSection(
 
                 TextButton(onClick = onAddBatch) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(Spacing.xs))
                     Text("Add Batch")
                 }
             }
@@ -260,7 +263,7 @@ private fun BatchFormRow(
     onRemove: () -> Unit,
     onChange: ((StockBatchFormState) -> StockBatchFormState) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -298,7 +301,7 @@ private fun BatchFormRow(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             StandardTextField(
                 value = batch.mrp,
                 onValueChange = { value -> if (value.isEmpty() || value.toDoubleOrNull() != null) onChange { it.copy(mrp = value) } },

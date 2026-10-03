@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.statistics.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -87,12 +89,12 @@ private fun StatisticsAccessDeniedScreen(onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
+                .padding(Spacing.xl),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 Icon(
                     Icons.Default.Lock,
@@ -165,7 +167,7 @@ private fun StatisticsContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     tabs.forEachIndexed { index, tab ->
@@ -190,17 +192,17 @@ private fun StatisticsContent(
             if (uiState.isLoading) {
                 // Chart-shaped skeleton: a row of small summary tiles, then a tall
                 // block standing in for the chart, matching StatisticsTabContent's shape.
-                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg)) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         SkeletonCard(modifier = Modifier.weight(1f), height = 72.dp)
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(Spacing.md))
                         SkeletonCard(modifier = Modifier.weight(1f), height = 72.dp)
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(Spacing.md))
                         SkeletonCard(modifier = Modifier.weight(1f), height = 72.dp)
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.lg))
                     SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 240.dp)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.lg))
                     SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 120.dp)
                 }
             } else {
@@ -239,9 +241,9 @@ private fun TabIndicator(
             imageVector = icon,
             contentDescription = null,
             tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(Spacing.xl)
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(Spacing.xs))
         Text(
             text = title,
             style = MaterialTheme.typography.labelLarge,
@@ -249,7 +251,7 @@ private fun TabIndicator(
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             fontSize = 12.sp
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
         if (isSelected) {
             Box(
                 modifier = Modifier

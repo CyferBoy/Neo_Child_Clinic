@@ -4,7 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -21,6 +19,7 @@ import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.common.PatientUtils.cleanVaccineName
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.designsystem.*
 
 /**
  * Vaccination History card (Patient Details -> Vaccination segment).
@@ -91,14 +90,14 @@ fun VaccinationRecordCard(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.card),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.card)) {
 
             // Row 1: Title (Vaccine name or Consultation problem) | total fee
             Row(
@@ -115,7 +114,7 @@ fun VaccinationRecordCard(
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "₹${vaccination.totalPaid.toInt()}",
@@ -158,7 +157,7 @@ fun VaccinationRecordCard(
                             if (vaccination.doctorsAcc) add("Doctor's Account")
                         }
                         if (paymentFlags.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(Spacing.xs))
                             Text(
                                 text = paymentFlags.joinToString(" • "),
                                 style = MaterialTheme.typography.labelSmall,
@@ -200,7 +199,7 @@ fun VaccinationRecordCard(
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 Text(
                     text = displayDoctor,
                     style = MaterialTheme.typography.labelMedium,

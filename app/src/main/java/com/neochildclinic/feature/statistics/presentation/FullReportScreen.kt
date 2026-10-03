@@ -48,9 +48,9 @@ fun FullReportScreen(
             modifier = Modifier.padding(paddingValues)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 24.dp, top = 16.dp)
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).padding(horizontal = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+                contentPadding = PaddingValues(bottom = Spacing.xl, top = Spacing.lg)
             ) {
                 item {
                     FilterSection(
@@ -78,15 +78,15 @@ fun FullReportScreen(
                     if (uiState.isLoading) {
                         Column {
                             SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 280.dp)
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(Spacing.lg))
                             SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 280.dp)
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(Spacing.lg))
                             SkeletonCard(modifier = Modifier.fillMaxWidth(), height = 280.dp)
                         }
                     } else {
                         val labels = uiState.dataPoints.map { it.label }
                         val isLine = chartMode == ChartMode.LINE
-                        Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xl)) {
                             BarLineChart(
                                 title = "Patient Activity \u2014 ${uiState.periodLabel}",
                                 labels = labels,

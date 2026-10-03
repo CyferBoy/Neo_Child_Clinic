@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.ui.*
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Patient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -32,8 +34,10 @@ fun AddConsultationScreen(
     viewModel: AddConsultationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
+val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    
+
     val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
     var date by rememberSaveable { mutableStateOf(today) }
     var cashAmount by rememberSaveable { mutableStateOf("") }
@@ -41,6 +45,11 @@ fun AddConsultationScreen(
     var problem by rememberSaveable { mutableStateOf("") }
     var nextFollowUpDate by rememberSaveable { mutableStateOf("") }
     var editFieldsLoaded by rememberSaveable { mutableStateOf(false) }
+    // Validation errors live on the fields, not in Toasts: matches the inline
+    // isError convention DoctorDropdown/AvailableSlotDropdown already use here,
+    // and stays visible where the input is.
+    var problemError by rememberSaveable { mutableStateOf<String?>(null) }
+    var feeError by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(patientId, consultationId) {
         if (consultationId.isNullOrBlank()) {
@@ -69,19 +78,24 @@ fun AddConsultationScreen(
     }
 
     val totalAmount = (cashAmount.toDoubleOrNull() ?: 0.0) + (onlineAmount.toDoubleOrNull() ?: 0.0)
+    // Was "₹$totalAmount", which rendered "₹500.0". Also truncating with toInt()
+    // would silently drop a .50 fee, so show decimals only when they exist.
+    val totalDisplay = if (totalAmount % 1.0 == 0.0) totalAmount.toLong().toString()
+                        else "%.2f".format(totalAmount)
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
-            Toast.makeText(context, if (consultationId.isNullOrBlank()) "Consultation saved" else "Consultation updated", Toast.LENGTH_SHORT).show()
+            scope.launch { snackbarHostState.showSnackbar(if (consultationId.isNullOrBlank()) "Consultation saved" else "Consultation updated") }
             viewModel.resetState()
             onBack()
         }
     }
 
-    MessageEffect(uiState.error) { viewModel.resetState() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.resetState() }
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -92,19 +106,14 @@ fun AddConsultationScreen(
             bottomBar = {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 8.dp,
-                    shadowElevation = 8.dp
+                    tonalElevation = Elevation.sheet,
+                    shadowElevation = Elevation.sheet
                 ) {
                     StandardButton(
                         onClick = {
-                            if (problem.isBlank()) {
-                                Toast.makeText(context, "Please enter problem / complaint", Toast.LENGTH_SHORT).show()
-                                return@StandardButton
-                            }
-                            if (totalAmount <= 0) {
-                                Toast.makeText(context, "Please enter consultation fee", Toast.LENGTH_SHORT).show()
-                                return@StandardButton
-                            }
+                            problemError = if (problem.isBlank()) "Enter the problem or chief complaint" else null
+                            feeError = if (totalAmount <= 0) "Enter a consultation fee (cash or online)" else null
+                            if (problemError != null || feeError != null) return@StandardButton
                             viewModel.saveConsultation(
                                 patientId = patientId,
                                 date = date,
@@ -115,7 +124,7 @@ fun AddConsultationScreen(
                             )
                         },
                         isLoading = uiState.isLoading,
-                        modifier = Modifier.padding(16.dp).fillMaxWidth()
+                        modifier = Modifier.padding(Spacing.lg).fillMaxWidth()
                     ) {
                         Text(if (consultationId.isNullOrBlank()) "Save Consultation" else "Save Changes", style = MaterialTheme.typography.titleMedium)
                     }
@@ -126,11 +135,11 @@ fun AddConsultationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.lg))
 
                 // Patient Info (Read Only)
                 uiState.patient?.let { PatientSummaryCard(it) }
@@ -159,18 +168,20 @@ fun AddConsultationScreen(
 
                 StandardTextField(
                     value = problem,
-                    onValueChange = { problem = it },
+                    onValueChange = { problem = it; if (problemError != null) problemError = null },
                     label = "Problem / Chief Complaint*",
                     placeholder = "e.g. Fever, Cough, Routine Check-up",
-                    minLines = 3
+                    minLines = 3,
+                    isError = problemError != null,
+                    errorText = problemError
                 )
 
                 SectionHeader("Payment")
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     StandardTextField(
                         value = cashAmount,
-                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) cashAmount = it },
+                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) { cashAmount = it; feeError = null } },
                         label = "Cash",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
@@ -178,7 +189,7 @@ fun AddConsultationScreen(
                     )
                     StandardTextField(
                         value = onlineAmount,
-                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) onlineAmount = it },
+                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) { onlineAmount = it; feeError = null } },
                         label = "Online",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
@@ -188,15 +199,27 @@ fun AddConsultationScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (feeError != null) MaterialTheme.colorScheme.errorContainer
+                                         else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    )
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Total Amount (Read Only)", style = MaterialTheme.typography.titleMedium)
-                        Text("₹$totalAmount", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.padding(Spacing.card)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Total Amount (Read Only)", style = MaterialTheme.typography.titleMedium)
+                            Text("₹$totalDisplay", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        if (feeError != null) {
+                            Text(
+                                text = feeError!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
                     }
                 }
 
@@ -207,7 +230,7 @@ fun AddConsultationScreen(
                     currentDate = nextFollowUpDate,
                     onDateSelected = { nextFollowUpDate = it }
                 )
-                
+
                 Spacer(Modifier.height(100.dp))
             }
         }
@@ -220,7 +243,7 @@ private fun PatientSummaryCard(patient: Patient) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             Text(patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true || patient.patientClinicId.isNullOrBlank()) "Not Assigned" else patient.patientClinicId ?: ""
             Text("ID: $clinicId", style = MaterialTheme.typography.bodyMedium)
@@ -235,7 +258,7 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = Modifier.padding(top = Spacing.sm),
         color = MaterialTheme.colorScheme.primary
     )
 }

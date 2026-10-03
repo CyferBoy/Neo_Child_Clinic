@@ -1,7 +1,6 @@
 package com.neochildclinic.feature.vaccination.presentation
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -13,13 +12,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardTextField
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccineBatch
 
@@ -41,13 +39,21 @@ internal fun VaccineRow(
     var vaccineExpanded by remember { mutableStateOf(false) }
     var batchExpanded by remember { mutableStateOf(false) }
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Vaccine Row", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                 if (!isOnlyRow && allowVaccineBatchEdit) {
-                    IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, null, tint = Color.Red)
+                    // Was Modifier.size(24.dp) on the IconButton, which overrode
+                    // minimumInteractiveComponentSize and left a 24dp touch target.
+                    // Size the icon instead and let the button keep its 48dp target.
+                    IconButton(onClick = onRemove) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove vaccine row",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -102,7 +108,10 @@ internal fun VaccineRow(
                                 text = {
                                     Column {
                                         Text(batch.batchNumber, fontWeight = FontWeight.Bold)
-                                        Text("Qty: ${batch.remainingQuantity} | Exp: ${batch.expiryDate}", fontSize = 12.sp)
+                                        Text(
+                                            text = "Qty: ${batch.remainingQuantity} | Exp: ${batch.expiryDate}",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
                                     }
                                 },
                                 onClick = { onBatchSelected(batch); batchExpanded = false }
@@ -115,10 +124,14 @@ internal fun VaccineRow(
             }
 
             if (state.selectedBatch != null) {
+                val expired =
+                    com.neochildclinic.feature.inventory.domain.InventoryUtils.isExpiredAsOf(state.selectedBatch.expiryDate, givenDate)
                 Text(
-                    "Expiry: ${state.selectedBatch.expiryDate}",
+                    text = if (expired) "Expired: ${state.selectedBatch.expiryDate}"
+                            else "Expiry: ${state.selectedBatch.expiryDate}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (com.neochildclinic.feature.inventory.domain.InventoryUtils.isExpiredAsOf(state.selectedBatch.expiryDate, givenDate)) Color.Red else Color.Gray
+                    color = if (expired) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -138,11 +151,12 @@ internal fun ReadOnlyValue(value: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        shape = RoundedCornerShape(10.dp)
+        // Was 10dp - a radius in no scale. Matches the text fields it stands in for.
+        shape = MaterialTheme.shapes.small
     ) {
         Text(
             value,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.padding(Spacing.md),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium
         )

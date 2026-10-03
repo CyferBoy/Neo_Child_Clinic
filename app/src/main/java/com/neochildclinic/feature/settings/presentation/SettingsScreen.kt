@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.settings.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,9 +43,9 @@ fun SettingsScreen(
             }
         ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 10.dp, bottom = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = Spacing.lg),
+                contentPadding = PaddingValues(top = Spacing.md, bottom = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 item {
                     SettingsSection("Theme") {
@@ -89,7 +91,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(Spacing.xs))
                         Text(
                             "© 2026 Neo Child Clinic. All rights reserved.",
                             style = MaterialTheme.typography.labelSmall,

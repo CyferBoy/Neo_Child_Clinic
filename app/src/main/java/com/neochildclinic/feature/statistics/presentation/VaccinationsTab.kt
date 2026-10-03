@@ -103,7 +103,7 @@ private fun VaccinationsContent(
 ) {
     var selectedSection by rememberSaveable { mutableIntStateOf(0) }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(Spacing.lg)) {
         FilterSection(
             availableYears = availableYears.reversed().map { "20$it" },
             filterMode = filterMode,
@@ -112,13 +112,13 @@ private fun VaccinationsContent(
             onFilterModeChange = onFilterModeChange,
             onQuarterChange = onQuarterChange,
             onMonthChange = onMonthChange,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = Spacing.sm)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         SummaryCards(
             doses = doses,
@@ -128,14 +128,14 @@ private fun VaccinationsContent(
             selectedMonth = selectedMonth
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         VaccinationSectionSelector(
             selected = selectedSection,
             onSelected = { selectedSection = it }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         if (selectedSection == 0) {
             VaccineStatsSection(stats = stats)
@@ -167,7 +167,7 @@ private fun SummaryCards(
     // than show a misleading 0%.
     val growth = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(totalDoses.toDouble(), prevTotalDoses.toDouble())
 
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SummaryCard(
             modifier = Modifier.weight(1f),
             title = "Total Doses",
@@ -191,7 +191,7 @@ private fun SummaryCards(
 @Composable
 private fun VaccineStatsSection(stats: List<Pair<String, Int>>) {
     Text("All Administered Vaccines", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(Spacing.lg))
 
     if (stats.isEmpty()) {
         Text("No vaccinations in this period", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -200,12 +200,12 @@ private fun VaccineStatsSection(stats: List<Pair<String, Int>>) {
 
     val maxCount = remember(stats) { stats.firstOrNull()?.second ?: 1 }
     stats.forEach { (name, count) ->
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(vertical = Spacing.sm)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(name, style = MaterialTheme.typography.bodyMedium)
                 Text("$count", fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             LinearProgressIndicator(
                 progress = { count.toFloat() / maxCount },
                 modifier = Modifier.fillMaxWidth().height(10.dp).clip(CircleShape),
@@ -252,7 +252,7 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold
     )
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(Spacing.md))
 
     if (stats.isEmpty()) {
         Text(
@@ -268,12 +268,12 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            shape = RoundedCornerShape(20.dp),
+                .padding(vertical = Spacing.sm),
+            shape = StatTileShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -299,7 +299,7 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(Spacing.sm))
                         Icon(
                             if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (expanded) "Collapse" else "Expand",
@@ -312,14 +312,14 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
                 }
 
                 if (expanded) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
                     stat.brands.forEach { (brand, count) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 5.dp)
+                                .padding(vertical = Spacing.xs)
                                 .clickable { onVaccineTypeClick(stat.type, brand) },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {

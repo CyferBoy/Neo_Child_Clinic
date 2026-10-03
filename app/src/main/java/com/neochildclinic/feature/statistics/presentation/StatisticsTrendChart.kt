@@ -34,32 +34,32 @@ fun TrendChart(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
+            .clip(ChartContainerShape)
             .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
+            .padding(Spacing.lg)
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = Spacing.lg)
         )
         
         // Legend
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xl),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             seriesLabels.forEachIndexed { index, label ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp, 6.dp)
+                            .size(Spacing.md, 6.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(seriesColors[index])
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelSmall,
@@ -121,7 +121,7 @@ fun TrendChart(
         
         // X-Axis Labels
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             data.forEach { point ->

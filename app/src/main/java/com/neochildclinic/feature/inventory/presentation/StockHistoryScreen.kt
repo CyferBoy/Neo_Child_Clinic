@@ -17,8 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ErrorState
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.EmptyState
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -37,9 +39,11 @@ fun StockHistoryScreen(
     viewModel: StockHistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val loadError = uiState.error
     var showFilters by remember { mutableStateOf(false) }
 
-    MessageEffect(uiState.error) { viewModel.clearError() }
+    ShowSnackbar(loadError, snackbarHostState) { viewModel.clearError() }
 
 
     val filtersActive = uiState.selectedVaccineId != null || uiState.selectedBatchId != null ||
@@ -49,6 +53,7 @@ fun StockHistoryScreen(
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 BackTopAppBar(
                     title = { Text("Stock History") },
@@ -91,12 +96,22 @@ fun StockHistoryScreen(
                             modifier = Modifier.fillMaxSize(),
                             count = 8,
                             cardShaped = true,
-                            spacing = 8.dp,
-                            contentPadding = PaddingValues(16.dp)
+                            spacing = Spacing.sm,
+                            contentPadding = PaddingValues(Spacing.lg)
+                        )
+                    } else if (!uiState.isLoading && uiState.transactions.isEmpty() && loadError != null) {
+                        ErrorState(
+                            modifier = Modifier.fillMaxSize(),
+                            message = loadError,
+                            onRetry = {
+                                viewModel.clearError()
+                                viewModel.refresh()
+                            }
                         )
                     } else if (!uiState.isLoading && uiState.transactions.isEmpty()) {
                         EmptyState(
-                            if (filtersActive) "No stock movements match these filters" else "No stock movements yet"
+                            modifier = Modifier.fillMaxSize(),
+                            title = if (filtersActive) "No stock movements match these filters" else "No stock movements yet"
                         )
                     } else {
                         val listState = rememberLazyListState()
@@ -116,7 +131,7 @@ fun StockHistoryScreen(
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
+                            contentPadding = PaddingValues(Spacing.lg),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(uiState.transactions, key = { it.transactionId }) { transaction ->
@@ -128,7 +143,7 @@ fun StockHistoryScreen(
                             }
                             if (uiState.isLoadingMore) {
                                 item {
-                                    Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(Spacing.sm), contentAlignment = Alignment.Center) {
                                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                     }
                                 }
@@ -158,7 +173,7 @@ private fun StockHistoryFilters(
     onClearFilters: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         var vaccineExpanded by remember { mutableStateOf(false) }
@@ -221,7 +236,7 @@ private fun StockHistoryFilters(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             DateDropdownPicker(
                 label = "From",
                 currentDate = uiState.fromDate,
@@ -253,8 +268,8 @@ private fun TransactionTypeChipRow(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         StockHistoryTypeFilter.entries.forEach { filter ->
             FilterChip(
@@ -276,7 +291,7 @@ private fun StockHistoryEntryCard(
     val isPositive = transaction.quantity >= 0
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

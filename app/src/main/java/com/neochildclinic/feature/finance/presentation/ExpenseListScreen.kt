@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ErrorState
 import com.neochildclinic.core.ui.EmptyState
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
@@ -47,9 +49,11 @@ fun ExpenseListScreen(
     var showFilters by remember { mutableStateOf(false) }
     var selectedExpense by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val loadError = uiState.error
 
-    MessageEffect(uiState.error) { viewModel.clearError() }
-    MessageEffect(uiState.deletedMessage, Toast.LENGTH_SHORT) { viewModel.clearDeletedMessage() }
+    ShowSnackbar(loadError, snackbarHostState) { viewModel.clearError() }
+    ShowSnackbar(uiState.deletedMessage, snackbarHostState, duration = SnackbarDuration.Short) { viewModel.clearDeletedMessage() }
 
     val filtersActive = uiState.categoryFilter != null || uiState.paymentMethodFilter != null ||
         uiState.fromDate.isNotBlank() || uiState.toDate.isNotBlank()
@@ -57,6 +61,7 @@ fun ExpenseListScreen(
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 SearchTopAppBar(
                     title = "Expenses",
@@ -93,17 +98,27 @@ fun ExpenseListScreen(
                             modifier = Modifier.fillMaxSize(),
                             count = 8,
                             cardShaped = true,
-                            spacing = 8.dp,
-                            contentPadding = PaddingValues(16.dp)
+                            spacing = Spacing.sm,
+                            contentPadding = PaddingValues(Spacing.lg)
+                        )
+                    } else if (!uiState.isLoading && uiState.expenses.isEmpty() && loadError != null) {
+                        ErrorState(
+                            modifier = Modifier.fillMaxSize(),
+                            message = loadError,
+                            onRetry = {
+                                viewModel.clearError()
+                                viewModel.refresh()
+                            }
                         )
                     } else if (!uiState.isLoading && uiState.expenses.isEmpty()) {
                         EmptyState(
-                            if (filtersActive || uiState.query.isNotBlank()) "No expenses match these filters" else "No expenses recorded yet"
+                            modifier = Modifier.fillMaxSize(),
+                            title = if (filtersActive || uiState.query.isNotBlank()) "No expenses match these filters" else "No expenses recorded yet"
                         )
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
+                            contentPadding = PaddingValues(Spacing.lg),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(uiState.expenses, key = { it.id }) { expense ->
@@ -114,7 +129,7 @@ fun ExpenseListScreen(
                                     if (uiState.isLoadingMore) {
                                         SkeletonListItem(showLeadingIcon = true, showTrailing = false)
                                     } else {
-                                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md), contentAlignment = Alignment.Center) {
                                             TextButton(onClick = viewModel::loadMore) { Text("Load More") }
                                         }
                                     }
@@ -158,7 +173,7 @@ fun ExpenseListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExpenseFilters(uiState: ExpenseListUiState, viewModel: ExpenseListViewModel) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         var categoryExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = !categoryExpanded }, modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
@@ -197,7 +212,7 @@ private fun ExpenseFilters(uiState: ExpenseListUiState, viewModel: ExpenseListVi
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             DateDropdownPicker(
                 label = "From",
                 currentDate = uiState.fromDate,
@@ -214,7 +229,7 @@ private fun ExpenseFilters(uiState: ExpenseListUiState, viewModel: ExpenseListVi
 
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             ExpenseSortOption.entries.forEach { option ->
                 FilterChip(
@@ -235,7 +250,7 @@ private fun ExpenseFilters(uiState: ExpenseListUiState, viewModel: ExpenseListVi
 @Composable
 private fun ExpenseCard(expense: Expense, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(expense.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
@@ -288,8 +303,8 @@ fun ExpenseDetailSheet(
             if (!expense.updatedAt.isNullOrBlank()) DetailRow("Last Updated", PatientUtils.formatDateTimeForDisplay(expense.updatedAt))
 
             if (canManage) {
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(Spacing.sm))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -306,7 +321,7 @@ fun ExpenseDetailSheet(
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.md))
         }
     }
 }

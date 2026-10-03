@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.doctor.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,7 +26,7 @@ internal fun UnavailabilityTab(
     onAddException: () -> Unit,
     onDeleteException: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -34,7 +36,7 @@ internal fun UnavailabilityTab(
             if (uiState.canManageSelectedDoctor) {
                 TextButton(onClick = onAddException) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(Spacing.xs))
                     Text("Add Exception")
                 }
             }
@@ -68,7 +70,7 @@ internal fun ExceptionRow(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier = Modifier.padding(Spacing.md).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

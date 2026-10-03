@@ -1,5 +1,7 @@
 package com.neochildclinic.core.ui
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,12 +43,12 @@ fun DateDropdownPicker(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
             )
         }
         OutlinedCard(
             onClick = { showPicker = true },
-            shape = RoundedCornerShape(8.dp),
+            shape = MaterialTheme.shapes.small,
             colors = CardDefaults.outlinedCardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             ),
@@ -55,7 +57,7 @@ fun DateDropdownPicker(
             )
         ) {
             Row(
-                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                modifier = Modifier.padding(Spacing.sm).fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

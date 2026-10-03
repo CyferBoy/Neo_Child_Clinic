@@ -1,11 +1,13 @@
 package com.neochildclinic.feature.personalreminder.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.EmptyState
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.PersonalReminder
@@ -75,16 +78,27 @@ fun PersonalReminderScreen(
                             modifier = Modifier.fillMaxSize(),
                             count = 6,
                             cardShaped = true,
-                            spacing = 8.dp,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                            spacing = Spacing.sm,
+                            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md)
                         )
                     } else if (list.isEmpty()) {
-                        EmptyState(tab = uiState.selectedTab)
+                        EmptyState(
+                            modifier = Modifier.fillMaxSize(),
+                            icon = Icons.AutoMirrored.Filled.EventNote,
+                            title = when (uiState.selectedTab) {
+                                PersonalReminderTab.ACTIVE -> "No personal reminders yet"
+                                PersonalReminderTab.COMPLETED -> "No completed reminders"
+                                PersonalReminderTab.CANCELLED -> "No cancelled reminders"
+                            },
+                            message = if (uiState.selectedTab == PersonalReminderTab.ACTIVE)
+                                "Tap + to add a reminder."
+                            else null
+                        )
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+                            contentPadding = PaddingValues(top = Spacing.md, bottom = 96.dp),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
                         ) {
                             items(items = list, key = { it.id }) { reminder ->
                                 PersonalReminderCard(
@@ -120,30 +134,5 @@ fun PersonalReminderScreen(
             onCancel = { viewModel.cancel(reminder.id); selectedReminder = null },
             onDelete = { viewModel.delete(reminder.id); selectedReminder = null }
         )
-    }
-}
-
-@Composable
-private fun EmptyState(tab: PersonalReminderTab) {
-    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.EventNote,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = when (tab) {
-                    PersonalReminderTab.ACTIVE -> "No personal reminders yet.\nTap + to add one."
-                    PersonalReminderTab.COMPLETED -> "No completed reminders yet."
-                    PersonalReminderTab.CANCELLED -> "No cancelled reminders."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
     }
 }

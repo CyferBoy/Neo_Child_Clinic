@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.profile.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,12 +17,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.Profile
@@ -34,16 +35,17 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     
+val snackbarHostState = remember { SnackbarHostState() }
     var showEditDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    MessageEffect(uiState.success, Toast.LENGTH_SHORT) {
+    ShowSnackbar(uiState.success, snackbarHostState, duration = SnackbarDuration.Short) {
         showEditDialog = false
         showPasswordDialog = false
         viewModel.clearMessages()
     }
-    MessageEffect(uiState.error) { viewModel.clearMessages() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearMessages() }
 
     if (showEditDialog && uiState.profile != null) {
         EditProfileDialog(
@@ -87,6 +89,7 @@ fun ProfileScreen(
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -109,8 +112,8 @@ fun ProfileScreen(
                             .fillMaxSize()
                             .padding(padding)
                             .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                            .padding(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                     ) {
                         ProfileHeaderSection(profile)
                         
@@ -137,7 +140,7 @@ fun ProfileScreen(
                             InfoRow(Icons.Default.Cloud, "Database Status", "Connected")
                         }
                         
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(Spacing.xl))
                     }
                 }
             }
@@ -152,7 +155,7 @@ private fun ProfileHeaderSection(profile: Profile) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
     ) {
         Column(
-            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            modifier = Modifier.padding(Spacing.xl).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
@@ -169,18 +172,18 @@ private fun ProfileHeaderSection(profile: Profile) {
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.lg))
             Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(profile.role.name.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             
             Surface(
                 color = if (profile.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
                 shape = CircleShape,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = Spacing.sm)
             ) {
                 Text(
                     text = if (profile.isActive) "Active" else "Inactive",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (profile.isActive) Color(0xFF2E7D32) else Color(0xFFC62828)
                 )
@@ -196,13 +199,13 @@ private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Un
             text = title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = Spacing.sm, bottom = Spacing.sm)
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                 content()
             }
         }
@@ -213,7 +216,7 @@ private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Un
 private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(Spacing.lg))
         Column {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyLarge)
@@ -228,7 +231,7 @@ private fun ActionRow(icon: ImageVector, label: String, color: Color = MaterialT
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(Spacing.lg))
         Text(label, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
         Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
     }
@@ -248,7 +251,7 @@ private fun EditProfileDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Profile") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 StandardTextField(value = name, onValueChange = { name = it }, label = "Display Name")
                 StandardTextField(value = phone, onValueChange = { phone = it }, label = "Phone Number")
             }
@@ -277,7 +280,7 @@ private fun ChangePasswordDialog(
         onDismissRequest = onDismiss,
         title = { Text("Change Password") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 StandardTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },

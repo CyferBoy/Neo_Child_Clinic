@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.settings.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,8 +38,8 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
     AppBackground {
         Scaffold(topBar = { SettingsDetailTopBar("Backup & Restore", onBack) }) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 item {
                     SettingsSection("Local Backup") {
@@ -54,7 +56,7 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
                 if (state.hasSafetyBackup) {
                     item {
                         SettingsSection("Undo") {
-                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(Modifier.padding(Spacing.cardDense), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                                 Text(
                                     "A safety copy of your data from just before the last restore is available.",
                                     style = MaterialTheme.typography.bodyMedium
@@ -89,7 +91,7 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
                 if (state.history.isNotEmpty()) {
                     item {
                         SettingsSection("Backup History") {
-                            Column(Modifier.padding(vertical = 4.dp)) {
+                            Column(Modifier.padding(vertical = Spacing.xs)) {
                                 state.history.take(20).forEach { entry ->
                                     HistoryRow(entry)
                                     SettingsDivider()
@@ -165,11 +167,11 @@ private fun CloudBackupSection(
     onDelete: (String) -> Unit
 ) {
     SettingsSection("Cloud Backup") {
-        Column(Modifier.padding(bottom = 4.dp)) {
+        Column(Modifier.padding(bottom = Spacing.xs)) {
             if (!state.cloudConfigured) {
                 Text(
                     "Cloud backup is not configured for this build.",
-                    modifier = Modifier.padding(14.dp),
+                    modifier = Modifier.padding(Spacing.cardDense),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -177,13 +179,13 @@ private fun CloudBackupSection(
                 SettingsRow(Icons.Default.CloudUpload, "Backup Now", onBackupNow)
                 SettingsDivider()
                 if (state.cloudBackupsLoading) {
-                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Box(Modifier.fillMaxWidth().padding(Spacing.lg), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(Spacing.xl))
                     }
                 } else if (state.cloudBackups.isEmpty()) {
                     Text(
                         "No cloud backups yet.",
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.padding(Spacing.cardDense),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -202,7 +204,7 @@ private fun CloudBackupSection(
 private fun CloudBackupRow(backup: CloudBackupMetadata, onRestore: () -> Unit, onDelete: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.md),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -233,7 +235,7 @@ private fun AutomaticBackupSection(
     onUpdate: (AutoBackupSettings) -> Unit
 ) {
     SettingsSection("Automatic Backup") {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.padding(Spacing.cardDense), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             SettingSwitch(
                 "Automatic Backup",
                 if (settings.enabled) "Runs automatically on this device" else "Off",
@@ -276,7 +278,7 @@ private fun AutomaticBackupSection(
 
 @Composable
 private fun <T> SingleChoiceSegmented(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         options.forEach { (label, value) ->
             FilterChip(
                 selected = value == selected,
@@ -302,7 +304,7 @@ private fun RetentionStepper(value: Int, onChange: (Int) -> Unit) {
 @Composable
 private fun HistoryRow(entry: BackupHistory) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.md),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -337,10 +339,10 @@ private fun historyTypeLabel(type: String, location: String): String = when (typ
 @Composable
 private fun BackupProgressDialog(label: String) {
     Dialog(onDismissRequest = {}) {
-        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp) {
-            Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = MaterialTheme.shapes.large, tonalElevation = Spacing.xs) {
+            Row(Modifier.padding(Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(Spacing.lg))
                 Text(label, style = MaterialTheme.typography.bodyLarge)
             }
         }
@@ -356,10 +358,10 @@ private fun RestoreSummaryDialog(summary: RestoreSummary, onDismiss: () -> Unit,
         onDismissRequest = onDismiss,
         title = { Text("Restore Backup") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text("Created: ${PatientUtils.formatDateTimeForDisplay(summary.createdAt)}", style = MaterialTheme.typography.bodyMedium)
                 Text("App version: ${summary.appVersion}", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 summary.recordCounts.entries.filter { it.value > 0 }.forEach { (label, count) ->
                     Text("\u2022 ${nf.format(count)} $label", style = MaterialTheme.typography.bodySmall)
                 }
@@ -416,7 +418,7 @@ private fun PasswordPromptDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 if (needsConfirm) {
                     Text(
                         "This password encrypts your backup. Neo Child Clinic never stores it - if you forget it, the backup cannot be recovered.",

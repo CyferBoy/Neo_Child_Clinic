@@ -10,6 +10,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.StandardTextField
+import com.neochildclinic.core.designsystem.*
 
 @Composable
 internal fun PaymentSection(
@@ -27,8 +28,8 @@ internal fun PaymentSection(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 StandardTextField(
                     value = cash,
                     onValueChange = onCashChange,

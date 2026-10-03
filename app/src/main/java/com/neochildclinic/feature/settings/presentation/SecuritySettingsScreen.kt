@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.settings.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -25,12 +27,12 @@ fun SecuritySettingsScreen(onBack: () -> Unit, viewModel: NotificationSettingsVi
         Scaffold(topBar = { SettingsDetailTopBar("Security", onBack) }) { padding ->
             settings?.let { s ->
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     item {
                         Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                                 SettingSwitch("Biometric Lock", "Enable fingerprint/face ID", s.biometricLockEnabled) { requested ->
                                     if (requested) {
                                         viewModel.setBiometricLock(true)

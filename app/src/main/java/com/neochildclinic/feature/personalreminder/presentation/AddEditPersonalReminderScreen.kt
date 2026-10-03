@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.personalreminder.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -65,7 +67,7 @@ fun AddEditPersonalReminderScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
             ) {
                 SectionLabel("Patient")
                 PatientPicker(
@@ -102,7 +104,7 @@ fun AddEditPersonalReminderScreen(
                     placeholder = { Text("e.g. Patient requested vaccine; arrange from supplier.") },
                     minLines = 3,
                     maxLines = 5,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -135,22 +137,22 @@ fun AddEditPersonalReminderScreen(
                 }
 
                 if (uiState.advanceReceived) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     OutlinedTextField(
                         value = uiState.advanceAmount,
                         onValueChange = viewModel::onAdvanceAmountChange,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Advance Amount") },
-                        leadingIcon = { Text("\u20b9", modifier = Modifier.padding(start = 12.dp)) },
+                        leadingIcon = { Text("\u20b9", modifier = Modifier.padding(start = Spacing.md)) },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         isError = uiState.advanceAmountError,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
                     if (uiState.advanceAmountError) {
                         FieldError("Enter a valid, non-negative advance amount.")
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     DateDropdownPicker(
                         label = "Advance Date",
                         currentDate = uiState.advanceDate.ifBlank { AddEditPersonalReminderViewModel.todayFormatted() },
@@ -162,7 +164,7 @@ fun AddEditPersonalReminderScreen(
                 }
 
                 uiState.error?.let {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
@@ -171,7 +173,7 @@ fun AddEditPersonalReminderScreen(
                     onClick = viewModel::save,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     enabled = !uiState.isSaving,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     if (uiState.isSaving) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -179,7 +181,7 @@ fun AddEditPersonalReminderScreen(
                         Text(if (uiState.isEditing) "Save Changes" else "Create Reminder")
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
             }
         }
     }
@@ -192,7 +194,7 @@ private fun SectionLabel(text: String) {
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(bottom = 8.dp)
+        modifier = Modifier.padding(bottom = Spacing.sm)
     )
 }
 
@@ -202,7 +204,7 @@ private fun FieldError(text: String) {
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+        modifier = Modifier.padding(top = Spacing.xs, start = Spacing.xs)
     )
 }
 
@@ -223,10 +225,10 @@ private fun PatientPicker(
     isError: Boolean
 ) {
     if (selectedPatient != null && !isNonSavedPatient) {
-        Card(shape = RoundedCornerShape(12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Card(shape = MaterialTheme.shapes.medium) {
+            Row(modifier = Modifier.fillMaxWidth().padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(selectedPatient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     if (selectedPatient.phone.isNotBlank()) Text(selectedPatient.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -237,21 +239,21 @@ private fun PatientPicker(
     } else if (isNonSavedPatient) {
         Column {
             Text("Non-saved patient", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = patientName, onValueChange = onNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("Patient Name") }, isError = isError, shape = RoundedCornerShape(12.dp), singleLine = true)
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedTextField(value = patientName, onValueChange = onNameChange, modifier = Modifier.fillMaxWidth(), label = { Text("Patient Name") }, isError = isError, shape = MaterialTheme.shapes.medium, singleLine = true)
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = patientPhone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), label = { Text("Phone Number") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone), shape = RoundedCornerShape(12.dp), singleLine = true)
+            OutlinedTextField(value = patientPhone, onValueChange = onPhoneChange, modifier = Modifier.fillMaxWidth(), label = { Text("Phone Number") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone), shape = MaterialTheme.shapes.medium, singleLine = true)
             TextButton(onClick = onClear) { Text("Choose saved patient instead") }
             if (isError) FieldError("Enter a patient name.")
         }
     } else {
         Column {
-            OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search patient by name or phone...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, isError = isError, shape = RoundedCornerShape(12.dp))
+            OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search patient by name or phone...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, isError = isError, shape = MaterialTheme.shapes.medium)
             TextButton(onClick = onUseNonSaved) { Text("Use non-saved patient") }
             if (isError) FieldError("Select a patient or use a non-saved patient.")
             if (results.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Card(shape = RoundedCornerShape(12.dp)) {
+                Spacer(modifier = Modifier.height(Spacing.xs))
+                Card(shape = MaterialTheme.shapes.medium) {
                     Column {
                         results.take(6).forEach { patient ->
                             ListItem(headlineContent = { Text(patient.name) }, supportingContent = if (patient.phone.isNotBlank()) ({ Text(patient.phone) }) else null, modifier = Modifier.clickableSelect { onSelect(patient) })
@@ -289,7 +291,7 @@ private fun VaccineDropdown(
             placeholder = { Text("Select a vaccine") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             isError = isError,
-            shape = RoundedCornerShape(12.dp)
+            shape = MaterialTheme.shapes.medium
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             vaccines.forEach { vaccine ->

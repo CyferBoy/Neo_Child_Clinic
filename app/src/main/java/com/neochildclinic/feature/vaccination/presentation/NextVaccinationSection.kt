@@ -16,11 +16,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.SelectDropdown
 import com.neochildclinic.core.ui.StandardTextField
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.InventoryItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,10 +44,10 @@ internal fun NextVaccinationGroupCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f))
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.card), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.md))
                 Box(modifier = Modifier.weight(1f)) {
                     DateDropdownPicker(
                         label = "Due Date*",
@@ -55,7 +55,7 @@ internal fun NextVaccinationGroupCard(
                         onDateSelected = onDueDateSelected
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 if (group.items.any { it.reminderId != null }) {
                     TextButton(onClick = { showCancelGroupDialog = true }) {
                         Text("Cancel Group", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
@@ -81,7 +81,7 @@ internal fun NextVaccinationGroupCard(
                 )
                 if (index < group.items.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = Spacing.xs),
                         thickness = 0.5.dp,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
@@ -91,10 +91,10 @@ internal fun NextVaccinationGroupCard(
             TextButton(
                 onClick = onAddItem,
                 modifier = Modifier.align(Alignment.Start),
-                contentPadding = PaddingValues(horizontal = 8.dp)
+                contentPadding = PaddingValues(horizontal = Spacing.sm)
             ) {
                 Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(Spacing.xs))
                 Text("Add Vaccine/Type")
             }
         }
@@ -131,8 +131,8 @@ internal fun NextVaccinationItemRow(
     var vaccineExpanded by remember { mutableStateOf(false) }
     var showCancelItemDialog by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Box(modifier = Modifier.weight(1f)) {
                 SelectDropdown(
                     items = availableTypes,
@@ -146,12 +146,14 @@ internal fun NextVaccinationItemRow(
             }
 
             if (item.reminderId != null) {
-                IconButton(onClick = { showCancelItemDialog = true }, modifier = Modifier.size(32.dp)) {
+                // Was sizing the IconButton itself, which overrode
+                // minimumInteractiveComponentSize. Size the icon, not the target.
+                IconButton(onClick = { showCancelItemDialog = true }) {
                     Icon(Icons.Default.Close, contentDescription = "Cancel item", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                 }
             } else {
-                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove item", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove item", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 }
             }
         }

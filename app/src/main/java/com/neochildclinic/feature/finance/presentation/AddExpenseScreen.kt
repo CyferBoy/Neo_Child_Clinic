@@ -20,10 +20,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.DateDropdownPicker
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.ExpenseCategory
@@ -38,6 +39,7 @@ fun AddExpenseScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(expenseId) {
         if (!expenseId.isNullOrBlank()) viewModel.loadForEdit(expenseId)
@@ -50,7 +52,7 @@ fun AddExpenseScreen(
         }
     }
 
-    MessageEffect(uiState.error) { viewModel.clearError() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearError() }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -67,6 +69,7 @@ fun AddExpenseScreen(
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 BackTopAppBar(
                     title = { Text(if (uiState.isEditMode) "Edit Expense" else "Add Expense") },
@@ -85,7 +88,7 @@ fun AddExpenseScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -139,7 +142,7 @@ fun AddExpenseScreen(
                     onRemove = viewModel::removeAttachment
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
 
                 StandardButton(
                     onClick = { viewModel.submit() },
@@ -149,7 +152,7 @@ fun AddExpenseScreen(
                     Text(if (uiState.isEditMode) "Update Expense" else "Save Expense")
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.lg))
             }
         }
     }
@@ -222,13 +225,13 @@ private fun AttachmentSection(
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.AttachFile, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 Text(
                     when {
                         isUploading -> "Uploading receipt..."

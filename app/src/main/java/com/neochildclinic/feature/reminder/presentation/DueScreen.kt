@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.reminder.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -82,8 +84,8 @@ fun DueScreen(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
                         cardShaped = true,
-                        spacing = 8.dp,
-                        contentPadding = PaddingValues(16.dp)
+                        spacing = Spacing.sm,
+                        contentPadding = PaddingValues(Spacing.lg)
                     )
                 } else {
                     DueTab(

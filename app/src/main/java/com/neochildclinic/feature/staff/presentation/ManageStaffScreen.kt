@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.staff.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -100,25 +102,25 @@ fun ManageStaffScreen(
                         onClick = { selectedRoleFilter = null },
                         label = { Text("Role: ${selectedRoleFilter?.name?.uppercase()}") },
                         trailingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) }, // Using Add as Close for now
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)
                     )
                 }
 
                 if (uiState.isLoading && uiState.staffList.isEmpty()) {
-                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp))
+                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.sm))
                 } else if (filteredStaff.isEmpty()) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.Group, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(Spacing.lg))
                             Text("No staff members found", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.md),
+                        contentPadding = PaddingValues(top = Spacing.sm, bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         items(filteredStaff, key = { it.id }) { staff ->
                             StaffCard(staff = staff, onClick = { onStaffClick(staff.id) })
@@ -138,7 +140,7 @@ private fun StaffCard(staff: Profile, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier = Modifier.padding(Spacing.md).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -156,25 +158,25 @@ private fun StaffCard(staff: Profile, onClick: () -> Unit) {
                 }
             }
 
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.lg))
 
             Column(Modifier.weight(1f)) {
                 Text(staff.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(staff.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.xs)) {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         shape = CircleShape
                     ) {
                         Text(
                             text = staff.role.name.uppercase(),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     StatusBadge(staff.isActive)
                 }
             }
@@ -192,7 +194,7 @@ private fun StatusBadge(isActive: Boolean) {
             shape = CircleShape,
             color = if (isActive) Color(0xFF4CAF50) else Color(0xFFF44336)
         ) {}
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(Spacing.xs))
         Text(
             text = if (isActive) "Active" else "Inactive",
             style = MaterialTheme.typography.labelSmall,

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.*
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Patient
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,19 +72,23 @@ fun AddVaccinationScreen(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                        // Was onPrimary (white) on a background-coloured bar: the
+                        // back arrow was invisible.
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             },
             bottomBar = {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 8.dp,
-                    shadowElevation = 8.dp
+                    tonalElevation = Elevation.sheet,
+                    shadowElevation = Elevation.sheet
                 ) {
-                    PaddingValues(16.dp).let {
-                        StandardButton(
-                            onClick = {
+                    // Was PaddingValues(Spacing.lg).let { ... } - a bare value class
+                    // that padded nothing and read as if it did. The button below
+                    // already carries its own padding.
+                    StandardButton(
+                        onClick = {
                                 viewModel.saveVaccination(
                                     editGivenDate = editGivenDate,
                                     editDoctor = editDoctor,
@@ -92,7 +97,7 @@ fun AddVaccinationScreen(
                                     editNextVaccination = editNextVaccination
                                 )
                             },
-                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            modifier = Modifier.padding(Spacing.lg).fillMaxWidth(),
                             enabled = !isEdit || !uiState.isVaccinationLoading,
                             isLoading = uiState.isLoading
                         ) {
@@ -104,15 +109,14 @@ fun AddVaccinationScreen(
                         }
                     }
                 }
-            }
-        ) { padding ->
+            ) { padding ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
+                    .padding(horizontal = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+                contentPadding = PaddingValues(top = Spacing.lg, bottom = 100.dp)
             ) {
                 // 1. Patient Summary
                 uiState.patient?.let { patient ->
@@ -153,7 +157,7 @@ fun AddVaccinationScreen(
                             onDoctorSelected = { viewModel.selectDoctor(it) },
                             isError = uiState.doctorError
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.sm))
                     }
                     // The slot dropdown must be visible whenever the schedule is being
                     // edited - including a date-only edit, where the Doctor list stays
@@ -216,7 +220,7 @@ fun AddVaccinationScreen(
                         if (!isEdit || editVaccineBatch) {
                             TextButton(onClick = { viewModel.addVaccineRow() }) {
                                 Icon(Icons.Default.Add, null)
-                                Spacer(Modifier.width(4.dp))
+                                Spacer(Modifier.width(Spacing.xs))
                                 Text("Add Vaccine")
                             }
                         }
@@ -282,7 +286,7 @@ fun AddVaccinationScreen(
                     item {
                         OutlinedButton(onClick = { viewModel.addNextVaccinationGroup() }, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(Spacing.sm))
                             Text(if (uiState.nextVaccinationGroups.isEmpty()) "Add Next Vaccination" else "Add Another Date")
                         }
                     }
@@ -306,7 +310,7 @@ private fun EditSectionHeader(
         if (enabled) {
             Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         } else {
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.md))
         }
         Text(
             title,
@@ -323,7 +327,7 @@ private fun PatientSummaryCard(patient: Patient) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             Text(patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true || patient.patientClinicId.isNullOrBlank()) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
             Text("ID: $clinicId", style = MaterialTheme.typography.bodyMedium)

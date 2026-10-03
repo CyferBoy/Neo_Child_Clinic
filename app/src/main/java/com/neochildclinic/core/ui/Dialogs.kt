@@ -1,5 +1,7 @@
 package com.neochildclinic.core.ui
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -82,21 +84,21 @@ fun AuditLogDialog(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
                 shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(Spacing.lg)) {
                     Text(
                         text = "Audit History",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.lg))
 
                     when {
                         isLoading && logs.isEmpty() -> {
                             Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxl),
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator()
@@ -107,14 +109,14 @@ fun AuditLogDialog(
                                 text = "Couldn't load history: $error",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(vertical = 32.dp)
+                                modifier = Modifier.padding(vertical = Spacing.xxl)
                             )
                         }
                         logs.isEmpty() -> {
                             Text(
                                 text = "No history recorded yet.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(vertical = 32.dp)
+                                modifier = Modifier.padding(vertical = Spacing.xxl)
                             )
                         }
                         else -> {
@@ -139,7 +141,7 @@ fun AuditLogDialog(
                                 modifier = Modifier
                                     .weight(1f, fill = false)
                                     .heightIn(max = 420.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
                             ) {
                                 items(logs, key = { it.id }) { log ->
                                     AuditLogItem(log)
@@ -148,7 +150,7 @@ fun AuditLogDialog(
                                 if (isLoadingMore) {
                                     item(key = "audit_history_loading_more") {
                                         Box(
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             CircularProgressIndicator(modifier = Modifier.size(20.dp))
@@ -162,7 +164,7 @@ fun AuditLogDialog(
                                             text = "Couldn't load more: $error",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.padding(vertical = 8.dp)
+                                            modifier = Modifier.padding(vertical = Spacing.sm)
                                         )
                                     }
                                 }
@@ -170,7 +172,7 @@ fun AuditLogDialog(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.lg))
                     TextButton(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth()

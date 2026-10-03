@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.dashboard.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -83,20 +85,20 @@ internal fun TodayPatientItem(
             .border(
                 width = if (isHighlighted) 2.dp else 0.dp,
                 color = highlightBorderColor,
-                shape = RoundedCornerShape(16.dp)
+                shape = MaterialTheme.shapes.large
             )
             .combinedClickable(
                 onClick = {},
                 onLongClick = { menuExpanded = true }
             ),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = if (isCompleted) color.copy(alpha = 0.5f) else color
         )
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(Spacing.lg)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -105,7 +107,7 @@ internal fun TodayPatientItem(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor.copy(alpha = if (isCompleted) 0.5f else 1f),
-                modifier = Modifier.width(24.dp)
+                modifier = Modifier.width(Spacing.xl)
             )
             Column(Modifier.weight(1f)) {
                 Text(

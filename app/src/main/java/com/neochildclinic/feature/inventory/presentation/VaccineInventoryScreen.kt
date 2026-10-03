@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import android.widget.Toast
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.*
+import com.neochildclinic.core.designsystem.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
@@ -38,6 +41,8 @@ fun VaccineInventoryScreen(
     viewModel: VaccineInventoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
+val scope = rememberCoroutineScope()
     val searchQuery by viewModel.searchQuery.collectAsState()
     var batchToDelete by remember { mutableStateOf<VaccineBatch?>(null) }
     var vaccineToDelete by remember { mutableStateOf<InventoryItem?>(null) }
@@ -60,7 +65,7 @@ fun VaccineInventoryScreen(
         onConfirm = {
             vaccineToDelete?.let { 
                 viewModel.deleteVaccine(it.id) { error ->
-                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                    scope.launch { snackbarHostState.showSnackbar(error) }
                 }
             }
             vaccineToDelete = null
@@ -71,6 +76,7 @@ fun VaccineInventoryScreen(
 
     VaccineInventoryContent(
         uiState = uiState,
+        snackbarHostState = snackbarHostState,
         searchQuery = searchQuery,
         onBack = onBack,
         onRefresh = viewModel::refresh,
@@ -92,6 +98,7 @@ fun VaccineInventoryScreen(
 @Composable
 private fun VaccineInventoryContent(
     uiState: VaccineInventoryUiState,
+    snackbarHostState: SnackbarHostState,
     searchQuery: String,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
@@ -112,6 +119,7 @@ private fun VaccineInventoryContent(
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 SearchTopAppBar(
@@ -135,8 +143,8 @@ private fun VaccineInventoryContent(
                     AnimatedVisibility(visible = fabExpanded) {
                         Column(
                             horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.padding(bottom = 12.dp)
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                            modifier = Modifier.padding(bottom = Spacing.md)
                         ) {
                             SmallFloatingActionButton(
                                 onClick = {
@@ -147,11 +155,11 @@ private fun VaccineInventoryContent(
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    modifier = Modifier.padding(horizontal = Spacing.md),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(Icons.Default.Vaccines, "New Vaccine", modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
+                                    Spacer(Modifier.width(Spacing.sm))
                                     Text("New Vaccine")
                                 }
                             }
@@ -165,11 +173,11 @@ private fun VaccineInventoryContent(
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    modifier = Modifier.padding(horizontal = Spacing.md),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(Icons.Default.AddBusiness, "Add Stock", modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
+                                    Spacer(Modifier.width(Spacing.sm))
                                     Text("Add Stock")
                                 }
                             }
@@ -199,15 +207,20 @@ private fun VaccineInventoryContent(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
                         cardShaped = true,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.sm)
                     )
                 } else if (uiState.inventory.isEmpty()) {
-                    EmptyState(if (searchQuery.isEmpty()) "No inventory found" else "No results found")
+                    EmptyState(
+                        icon = if (searchQuery.isEmpty()) Icons.Default.Inventory2 else Icons.Default.SearchOff,
+                        title = if (searchQuery.isEmpty()) "No inventory yet" else "No vaccines match \"$searchQuery\"",
+                        message = if (searchQuery.isEmpty()) "Add a vaccine definition and its first batch to start tracking stock."
+                        else "Try a different search term, or clear the filter."
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
                         items(uiState.inventory, key = { it.id }) { item ->
                             VaccineItemCard(
@@ -243,7 +256,7 @@ private fun VaccineItemCard(
     val hiddenBatches = remember(item.batches) {
         item.batches.filter { InventoryUtils.isExpired(it.expiryDate) && it.remainingQuantity <= 0 }
     }
-    
+
     val visibleBatches = if (showHiddenBatches) item.batches else item.batches.filterNot { it in hiddenBatches }
 
     Card(
@@ -255,13 +268,15 @@ private fun VaccineItemCard(
             ),
         colors = CardDefaults.cardColors(
             containerColor = when {
-                item.hasExpired -> Color(0xFFFFEBEE)
-                item.isLowStock -> Color(0xFFFFF3E0)
+                // Was #FFEBEE / #FFF3E0 - light pastels that stayed light in dark
+                // mode, where onSurface is also light, so the card went blank.
+                item.hasExpired -> MaterialTheme.colorScheme.errorContainer
+                item.isLowStock -> LocalCustomColors.current.softOrange
                 else -> MaterialTheme.colorScheme.surfaceVariant
             }
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             Box {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -302,22 +317,22 @@ private fun VaccineItemCard(
                         leadingIcon = { Icon(Icons.Default.Edit, null) }
                     )
                     DropdownMenuItem(
-                        text = { Text("Delete Vaccine", color = Color.Red) },
+                        text = { Text("Delete Vaccine", color = MaterialTheme.colorScheme.error) },
                         onClick = {
                             menuExpanded = false
                             onDeleteVaccine(item)
                         },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
                     )
                 }
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 16.dp)) {
+                Column(modifier = Modifier.padding(top = Spacing.lg)) {
                     HorizontalDivider()
-                    
+
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -326,22 +341,22 @@ private fun VaccineItemCard(
                             Text("Active Batches: ${item.activeBatchesCount}", style = MaterialTheme.typography.labelSmall)
                         }
                         TextButton(onClick = { onAddBatch(item.id, item.brandName) }) {
-                            Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.Add, null, modifier = Modifier.size(Spacing.lg))
+                            Spacer(Modifier.width(Spacing.xs))
                             Text("Add Batch")
                         }
                     }
-                    
+
                     HorizontalDivider()
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
 
                     visibleBatches.forEach { batch ->
                         BatchRow(batch, onEditBatch, onDeleteBatch, item.brandName)
                     }
 
                     if (visibleBatches.isEmpty() && item.batches.isNotEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            Text("No active batches. Long press to show hidden.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Box(modifier = Modifier.fillMaxWidth().padding(Spacing.lg), contentAlignment = Alignment.Center) {
+                            Text("No active batches. Long press to show hidden.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -360,7 +375,7 @@ private fun BatchRow(
     var menuExpanded by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -368,16 +383,16 @@ private fun BatchRow(
             Text("Exp: ${formatDateForDisplay(batch.expiryDate)} • Qty: ${batch.remainingQuantity}")
             Text("MRP: ₹${batch.sellingPrice} • Net: ₹${batch.purchaseCost}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         }
-        
+
         IconButton(onClick = { menuExpanded = true }) {
-            Icon(Icons.Default.MoreVert, null)
+            Icon(Icons.Default.MoreVert, contentDescription = "Batch actions")
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
                     text = { Text("Edit") },
                     onClick = { menuExpanded = false; onEditBatch(batch.batchId, batch.vaccineId, brandName) }
                 )
                 DropdownMenuItem(
-                    text = { Text("Delete", color = Color.Red) },
+                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                     onClick = { menuExpanded = false; onDeleteBatch(batch) }
                 )
             }
@@ -387,15 +402,21 @@ private fun BatchRow(
 
 @Composable
 private fun StockStatusBadge(item: InventoryItem) {
+    val customColors = LocalCustomColors.current
     Column(horizontalAlignment = Alignment.End) {
         Text(
             text = "${item.stock}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Black,
-            color = if (item.isLowStock || item.hasExpired) Color.Red else MaterialTheme.colorScheme.primary
+            color = if (item.isLowStock || item.hasExpired) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary
         )
-        if (item.hasExpired) Text("EXPIRED", color = Color.Red, style = MaterialTheme.typography.labelSmall)
-        else if (item.isLowStock) Text("LOW STOCK", color = Color(0xFFE65100), style = MaterialTheme.typography.labelSmall)
+        // Was raw red at labelSmall: 3.59:1, under the 4.5:1 AA floor for small text.
+        if (item.hasExpired) {
+            Text("EXPIRED", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+        } else if (item.isLowStock) {
+            Text("LOW STOCK", color = customColors.textOrange, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 

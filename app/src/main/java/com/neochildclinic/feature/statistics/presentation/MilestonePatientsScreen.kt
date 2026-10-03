@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.clickable
@@ -84,14 +86,14 @@ fun MilestonePatientsScreen(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
                         cardShaped = true,
-                        spacing = 8.dp,
-                        contentPadding = PaddingValues(16.dp)
+                        spacing = Spacing.sm,
+                        contentPadding = PaddingValues(Spacing.lg)
                     )
                 } else if (entries.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "No patients reaching this milestone in the next 2 months.",
-                            modifier = Modifier.padding(24.dp),
+                            modifier = Modifier.padding(Spacing.xl),
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -99,19 +101,19 @@ fun MilestonePatientsScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(Spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(entries, key = { it.first.id }) { (patient, _, milestoneLabel, milestoneDate) ->
                             Card(
                                 modifier = Modifier.fillMaxWidth().clickable { onPatientClick(patient.id) },
-                                shape = RoundedCornerShape(16.dp),
+                                shape = MaterialTheme.shapes.large,
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                Column(modifier = Modifier.padding(Spacing.lg)) {
                                     Text(patient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(Spacing.xs))
                                     Text(
                                         "DOB: ${PatientUtils.formatDateForDisplay(patient.dob)}",
                                         style = MaterialTheme.typography.bodySmall,

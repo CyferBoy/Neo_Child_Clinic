@@ -1,9 +1,10 @@
 package com.neochildclinic.feature.patient.presentation
 
 import android.widget.Toast
+import kotlinx.coroutines.launch
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.core.common.Constants
@@ -38,8 +39,9 @@ fun AddPatientScreen(
     var isEditMode by rememberSaveable { mutableStateOf(false) }
     var registrationDate by rememberSaveable { mutableStateOf("") }
 
-    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    val scope = rememberCoroutineScope()
     // Load data if in edit mode
     LaunchedEffect(patientId) {
         if (patientId != null) {
@@ -66,6 +68,7 @@ fun AddPatientScreen(
 
     AddPatientContent(
         isEditMode = isEditMode,
+        snackbarHostState = snackbarHostState,
         onBack = onBack,
         clinicId = clinicId,
         onClinicIdChange = { clinicId = it },
@@ -115,7 +118,7 @@ fun AddPatientScreen(
         isLoading = isLoading,
         onSave = {
             if (name.isBlank() || dob.isBlank()) {
-                Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
+                scope.launch { snackbarHostState.showSnackbar("Please fill all required fields") }
             } else {
                 isLoading = true
                 val patient = Patient(
@@ -132,7 +135,7 @@ fun AddPatientScreen(
 
                 viewModel.savePatient(patient) {
                     isLoading = false
-                    Toast.makeText(context, if (isEditMode) "Patient Updated" else "Patient Added", Toast.LENGTH_SHORT).show()
+                    scope.launch { snackbarHostState.showSnackbar(if (isEditMode) "Patient Updated" else "Patient Added") }
                     if (isEditMode) onBack() else onNavigateToDetails(patient.id)
                 }
             }

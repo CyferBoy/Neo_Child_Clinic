@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.dashboard.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neochildclinic.core.designsystem.SuccessGreen
+import com.neochildclinic.core.designsystem.LocalCustomColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -60,9 +62,9 @@ internal fun HorizontalDateSelector(
         state = listState,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(vertical = Spacing.sm),
+        contentPadding = PaddingValues(horizontal = Spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         items(daysInMonth) { date ->
             val dateStr = date.toString()
@@ -88,20 +90,21 @@ internal fun DateItem(
     hasData: Boolean,
     onClick: () -> Unit
 ) {
+    val customColors = LocalCustomColors.current
     Card(
         onClick = onClick,
         modifier = Modifier.width(50.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
             contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) Spacing.xs else 1.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = Spacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(dayName, fontSize = 10.sp, fontWeight = FontWeight.Normal)
@@ -114,7 +117,8 @@ internal fun DateItem(
                     Box(
                         modifier = Modifier
                             .size(6.dp)
-                            .background(SuccessGreen, CircleShape)
+                            // Was SuccessGreen #4CAF50 (2.71:1). This is the verified content token (7.68:1).
+                            .background(customColors.textGreen, CircleShape)
                     )
                 }
             }

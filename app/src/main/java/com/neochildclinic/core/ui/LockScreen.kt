@@ -1,5 +1,7 @@
 package com.neochildclinic.core.ui
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
@@ -27,7 +29,7 @@ fun LockScreen(onAuthenticate: () -> Unit, onPasswordAuthenticate: (String) -> U
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(32.dp)
+                modifier = Modifier.padding(Spacing.xxl)
             ) {
                 Icon(
                     Icons.Default.Lock,
@@ -35,7 +37,7 @@ fun LockScreen(onAuthenticate: () -> Unit, onPasswordAuthenticate: (String) -> U
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(Spacing.xl))
                 Text(
                     "App Locked",
                     style = MaterialTheme.typography.headlineMedium,
@@ -56,15 +58,15 @@ fun LockScreen(onAuthenticate: () -> Unit, onPasswordAuthenticate: (String) -> U
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Fingerprint, null)
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(Spacing.md))
                     Text("Use fingerprint / device credential")
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Spacing.md))
 
                 TextButton(onClick = { password = ""; showPasswordDialog = true }) {
                     Icon(Icons.Default.Password, null)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text("Use account password")
                 }
 

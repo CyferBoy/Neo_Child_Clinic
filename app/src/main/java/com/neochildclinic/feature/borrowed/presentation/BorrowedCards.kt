@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.borrowed.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -53,14 +55,14 @@ fun BorrowedRecordCard(
                 onClick = onClick,
                 onLongClick = { menuExpanded = true }
             ),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
 
             // Row 1: Vaccine Name | Status
             Row(
@@ -77,20 +79,20 @@ fun BorrowedRecordCard(
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.width(8.dp))
-                Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
+                Spacer(Modifier.width(Spacing.sm))
+                Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
                     Text(
                         text = statusLabel(item.status),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = color,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
                     )
                 }
             }
 
             // Row 2: Borrowed / Returned / Remaining
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 QuantityStat("Borrowed", item.borrowedQuantity)
                 QuantityStat("Returned", item.returnedQuantity)
@@ -98,7 +100,7 @@ fun BorrowedRecordCard(
             }
 
             // Row 3: Batch & Expiry on the right side
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -124,7 +126,7 @@ fun BorrowedRecordCard(
             }
 
             // Row 4: Dates
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "Borrowed: ${formatDateForDisplay(item.borrowedDate)}",

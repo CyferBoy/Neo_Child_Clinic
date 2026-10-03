@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.DateDropdownPicker
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -32,7 +33,7 @@ fun RescheduleDialog(
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 DateDropdownPicker(
                     label = "New Due Date",

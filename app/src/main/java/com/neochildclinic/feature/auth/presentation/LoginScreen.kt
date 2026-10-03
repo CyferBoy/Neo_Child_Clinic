@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.auth.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -63,7 +65,7 @@ private fun LoginContent(
                 .fillMaxSize()
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(Spacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -73,7 +75,7 @@ private fun LoginContent(
                 modifier = Modifier.size(120.dp)
             )
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(Spacing.xxl))
             
             Text(
                 text = "Welcome Back",
@@ -88,7 +90,7 @@ private fun LoginContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(Spacing.xxl))
             
             StandardTextField(
                 value = email,
@@ -97,7 +99,7 @@ private fun LoginContent(
                 placeholder = "Enter your email"
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
             
             var passwordVisible by remember { mutableStateOf(false) }
             StandardTextField(
@@ -115,7 +117,7 @@ private fun LoginContent(
             )
             
             if (error != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 Text(
                     text = error,
                     color = MaterialTheme.colorScheme.error,
@@ -123,7 +125,7 @@ private fun LoginContent(
                 )
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(Spacing.xxl))
             
             StandardButton(
                 onClick = onLoginClick,

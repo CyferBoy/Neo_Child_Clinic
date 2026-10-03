@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
 import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
@@ -43,8 +45,8 @@ fun FinanceTable(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-            .padding(8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), MaterialTheme.shapes.small)
+            .padding(Spacing.sm)
     ) {
         FinanceTableHeader()
         HorizontalDivider()
@@ -59,7 +61,7 @@ fun FinanceTable(
 
 @Composable
 private fun FinanceTableHeader() {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm)) {
         Text("Month", Modifier.weight(1.15f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
         Text("Revenue", Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
         Text("COGS", Modifier.weight(0.9f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
@@ -72,7 +74,7 @@ private fun FinanceTableHeader() {
 private fun FinanceTableRow(data: FinanceSummaryItem, previous: FinanceSummaryItem?, onMonthClick: (String) -> Unit) {
     val improvement = if (data.isProfitComplete && (previous?.isProfitComplete != false)) FinanceCalculator.calculateImprovement(data.netProfit, previous?.netProfit ?: 0.0) else null
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onMonthClick(data.key) }.padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onMonthClick(data.key) }.padding(vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(data.label, Modifier.weight(1.15f), style = MaterialTheme.typography.bodySmall)
@@ -108,7 +110,7 @@ private fun FinanceTableTotalRow(dataList: List<FinanceSummaryItem>) {
     val totalNet = dataList.sumOf { it.netProfit }
     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("TOTAL", Modifier.weight(1.15f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)

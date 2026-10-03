@@ -40,14 +40,14 @@ fun DashboardTopBar(
                 Icon(
                     Icons.Default.Menu,
                     contentDescription = "Menu",
-                    tint = customColors.iconColor
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
-            titleContentColor = customColors.iconColor,
-            navigationIconContentColor = customColors.iconColor
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurface
         )
     )
 }

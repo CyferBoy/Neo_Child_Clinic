@@ -3,7 +3,6 @@ package com.neochildclinic.feature.patient.presentation
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Delete
@@ -19,12 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.PatientDocument
@@ -45,18 +44,23 @@ fun ConsultationRecordCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            // onClick is empty because ConsultationRecordCard has no tap action:
+            // unlike VaccinationRecordCard, nothing opens on tap. combinedClickable
+            // requires a non-null onClick in this Compose version, so the card
+            // currently ripples on tap and does nothing. Needs a product decision
+            // on what a consultation tap should open - see notes.
             .combinedClickable(
                 onClick = { },
                 onLongClick = onLongClick
             ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.card),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.card)) {
             // Row 1: Problem / Complaint | total fee
             Row(
                 modifier = Modifier.fillMaxWidth(), 
@@ -72,7 +76,7 @@ fun ConsultationRecordCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 Text(
                     text = "₹${consultation.amount.toInt()}",
                     style = MaterialTheme.typography.titleLarge,
@@ -92,7 +96,7 @@ fun ConsultationRecordCard(
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -134,7 +138,7 @@ fun ConsultationRecordCard(
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(Spacing.sm))
                 Text(
                     text = displayDoctor,
                     style = MaterialTheme.typography.labelMedium,
@@ -150,17 +154,21 @@ fun ConsultationRecordCard(
 fun DocumentCard(doc: PatientDocument, onView: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(Spacing.cardDense), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(doc.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                 Text("${doc.sizeKb} KB", style = MaterialTheme.typography.labelSmall)
             }
-            IconButton(onClick = onView) { Icon(Icons.Default.Visibility, null) }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+            IconButton(onClick = onView) { Icon(Icons.Default.Visibility, contentDescription = "View document") }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete document", tint = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
@@ -175,15 +183,16 @@ fun ClinicalNoteCard(note: PatientNote) {
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.cardDense)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = "By: ${note.author}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 Text(text = dateDisplay, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             Text(text = note.content, style = MaterialTheme.typography.bodyMedium)
         }
     }

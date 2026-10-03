@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.doctor.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,7 +26,7 @@ internal fun WeeklySlotsTab(
     onRemoveSlot: (String) -> Unit,
     onToggleEditMode: (Boolean) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -69,9 +71,9 @@ internal fun DaySlotSection(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
             Text(dayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
 
             if (slots.isEmpty()) {
                 Text(
@@ -89,13 +91,12 @@ internal fun DaySlotSection(
                         Text(
                             "\u2022 ${slot.timeRange.label()}",
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp)
+                            modifier = Modifier.padding(start = Spacing.xs, top = 2.dp, bottom = 2.dp)
                         )
                         if (editable) {
-                            IconButton(
-                                onClick = { onRemoveSlot(slot.id) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
+                            // Was sizing the IconButton itself, which overrode
+                            // minimumInteractiveComponentSize and left a 32dp target.
+                            IconButton(onClick = { onRemoveSlot(slot.id) }) {
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "Remove slot",
@@ -114,7 +115,7 @@ internal fun DaySlotSection(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(Spacing.xs))
                     Text("Add slot")
                 }
             }

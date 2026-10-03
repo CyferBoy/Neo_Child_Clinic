@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.statistics.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,14 +53,14 @@ fun VaccineDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
                         cardShaped = true,
-                        spacing = 8.dp,
-                        contentPadding = PaddingValues(16.dp)
+                        spacing = Spacing.sm,
+                        contentPadding = PaddingValues(Spacing.lg)
                     )
                 } else if (uiState.entries.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "No patients requiring this vaccine.",
-                            modifier = Modifier.padding(24.dp),
+                            modifier = Modifier.padding(Spacing.xl),
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -66,7 +68,7 @@ fun VaccineDetailScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(Spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(uiState.entries, key = { "${it.reminder.id}_${it.brandName}" }) { entry ->
@@ -74,17 +76,17 @@ fun VaccineDetailScreen(
                                 modifier = Modifier.fillMaxWidth().clickable {
                                     entry.patient?.id?.let { onPatientClick(it) }
                                 },
-                                shape = RoundedCornerShape(16.dp),
+                                shape = MaterialTheme.shapes.large,
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                Column(modifier = Modifier.padding(Spacing.lg)) {
                                     Text(
                                         entry.patient?.name ?: "Unknown Patient",
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(Spacing.xs))
                                     Text(
                                         "Next vaccine: ${entry.reminder.vaccineName}",
                                         style = MaterialTheme.typography.bodySmall,

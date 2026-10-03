@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.dashboard.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -67,7 +69,7 @@ internal fun AddTypeSelectionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Select Type", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Button(
                     onClick = { onSelect(TodayPatientTab.CONSULTATION) },
                     modifier = Modifier.fillMaxWidth(),
@@ -192,7 +194,7 @@ internal fun EnhancedAddTodoDialog(
             Text(if (type == TodayPatientTab.CONSULTATION) "$prefix Consultation" else "$prefix Vaccination")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Column {
                     OutlinedTextField(
                         value = name,
@@ -206,8 +208,8 @@ internal fun EnhancedAddTodoDialog(
                     )
                     if (suggestions.isNotEmpty() && selectedPatientId == null) {
                         Card(
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = Spacing.xs),
+                            modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs)
                         ) {
                             Column {
                                 suggestions.forEach { patient ->

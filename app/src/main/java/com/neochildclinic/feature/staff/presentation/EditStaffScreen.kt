@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.staff.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -11,10 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.UserRole
@@ -27,6 +28,7 @@ fun EditStaffScreen(
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
     val staff = remember(uiState.staffList, staffId) {
         uiState.staffList.find { it.id == staffId }
     }
@@ -35,14 +37,15 @@ fun EditStaffScreen(
     var phone by rememberSaveable(staff) { mutableStateOf(staff?.phoneNumber ?: "") }
     var selectedRole by remember(staff) { mutableStateOf(staff?.role ?: UserRole.nurse) }
 
-    MessageEffect(uiState.success, Toast.LENGTH_SHORT) {
+    ShowSnackbar(uiState.success, snackbarHostState, duration = SnackbarDuration.Short) {
         viewModel.clearMessages()
         onBack()
     }
-    MessageEffect(uiState.error) { viewModel.clearMessages() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearMessages() }
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -59,13 +62,13 @@ fun EditStaffScreen(
                         .fillMaxSize()
                         .padding(padding)
                         .verticalScroll(rememberScrollState())
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(Spacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                 ) {
                     StandardTextField(value = staff.email, onValueChange = {}, label = "Email Address", enabled = false)
                     StandardTextField(value = staff.id, onValueChange = {}, label = "Staff UUID", enabled = false)
                     
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(Modifier.padding(vertical = Spacing.sm))
 
                     StandardTextField(value = name, onValueChange = { name = it }, label = "Full Name")
                     StandardTextField(value = phone, onValueChange = { phone = it }, label = "Phone Number")
@@ -75,7 +78,7 @@ fun EditStaffScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(Modifier.padding(8.dp)) {
+                        Column(Modifier.padding(Spacing.sm)) {
                             UserRole.entries.forEach { role ->
                                 Row(
                                     modifier = Modifier
@@ -84,18 +87,18 @@ fun EditStaffScreen(
                                             selected = selectedRole == role,
                                             onClick = { selectedRole = role }
                                         )
-                                        .padding(12.dp),
+                                        .padding(Spacing.md),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     RadioButton(selected = selectedRole == role, onClick = { selectedRole = role })
-                                    Spacer(Modifier.width(12.dp))
+                                    Spacer(Modifier.width(Spacing.md))
                                     Text(role.name.replace("_", " ").uppercase())
                                 }
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(Spacing.xl))
 
                     Button(
                         onClick = { viewModel.updateStaffDetails(staffId, name, phone, selectedRole) },

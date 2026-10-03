@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.doctor.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.DoctorDropdown
@@ -27,13 +29,15 @@ fun WeeklyDoctorSlotsScreen(
     viewModel: WeeklyDoctorSlotsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
     var showAddExceptionDialog by remember { mutableStateOf(false) }
     var exceptionToDelete by remember { mutableStateOf<DoctorSlotException?>(null) }
 
-    MessageEffect(uiState.error) { viewModel.clearError() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearError() }
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -55,21 +59,21 @@ fun WeeklyDoctorSlotsScreen(
                         modifier = Modifier.fillMaxSize(),
                         count = 6,
                         cardShaped = true,
-                        contentPadding = PaddingValues(16.dp)
+                        contentPadding = PaddingValues(Spacing.lg)
                     )
                 } else if (uiState.allDoctors.isEmpty()) {
-                    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize().padding(Spacing.xl), contentAlignment = Alignment.Center) {
                         Text("No doctor accounts found.", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                 } else {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = Spacing.lg)
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.sm))
 
                         DoctorDropdown(
                             doctors = uiState.allDoctors,

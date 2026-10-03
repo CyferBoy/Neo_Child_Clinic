@@ -15,7 +15,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +28,8 @@ fun AddVaccineScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     var brandName by rememberSaveable { mutableStateOf("") }
     var type by rememberSaveable { mutableStateOf("") }
@@ -60,11 +64,12 @@ fun AddVaccineScreen(
         }
     }
 
-    MessageEffect(uiState.error) { viewModel.resetState() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.resetState() }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 BackTopAppBar(
                     title = { Text(if (vaccineId != null) "Edit Vaccine" else "Add Vaccine") },
@@ -76,9 +81,9 @@ fun AddVaccineScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 StandardAutoCompleteField(
                     value = type,
@@ -138,7 +143,7 @@ fun AddVaccineScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     StandardTextField(
                         value = mrp,
@@ -159,13 +164,15 @@ fun AddVaccineScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
 
                 StandardButton(
                     onClick = {
                         if (brandName.isBlank() || type.isBlank() || companyName.isBlank()) {
-                            Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
-                            return@StandardButton
+scope.launch {
+                    snackbarHostState.showSnackbar("Please fill all required fields")
+                }
+                return@StandardButton
                         }
                         viewModel.saveVaccine(
                             vaccineId, 

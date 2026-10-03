@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -16,11 +17,13 @@ import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.designsystem.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPatientContent(
     isEditMode: Boolean,
+    snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     clinicId: String,
     onClinicIdChange: (String) -> Unit,
@@ -45,6 +48,7 @@ fun AddPatientContent(
 ) {
     AppBackground {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -58,11 +62,11 @@ fun AddPatientContent(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .imePadding()
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     StandardTextField(
                         value = clinicId,
                         onValueChange = onClinicIdChange,
@@ -79,7 +83,7 @@ fun AddPatientContent(
                     )
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     StandardTextField(
                         value = phone,
                         onValueChange = onPhoneChange,
@@ -120,7 +124,7 @@ fun AddPatientContent(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 StandardButton(
                     onClick = onSave,
@@ -160,6 +164,7 @@ private fun AddPatientPreview() {
             address = "Sahibganj",
             onAddressChange = {},
             isLoading = false,
+            snackbarHostState = remember { SnackbarHostState() },
             onSave = {}
         )
     }

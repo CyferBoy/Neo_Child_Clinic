@@ -108,7 +108,7 @@ fun TodayPatientsScreen(
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(customColors.bgOffWhite)) {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
                 BackTopAppBar(
                     title = {
                         Row(
@@ -125,9 +125,9 @@ fun TodayPatientsScreen(
                     },
                     onBack = onBack,
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = customColors.bgOffWhite,
-                        titleContentColor = customColors.iconColor,
-                        navigationIconContentColor = customColors.iconColor
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 HorizontalDateSelector(
@@ -149,15 +149,15 @@ fun TodayPatientsScreen(
                 Icon(Icons.Default.Add, contentDescription = "Add Patient Entry")
             }
         },
-        containerColor = customColors.bgOffWhite
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = Spacing.lg)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 SegmentedButton(
@@ -179,7 +179,7 @@ fun TodayPatientsScreen(
             // availability/booking data; the row scrolls instead of shrinking/clipping
             // when there are many segments.
             if (uiState.slotSegments.size >= 2) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.md))
                 SingleChoiceSegmentedButtonRow(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                 ) {
@@ -194,7 +194,7 @@ fun TodayPatientsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
 
             AppPullToRefresh(
                 isRefreshing = isRefreshing,
@@ -204,7 +204,7 @@ fun TodayPatientsScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                 if (pendingList.isEmpty() && visitedList.isEmpty()) {
@@ -255,7 +255,7 @@ fun TodayPatientsScreen(
                         item {
                             Text(
                                 "Visited",
-                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                                modifier = Modifier.padding(top = Spacing.lg, bottom = Spacing.sm),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Gray

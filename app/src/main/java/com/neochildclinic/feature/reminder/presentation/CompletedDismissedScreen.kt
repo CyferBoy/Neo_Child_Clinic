@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.reminder.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -69,8 +71,8 @@ fun CompletedDismissedScreen(
                             modifier = Modifier.fillMaxSize(),
                             count = 8,
                             cardShaped = true,
-                            spacing = 8.dp,
-                            contentPadding = PaddingValues(16.dp)
+                            spacing = Spacing.sm,
+                            contentPadding = PaddingValues(Spacing.lg)
                         )
                     } else {
                         val visibleRecords = uiState.processedVaccinations.filter {
@@ -93,8 +95,8 @@ fun CompletedDismissedScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = PaddingValues(Spacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
                             ) {
                                 items(visibleRecords, key = { it.patientId + it.nextDueDate + it.status }) { vaccination ->
                                     val patient = remember(vaccination.patientId, uiState.patients) {

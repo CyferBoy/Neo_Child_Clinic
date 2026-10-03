@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -19,9 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neochildclinic.core.designsystem.LocalCustomColors
-import com.neochildclinic.core.designsystem.SuccessGreen
-import com.neochildclinic.core.designsystem.ErrorRed
+import com.neochildclinic.core.designsystem.*
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +40,7 @@ fun FilterSection(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         var yearExpanded by remember { mutableStateOf(false) }
         val currentFY = StatisticsUtils.displayFilterMode(filterMode)
@@ -58,9 +55,9 @@ fun FilterSection(
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
                 colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.menuAnchor(),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                textStyle = MaterialTheme.typography.labelSmall
             )
             ExposedDropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
                 DropdownMenuItem(
@@ -92,9 +89,9 @@ fun FilterSection(
                     disabledContainerColor = disabledContainerColor,
                     disabledTextColor = disabledTextColor
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.menuAnchor(),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                textStyle = MaterialTheme.typography.labelSmall
             )
             if (quarterEnabled) {
                 ExposedDropdownMenu(expanded = qExpanded, onDismissRequest = { qExpanded = false }) {
@@ -122,9 +119,9 @@ fun FilterSection(
                     disabledContainerColor = disabledContainerColor,
                     disabledTextColor = disabledTextColor
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.menuAnchor(),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                textStyle = MaterialTheme.typography.labelSmall
             )
             if (monthEnabled) {
                 ExposedDropdownMenu(expanded = mExpanded, onDismissRequest = { mExpanded = false }) {
@@ -153,10 +150,10 @@ fun SummaryCard(
     
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(customColors.bgOffWhite)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-            .padding(16.dp)
+            .clip(StatTileShape)
+            .background(MaterialTheme.colorScheme.background)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), StatTileShape)
+            .padding(Spacing.lg)
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -171,10 +168,10 @@ fun SummaryCard(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(Spacing.xl)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(Spacing.md))
                 Column {
                     Text(
                         text = title,
@@ -185,24 +182,25 @@ fun SummaryCard(
                         text = value,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 22.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
             
             if (growthPercentage != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val isPositive = growthPercentage >= 0
-                    val color = if (isPositive) SuccessGreen else ErrorRed
+                    // Was SuccessGreen #4CAF50 (2.71:1) / ErrorRed #F44336 (3.59:1) - both
+                    // below AA for text. These are the verified content tokens: 7.68:1 / 5.48:1.
+                    val color = if (isPositive) customColors.textGreen else MaterialTheme.colorScheme.error
                     val arrowIcon = if (isPositive) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward
                     
                     Icon(
                         imageVector = arrowIcon,
                         contentDescription = null,
                         tint = color,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(Spacing.md)
                     )
                     Text(
                         text = String.format(Locale.US, "%.1f%%", kotlin.math.abs(growthPercentage)),
@@ -210,7 +208,7 @@ fun SummaryCard(
                         color = color,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs))
                     Text(
                         text = "vs previous period",
                         style = MaterialTheme.typography.labelSmall,

@@ -18,6 +18,7 @@ import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.ReminderStats
 import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.designsystem.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -44,8 +45,8 @@ fun DueTab(
     var showDismissDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+        contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.lg)
     ) {
         item {
             CompletedDismissedSummaryCards(
@@ -54,7 +55,7 @@ fun DueTab(
                 onCompletedClick = onNavigateToCompleted,
                 onDismissedClick = onNavigateToDismissed
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
         }
 
         item {
@@ -67,9 +68,9 @@ fun DueTab(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Search by name or phone...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
         }
 
         item {
@@ -78,12 +79,12 @@ fun DueTab(
                 selectedFilter = initialFilter,
                 onFilterChanged = onFilterChanged
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
         }
 
         if (filteredVaccinations.isEmpty()) {
             item {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxl), contentAlignment = Alignment.Center) {
                     Text("No vaccinations due.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -103,7 +104,7 @@ fun DueTab(
                     onClick = { onPatientClick(v.patientId) },
                     modifier = Modifier.animateItem()
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.md))
             }
         }
     }

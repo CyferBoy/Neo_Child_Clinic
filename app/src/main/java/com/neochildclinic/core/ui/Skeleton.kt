@@ -1,5 +1,7 @@
 package com.neochildclinic.core.ui
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -94,7 +96,7 @@ fun SkeletonLine(
         modifier = modifier
             .fillMaxWidth(widthFraction)
             .height(height),
-        shape = RoundedCornerShape(4.dp),
+        shape = MaterialTheme.shapes.extraSmall,
         brush = brush
     )
 }
@@ -127,23 +129,23 @@ fun SkeletonListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showLeadingIcon) {
                 SkeletonCircle(size = 44.dp, brush = brush)
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(Spacing.lg))
             }
             Column(modifier = Modifier.weight(1f)) {
-                SkeletonLine(widthFraction = 0.55f, height = 16.dp, brush = brush)
-                Spacer(modifier = Modifier.height(8.dp))
-                SkeletonLine(widthFraction = 0.35f, height = 12.dp, brush = brush)
+                SkeletonLine(widthFraction = 0.55f, height = Spacing.lg, brush = brush)
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                SkeletonLine(widthFraction = 0.35f, height = Spacing.md, brush = brush)
             }
             if (showTrailing) {
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(Spacing.md))
                 SkeletonBox(
-                    modifier = Modifier.size(width = 56.dp, height = 24.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(width = 56.dp, height = Spacing.xl),
+                    shape = MaterialTheme.shapes.medium,
                     brush = brush
                 )
             }
@@ -154,7 +156,7 @@ fun SkeletonListItem(
         androidx.compose.foundation.layout.Box(
             modifier = modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(ChartContainerShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) { rowContent() }
     } else {
@@ -170,7 +172,7 @@ fun SkeletonList(
     showLeadingIcon: Boolean = true,
     showTrailing: Boolean = false,
     cardShaped: Boolean = false,
-    spacing: Dp = 8.dp,
+    spacing: Dp = Spacing.sm,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     Column(modifier = modifier.padding(contentPadding)) {
@@ -186,7 +188,7 @@ fun SkeletonList(
 fun SkeletonCard(
     modifier: Modifier = Modifier,
     height: Dp = 100.dp,
-    shape: Shape = RoundedCornerShape(16.dp)
+    shape: Shape = MaterialTheme.shapes.large
 ) {
     SkeletonBox(
         modifier = modifier

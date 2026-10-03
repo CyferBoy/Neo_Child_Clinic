@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.borrowed.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -199,7 +201,7 @@ private fun BorrowedContent(
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Box(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = uiState.selectedTab == 0,
@@ -225,8 +227,8 @@ private fun BorrowedContent(
                             modifier = Modifier.fillMaxSize(),
                             count = 8,
                             cardShaped = true,
-                            spacing = 12.dp,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                            spacing = Spacing.md,
+                            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xs)
                         )
                     } else if (filteredList.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -237,9 +239,9 @@ private fun BorrowedContent(
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(bottom = 80.dp, top = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+                            contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
                         ) {
                             items(filteredList, key = { it.id }) { item ->
                                 BorrowedRecordCard(
@@ -284,9 +286,9 @@ fun BorrowedEditDialog(
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FilterChip(
                         selected = type == "BY",
                         onClick = { type = "BY" },
@@ -341,7 +343,7 @@ fun BorrowedEditDialog(
 
                 StandardTextField(value = borrowedDate, onValueChange = { borrowedDate = it }, label = "Date (yyyy-MM-dd)", modifier = Modifier.fillMaxWidth())
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     StandardTextField(value = batchNumber, onValueChange = { batchNumber = it }, label = "Batch Number", modifier = Modifier.weight(1f), enabled = false)
                     StandardTextField(
                         value = quantity.toString(),

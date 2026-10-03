@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +38,7 @@ fun SearchScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = customColors.bgOffWhite
+        color = MaterialTheme.colorScheme.background
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -62,12 +64,16 @@ fun SearchScreen(
                 if (uiState.isLoading && uiState.results.isEmpty()) {
                     SkeletonList(modifier = Modifier.fillMaxSize(), count = 8)
                 } else if (uiState.results.isEmpty() && query.isNotBlank()) {
-                    EmptyState("No results found for \"$query\"")
+                    EmptyState(
+                        icon = Icons.Default.SearchOff,
+                        title = "No results for \"$query\"",
+                        message = "Check the spelling, or try a name, phone number or vaccine."
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         items(uiState.results, key = { it.id }) { patient ->
                             SearchResultItem(
@@ -93,14 +99,14 @@ private fun SearchResultItem(
             .fillMaxWidth()
             .shadow(
                 elevation = 2.dp,
-                shape = RoundedCornerShape(24.dp),
+                shape = ChartContainerShape,
                 ambientColor = Color.Black.copy(alpha = 0.05f)
             )
-            .clip(RoundedCornerShape(24.dp))
+            .clip(ChartContainerShape)
             .background(customColors.softBlue)
             .clickable(onClick = onClick)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             Text(
                 text = patient.name,
                 style = MaterialTheme.typography.titleMedium,

@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.staff.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -14,10 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
@@ -33,6 +34,7 @@ fun StaffDetailsScreen(
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+val snackbarHostState = remember { SnackbarHostState() }
     val staff = remember(uiState.staffList, staffId) {
         uiState.staffList.find { it.id == staffId }
     }
@@ -40,8 +42,8 @@ fun StaffDetailsScreen(
     var showStatusDialog by remember { mutableStateOf(false) }
     var showPasswordResetDialog by remember { mutableStateOf(false) }
 
-    MessageEffect(uiState.success, Toast.LENGTH_SHORT) { viewModel.clearMessages() }
-    MessageEffect(uiState.error) { viewModel.clearMessages() }
+    ShowSnackbar(uiState.success, snackbarHostState, duration = SnackbarDuration.Short) { viewModel.clearMessages() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearMessages() }
 
     if (showDeleteDialog && staff != null) {
         AlertDialog(
@@ -94,6 +96,7 @@ fun StaffDetailsScreen(
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -118,14 +121,14 @@ fun StaffDetailsScreen(
                     .padding(padding)
             ) {
                 if (staff == null) {
-                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(16.dp))
+                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(Spacing.lg))
                 } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                 ) {
                     StaffHeaderSection(staff)
 
@@ -153,7 +156,7 @@ fun StaffDetailsScreen(
                         Text("No recent activity recorded.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     
                     Text("Admin Actions", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     
@@ -161,14 +164,14 @@ fun StaffDetailsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
                     ) {
-                        Column(Modifier.padding(8.dp)) {
+                        Column(Modifier.padding(Spacing.sm)) {
                             TextButton(
                                 onClick = { showPasswordResetDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.LockReset, null)
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(Spacing.sm))
                                 Text("Reset Password")
                             }
                             
@@ -178,7 +181,7 @@ fun StaffDetailsScreen(
                                 colors = ButtonDefaults.textButtonColors(contentColor = if (staff.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(if (staff.isActive) Icons.Default.Block else Icons.Default.CheckCircle, null)
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(Spacing.sm))
                                 Text(if (staff.isActive) "Deactivate Account" else "Activate Account")
                             }
 
@@ -188,13 +191,13 @@ fun StaffDetailsScreen(
                                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
                                 Icon(Icons.Default.Delete, null)
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(Spacing.sm))
                                 Text("Delete Staff Member")
                             }
                         }
                     }
                     
-                    Spacer(Modifier.height(32.dp))
+                    Spacer(Modifier.height(Spacing.xxl))
                 }
                 }
             }
@@ -209,7 +212,7 @@ private fun StaffHeaderSection(staff: Profile) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
     ) {
         Column(
-            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            modifier = Modifier.padding(Spacing.xl).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
@@ -226,18 +229,18 @@ private fun StaffHeaderSection(staff: Profile) {
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.lg))
             Text(staff.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(staff.role.name.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             
             Surface(
                 color = if (staff.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
                 shape = CircleShape,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = Spacing.sm)
             ) {
                 Text(
                     text = if (staff.isActive) "Active" else "Inactive",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (staff.isActive) Color(0xFF2E7D32) else Color(0xFFC62828)
                 )
@@ -253,13 +256,13 @@ private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Un
             text = title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = Spacing.sm, bottom = Spacing.sm)
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                 content()
             }
         }
@@ -270,7 +273,7 @@ private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Un
 private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(Spacing.lg))
         Column {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyLarge)

@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.update.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
@@ -53,16 +55,16 @@ fun StartupUpdateBanner(
         modifier = modifier
             .statusBarsPadding()
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 6.dp,
-        shadowElevation = 8.dp
+        shadowElevation = Spacing.sm
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -70,7 +72,7 @@ fun StartupUpdateBanner(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Update available",

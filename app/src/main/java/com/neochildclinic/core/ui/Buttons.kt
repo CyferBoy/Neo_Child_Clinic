@@ -1,6 +1,5 @@
 package com.neochildclinic.core.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,24 +8,36 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.Alignment
 
+/**
+ * Shows a one-off message in the nearest Scaffold's Snackbar.
+ *
+ * Replaces the old `MessageEffect`, which used [Toast]. A Toast is the wrong
+ * surface here: it auto-dismisses on a timer, so a failed save or a dropped
+ * upload can vanish before a clinician reads it, it is unstyled in dark mode, and
+ * it carries no severity. A Snackbar is an announced live region that respects
+ * the theme and can be held for as long as the message needs.
+ *
+ * Requires a `SnackbarHost(snackbarHostState)` on the screen's Scaffold -
+ * without one `showSnackbar` is a no-op and the message is silently dropped.
+ *
+ * [duration] defaults to [SnackbarDuration.Long]: pass [SnackbarDuration.Short]
+ * for routine success confirmations, and keep the default for errors.
+ */
 @Composable
-fun EmptyState(message: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(message, color = color)
-    }
-}
-
-@Composable
-fun MessageEffect(message: String?, duration: Int = Toast.LENGTH_LONG, onShown: () -> Unit = {}) {
-    val context = LocalContext.current
+fun ShowSnackbar(
+    message: String?,
+    hostState: SnackbarHostState,
+    duration: SnackbarDuration = SnackbarDuration.Long,
+    onShown: () -> Unit = {}
+) {
     LaunchedEffect(message) {
         if (message != null) {
-            Toast.makeText(context, message, duration).show()
+            hostState.showSnackbar(message, duration = duration)
             onShown()
         }
     }
@@ -70,7 +81,7 @@ fun StandardButton(
     enabled: Boolean = true,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
-    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    shape: Shape = MaterialTheme.shapes.medium,
     isLoading: Boolean = false,
     content: @Composable RowScope.() -> Unit
 ) {

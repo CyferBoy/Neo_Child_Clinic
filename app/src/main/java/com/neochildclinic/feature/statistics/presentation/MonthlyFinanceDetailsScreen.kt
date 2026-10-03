@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
@@ -112,14 +114,14 @@ fun MonthlyFinanceDetailsScreen(
                         modifier = Modifier.fillMaxSize(),
                         count = 5,
                         cardShaped = true,
-                        spacing = 12.dp,
-                        contentPadding = PaddingValues(16.dp)
+                        spacing = Spacing.md,
+                        contentPadding = PaddingValues(Spacing.lg)
                     )
                 } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     item {
                         FinanceMonthSummary(
@@ -141,7 +143,7 @@ fun MonthlyFinanceDetailsScreen(
                             ) {
                                 Text(
                                     "Net profit is unavailable because ${monthStats.missingCogsSnapshotCount} vaccination income transaction(s) are missing historical COGS data.",
-                                    modifier = Modifier.padding(14.dp),
+                                    modifier = Modifier.padding(Spacing.cardDense),
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -188,19 +190,19 @@ private fun FinanceMonthSummary(
     netProfit: Double,
     profitAvailable: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SummaryAmountCard(
             title = "Revenue",
             amount = revenue,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 PaymentSummary("Cash", cash, Modifier.weight(1f))
                 PaymentSummary("Online", online, Modifier.weight(1f))
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             SummaryAmountCard(
                 title = "COGS + Expenses",
                 amount = cogsAndExpenses,
@@ -225,7 +227,7 @@ private fun SummaryAmountCard(
     content: @Composable (() -> Unit)? = null
 ) {
     Card(modifier = modifier) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.padding(Spacing.cardDense), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(
                 title,
                 style = MaterialTheme.typography.labelLarge,
@@ -285,7 +287,7 @@ private fun FinanceTransactionCard(
 
     Card(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().padding(14.dp),
+            Modifier.fillMaxWidth().padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -312,9 +314,9 @@ private fun FinanceTransactionCard(
                 )
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.md))
 
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(
                     amountText,
                     style = MaterialTheme.typography.titleMedium,

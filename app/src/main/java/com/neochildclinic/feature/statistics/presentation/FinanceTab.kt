@@ -145,7 +145,7 @@ private fun FinanceContent(
 ) {
     val customColors = LocalCustomColors.current
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(Spacing.lg)) {
         FilterSection(
             availableYears = availableYears.reversed().map { "20$it" },
             filterMode = filterMode,
@@ -154,10 +154,10 @@ private fun FinanceContent(
             onFilterModeChange = onFilterModeChange,
             onQuarterChange = onQuarterChange,
             onMonthChange = onMonthChange,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = Spacing.sm)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         // Surfaces FinanceStatsData.invalidTransactionDateCount, which was already being
         // computed but never shown anywhere - a transaction whose date/timestamp genuinely
@@ -171,16 +171,16 @@ private fun FinanceContent(
             ) {
                 Text(
                     "${currentStats.invalidTransactionDateCount} transaction(s) have a date that couldn't be read and are excluded from every total shown here.",
-                    modifier = Modifier.padding(14.dp),
+                    modifier = Modifier.padding(Spacing.cardDense),
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
         }
 
         Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         SummaryCard(
             modifier = Modifier.fillMaxWidth(),
@@ -192,9 +192,9 @@ private fun FinanceContent(
             growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
         )
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Cash",
@@ -215,9 +215,9 @@ private fun FinanceContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "COGS + Expense",
@@ -239,27 +239,27 @@ private fun FinanceContent(
         }
 
         if (!currentStats.isProfitComplete) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(16.dp)
+                shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(Spacing.lg)) {
                     Text("Incomplete Profit Calculation", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Spacing.xs))
                     Text("Some vaccination records are missing historical cost data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
         Text("Expenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         // Additive section (task section 7): sourced from the separate `expenses` table,
         // not merged into currentStats/prevStats above (which remain finance_transactions-
         // only, unchanged). Total Income here is currentStats.totalRevenue (vaccination +
         // consultation income, already computed by FinanceCalculator).
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
                 title = "Total Expenses",
@@ -280,9 +280,9 @@ private fun FinanceContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
         Text("Financial Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         
         FinanceTable(
             transactions = filteredTransactions,
@@ -294,7 +294,7 @@ private fun FinanceContent(
             visitDatesById = visitDatesById
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
     }
 }
 

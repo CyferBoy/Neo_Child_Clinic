@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.dashboard.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,7 +43,7 @@ fun DashboardCardSmall(
             .clip(RoundedCornerShape(18.dp))
             .background(containerColor)
             .clickable { onClick() }
-            .padding(8.dp),
+            .padding(Spacing.sm),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -54,7 +56,7 @@ fun DashboardCardSmall(
                 tint = contentColor,
                 modifier = Modifier.size(22.dp)
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
                 text = title,
                 fontSize = 13.sp,
@@ -83,13 +85,13 @@ fun DashboardCard(
             .height(height)
             .shadow(
                 elevation = 2.dp,
-                shape = RoundedCornerShape(24.dp),
+                shape = ChartContainerShape,
                 ambientColor = Color.Black.copy(alpha = 0.05f)
             )
-            .clip(RoundedCornerShape(24.dp))
+            .clip(ChartContainerShape)
             .background(if (isRestricted) containerColor.copy(alpha = 0.4f) else containerColor)
             .clickable(enabled = !isRestricted) { onClick() }
-            .padding(16.dp)
+            .padding(Spacing.lg)
     ) {
         // Optional top badge
         if (badge != null && !isRestricted) {
@@ -98,9 +100,9 @@ fun DashboardCard(
                     .align(Alignment.TopEnd)
                     .background(
                         color = contentColor.copy(alpha = 0.25f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(horizontal = Spacing.sm, vertical = 2.dp)
             ) {
                 Text(
                     text = badge,
@@ -131,7 +133,7 @@ fun DashboardCard(
                 color = contentColor
             )
             if (subtitle != null) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Spacing.xs))
                 Text(
                     text = subtitle,
                     fontSize = 11.sp,

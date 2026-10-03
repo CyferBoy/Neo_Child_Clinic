@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +29,7 @@ import com.neochildclinic.domain.model.PatientDocument
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
 import com.neochildclinic.core.common.PatientUtils.formatAgeYearsMonths
+import com.neochildclinic.core.designsystem.*
 import kotlinx.coroutines.launch
 
 @Composable
@@ -77,9 +77,9 @@ fun PatientDetailsContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 100.dp, top = 16.dp)
+                .padding(horizontal = Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+            contentPadding = PaddingValues(bottom = 100.dp, top = Spacing.lg)
         ) {
             item { PatientInfoSection(patient) }
 
@@ -146,7 +146,7 @@ fun PatientDetailsContent(
                     SectionHeader("Documents")
                     TextButton(onClick = onUploadDocument) {
                         Icon(Icons.Default.Upload, null)
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(Spacing.xs))
                         Text("Upload")
                     }
                 }
@@ -194,11 +194,12 @@ fun PatientInfoSection(patient: Patient) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.padding(Spacing.card), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(24.dp),
+                    // 48dp square with a 24dp radius is a circle; say so.
+                    shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -210,7 +211,7 @@ fun PatientInfoSection(patient: Patient) {
                         )
                     }
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.md))
                 Column {
                     Text(text = patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
@@ -262,7 +263,7 @@ private fun InfoGridRow(
     // rather than clipping or forcing the other column into a squeezed box.
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xl)
     ) {
         Box(
             modifier = if (leftClickable) {
@@ -287,14 +288,14 @@ private fun InfoGridRow(
 fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(Spacing.sm))
         Text(text = text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
 private fun SectionHeader(title: String) {
-    Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+    Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = Spacing.sm))
 }
 
 @Composable
@@ -304,6 +305,10 @@ private fun EmptySectionText(text: String) {
 
 @Composable
 fun InventoryDeductionsDialog(deductions: List<InventoryDeduction>, onDismiss: () -> Unit) {
+    // Material 3 has no success role. CustomColors already carries the verified
+    // green pair (softGreen / textGreen), so reuse it rather than adding a new
+    // semantic layer for one call site.
+    val customColors = LocalCustomColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Inventory Deduction Status") },
@@ -313,13 +318,18 @@ fun InventoryDeductionsDialog(deductions: List<InventoryDeduction>, onDismiss: (
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                     items(deductions) { deduction ->
-                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                        Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
                             Text(deduction.vaccineName, fontWeight = FontWeight.Bold)
-                            Text(text = deduction.status, color = if (deduction.status == "COMPLETED") Color(0xFF4CAF50) else Color.Red, style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                text = deduction.status,
+                                color = if (deduction.status == "COMPLETED") customColors.textGreen
+                                        else MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.labelSmall
+                            )
                             if (deduction.errorMessage != null) {
-                                Text(deduction.errorMessage, style = MaterialTheme.typography.bodySmall, color = Color.Red)
+                                Text(deduction.errorMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                             }
-                            HorizontalDivider(modifier = Modifier.padding(top = 4.dp).alpha(0.5f))
+                            HorizontalDivider(modifier = Modifier.padding(top = Spacing.xs).alpha(0.5f))
                         }
                     }
                 }

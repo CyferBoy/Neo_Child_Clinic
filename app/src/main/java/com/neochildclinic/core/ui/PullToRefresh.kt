@@ -1,5 +1,7 @@
 package com.neochildclinic.core.ui
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -112,7 +114,7 @@ private fun HorizontalLineRefreshIndicator(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(4.dp)
+            .height(Spacing.xs)
             .graphicsLayer {
                 scaleX = lineFraction
                 alpha = if (isRefreshing) pulseAlpha else 1f

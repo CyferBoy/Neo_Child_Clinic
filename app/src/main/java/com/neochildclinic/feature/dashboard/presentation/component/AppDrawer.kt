@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.dashboard.presentation.component
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,7 +48,7 @@ fun AppDrawer(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.primaryContainer)
                 .clickable { onProfileClick() }
-                .padding(24.dp)
+                .padding(Spacing.xl)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
@@ -63,7 +65,7 @@ fun AppDrawer(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(Spacing.lg))
                 Column {
                     Text(
                         text = userName,
@@ -77,7 +79,7 @@ fun AppDrawer(
                             shape = CircleShape,
                             modifier = Modifier.size(8.dp)
                         ) {}
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(Spacing.xs))
                         Text(
                             text = userRole?.name?.replace("_", " ")?.uppercase() ?: "STAFF",
                             style = MaterialTheme.typography.labelMedium,
@@ -94,7 +96,7 @@ fun AppDrawer(
                 .verticalScroll(rememberScrollState())
                 .padding(NavigationDrawerItemDefaults.ItemPadding)
         ) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
 
             // Dashboard
             DrawerMenuItem(
@@ -153,12 +155,12 @@ fun AppDrawer(
         }
 
         // Divider above the fixed footer
-        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm))
 
         // Drawer Footer
         Column(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(Spacing.lg)
                 .fillMaxWidth()
         ) {
             Row(
@@ -174,7 +176,7 @@ fun AppDrawer(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clickable { onSyncClick() }
-                        .padding(8.dp)
+                        .padding(Spacing.sm)
                 ) {
                     val status = when {
                         !isOnline -> Triple(Icons.Default.CloudOff, MaterialTheme.colorScheme.error, "Offline")
@@ -183,7 +185,7 @@ fun AppDrawer(
                         else -> Triple(Icons.Default.CloudDone, Color(0xFF4CAF50), "Online")
                     }
                     Icon(status.first, null, tint = status.second, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text(
                         text = status.third,
                         style = MaterialTheme.typography.labelMedium,
@@ -200,7 +202,7 @@ fun AppDrawer(
                 text = "v$appVersion",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = Spacing.sm)
             )
         }
     }

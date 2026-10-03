@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.staff.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -16,10 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.MessageEffect
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.UserRole
@@ -32,6 +33,7 @@ fun AddStaffScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+val snackbarHostState = remember { SnackbarHostState() }
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
@@ -40,14 +42,15 @@ fun AddStaffScreen(
     var selectedRole by remember { mutableStateOf(UserRole.nurse) }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    MessageEffect(uiState.success, Toast.LENGTH_SHORT) {
+    ShowSnackbar(uiState.success, snackbarHostState, duration = SnackbarDuration.Short) {
         viewModel.clearMessages()
         onBack()
     }
-    MessageEffect(uiState.error) { viewModel.clearMessages() }
+    ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearMessages() }
 
     AppBackground {
         Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -61,8 +64,8 @@ fun AddStaffScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(Spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 StandardTextField(value = name, onValueChange = { name = it }, label = "Full Name", placeholder = "Rahul Kumar")
                 StandardTextField(value = email, onValueChange = { email = it }, label = "Email Address", placeholder = "rahul@gmail.com")
@@ -86,7 +89,7 @@ fun AddStaffScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
-                    Column(Modifier.padding(8.dp)) {
+                    Column(Modifier.padding(Spacing.sm)) {
                         UserRole.entries.forEach { role ->
                             Row(
                                 modifier = Modifier
@@ -95,18 +98,18 @@ fun AddStaffScreen(
                                         selected = selectedRole == role,
                                         onClick = { selectedRole = role }
                                     )
-                                    .padding(12.dp),
+                                    .padding(Spacing.md),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 RadioButton(selected = selectedRole == role, onClick = { selectedRole = role })
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(Spacing.md))
                                 Text(role.name.replace("_", " ").uppercase())
                             }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(Spacing.xl))
 
                 Button(
                     onClick = { viewModel.createStaffAccount(name, email, password, selectedRole, employeeId.ifBlank { null }, phone.ifBlank { null }) },

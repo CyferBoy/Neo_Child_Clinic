@@ -1,5 +1,7 @@
 package com.neochildclinic.feature.doctor.presentation
 
+import com.neochildclinic.core.designsystem.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -38,16 +40,16 @@ internal fun AddExceptionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Exception") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 DateDropdownPicker(label = "Date", currentDate = date, onDateSelected = { date = it })
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = fullDay, onClick = { fullDay = true })
-                    Text("Entire day unavailable", modifier = Modifier.padding(start = 4.dp))
+                    Text("Entire day unavailable", modifier = Modifier.padding(start = Spacing.xs))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = !fullDay, onClick = { fullDay = false })
-                    Text("Custom time unavailable", modifier = Modifier.padding(start = 4.dp))
+                    Text("Custom time unavailable", modifier = Modifier.padding(start = Spacing.xs))
                 }
 
                 if (!fullDay) {
@@ -58,7 +60,7 @@ internal fun AddExceptionDialog(
                         label = { Text("Time Range") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         OutlinedButton(onClick = { showStartTimePicker = true }) {
                             Text("Start: ${TimeRange.formatMinuteOfDay(startMinute)}")
                         }
