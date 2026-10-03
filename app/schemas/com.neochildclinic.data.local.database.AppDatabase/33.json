@@ -1,0 +1,3285 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 33,
+    "identityHash": "481cde91e244e588ab5ad8419e45ce79",
+    "entities": [
+      {
+        "tableName": "patients",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `patientClinicId` TEXT, `name` TEXT NOT NULL, `phone` TEXT NOT NULL, `alternatePhone` TEXT, `dob` TEXT NOT NULL, `gender` TEXT NOT NULL, `address` TEXT, `registrationDate` TEXT, `attachments` TEXT, `updatedAt` TEXT, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientClinicId",
+            "columnName": "patientClinicId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alternatePhone",
+            "columnName": "alternatePhone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dob",
+            "columnName": "dob",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gender",
+            "columnName": "gender",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "registrationDate",
+            "columnName": "registrationDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attachments",
+            "columnName": "attachments",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_patients_patientClinicId",
+            "unique": true,
+            "columnNames": [
+              "patientClinicId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_patients_patientClinicId` ON `${TABLE_NAME}` (`patientClinicId`)"
+          },
+          {
+            "name": "index_patients_name",
+            "unique": false,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patients_name` ON `${TABLE_NAME}` (`name`)"
+          },
+          {
+            "name": "index_patients_phone",
+            "unique": false,
+            "columnNames": [
+              "phone"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patients_phone` ON `${TABLE_NAME}` (`phone`)"
+          },
+          {
+            "name": "index_patients_isSynced",
+            "unique": false,
+            "columnNames": [
+              "isSynced"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patients_isSynced` ON `${TABLE_NAME}` (`isSynced`)"
+          }
+        ]
+      },
+      {
+        "tableName": "patient_visits",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `patientId` TEXT NOT NULL, `dateGiven` TEXT NOT NULL, `doctorId` TEXT NOT NULL, `doctor` TEXT NOT NULL, `vaccineNames` TEXT NOT NULL, `vaccineIds` TEXT NOT NULL, `batchIds` TEXT NOT NULL, `batchNumbers` TEXT NOT NULL, `materialsUsed` TEXT, `notes` TEXT NOT NULL, `receiptNumber` TEXT NOT NULL, `totalPaid` REAL NOT NULL, `paymentId` TEXT, `nxtVaccineNames` TEXT NOT NULL, `nextDueDate` TEXT NOT NULL, `cashAmount` REAL NOT NULL, `onlineAmount` REAL NOT NULL, `withFees` INTEGER NOT NULL, `doctorsAcc` INTEGER NOT NULL, `status` TEXT NOT NULL, `source` TEXT NOT NULL, `visitType` TEXT NOT NULL, `inventoryStatus` TEXT NOT NULL, `availabilitySlotId` TEXT, `createdAt` TEXT, `updatedAt` TEXT, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateGiven",
+            "columnName": "dateGiven",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorId",
+            "columnName": "doctorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctor",
+            "columnName": "doctor",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineNames",
+            "columnName": "vaccineNames",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineIds",
+            "columnName": "vaccineIds",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchIds",
+            "columnName": "batchIds",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchNumbers",
+            "columnName": "batchNumbers",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "materialsUsed",
+            "columnName": "materialsUsed",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "receiptNumber",
+            "columnName": "receiptNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalPaid",
+            "columnName": "totalPaid",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "paymentId",
+            "columnName": "paymentId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "nxtVaccineNames",
+            "columnName": "nxtVaccineNames",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextDueDate",
+            "columnName": "nextDueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cashAmount",
+            "columnName": "cashAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "onlineAmount",
+            "columnName": "onlineAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "withFees",
+            "columnName": "withFees",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorsAcc",
+            "columnName": "doctorsAcc",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "visitType",
+            "columnName": "visitType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inventoryStatus",
+            "columnName": "inventoryStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "availabilitySlotId",
+            "columnName": "availabilitySlotId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_patient_visits_patientId",
+            "unique": false,
+            "columnNames": [
+              "patientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_visits_patientId` ON `${TABLE_NAME}` (`patientId`)"
+          },
+          {
+            "name": "index_patient_visits_receiptNumber",
+            "unique": false,
+            "columnNames": [
+              "receiptNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_visits_receiptNumber` ON `${TABLE_NAME}` (`receiptNumber`)"
+          },
+          {
+            "name": "index_patient_visits_doctor",
+            "unique": false,
+            "columnNames": [
+              "doctor"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_visits_doctor` ON `${TABLE_NAME}` (`doctor`)"
+          },
+          {
+            "name": "index_patient_visits_isSynced",
+            "unique": false,
+            "columnNames": [
+              "isSynced"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_visits_isSynced` ON `${TABLE_NAME}` (`isSynced`)"
+          },
+          {
+            "name": "index_patient_visits_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_visits_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_patient_visits_dateGiven",
+            "unique": false,
+            "columnNames": [
+              "dateGiven"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_visits_dateGiven` ON `${TABLE_NAME}` (`dateGiven`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "patients",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "patientId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "reminders",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverId` TEXT, `patientId` TEXT NOT NULL, `originalVisitId` TEXT NOT NULL, `vaccineName` TEXT NOT NULL, `dueDate` TEXT NOT NULL, `status` TEXT NOT NULL, `priority` TEXT NOT NULL, `reminderEnabled` INTEGER NOT NULL, `category` TEXT NOT NULL, `type` TEXT NOT NULL, `nxt_vaccine_id` TEXT, `vaccinationSource` TEXT, `reminderDate` TEXT, `source` TEXT, `lastReminderTime` INTEGER NOT NULL, `notificationSent` INTEGER NOT NULL, `notes` TEXT, `completionDate` TEXT, `performedBy` TEXT, `dismissalDate` TEXT, `dismissalReason` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, `is_deleted` INTEGER NOT NULL DEFAULT 0, `deleted_at` TEXT, `deleted_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalVisitId",
+            "columnName": "originalVisitId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineName",
+            "columnName": "vaccineName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dueDate",
+            "columnName": "dueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priority",
+            "columnName": "priority",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reminderEnabled",
+            "columnName": "reminderEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nxtVaccineId",
+            "columnName": "nxt_vaccine_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "vaccinationSource",
+            "columnName": "vaccinationSource",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "reminderDate",
+            "columnName": "reminderDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastReminderTime",
+            "columnName": "lastReminderTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notificationSent",
+            "columnName": "notificationSent",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completionDate",
+            "columnName": "completionDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "performedBy",
+            "columnName": "performedBy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dismissalDate",
+            "columnName": "dismissalDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dismissalReason",
+            "columnName": "dismissalReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "is_deleted",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deletedBy",
+            "columnName": "deleted_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reminders_patientId_originalVisitId_dueDate_type_vaccineName",
+            "unique": true,
+            "columnNames": [
+              "patientId",
+              "originalVisitId",
+              "dueDate",
+              "type",
+              "vaccineName"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reminders_patientId_originalVisitId_dueDate_type_vaccineName` ON `${TABLE_NAME}` (`patientId`, `originalVisitId`, `dueDate`, `type`, `vaccineName`)"
+          },
+          {
+            "name": "index_reminders_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reminders_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_reminders_dueDate",
+            "unique": false,
+            "columnNames": [
+              "dueDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reminders_dueDate` ON `${TABLE_NAME}` (`dueDate`)"
+          },
+          {
+            "name": "index_reminders_originalVisitId",
+            "unique": false,
+            "columnNames": [
+              "originalVisitId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reminders_originalVisitId` ON `${TABLE_NAME}` (`originalVisitId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "patients",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "patientId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "vaccines",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `brandName` TEXT NOT NULL, `companyName` TEXT NOT NULL, `manufacturer` TEXT, `category` TEXT, `doseSchedule` TEXT, `storageDetails` TEXT, `mrp` REAL NOT NULL, `netRate` REAL NOT NULL, `lastUpdated` TEXT NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brandName",
+            "columnName": "brandName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "companyName",
+            "columnName": "companyName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manufacturer",
+            "columnName": "manufacturer",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "doseSchedule",
+            "columnName": "doseSchedule",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "storageDetails",
+            "columnName": "storageDetails",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "mrp",
+            "columnName": "mrp",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netRate",
+            "columnName": "netRate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUpdated",
+            "columnName": "lastUpdated",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "vaccine_batches",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`batchId` TEXT NOT NULL, `vaccineId` TEXT NOT NULL, `batchNumber` TEXT NOT NULL, `manufacturer` TEXT NOT NULL, `purchaseDate` TEXT NOT NULL, `expiryDate` TEXT NOT NULL, `purchaseQuantity` INTEGER NOT NULL, `remainingQuantity` INTEGER NOT NULL, `reservedQuantity` INTEGER NOT NULL, `usedQuantity` INTEGER NOT NULL, `wastedQuantity` INTEGER NOT NULL, `borrowedQuantity` INTEGER NOT NULL, `supplier` TEXT NOT NULL, `purchaseCost` REAL NOT NULL, `sellingPrice` REAL NOT NULL, `status` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`batchId`), FOREIGN KEY(`vaccineId`) REFERENCES `vaccines`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchNumber",
+            "columnName": "batchNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manufacturer",
+            "columnName": "manufacturer",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaseDate",
+            "columnName": "purchaseDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryDate",
+            "columnName": "expiryDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaseQuantity",
+            "columnName": "purchaseQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remainingQuantity",
+            "columnName": "remainingQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reservedQuantity",
+            "columnName": "reservedQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usedQuantity",
+            "columnName": "usedQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wastedQuantity",
+            "columnName": "wastedQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "borrowedQuantity",
+            "columnName": "borrowedQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supplier",
+            "columnName": "supplier",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "purchaseCost",
+            "columnName": "purchaseCost",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sellingPrice",
+            "columnName": "sellingPrice",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "batchId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_vaccine_batches_vaccineId",
+            "unique": false,
+            "columnNames": [
+              "vaccineId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccine_batches_vaccineId` ON `${TABLE_NAME}` (`vaccineId`)"
+          },
+          {
+            "name": "index_vaccine_batches_batchNumber",
+            "unique": false,
+            "columnNames": [
+              "batchNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccine_batches_batchNumber` ON `${TABLE_NAME}` (`batchNumber`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "vaccines",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "vaccineId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "inventory_transactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transactionId` TEXT NOT NULL, `vaccineId` TEXT NOT NULL, `batchId` TEXT NOT NULL, `patientId` TEXT, `visitId` TEXT, `transactionType` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `previousQuantity` INTEGER NOT NULL, `currentQuantity` INTEGER NOT NULL, `timestamp` TEXT NOT NULL, `user` TEXT NOT NULL, `notes` TEXT, `status` TEXT NOT NULL, `failureReason` TEXT, `processedAt` TEXT, `processedBy` TEXT, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`transactionId`))",
+        "fields": [
+          {
+            "fieldPath": "transactionId",
+            "columnName": "transactionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visitId",
+            "columnName": "visitId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transactionType",
+            "columnName": "transactionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "previousQuantity",
+            "columnName": "previousQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currentQuantity",
+            "columnName": "currentQuantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "user",
+            "columnName": "user",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failureReason",
+            "columnName": "failureReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "processedAt",
+            "columnName": "processedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "processedBy",
+            "columnName": "processedBy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "transactionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_inventory_transactions_vaccineId",
+            "unique": false,
+            "columnNames": [
+              "vaccineId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_transactions_vaccineId` ON `${TABLE_NAME}` (`vaccineId`)"
+          },
+          {
+            "name": "index_inventory_transactions_batchId",
+            "unique": false,
+            "columnNames": [
+              "batchId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_transactions_batchId` ON `${TABLE_NAME}` (`batchId`)"
+          },
+          {
+            "name": "index_inventory_transactions_visitId",
+            "unique": false,
+            "columnNames": [
+              "visitId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_transactions_visitId` ON `${TABLE_NAME}` (`visitId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "inventory_deductions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `vaccinationId` TEXT NOT NULL, `vaccineId` TEXT NOT NULL, `vaccineName` TEXT NOT NULL, `batchId` TEXT, `quantity` INTEGER NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `resolvedAt` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccinationId",
+            "columnName": "vaccinationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineName",
+            "columnName": "vaccineName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "errorMessage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resolvedAt",
+            "columnName": "resolvedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_inventory_deductions_vaccinationId",
+            "unique": false,
+            "columnNames": [
+              "vaccinationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_deductions_vaccinationId` ON `${TABLE_NAME}` (`vaccinationId`)"
+          },
+          {
+            "name": "index_inventory_deductions_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_deductions_status` ON `${TABLE_NAME}` (`status`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sync_queue",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`queueId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `entityName` TEXT NOT NULL, `entityId` TEXT NOT NULL, `operation` TEXT NOT NULL, `priority` TEXT NOT NULL, `status` TEXT NOT NULL, `transactionGroupId` TEXT, `retryCount` INTEGER NOT NULL, `lastError` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "queueId",
+            "columnName": "queueId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityName",
+            "columnName": "entityName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entityId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priority",
+            "columnName": "priority",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionGroupId",
+            "columnName": "transactionGroupId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "queueId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_sync_queue_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sync_queue_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_sync_queue_priority",
+            "unique": false,
+            "columnNames": [
+              "priority"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sync_queue_priority` ON `${TABLE_NAME}` (`priority`)"
+          }
+        ]
+      },
+      {
+        "tableName": "waste_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `vaccineId` TEXT NOT NULL, `batchId` TEXT NOT NULL, `brandName` TEXT NOT NULL, `batchNumber` TEXT NOT NULL, `expiryDate` TEXT NOT NULL, `dateWasted` TEXT NOT NULL, `reason` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `updatedAt` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brandName",
+            "columnName": "brandName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchNumber",
+            "columnName": "batchNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryDate",
+            "columnName": "expiryDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateWasted",
+            "columnName": "dateWasted",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_waste_records_vaccineId",
+            "unique": false,
+            "columnNames": [
+              "vaccineId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_waste_records_vaccineId` ON `${TABLE_NAME}` (`vaccineId`)"
+          },
+          {
+            "name": "index_waste_records_dateWasted",
+            "unique": false,
+            "columnNames": [
+              "dateWasted"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_waste_records_dateWasted` ON `${TABLE_NAME}` (`dateWasted`)"
+          },
+          {
+            "name": "index_waste_records_isSynced",
+            "unique": false,
+            "columnNames": [
+              "isSynced"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_waste_records_isSynced` ON `${TABLE_NAME}` (`isSynced`)"
+          }
+        ]
+      },
+      {
+        "tableName": "widget_due_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `patientName` TEXT NOT NULL, `vaccineName` TEXT NOT NULL, `dueDate` TEXT NOT NULL, `isOverdue` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientName",
+            "columnName": "patientName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineName",
+            "columnName": "vaccineName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dueDate",
+            "columnName": "dueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isOverdue",
+            "columnName": "isOverdue",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "audit_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `timestamp` TEXT NOT NULL, `user` TEXT NOT NULL, `module` TEXT NOT NULL, `entityType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `action` TEXT NOT NULL, `oldValue` TEXT, `newValue` TEXT, `remarks` TEXT, `device` TEXT, `isSynced` INTEGER NOT NULL, `patientId` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "user",
+            "columnName": "user",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "module",
+            "columnName": "module",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityType",
+            "columnName": "entityType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entityId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "action",
+            "columnName": "action",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "oldValue",
+            "columnName": "oldValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "newValue",
+            "columnName": "newValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remarks",
+            "columnName": "remarks",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "device",
+            "columnName": "device",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_audit_logs_timestamp",
+            "unique": false,
+            "columnNames": [
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_logs_timestamp` ON `${TABLE_NAME}` (`timestamp`)"
+          },
+          {
+            "name": "index_audit_logs_patientId",
+            "unique": false,
+            "columnNames": [
+              "patientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_logs_patientId` ON `${TABLE_NAME}` (`patientId`)"
+          },
+          {
+            "name": "index_audit_logs_entityType",
+            "unique": false,
+            "columnNames": [
+              "entityType"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_logs_entityType` ON `${TABLE_NAME}` (`entityType`)"
+          },
+          {
+            "name": "index_audit_logs_entityId",
+            "unique": false,
+            "columnNames": [
+              "entityId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_logs_entityId` ON `${TABLE_NAME}` (`entityId`)"
+          },
+          {
+            "name": "index_audit_logs_module",
+            "unique": false,
+            "columnNames": [
+              "module"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_logs_module` ON `${TABLE_NAME}` (`module`)"
+          },
+          {
+            "name": "index_audit_logs_user",
+            "unique": false,
+            "columnNames": [
+              "user"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_logs_user` ON `${TABLE_NAME}` (`user`)"
+          }
+        ]
+      },
+      {
+        "tableName": "patient_notes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `patientId` TEXT NOT NULL, `content` TEXT NOT NULL, `author` TEXT NOT NULL, `timestamp` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "content",
+            "columnName": "content",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "author",
+            "columnName": "author",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_patient_notes_patientId",
+            "unique": false,
+            "columnNames": [
+              "patientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_notes_patientId` ON `${TABLE_NAME}` (`patientId`)"
+          },
+          {
+            "name": "index_patient_notes_timestamp",
+            "unique": false,
+            "columnNames": [
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_patient_notes_timestamp` ON `${TABLE_NAME}` (`timestamp`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "patients",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "patientId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `phoneNumber` TEXT NOT NULL, `employeeId` TEXT, `role` TEXT NOT NULL, `isActive` INTEGER NOT NULL, `fcmToken` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `lastLogin` TEXT, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "email",
+            "columnName": "email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phoneNumber",
+            "columnName": "phoneNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "employeeId",
+            "columnName": "employeeId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "role",
+            "columnName": "role",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fcmToken",
+            "columnName": "fcmToken",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastLogin",
+            "columnName": "lastLogin",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_profiles_email",
+            "unique": true,
+            "columnNames": [
+              "email"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_profiles_email` ON `${TABLE_NAME}` (`email`)"
+          }
+        ]
+      },
+      {
+        "tableName": "finance_transactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `timestamp` TEXT NOT NULL, `transaction_date` TEXT, `type` TEXT NOT NULL, `category` TEXT NOT NULL, `amount` REAL NOT NULL, `cashAmount` REAL NOT NULL, `onlineAmount` REAL NOT NULL, `currency` TEXT NOT NULL, `paymentMethod` TEXT NOT NULL, `patientId` TEXT, `visitId` TEXT, `referenceNumber` TEXT, `remarks` TEXT, `recordedBy` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionDate",
+            "columnName": "transaction_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amount",
+            "columnName": "amount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cashAmount",
+            "columnName": "cashAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "onlineAmount",
+            "columnName": "onlineAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "paymentMethod",
+            "columnName": "paymentMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visitId",
+            "columnName": "visitId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceNumber",
+            "columnName": "referenceNumber",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remarks",
+            "columnName": "remarks",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "recordedBy",
+            "columnName": "recordedBy",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_finance_transactions_patientId",
+            "unique": false,
+            "columnNames": [
+              "patientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_finance_transactions_patientId` ON `${TABLE_NAME}` (`patientId`)"
+          },
+          {
+            "name": "index_finance_transactions_visitId",
+            "unique": false,
+            "columnNames": [
+              "visitId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_finance_transactions_visitId` ON `${TABLE_NAME}` (`visitId`)"
+          },
+          {
+            "name": "index_finance_transactions_timestamp",
+            "unique": false,
+            "columnNames": [
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_finance_transactions_timestamp` ON `${TABLE_NAME}` (`timestamp`)"
+          },
+          {
+            "name": "index_finance_transactions_transaction_date",
+            "unique": false,
+            "columnNames": [
+              "transaction_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_finance_transactions_transaction_date` ON `${TABLE_NAME}` (`transaction_date`)"
+          }
+        ]
+      },
+      {
+        "tableName": "borrow_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `doctorName` TEXT NOT NULL, `vaccineId` TEXT NOT NULL, `batchId` TEXT NOT NULL, `borrowedDate` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `isReturned` INTEGER NOT NULL, `returnedDate` TEXT, `type` TEXT NOT NULL, `notes` TEXT, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`vaccineId`) REFERENCES `vaccines`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`batchId`) REFERENCES `vaccine_batches`(`batchId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorName",
+            "columnName": "doctorName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "borrowedDate",
+            "columnName": "borrowedDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isReturned",
+            "columnName": "isReturned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "returnedDate",
+            "columnName": "returnedDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_borrow_records_vaccineId",
+            "unique": false,
+            "columnNames": [
+              "vaccineId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_borrow_records_vaccineId` ON `${TABLE_NAME}` (`vaccineId`)"
+          },
+          {
+            "name": "index_borrow_records_batchId",
+            "unique": false,
+            "columnNames": [
+              "batchId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_borrow_records_batchId` ON `${TABLE_NAME}` (`batchId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "vaccines",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "vaccineId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "vaccine_batches",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "batchId"
+            ],
+            "referencedColumns": [
+              "batchId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "consultations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `visitId` TEXT NOT NULL, `patientId` TEXT NOT NULL, `doctorId` TEXT NOT NULL, `doctorName` TEXT NOT NULL, `availabilitySlotId` TEXT, `date` TEXT NOT NULL, `amount` REAL NOT NULL, `cashAmount` REAL NOT NULL, `onlineAmount` REAL NOT NULL, `problem` TEXT NOT NULL, `notes` TEXT NOT NULL, `nextFollowUpDate` TEXT NOT NULL, `createdAt` TEXT, `updatedAt` TEXT, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`visitId`) REFERENCES `patient_visits`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "visitId",
+            "columnName": "visitId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorId",
+            "columnName": "doctorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorName",
+            "columnName": "doctorName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "availabilitySlotId",
+            "columnName": "availabilitySlotId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amount",
+            "columnName": "amount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cashAmount",
+            "columnName": "cashAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "onlineAmount",
+            "columnName": "onlineAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "problem",
+            "columnName": "problem",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextFollowUpDate",
+            "columnName": "nextFollowUpDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_consultations_patientId",
+            "unique": false,
+            "columnNames": [
+              "patientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_consultations_patientId` ON `${TABLE_NAME}` (`patientId`)"
+          },
+          {
+            "name": "index_consultations_visitId",
+            "unique": false,
+            "columnNames": [
+              "visitId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_consultations_visitId` ON `${TABLE_NAME}` (`visitId`)"
+          },
+          {
+            "name": "index_consultations_date",
+            "unique": false,
+            "columnNames": [
+              "date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_consultations_date` ON `${TABLE_NAME}` (`date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "patients",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "patientId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "patient_visits",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "visitId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "vaccination_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `vaccinationId` TEXT NOT NULL, `vaccineId` TEXT NOT NULL, `vaccineName` TEXT NOT NULL, `batchId` TEXT NOT NULL, `batchNumber` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `mrp` REAL NOT NULL, `netRate` REAL NOT NULL, `expiryDate` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`vaccinationId`) REFERENCES `patient_visits`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`vaccineId`) REFERENCES `vaccines`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`batchId`) REFERENCES `vaccine_batches`(`batchId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccinationId",
+            "columnName": "vaccinationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccineId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineName",
+            "columnName": "vaccineName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchNumber",
+            "columnName": "batchNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mrp",
+            "columnName": "mrp",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netRate",
+            "columnName": "netRate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryDate",
+            "columnName": "expiryDate",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_vaccination_items_vaccinationId",
+            "unique": false,
+            "columnNames": [
+              "vaccinationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccination_items_vaccinationId` ON `${TABLE_NAME}` (`vaccinationId`)"
+          },
+          {
+            "name": "index_vaccination_items_vaccineId",
+            "unique": false,
+            "columnNames": [
+              "vaccineId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccination_items_vaccineId` ON `${TABLE_NAME}` (`vaccineId`)"
+          },
+          {
+            "name": "index_vaccination_items_batchId",
+            "unique": false,
+            "columnNames": [
+              "batchId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccination_items_batchId` ON `${TABLE_NAME}` (`batchId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "patient_visits",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "vaccinationId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "vaccines",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "vaccineId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "vaccine_batches",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "batchId"
+            ],
+            "referencedColumns": [
+              "batchId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "consultation_todos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `patient_id` TEXT, `name` TEXT NOT NULL, `mobile` TEXT NOT NULL, `address` TEXT NOT NULL, `todo_date` TEXT NOT NULL, `status` TEXT NOT NULL, `doctor_id` TEXT, `doctor_name` TEXT, `availability_slot_id` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, `is_synced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patient_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mobile",
+            "columnName": "mobile",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "todoDate",
+            "columnName": "todo_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorId",
+            "columnName": "doctor_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "doctorName",
+            "columnName": "doctor_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "availabilitySlotId",
+            "columnName": "availability_slot_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "is_synced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_consultation_todos_todo_date",
+            "unique": false,
+            "columnNames": [
+              "todo_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_consultation_todos_todo_date` ON `${TABLE_NAME}` (`todo_date`)"
+          },
+          {
+            "name": "index_consultation_todos_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_consultation_todos_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_consultation_todos_patient_id",
+            "unique": false,
+            "columnNames": [
+              "patient_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_consultation_todos_patient_id` ON `${TABLE_NAME}` (`patient_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "vaccination_todos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `patient_id` TEXT, `name` TEXT NOT NULL, `mobile` TEXT NOT NULL, `vaccine_names` TEXT NOT NULL, `address` TEXT NOT NULL, `todo_date` TEXT NOT NULL, `status` TEXT NOT NULL, `doctor_id` TEXT, `doctor_name` TEXT, `availability_slot_id` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, `is_synced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patient_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mobile",
+            "columnName": "mobile",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineNames",
+            "columnName": "vaccine_names",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "todoDate",
+            "columnName": "todo_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorId",
+            "columnName": "doctor_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "doctorName",
+            "columnName": "doctor_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "availabilitySlotId",
+            "columnName": "availability_slot_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "is_synced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_vaccination_todos_todo_date",
+            "unique": false,
+            "columnNames": [
+              "todo_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccination_todos_todo_date` ON `${TABLE_NAME}` (`todo_date`)"
+          },
+          {
+            "name": "index_vaccination_todos_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccination_todos_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_vaccination_todos_patient_id",
+            "unique": false,
+            "columnNames": [
+              "patient_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vaccination_todos_patient_id` ON `${TABLE_NAME}` (`patient_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "personal_vaccine_reminders",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `patient_id` TEXT, `patient_name` TEXT NOT NULL, `patient_phone` TEXT NOT NULL, `vaccine_id` TEXT, `vaccine_label` TEXT, `note` TEXT, `advance_received` INTEGER NOT NULL, `advance_amount` REAL, `advance_date` TEXT, `reminder_date` TEXT, `status` TEXT NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, `completed_at` TEXT, `cancelled_at` TEXT, `is_synced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patient_id`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`vaccine_id`) REFERENCES `vaccines`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientId",
+            "columnName": "patient_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "patientName",
+            "columnName": "patient_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "patientPhone",
+            "columnName": "patient_phone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vaccineId",
+            "columnName": "vaccine_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "vaccineLabel",
+            "columnName": "vaccine_label",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "advanceReceived",
+            "columnName": "advance_received",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "advanceAmount",
+            "columnName": "advance_amount",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "advanceDate",
+            "columnName": "advance_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "reminderDate",
+            "columnName": "reminder_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "cancelledAt",
+            "columnName": "cancelled_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "is_synced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_personal_vaccine_reminders_patient_id",
+            "unique": false,
+            "columnNames": [
+              "patient_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_personal_vaccine_reminders_patient_id` ON `${TABLE_NAME}` (`patient_id`)"
+          },
+          {
+            "name": "index_personal_vaccine_reminders_vaccine_id",
+            "unique": false,
+            "columnNames": [
+              "vaccine_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_personal_vaccine_reminders_vaccine_id` ON `${TABLE_NAME}` (`vaccine_id`)"
+          },
+          {
+            "name": "index_personal_vaccine_reminders_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_personal_vaccine_reminders_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_personal_vaccine_reminders_reminder_date",
+            "unique": false,
+            "columnNames": [
+              "reminder_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_personal_vaccine_reminders_reminder_date` ON `${TABLE_NAME}` (`reminder_date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "patients",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "patient_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "vaccines",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "vaccine_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "borrow_returns",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `borrow_record_id` TEXT NOT NULL, `batch_id` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `returned_date` TEXT NOT NULL, `notes` TEXT, `created_at` TEXT NOT NULL, `is_synced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`borrow_record_id`) REFERENCES `borrow_records`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`batch_id`) REFERENCES `vaccine_batches`(`batchId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "borrowRecordId",
+            "columnName": "borrow_record_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batch_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "returnedDate",
+            "columnName": "returned_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "is_synced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_borrow_returns_borrow_record_id",
+            "unique": false,
+            "columnNames": [
+              "borrow_record_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_borrow_returns_borrow_record_id` ON `${TABLE_NAME}` (`borrow_record_id`)"
+          },
+          {
+            "name": "index_borrow_returns_batch_id",
+            "unique": false,
+            "columnNames": [
+              "batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_borrow_returns_batch_id` ON `${TABLE_NAME}` (`batch_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "borrow_records",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "borrow_record_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "vaccine_batches",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "batch_id"
+            ],
+            "referencedColumns": [
+              "batchId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "expenses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `expenseDate` TEXT NOT NULL, `category` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT, `amountPaise` INTEGER NOT NULL, `paymentMethod` TEXT NOT NULL, `referenceNumber` TEXT, `attachmentPath` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `created_by` TEXT, `updated_by` TEXT, `isSynced` INTEGER NOT NULL, `syncedAt` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expenseDate",
+            "columnName": "expenseDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "amountPaise",
+            "columnName": "amountPaise",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "paymentMethod",
+            "columnName": "paymentMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "referenceNumber",
+            "columnName": "referenceNumber",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attachmentPath",
+            "columnName": "attachmentPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncedAt",
+            "columnName": "syncedAt",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_expenses_expenseDate",
+            "unique": false,
+            "columnNames": [
+              "expenseDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_expenses_expenseDate` ON `${TABLE_NAME}` (`expenseDate`)"
+          },
+          {
+            "name": "index_expenses_category",
+            "unique": false,
+            "columnNames": [
+              "category"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_expenses_category` ON `${TABLE_NAME}` (`category`)"
+          },
+          {
+            "name": "index_expenses_created_by",
+            "unique": false,
+            "columnNames": [
+              "created_by"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_expenses_created_by` ON `${TABLE_NAME}` (`created_by`)"
+          },
+          {
+            "name": "index_expenses_updatedAt",
+            "unique": false,
+            "columnNames": [
+              "updatedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_expenses_updatedAt` ON `${TABLE_NAME}` (`updatedAt`)"
+          }
+        ]
+      },
+      {
+        "tableName": "doctor_weekly_slots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `doctorId` TEXT NOT NULL, `dayOfWeek` INTEGER NOT NULL, `startMinute` INTEGER NOT NULL, `endMinute` INTEGER NOT NULL, `is_active` INTEGER NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, `is_synced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorId",
+            "columnName": "doctorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayOfWeek",
+            "columnName": "dayOfWeek",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMinute",
+            "columnName": "startMinute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMinute",
+            "columnName": "endMinute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "is_synced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_doctor_weekly_slots_doctorId",
+            "unique": false,
+            "columnNames": [
+              "doctorId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_doctor_weekly_slots_doctorId` ON `${TABLE_NAME}` (`doctorId`)"
+          },
+          {
+            "name": "index_doctor_weekly_slots_dayOfWeek",
+            "unique": false,
+            "columnNames": [
+              "dayOfWeek"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_doctor_weekly_slots_dayOfWeek` ON `${TABLE_NAME}` (`dayOfWeek`)"
+          },
+          {
+            "name": "index_doctor_weekly_slots_is_active",
+            "unique": false,
+            "columnNames": [
+              "is_active"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_doctor_weekly_slots_is_active` ON `${TABLE_NAME}` (`is_active`)"
+          }
+        ]
+      },
+      {
+        "tableName": "doctor_slot_exceptions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `doctorId` TEXT NOT NULL, `exceptionDate` TEXT NOT NULL, `exceptionType` TEXT NOT NULL, `weeklySlotId` TEXT, `start_minute` INTEGER, `end_minute` INTEGER, `reason` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, `is_synced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doctorId",
+            "columnName": "doctorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exceptionDate",
+            "columnName": "exceptionDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exceptionType",
+            "columnName": "exceptionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklySlotId",
+            "columnName": "weeklySlotId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "startMinute",
+            "columnName": "start_minute",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endMinute",
+            "columnName": "end_minute",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "is_synced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "created_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updated_by",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_doctor_slot_exceptions_doctorId",
+            "unique": false,
+            "columnNames": [
+              "doctorId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_doctor_slot_exceptions_doctorId` ON `${TABLE_NAME}` (`doctorId`)"
+          },
+          {
+            "name": "index_doctor_slot_exceptions_exceptionDate",
+            "unique": false,
+            "columnNames": [
+              "exceptionDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_doctor_slot_exceptions_exceptionDate` ON `${TABLE_NAME}` (`exceptionDate`)"
+          },
+          {
+            "name": "index_doctor_slot_exceptions_weeklySlotId",
+            "unique": false,
+            "columnNames": [
+              "weeklySlotId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_doctor_slot_exceptions_weeklySlotId` ON `${TABLE_NAME}` (`weeklySlotId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "backup_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `location` TEXT NOT NULL, `createdAt` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `backupVersion` INTEGER NOT NULL, `appVersion` TEXT NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `storagePath` TEXT, `recordCountsJson` TEXT, `triggeredBy` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "location",
+            "columnName": "location",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sizeBytes",
+            "columnName": "sizeBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "backupVersion",
+            "columnName": "backupVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appVersion",
+            "columnName": "appVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "errorMessage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "storagePath",
+            "columnName": "storagePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "recordCountsJson",
+            "columnName": "recordCountsJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "triggeredBy",
+            "columnName": "triggeredBy",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_history_createdAt",
+            "unique": false,
+            "columnNames": [
+              "createdAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_history_createdAt` ON `${TABLE_NAME}` (`createdAt`)"
+          },
+          {
+            "name": "index_backup_history_type",
+            "unique": false,
+            "columnNames": [
+              "type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_history_type` ON `${TABLE_NAME}` (`type`)"
+          },
+          {
+            "name": "index_backup_history_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_history_status` ON `${TABLE_NAME}` (`status`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '481cde91e244e588ab5ad8419e45ce79')"
+    ]
+  }
+}

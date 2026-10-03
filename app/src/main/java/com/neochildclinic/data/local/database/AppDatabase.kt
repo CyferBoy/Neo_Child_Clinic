@@ -39,8 +39,8 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 32,
-    exportSchema = false
+    version = 33,
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -76,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 32
+        const val DB_VERSION = 33
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -405,6 +405,21 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
+                // 32→33: index-only. Adds index_patient_visits_dateGiven so the
+                // ORDER BY dateGiven DESC in getAllVaccinations()/
+                // getAllVaccinationsWithItems() stops sorting the whole table in a
+                // temp B-tree on every app start, widget refresh, finance, statistics
+                // and report load. CREATE INDEX only — no data is touched, so this is
+                // safe to re-run and leaves every row intact.
+                val migration32_33 = object : androidx.room.migration.Migration(32, 33) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL(
+                            "CREATE INDEX IF NOT EXISTS `index_patient_visits_dateGiven` " +
+                                "ON `patient_visits` (`dateGiven`)"
+                        )
+                    }
+                }
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -412,7 +427,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28, migration30_31, migration31_32)
+                .addMigrations(migration17_18, migration18_19, migration19_20, migration20_21, migration21_22, migration22_23, migration24_25, migration25_26, migration26_27, migration27_28, migration30_31, migration31_32, migration32_33)
                 // No destructive fallback: a future missing migration must crash loudly,
                 // never silently wipe a clinic's local patient data.
                 .build()

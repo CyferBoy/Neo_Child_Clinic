@@ -21,7 +21,12 @@ import kotlinx.serialization.Serializable
         Index("receiptNumber"),
         Index("doctor"),
         Index("isSynced"),
-        Index("status")
+        Index("status"),
+        // getAllVaccinations()/getAllVaccinationsWithItems() run
+        // ORDER BY dateGiven DESC on 20+ paths (app start, home widget, finance,
+        // statistics, reports, reminders). Without this, every one of them sorts
+        // the whole table via a temp B-tree.
+        Index("dateGiven")
     ],
     foreignKeys = [
         ForeignKey(

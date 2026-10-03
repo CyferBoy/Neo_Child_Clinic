@@ -21,6 +21,15 @@ fun getEnv(key: String, default: String = ""): String {
     return env.getProperty(key) ?: System.getenv(key) ?: default
 }
 
+// Emit AppDatabase/<version>.json so MigrationTestHelper can validate a migration against
+// Room's real expected schema. Both halves are required: the KSP arg supplies the output
+// directory, and sourceSets below packages that directory into the androidTest APK's assets
+// under the path the helper reads (<canonicalName>/<version>.json).
+// This is what the Room Gradle plugin does implicitly; wired by hand to avoid the extra plugin.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.neochildclinic"
     compileSdk = 37
@@ -59,6 +68,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+    }
+
+    sourceSets {
+        // Feed the exported Room schemas to the instrumentation APK so
+        // MigrationTestHelper can load <canonicalName>/<version>.json at runtime.
+        getByName("androidTest") {
+            assets.srcDir("$projectDir/schemas")
         }
     }
 
