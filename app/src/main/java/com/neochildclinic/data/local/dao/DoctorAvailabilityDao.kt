@@ -19,6 +19,11 @@ interface DoctorAvailabilityDao {
     @Query("SELECT * FROM doctor_weekly_slots WHERE id = :id LIMIT 1")
     suspend fun getWeeklySlotById(id: String): DoctorWeeklySlotEntity?
 
+    // Batch form of getWeeklySlotById, for resolving a whole day's booked
+    // availabilitySlotIds in one query instead of one per id.
+    @Query("SELECT * FROM doctor_weekly_slots WHERE id IN (:ids)")
+    suspend fun getWeeklySlotsByIds(ids: List<String>): List<DoctorWeeklySlotEntity>
+
     @Query("SELECT * FROM doctor_weekly_slots WHERE doctorId = :doctorId AND dayOfWeek = :dayOfWeek AND startMinute = :startMinute AND endMinute = :endMinute LIMIT 1")
     suspend fun findWeeklySlot(doctorId: String, dayOfWeek: Int, startMinute: Int, endMinute: Int): DoctorWeeklySlotEntity?
 

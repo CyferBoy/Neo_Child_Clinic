@@ -59,29 +59,15 @@ class VaccinationRepositoryImpl @Inject constructor(
     @ApplicationContext private val appContext: Context
 ) : VaccinationRepository {
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override val allVaccinations: Flow<List<Vaccination>> = 
-        vaccinationDao.getAllVaccinations().flatMapLatest { list ->
-            if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
-            val flows = list.map { entity ->
-                vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
-                    entity.toVaccination().copy(items = items.map { it.toDomain() })
-                }
-            }
-            combine(flows) { it.toList() }
-        }
+    // Two queries per emission (visits, then items) whatever the row count. This used to build
+// one item flow per visit and combine them, so six live collectors meant six full syncs'
+// worth of item queries on every change.
+override val allVaccinations: Flow<List<Vaccination>> =
+        vaccinationDao.getAllVaccinationsWithItems().map { rows -> rows.map { it.toDomain() } }
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun getVaccinationsForPatient(patientId: String): Flow<List<Vaccination>> =
-        vaccinationDao.getVaccinationsForPatient(patientId).flatMapLatest { list ->
-            if (list.isEmpty()) return@flatMapLatest flowOf(emptyList())
-            val flows = list.map { entity ->
-                vaccinationItemDao.getItemsForVaccination(entity.id).map { items ->
-                    entity.toVaccination().copy(items = items.map { it.toDomain() })
-                }
-            }
-            combine(flows) { it.toList() }
-        }
+        vaccinationDao.getVaccinationsForPatientWithItems(patientId)
+            .map { rows -> rows.map { it.toDomain() } }
 
     override fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCard>> =
         vaccinationDao.getVaccinationCardsForPatient(patientId).map { rows -> rows.map { it.toDomain() } }

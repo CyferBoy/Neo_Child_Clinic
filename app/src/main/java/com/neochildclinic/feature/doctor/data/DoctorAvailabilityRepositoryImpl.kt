@@ -43,6 +43,11 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     override suspend fun getWeeklySlotById(id: String): DoctorWeeklySlot? =
         dao.getWeeklySlotById(id)
 
+    override suspend fun getWeeklySlotsByIds(ids: List<String>): List<DoctorWeeklySlot> {
+        if (ids.isEmpty()) return emptyList()
+        return dao.getWeeklySlotsByIds(ids).map { it.toDomain() }
+    }
+
     override suspend fun addWeeklySlot(
         doctorId: String,
         dayOfWeek: Int,

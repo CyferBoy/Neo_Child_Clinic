@@ -225,6 +225,9 @@ class PatientRepositoryImpl @Inject constructor(
 
     override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
 
+    override val patientIdsWithMissingPrice: Flow<Set<String>> =
+        patientDao.getPatientIdsWithMissingPrice().map { it.toSet() }
+
     override fun getNotes(patientId: String): Flow<List<PatientNote>> =
         notesDao.getNotesForPatient(patientId).map { rows -> rows.map { it.toDomain() } }
 }

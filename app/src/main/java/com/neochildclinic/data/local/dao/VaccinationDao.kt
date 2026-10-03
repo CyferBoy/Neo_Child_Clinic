@@ -3,6 +3,7 @@ package com.neochildclinic.data.local.dao
 import androidx.room.*
 import com.neochildclinic.data.local.entity.VisitEntity
 import com.neochildclinic.data.local.entity.PatientVaccinationCardEntity
+import com.neochildclinic.data.local.entity.VaccinationWithItemsEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,6 +27,16 @@ interface VaccinationDao {
     @Transaction
     @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCardEntity>>
+
+    // Batch reads: visit + items in two queries total, instead of one item query per visit.
+    // Replaces the per-visit combine() in VaccinationRepositoryImpl.
+    @Transaction
+    @Query("SELECT * FROM patient_visits ORDER BY dateGiven DESC")
+    fun getAllVaccinationsWithItems(): Flow<List<VaccinationWithItemsEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM patient_visits WHERE patientId = :patientId ORDER BY dateGiven DESC")
+    fun getVaccinationsForPatientWithItems(patientId: String): Flow<List<VaccinationWithItemsEntity>>
 
     @Query("SELECT * FROM patient_visits WHERE receiptNumber = :receiptNumber LIMIT 1")
     suspend fun getVaccinationByReceiptNumber(receiptNumber: String): VisitEntity?

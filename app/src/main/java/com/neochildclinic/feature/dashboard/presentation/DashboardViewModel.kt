@@ -176,9 +176,11 @@ class DashboardViewModel @Inject constructor(
             todos.visitedVaccinations.forEach { add(it.availabilitySlotId) }
         }.filterNotNull().filter { it.isNotBlank() }
 
-        val ranges = slotIds.mapNotNull { id ->
-            doctorAvailabilityRepository.getWeeklySlotById(id)?.timeRange?.let { id to it }
-        }.toMap()
+// One query for the whole day's booked slots, rather than one per id.
+// associate() keys by the row's own id, so ids with no matching row are simply
+// absent - the same shape the previous per-id mapNotNull produced.
+        val ranges = doctorAvailabilityRepository.getWeeklySlotsByIds(slotIds.toList())
+            .associate { it.id to it.timeRange }
 
         val segments = TodaySlotFilter.segments(availability, ranges.values.toList())
         SlotFilterState(segments, ranges, TodaySlotFilter.effectiveKey(segments, selectedKey))

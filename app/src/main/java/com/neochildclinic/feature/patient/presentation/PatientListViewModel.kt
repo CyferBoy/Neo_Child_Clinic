@@ -7,7 +7,6 @@ import com.neochildclinic.feature.patient.domain.MergePatientsUseCase
 import com.neochildclinic.feature.patient.domain.SearchPatientsUseCase
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.sync.RealtimeChangeSubscriptions
@@ -39,7 +38,6 @@ data class PatientListUiState(
 
 @HiltViewModel
 class PatientListViewModel @Inject constructor(
-    private val vaccinationRepository: VaccinationRepository,
     private val mergePatientsUseCase: MergePatientsUseCase,
     private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
@@ -68,14 +66,12 @@ class PatientListViewModel @Inject constructor(
     val uiState: StateFlow<PatientListUiState> = combine(
         _debouncedSearchQuery.flatMapLatest { searchPatientsUseCase(it) },
         _sortOption,
-        vaccinationRepository.allVaccinations,
+        patientRepository.patientIdsWithMissingPrice,
         combine(_isMergeSelectionMode, _selectedPatients, _isMerging, _error, _isRefreshing) { mode, selected, merging, err, refreshing ->
             RefreshState(mode, selected, merging, err, refreshing)
         },
         patientRepository.getPatientCount()
-    ) { patients, sort, vaccinations, internalState, total ->
-        
-        val missingPrice = vaccinations.filter { it.totalPaid <= 0.0 }.map { it.patientId }.toSet()
+    ) { patients, sort, missingPrice, internalState, total ->
 
         val sorted = when (sort) {
             PatientSortOption.NAME_AZ -> patients.sortedBy { it.name.lowercase() }
@@ -102,11 +98,18 @@ class PatientListViewModel @Inject constructor(
         observeRealtimeChanges()
     }
 
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun observeRealtimeChanges() {
         viewModelScope.launch {
+            // "patient_visits" is the real table name; there is no "vaccinations" table, so
+            // subscribing to it silently never fired. Patient visits are what change the
+            // missing-price badge, so they must be in the list.
+            // debounce(500) coalesces a burst of postgres_changes (a single save typically
+            // produces several: patient_visits + reminders + finance_transactions +
+            // vaccination_items) into one refresh instead of one 15-table full sync each.
             realtimeChangeSubscriptions.tableChanges(
-                "patients-db-changes", "patients", "vaccinations", "consultations"
-            ).onEach {
+                "patients-db-changes", "patients", "patient_visits", "consultations"
+            ).debounce(500).onEach {
                 refresh()
             }.catch { e ->
                 Log.e("Realtime", "Error in patient realtime changes", e)
@@ -115,6 +118,9 @@ class PatientListViewModel @Inject constructor(
     }
 
     fun refresh() {
+        // Guard: without this, N realtime events become N concurrent 15-table full syncs.
+        // A refresh already in flight will pick up everything the burst contains anyway.
+        if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
