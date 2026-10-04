@@ -26,19 +26,24 @@ import com.neochildclinic.core.common.PatientUtils
 @Composable
 fun VaccineDetailScreen(
     type: String,
-    brandName: String,
+    vaccineId: String?,
     onBack: () -> Unit,
     onPatientClick: (String) -> Unit,
     viewModel: VaccineDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // Brand name is resolved from the catalog by id, so it may still be loading (or absent
+    // for a catalog row since removed) - fall back to the vaccine type alone rather than
+    // showing a blank or an id.
+    val header = uiState.brandName?.let { "$type — $it" } ?: type
+
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
-                    title = { Text("$type — $brandName") },
+                    title = { Text(header) },
                     onBack = onBack
                 )
             }
@@ -87,8 +92,16 @@ fun VaccineDetailScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(Spacing.xs))
+                                    // Show the specific vaccine, not the reminder's whole
+                                    // comma-joined list: when drilled into one brand, listing
+                                    // every vaccine the patient is due would contradict the
+                                    // filter that produced this row.
                                     Text(
-                                        "Next vaccine: ${entry.reminder.vaccineName}",
+                                        if (uiState.brandName == null) {
+                                            "Vaccine: ${entry.brandName}"
+                                        } else {
+                                            "Vaccine type: $type"
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

@@ -25,10 +25,10 @@ internal fun NavGraphBuilder.inventoryGraph(
                 navController.navigate("edit_vaccine_definition/$id")
             },
             onAddBatch = { vaccineId, brandName ->
-                navController.navigate("add_batch/$vaccineId/$brandName")
+                navController.navigate(addBatchRoute(vaccineId, brandName))
             },
             onEditBatch = { batchId, vaccineId, brandName ->
-                navController.navigate("edit_batch/$batchId?vaccineId=$vaccineId&brandName=$brandName")
+                navController.navigate(editBatchRoute(batchId, vaccineId, brandName))
             },
             onAddStock = { navController.navigate(Routes.ADD_VACCINE_STOCK) },
             onStockHistory = { navController.navigate(Routes.STOCK_HISTORY) }
@@ -66,7 +66,7 @@ internal fun NavGraphBuilder.inventoryGraph(
         )
     ) { backStackEntry ->
         val vaccineId = backStackEntry.stringArg("vaccineId")
-        val brandName = backStackEntry.stringArg("brandName")
+        val brandName = dec(backStackEntry.stringArg("brandName"))
         AddBatchScreen(
             vaccineId = vaccineId,
             brandName = brandName,
@@ -84,6 +84,7 @@ internal fun NavGraphBuilder.inventoryGraph(
     ) { backStackEntry ->
         val batchId = backStackEntry.nullableStringArg("batchId")
         val vaccineId = backStackEntry.stringArg("vaccineId")
+        // Query parameter: Navigation already percent-decoded it, so no dec() here.
         val brandName = backStackEntry.stringArg("brandName")
         AddBatchScreen(
             batchId = batchId,

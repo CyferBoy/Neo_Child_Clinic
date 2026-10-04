@@ -41,7 +41,7 @@ private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: 
     }
 
 @Composable
-fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<Reminder> = emptyList(), vaccines: List<InventoryItem> = emptyList(), onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
+fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<Reminder> = emptyList(), vaccines: List<InventoryItem> = emptyList(), onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
@@ -99,7 +99,7 @@ private fun VaccinationsContent(
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
-    onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }
+    onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
 ) {
     var selectedSection by rememberSaveable { mutableIntStateOf(0) }
 
@@ -241,7 +241,7 @@ private fun VaccinationSectionSelector(
 }
 
 @Composable
-private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineIds: Set<String>, onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }) {
+private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineIds: Set<String>, onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }) {
     val stats = remember(reminders, validVaccineIds) {
         calculateUpcomingVaccineNeeds(reminders, validVaccineIds)
     }
@@ -284,11 +284,10 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable {
-                            if (stat.brands.size == 1) {
-                                onVaccineTypeClick(stat.type, stat.brands.first().first)
-                            } else {
-                                expandedType = if (expanded) null else stat.type
-                            }
+                            // A type tap always opens the drill-down. It used to navigate
+                            // only when the type had exactly one brand and merely expanded
+                            // otherwise, so the same gesture meant two different things.
+                            onVaccineTypeClick(stat.type, null)
                         },
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -315,22 +314,22 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
                     Spacer(modifier = Modifier.height(Spacing.md))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                     Spacer(modifier = Modifier.height(Spacing.sm))
-                    stat.brands.forEach { (brand, count) ->
+                    stat.brands.forEach { brand ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = Spacing.xs)
-                                .clickable { onVaccineTypeClick(stat.type, brand) },
+                                .clickable { onVaccineTypeClick(stat.type, brand.vaccineId) },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                brand,
+                                brand.name,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f),
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                count.toString(),
+                                brand.count.toString(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -342,26 +341,41 @@ private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineId
     }
 }
 
-private data class UpcomingVaccineTypeStat(
+internal data class UpcomingVaccineTypeStat(
     val type: String,
     val count: Int,
-    val brands: List<Pair<String, Int>>
+    val brands: List<UpcomingVaccineBrandStat>
 )
 
-private fun calculateUpcomingVaccineNeeds(
+/**
+ * One brand (vaccine catalog entry) inside a type. Carries the catalog [vaccineId] because
+ * that is the stable identity used by the drill-down query - the display [name] is free text
+ * typed into the inventory screen and two catalog entries can share one, which would merge
+ * unrelated vaccines into a single card. [name] is display-only.
+ */
+data class UpcomingVaccineBrandStat(
+    val vaccineId: String,
+    val name: String,
+    val count: Int
+)
+
+internal fun calculateUpcomingVaccineNeeds(
     reminders: List<Reminder>,
     validVaccineIds: Set<String>
 ): List<UpcomingVaccineTypeStat> {
-    val active = reminders.filter {
-        it.status == "ACTIVE" &&
-            it.reminderEnabled &&
-            it.category.equals("VACCINATION", ignoreCase = true)
-    }
-
-    return active
+    // `reminders` arrives already filtered by DueReminderDao.getUpcomingVaccinations()
+    // (ACTIVE + reminderEnabled + category=VACCINATION + is_deleted=0), so this only has
+    // to group - it must not re-implement the upcoming rules or the counts would drift
+    // from the drill-down. Legacy rows whose type is blank group under "Other", matching
+    // the exact string the by-type drill-down query is called with.
+    return reminders
         .groupBy { it.type.trim().ifBlank { "Other" } }
         .map { (type, typeReminders) ->
-            val brandCounts = mutableMapOf<String, Int>()
+            // Keyed by catalog id so the count and the drill-down query address the same
+            // vaccine. Rows with no recorded id (legacy data) cannot be drilled into, so
+            // they are counted on the type card only and excluded from the brand list -
+            // the same exclusion the old names/ids index-alignment produced.
+            val brandCounts = mutableMapOf<String, Pair<String, Int>>()
             typeReminders.forEach { reminder ->
                 val names = reminder.vaccineName.split(",").map { it.trim() }.filter { it.isNotBlank() }
                 val ids = reminder.nxtVaccineId
@@ -370,24 +384,32 @@ private fun calculateUpcomingVaccineNeeds(
                 // ReminderRepository.saveNextVaccination), only count a name whose
                 // nxt_vaccine_id is verified against the vaccine table. Legacy rows with no
                 // IDs recorded at all fall back to the names as-is.
-                val verifiedNames = if (ids.isNullOrEmpty()) {
-                    names
+                val verified = if (ids.isNullOrEmpty()) {
+                    names.mapIndexed { index, name -> (null to name) }
                 } else {
-                    names.filterIndexed { index, _ -> ids.getOrNull(index) in validVaccineIds }
+                    names.mapIndexedNotNull { index, name ->
+                        val id = ids.getOrNull(index)
+                        if (id in validVaccineIds) id to name else null
+                    }
                 }
-                verifiedNames
-                    .map { PatientUtils.cleanVaccineName(it) }
-                    .filter { it.isNotBlank() }
-                    .distinct()
-                    .forEach { brand ->
-                        brandCounts[brand] = (brandCounts[brand] ?: 0) + 1
+                verified
+                    .map { (id, name) -> id to PatientUtils.cleanVaccineName(name) }
+                    .filter { it.second.isNotBlank() }
+                    .distinctBy { it.first ?: it.second }
+                    .forEach { (id, name) ->
+                        if (id != null) {
+                            val current = brandCounts[id]
+                            brandCounts[id] = name to ((current?.second ?: 0) + 1)
+                        }
                     }
             }
 
             UpcomingVaccineTypeStat(
                 type = type,
                 count = typeReminders.size,
-                brands = brandCounts.toList().sortedByDescending { it.second }
+                brands = brandCounts
+                    .map { (id, nameCount) -> UpcomingVaccineBrandStat(id, nameCount.first, nameCount.second) }
+                    .sortedByDescending { it.count }
             )
         }
         .sortedByDescending { it.count }

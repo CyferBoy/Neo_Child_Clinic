@@ -31,10 +31,8 @@ internal fun NavGraphBuilder.statisticsGraph(
             onFullReportClick = {
                 navController.navigate(Routes.FULL_REPORT)
             },
-            onVaccineTypeClick = { type, brandName ->
-                val encodedType = java.net.URLEncoder.encode(type, "UTF-8")
-                val encodedBrand = java.net.URLEncoder.encode(brandName, "UTF-8")
-                navController.navigate("vaccine_detail/$encodedType/$encodedBrand")
+            onVaccineTypeClick = { type, vaccineId ->
+                navController.navigate(vaccineDetailRoute(type, vaccineId))
             }
         )
     }
@@ -72,14 +70,20 @@ internal fun NavGraphBuilder.statisticsGraph(
         route = Routes.VACCINE_DETAIL,
         arguments = listOf(
             navArgument("type") { type = NavType.StringType },
-            navArgument("brandName") { type = NavType.StringType }
+            // Optional: absent when the user tapped a vaccine type rather than a brand.
+            navArgument("vaccineId") {
+                type = NavType.StringType
+                defaultValue = ""
+            }
         )
     ) { backStackEntry ->
-        val type = java.net.URLDecoder.decode(backStackEntry.stringArg("type"), "UTF-8")
-        val brandName = java.net.URLDecoder.decode(backStackEntry.stringArg("brandName"), "UTF-8")
+        // `type` is a path segment (Navigation does not decode it); `vaccineId` is a query
+        // param (Navigation already decoded it) - decoding either twice would corrupt values.
+        val type = dec(backStackEntry.stringArg("type"))
+        val vaccineId = backStackEntry.stringArg("vaccineId").orEmpty()
         VaccineDetailScreen(
             type = type,
-            brandName = brandName,
+            vaccineId = vaccineId.ifBlank { null },
             onBack = goBack,
             onPatientClick = { patientId ->
                 navController.navigate("patient_details/$patientId")

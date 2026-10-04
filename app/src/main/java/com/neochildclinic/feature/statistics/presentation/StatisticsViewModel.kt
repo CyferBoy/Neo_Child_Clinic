@@ -58,7 +58,11 @@ class StatisticsViewModel @Inject constructor(
             vaccinationRepository.allVaccinations,
             inventoryRepository.getInventoryItems(),
             financeRepository.getAllTransactions(),
-            reminderRepository.getAllReminders(),
+            // Upcoming Vaccine Need is the only consumer of vaccinationReminders, so this is
+            // the DAO-level "upcoming vaccination" query rather than the unfiltered
+            // getAllReminders() - it applies the same ACTIVE/reminderEnabled/VACCINATION/
+            // is_deleted rules the drill-down uses, so counts and detail cannot drift apart.
+            reminderRepository.getUpcomingVaccinations(),
             expenseRepository.getAllExpenses(),
             _selectedTab,
             _isRefreshing,

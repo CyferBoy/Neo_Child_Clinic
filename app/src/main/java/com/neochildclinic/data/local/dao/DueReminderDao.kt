@@ -72,6 +72,37 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders")
     fun getAllReminders(): Flow<List<ReminderEntity>>
 
+    // --- Upcoming Vaccination drill-down (Statistics -> Vaccination -> Upcoming) ---
+    //
+    // These three queries are the SINGLE definition of "upcoming vaccination" for both the
+    // statistics counts and the drill-down detail list, so a card reading "12" always opens
+    // exactly 12 rows (count/detail parity). The predicate deliberately mirrors
+    // getAllDueReminders() above (status + reminderEnabled) and adds the two rules the old
+    // Kotlin-side filter() applied by hand:
+    //   category = 'VACCINATION' - excludes non-vaccination reminder sources
+    //   is_deleted = 0           - soft-deleted rows must never be counted
+    // Room needs literal SQL, so the predicate is repeated verbatim in all three - keep them
+    // in sync (UpcomingVaccinationRulesTest asserts they agree with the Kotlin rules).
+    //
+    // `type` is trimmed the same way calculateUpcomingVaccineNeeds does it (blank -> "Other"),
+    // so the caller passes the already-normalised group key and this stays an equality match.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND type = :type ORDER BY dueDate ASC")
+    fun getUpcomingVaccinationsByType(type: String): Flow<List<ReminderEntity>>
+
+    // Brand drill-down. nxt_vaccine_id is a comma-joined TEXT column, so there is no join
+    // table to filter against - the id must be matched as a whole delimited element.
+    // The surrounding commas are what make this exact rather than a substring match:
+    // ',a1b,' matches 'a1' and 'a1b' but never 'a1b2'. COALESCE covers rows written before
+    // the column existed (NULL/empty), which cannot match any id and so are excluded -
+    // the same outcome calculateUpcomingVaccineNeeds produced for those rows.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND (',' || COALESCE(nxt_vaccine_id, '') || ',') LIKE '%,' || :vaccineId || ',%' ORDER BY dueDate ASC")
+    fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<ReminderEntity>>
+
+    // Aggregate form of the same predicate, used by the Upcoming statistics section so the
+    // card counts and the drill-down rows come from one query definition.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0")
+    fun getUpcomingVaccinations(): Flow<List<ReminderEntity>>
+
     @Query("SELECT * FROM reminders WHERE patientId = :patientId")
     fun getDueRemindersForPatient(patientId: String): Flow<List<ReminderEntity>>
 

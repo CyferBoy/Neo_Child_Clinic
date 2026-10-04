@@ -40,6 +40,13 @@ interface ReminderRepository {
     fun getDashboardStats(): Flow<ReminderStats>
     suspend fun getReminderById(id: String): Reminder?
     fun getAllReminders(): Flow<List<Reminder>>
+
+    // Upcoming Vaccination drill-down (Statistics -> Vaccination -> Upcoming).
+    // Filtering happens in SQL (see DueReminderDao), not in Kotlin, and these share one
+    // predicate with the statistics counts so the card total and the detail rows always agree.
+    fun getUpcomingVaccinations(): Flow<List<Reminder>>
+    fun getUpcomingVaccinationsByType(type: String): Flow<List<Reminder>>
+    fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<Reminder>>
     suspend fun reschedule(
         reminder: Reminder,
         newDate: String,

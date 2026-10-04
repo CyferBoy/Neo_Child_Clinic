@@ -45,7 +45,7 @@ fun StatisticsScreen(
     onMonthClick: (String) -> Unit = {},
     onMilestoneClick: (String) -> Unit = {},
     onFullReportClick: () -> Unit = {},
-    onVaccineTypeClick: (String, String) -> Unit = { _, _ -> }
+    onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
 ) {
     if (!hasAccess) {
         StatisticsAccessDeniedScreen(onBack = onBack)
@@ -130,7 +130,7 @@ private fun StatisticsContent(
     onMonthClick: (String) -> Unit,
     onMilestoneClick: (String) -> Unit,
     onFullReportClick: () -> Unit,
-    onVaccineTypeClick: (String, String) -> Unit,
+    onVaccineTypeClick: (String, String?) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
     val tabs = listOf(
@@ -278,7 +278,7 @@ private fun StatisticsTabContent(
     onMonthClick: (String) -> Unit,
     onMilestoneClick: (String) -> Unit,
     onFullReportClick: () -> Unit,
-    onVaccineTypeClick: (String, String) -> Unit
+    onVaccineTypeClick: (String, String?) -> Unit
 ) {
     when (selectedTab) {
         0 -> OverviewTab(patients, vaccinations, financeTransactions, onFullReportClick = onFullReportClick)
