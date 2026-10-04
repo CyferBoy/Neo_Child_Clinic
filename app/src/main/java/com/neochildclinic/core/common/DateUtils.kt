@@ -188,8 +188,14 @@ object DateUtils {
     fun isoToLong(dateStr: String?): Long {
         if (dateStr.isNullOrBlank()) return 0L
         return try {
-            // Try ISO first
-            parseDate(dateStr)?.time ?: dateStr.toLongOrNull() ?: 0L
+            // Instant.parse is strict and exact, and covers every precision
+            // Instant.toString() emits (0/3/6/9 fractional digits). parseDate's
+            // SimpleDateFormat list tops out at 6 digits, so a nano-precision value
+            // fell through to a date-only pattern and lost its time-of-day - which made
+            // the sync conflict check read a stale server row as newer and silently
+            // revert local edits. Anything non-ISO still falls through unchanged.
+            runCatching { Instant.parse(dateStr).toEpochMilli() }.getOrNull()
+                ?: parseDate(dateStr)?.time ?: dateStr.toLongOrNull() ?: 0L
         } catch (_: Exception) {
             dateStr.toLongOrNull() ?: 0L
         }
