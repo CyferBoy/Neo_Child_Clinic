@@ -441,8 +441,11 @@ class SyncUploader @Inject constructor(
             // denial, a genuine network/server failure, etc.) is rethrown unchanged and
             // handled by the normal retry/failure path in processNextItems.
             try {
+                // Use the descriptor's pkColumn, not a hardcoded "id": inventory_transactions
+                // keys on transactionId, so "id" there would match nothing and the delete
+                // would silently succeed as a no-op.
                 postgrest.from(table).delete {
-                    filter { eq("id", item.entityId) }
+                    filter { eq(descriptor.pkColumn, item.entityId) }
                 }
             } catch (e: io.github.jan.supabase.exceptions.RestException) {
                 if (e.statusCode != 404) throw e

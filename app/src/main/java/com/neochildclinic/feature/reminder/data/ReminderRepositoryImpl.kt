@@ -386,12 +386,15 @@ class ReminderRepositoryImpl @Inject constructor(
             val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
-                logReminderUndoableChange(existing, "SOFT_DELETED", "Soft Deleted by $performedBy")
+                logReminderUndoableChange(existing, "DELETED", "Deleted by $performedBy")
                 dueReminderDao.deleteReminderById(existing.id)
+                // DELETE (not UPDATE): the local row is hard-deleted, so an UPDATE would be
+                // skipped server-side as a no-op and refreshReminders() would re-pull the row.
+                // restoreReminder() re-enqueues an upsert, so delete-then-restore still works.
                 enqueueReminderSync(
                     "REMINDERS",
                     existing.serverId ?: existing.id,
-                    SyncOperation.UPDATE,
+                    SyncOperation.DELETE,
                     SyncPriority.LOW
                 )
             }
@@ -404,6 +407,15 @@ class ReminderRepositoryImpl @Inject constructor(
 
 
     override fun getAllReminders(): Flow<List<Reminder>> = dueReminderDao.getAllReminders().map { rows -> rows.map { it.toDomain() } }
+
+    override fun getUpcomingVaccinations(): Flow<List<Reminder>> =
+        dueReminderDao.getUpcomingVaccinations().map { rows -> rows.map { it.toDomain() } }
+
+    override fun getUpcomingVaccinationsByType(type: String): Flow<List<Reminder>> =
+        dueReminderDao.getUpcomingVaccinationsByType(type).map { rows -> rows.map { it.toDomain() } }
+
+    override fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<Reminder>> =
+        dueReminderDao.getUpcomingVaccinationsByVaccineId(vaccineId).map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun getRemindersByVisitId(visitId: String): List<Reminder> =
         dueReminderDao.getRemindersByVisitId(visitId).map { it.toDomain() }

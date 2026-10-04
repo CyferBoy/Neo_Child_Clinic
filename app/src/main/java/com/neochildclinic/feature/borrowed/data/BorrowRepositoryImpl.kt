@@ -100,17 +100,17 @@ class BorrowRepositoryImpl @Inject constructor(
         transactionRunner.run {
             borrowDao.getRecordById(id)?.let { record ->
                 borrowDao.deleteById(id)
-                syncRepository.enqueue(
-                    entityName = "BORROW",
-                    entityId = id,
-                    operation = SyncOperation.UPDATE,
-                    priority = SyncPriority.MEDIUM
-                )
+syncRepository.enqueue(
+                      entityName = "BORROW",
+                      entityId = id,
+                      operation = SyncOperation.DELETE,
+                      priority = SyncPriority.MEDIUM
+                  )
                 auditLogger.log(
                     module = "INVENTORY",
                     entityType = "BORROW",
                     entityId = id,
-                    action = "BORROW_SOFT_DELETED"
+                    action = "BORROW_DELETED"
                 )
             }
         }

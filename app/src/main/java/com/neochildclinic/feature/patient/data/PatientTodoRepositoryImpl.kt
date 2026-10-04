@@ -70,14 +70,14 @@ class PatientTodoRepositoryImpl @Inject constructor(
     override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
-        dao.deleteConsultation(id)
-        syncRepository.enqueue("CONSULTATION_TODO", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+dao.deleteConsultation(id)
+          syncRepository.enqueue("CONSULTATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteVaccination(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
-        dao.deleteVaccination(id)
-        syncRepository.enqueue("VACCINATION_TODO", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+dao.deleteVaccination(id)
+          syncRepository.enqueue("VACCINATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }
 }

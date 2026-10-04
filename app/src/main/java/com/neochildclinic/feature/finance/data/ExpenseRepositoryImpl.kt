@@ -99,20 +99,20 @@ class ExpenseRepositoryImpl @Inject constructor(
             val existing = expenseDao.getExpenseById(id) ?: return@run
             expenseDao.deleteExpense(id)
 
-            syncRepository.enqueue(
-                entityName = "EXPENSE",
-                entityId = id,
-                operation = SyncOperation.UPDATE,
-                priority = SyncPriority.MEDIUM
-            )
+syncRepository.enqueue(
+                  entityName = "EXPENSE",
+                  entityId = id,
+                  operation = SyncOperation.DELETE,
+                  priority = SyncPriority.MEDIUM
+              )
 
-            auditLogger.recordLog(
-                module = "FINANCE",
-                entityType = "EXPENSE",
-                entityId = id,
-                action = "EXPENSE_SOFT_DELETED",
-                remarks = "${existing.title} (${existing.category}) deleted"
-            )
+              auditLogger.recordLog(
+                  module = "FINANCE",
+                  entityType = "EXPENSE",
+                  entityId = id,
+                  action = "EXPENSE_DELETED",
+                  remarks = "${existing.title} (${existing.category}) deleted"
+              )
         }
     }
 

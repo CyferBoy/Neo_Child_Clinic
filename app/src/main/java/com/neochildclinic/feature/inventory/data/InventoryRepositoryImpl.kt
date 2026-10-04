@@ -306,7 +306,10 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override suspend fun deleteBatch(batchId: String, user: String) {
         vaccineDao.deleteBatch(batchId)
-        syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        // DELETE (not UPDATE): the local row is hard-deleted, so an UPDATE would be skipped
+        // server-side and refreshInventory() would re-pull the batch, putting deleted stock
+        // back into the low-stock counts.
+        syncRepository.enqueue("BATCH", batchId, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteVaccine(vaccineId: String, user: String) {
@@ -329,13 +332,13 @@ class InventoryRepositoryImpl @Inject constructor(
             throw IllegalStateException("This vaccine cannot be deleted because it has historical records.")
         } else {
             vaccineDao.deleteVaccine(vaccineId)
-            syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
             auditLogger.recordLog(
                 module = "VACCINE",
                 entityType = "VACCINE",
                 entityId = vaccineId,
-                action = "SOFT_DELETED",
-                remarks = "Vaccine: ${vaccine.brandName}"
+action = "DELETED",
+                  remarks = "Vaccine: ${vaccine.brandName}"
             )
         }
     }

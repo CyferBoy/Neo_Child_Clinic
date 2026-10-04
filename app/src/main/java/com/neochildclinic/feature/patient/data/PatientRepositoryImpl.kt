@@ -185,15 +185,15 @@ class PatientRepositoryImpl @Inject constructor(
         // Delete Reminders
         dueReminderDao.deleteRemindersByPatientId(id)
         reminderIds.forEach {
-            syncRepository.enqueue("REMINDERS", it, SyncOperation.UPDATE, SyncPriority.LOW)
+            syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
         }
 
         personalReminderIds.forEach {
             personalReminderDao.delete(it)
-            syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.UPDATE, SyncPriority.LOW)
+            syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.DELETE, SyncPriority.LOW)
         }
 
-        // Delete Vaccinations/Visits
+        // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs)
         vaccinationIds.forEach {
             vaccinationRepository.get().deleteVaccination(it)
         }
@@ -201,18 +201,19 @@ class PatientRepositoryImpl @Inject constructor(
         // Delete Consultations
         consultationIds.forEach {
             consultationDao.deleteConsultation(it)
-            syncRepository.enqueue("CONSULTATION", it, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            syncRepository.enqueue("CONSULTATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
         }
 
-        // Delete Patient
+        // Delete Patient - enqueued last: every child is enqueued above so the server-side
+        // DELETE for patients can't hit a foreign-key reference from a child still on the row.
         patientDao.deletePatient(id)
-        syncRepository.enqueue("PATIENT", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
 
         auditLogger.recordLog(
             module = "PATIENT",
             entityType = "PATIENT",
             entityId = id,
-            action = "SOFT_DELETED",
+            action = "DELETED",
             patientId = id
         )
         

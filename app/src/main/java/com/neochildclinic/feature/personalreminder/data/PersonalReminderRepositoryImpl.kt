@@ -158,12 +158,12 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         val now = PatientUtils.getCurrentIsoTimestamp()
         val existing = dao.getById(id)
         dao.delete(id)
-        syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-        auditLogger.log(
-            module = "REMINDER",
-            entityType = "PERSONAL_REMINDER",
-            entityId = id,
-            action = "SOFT_DELETED",
+syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+          auditLogger.log(
+              module = "REMINDER",
+              entityType = "PERSONAL_REMINDER",
+              entityId = id,
+              action = "DELETED",
             remarks = existing?.let { "${it.patientName} - ${it.vaccineLabel ?: "Other"}" }
         )
     }

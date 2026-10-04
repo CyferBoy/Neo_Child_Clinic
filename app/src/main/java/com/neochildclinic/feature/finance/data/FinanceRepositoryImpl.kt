@@ -372,7 +372,12 @@ class FinanceRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshTransactions() = cloudRefresh("FinanceRepo") {
-                val transactions = postgrest.from("finance_transactions").select().decodeList<FinanceEntity>()
+                // is_deleted filter matches the convention used by the 13 other refresh paths:
+                // rows soft-deleted by an earlier build are still on the server and would
+                // otherwise be re-imported here and counted in revenue/profit totals.
+                val transactions = postgrest.from("finance_transactions")
+                    .select { filter { eq("is_deleted", false) } }
+                    .decodeList<FinanceEntity>()
                 transactionRunner.run {
                     val visitDao = vaccinationDao
                     for (remote in transactions) {

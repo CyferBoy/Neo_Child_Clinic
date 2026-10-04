@@ -131,15 +131,16 @@ class WasteRepositoryImpl @Inject constructor(
                 notes = "Restored from deleted waste: ${record.id}"
             )
 
-            // 2. Mark as soft-deleted locally
+            // 2. Delete the waste record locally
             val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
             wasteDao.deleteWaste(id)
 
-            // 3. Queue Sync
+            // 3. Queue Sync as a real DELETE so the row is removed server-side too;
+            // an UPDATE here leaves it on Supabase and the next refreshWaste re-imports it.
             syncRepository.enqueue(
                 entityName = "WASTE",
                 entityId = id,
-                operation = SyncOperation.UPDATE,
+                operation = SyncOperation.DELETE,
                 priority = SyncPriority.LOW
             )
         }

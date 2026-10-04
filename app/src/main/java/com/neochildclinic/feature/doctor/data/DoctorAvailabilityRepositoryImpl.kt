@@ -133,13 +133,13 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     override suspend fun deleteException(id: String, actor: String?) {
         val now = PatientUtils.getCurrentIsoTimestamp()
         dao.deleteException(id)
-        syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.UPDATE, SyncPriority.LOW)
-        auditLogger.log(
-            module = "DOCTOR_TIMINGS",
-            entityType = "UNAVAILABILITY",
-            entityId = id,
-            action = "EXCEPTION_SOFT_DELETED"
-        )
+syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPriority.LOW)
+          auditLogger.log(
+              module = "DOCTOR_TIMINGS",
+              entityType = "UNAVAILABILITY",
+              entityId = id,
+              action = "EXCEPTION_DELETED"
+          )
     }
 
     override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo") {

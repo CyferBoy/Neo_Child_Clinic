@@ -89,7 +89,12 @@ override val allVaccinations: Flow<List<Vaccination>> =
         }
 
     override suspend fun refreshVaccinations() = cloudRefresh("VaccinationRepo") {
-                val entities = postgrest.from("patient_visits").select().decodeList<VisitEntity>()
+                // is_deleted filter matches the convention used by the 13 other refresh paths:
+                // rows soft-deleted by an earlier build are still on the server and would
+                // otherwise be re-imported here and counted by every vaccination statistic.
+                val entities = postgrest.from("patient_visits")
+                    .select { filter { eq("is_deleted", false) } }
+                    .decodeList<VisitEntity>()
                 val totalDownloaded = entities.size
                 var imported = 0
                 var failedValidation = 0
@@ -135,7 +140,9 @@ override val allVaccinations: Flow<List<Vaccination>> =
     override suspend fun fetchRemoteVaccinationItems(): List<VaccinationItem> =
         withContext(Dispatchers.IO) {
             try {
-                postgrest.from("vaccination_items").select().decodeList<VaccinationItemEntity>().map { it.toDomain() }
+                postgrest.from("vaccination_items")
+                    .select { filter { eq("is_deleted", false) } }
+                    .decodeList<VaccinationItemEntity>().map { it.toDomain() }
             } catch (e: Exception) {
                 android.util.Log.e("VaccinationRepo", "Vaccination items fetch failed", e)
                 emptyList()
@@ -403,9 +410,8 @@ override val allVaccinations: Flow<List<Vaccination>> =
             // step 1 are already gone, so there is nothing left to reverse.
             inventoryDeductionDao.deleteForVaccination(id)
 
-            // 2b. (Removed under soft-delete) The visit row itself is no longer physically
-            // deleted, so nothing here can block a hard delete via FK - and unlink the
-            // inventory_transactions audit trail is no longer needed, visit_id stays.
+            // 2b. Unlink the inventory_transactions audit trail's visit_id is no longer needed;
+            // visit_id stays so the deduction ledger remains traceable to its visit.
 
             // 3. Clean up reminders tied to this visit. Without this, a reminder that
             // already synced to Supabase is left behind there after the visit is deleted -
@@ -423,15 +429,18 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     // and has synced at least once - see ReminderEntity.toRemote/toLocal -
                     // but serverId is the field that actually records "synced", so prefer
                     // it). The local row is already gone above, so this must be captured
-                    // now rather than re-read later.
+                    // now rather than re-read later. DELETE (not UPDATE) so the server row
+                    // is actually removed instead of being re-pulled on the next refresh.
                     entityId = reminder.serverId ?: reminder.id,
-                    operation = SyncOperation.UPDATE,
+                    operation = SyncOperation.DELETE,
                     priority = SyncPriority.LOW,
                     transactionGroupId = transactionGroupId
                 )
             }
 
-            // 4. Soft-delete the vaccination's line items.
+            // 4. Delete the vaccination's line items. DELETE (not UPDATE) so the server rows
+            // are actually removed - otherwise refreshVaccinationItems re-imports them and the
+            // deleted vaccination's doses keep being counted in statistics.
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
             if (items.isNotEmpty()) {
                 vaccinationItemDao.deleteItemsByIds(items.map { it.id })
@@ -439,34 +448,35 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     syncRepository.enqueue(
                         entityName = "VACCINATION_ITEM",
                         entityId = item.id,
-                        operation = SyncOperation.UPDATE,
+                        operation = SyncOperation.DELETE,
                         priority = SyncPriority.MEDIUM,
                         transactionGroupId = transactionGroupId
                     )
                 }
             }
 
-            // 5. Finance: As of the soft-delete migration, we soft-delete the associated finance record too.
-            // (Previously we unlinked visit_id but kept the finance transaction active.)
+            // 5. Finance: deleting the visit also deletes the associated finance records, and
+            // enqueues a real DELETE so they stop being re-imported and counted in totals.
             val visitFinanceTxns = financeDao.getTransactionsByVisitId(id)
             for (txn in visitFinanceTxns) {
                 financeDao.deleteTransactionById(txn.id)
                 syncRepository.enqueue(
                     entityName = "FINANCE",
                     entityId = txn.id,
-                    operation = SyncOperation.UPDATE,
+                    operation = SyncOperation.DELETE,
                     priority = SyncPriority.MEDIUM,
                     transactionGroupId = transactionGroupId
                 )
             }
 
-            // 6. Soft-delete the visit itself
+            // 6. Delete the visit itself - enqueued last, after its children (items, finance,
+            // reminders) so the server-side DELETE can't hit a live foreign-key reference.
             vaccinationDao.deleteVaccination(id)
 
             syncRepository.enqueue(
                 entityName = "VACCINATION",
                 entityId = id,
-                operation = SyncOperation.UPDATE,
+                operation = SyncOperation.DELETE,
                 priority = SyncPriority.MEDIUM,
                 transactionGroupId = transactionGroupId
             )
@@ -475,7 +485,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 module = "PATIENT",
                 entityType = "VACCINATION",
                 entityId = id,
-                action = "SOFT_DELETED",
+                action = "DELETED",
                 patientId = existing.patientId,
                 remarks = "Vaccines: ${existing.vaccineNames}",
                 transactionGroupId = transactionGroupId
