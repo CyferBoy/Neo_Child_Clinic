@@ -275,24 +275,28 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateBatch(batch: VaccineBatch, user: String, notes: String?) {
+        // Both the old row and the diff must be captured BEFORE the write below - reading
+        // them afterwards returns the new quantity, so diff collapses to 0 and the
+        // MANUAL_ADJUSTMENT row (the only channel that moves server-side remaining_quantity,
+        // which the inventory_transactions trigger reacts to) is never inserted: the edited
+        // quantity then reverts on the next refreshInventory() and Supabase never sees the
+        // adjustment. Same read-then-write order every other stock path here uses.
+        val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return
+        val diff = batch.remainingQuantity - oldBatch.remainingQuantity
         val updatedEntity = batch.toEntity().copy(
             updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
             createdBy = batch.createdBy,
             updatedBy = user
         )
         vaccineDao.updateBatch(updatedEntity)
-        val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return@updateBatch
-        val diff = batch.remainingQuantity - oldBatch.remainingQuantity
         val userName = sessionManager.getCurrentUserName()
         if (diff != 0) {
-            val transaction = InventoryTransactionEntity(
+            val transaction = buildStockTransaction(
                 vaccineId = batch.vaccineId, batchId = batch.batchId,
-                transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT.name,
+                transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT,
                 quantity = diff, previousQuantity = oldBatch.remainingQuantity,
                 currentQuantity = batch.remainingQuantity, user = userName,
-                notes = notes ?: "Batch Updated: ${batch.batchNumber}",
-                timestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-                createdBy = userName, updatedBy = userName
+                notes = notes ?: "Batch Updated: ${batch.batchNumber}"
             )
             vaccineDao.insertTransaction(transaction)
             syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM)
