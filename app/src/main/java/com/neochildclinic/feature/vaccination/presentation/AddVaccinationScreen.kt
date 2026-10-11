@@ -267,7 +267,7 @@ fun AddVaccinationScreen(
                         })
                     }
                 }
-                if (!isEdit || editNextVaccination) {
+                if (nextVaccinationSectionActive(isEdit = isEdit, editNextVaccination = editNextVaccination)) {
                     items(uiState.nextVaccinationGroups, key = { it.id }) { group ->
                         NextVaccinationGroupCard(
                             group = group,

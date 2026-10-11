@@ -86,6 +86,21 @@ internal data class NextGroupsValidation(
     val groupsWithErrors: List<NextVaccinationGroup>
 )
 
+/**
+ * Whether the Next Vaccination section is live-edited, i.e. its rows are the ones the user
+ * just entered and must pass [validateNextGroups].
+ *
+ * A new record's section header renders as checked but with `enabled = isEdit`, so the
+ * screen's `editNextVaccination` flag never turns on there. Gating validation on that flag
+ * alone skipped validation on create: a group left with a blank Type or Due Date sailed
+ * through to ReminderRepository.saveNextVaccination's silent early-return, so the reminder
+ * was never written to Room, never queued for sync, and the save still reported success.
+ * One definition shared by the screen's render condition and the ViewModel's validation
+ * gate, so the two can never disagree again.
+ */
+internal fun nextVaccinationSectionActive(isEdit: Boolean, editNextVaccination: Boolean): Boolean =
+    !isEdit || editNextVaccination
+
 /** Returns null when every group has a Type and Due Date, else the error plus groups with typeError set. */
 internal fun validateNextGroups(groups: List<NextVaccinationGroup>): NextGroupsValidation? {
     var firstInvalidGroup: String? = null

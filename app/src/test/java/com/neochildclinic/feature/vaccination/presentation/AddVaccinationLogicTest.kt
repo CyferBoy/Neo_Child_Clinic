@@ -5,6 +5,7 @@ import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.VaccineBatch
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,6 +113,24 @@ class AddVaccinationLogicTest {
     fun `validateNextGroups returns null when every group has a type and due date`() {
         val groups = listOf(NextVaccinationGroup(dueDate = "2026-10-15", items = listOf(NextVaccinationItem(type = "Booster"))))
         assertNull(validateNextGroups(groups))
+    }
+
+    // --- nextVaccinationSectionActive (the create-path validation gate) ---
+
+    @Test
+    fun `next vaccination validation runs for every new record even though the section checkbox never turns on`() {
+        // AddVaccinationScreen renders the header as checked for new records but with
+        // enabled = isEdit, so editNextVaccination stays false. Gating validation on it
+        // alone skipped validation on create and let blank Type/Due Date reach
+        // saveNextVaccination's silent early-return - the reminder was never persisted.
+        assertTrue(nextVaccinationSectionActive(isEdit = false, editNextVaccination = false))
+        assertTrue(nextVaccinationSectionActive(isEdit = false, editNextVaccination = true))
+    }
+
+    @Test
+    fun `next vaccination validation follows the section checkbox on edits`() {
+        assertTrue(nextVaccinationSectionActive(isEdit = true, editNextVaccination = true))
+        assertFalse(nextVaccinationSectionActive(isEdit = true, editNextVaccination = false))
     }
 
     @Test

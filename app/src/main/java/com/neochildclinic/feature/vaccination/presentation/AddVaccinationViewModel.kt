@@ -529,7 +529,7 @@ class AddVaccinationViewModel @Inject constructor(
 
         val nextGroups = state.nextVaccinationGroups
 
-        if (editNextVaccination) {
+        if (nextVaccinationSectionActive(isEdit = isEdit, editNextVaccination = editNextVaccination)) {
             validateNextGroups(nextGroups)?.let { validation ->
                 _uiState.update { s ->
                     s.copy(

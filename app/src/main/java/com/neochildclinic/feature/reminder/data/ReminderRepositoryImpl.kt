@@ -148,7 +148,15 @@ class ReminderRepositoryImpl @Inject constructor(
     ) {
         // A Next Vaccination may be type-only, or may contain one/many vaccines.
         // Each selected vaccine is persisted as its own reminder row.
-        if (type.isBlank() || dueDate.isBlank()) return
+        // A blank Type or Due Date means the caller skipped validation; dropping the row
+        // silently loses the reminder, so leave a trace in logcat instead of vanishing.
+        if (type.isBlank() || dueDate.isBlank()) {
+            android.util.Log.w(
+                "ReminderRepo",
+                "Dropping reminder for visit $originalVisitId: blank ${if (type.isBlank()) "type" else "dueDate"}"
+            )
+            return
+        }
 
         withContext(Dispatchers.IO) {
             transactionRunner.run {
