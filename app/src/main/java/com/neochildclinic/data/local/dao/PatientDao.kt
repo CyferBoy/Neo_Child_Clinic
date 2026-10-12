@@ -18,6 +18,12 @@ interface PatientDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPatient(patient: PatientEntity)
 
+    // Create path: a unique-clinicId conflict must ABORT instead of REPLACE, which
+    // would DELETE the other patient's row and orphan every child record (visits,
+    // consultations, reminders, notes) pointing at it.
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertPatientStrict(patient: PatientEntity)
+
 
     @Query("DELETE FROM patients WHERE id = :id")
     suspend fun deletePatient(id: String)

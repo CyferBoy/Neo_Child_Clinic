@@ -23,6 +23,7 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.feature.patient.data.PatientIdGenerator
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.InvalidationTracker
+import androidx.room.withTransaction
 import com.neochildclinic.core.preferences.PreferenceManager
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -53,7 +54,7 @@ class PatientRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val vaccinationRepository: dagger.Lazy<VaccinationRepository>,
     private val patientCache: PatientCache,
-    database: AppDatabase
+    private val database: AppDatabase
 ) : PatientRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -135,27 +136,33 @@ class PatientRepositoryImpl @Inject constructor(
 
     override suspend fun addPatient(patient: Patient) {
         val isUpdate = patientDao.getPatientById(patient.id) != null
-        val finalClinicId = if (patient.patientClinicId.isNullOrBlank()) {
-            idGenerator.generateUniqueClinicId()
-        } else {
-            if (patient.patientClinicId.startsWith("TEMP-")) {
-                throw IllegalArgumentException("Invalid Clinic ID format.")
-            }
-            if (!idGenerator.isIdUnique(patient.patientClinicId, patient.id)) {
-                throw IllegalStateException("A patient with Clinic ID ${patient.patientClinicId} already exists.")
-            }
-            patient.patientClinicId
-        }
-
         val userName = sessionManager.getCurrentUserName()
-        val entity = patient.copy(
-            patientClinicId = finalClinicId,
-            createdBy = if (isUpdate) patient.createdBy else userName,
-            updatedBy = userName,
-            updatedAt = patient.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-            isSynced = false
-        )
-        patientDao.insertPatient(entity)
+        // BUG-004: mint the clinic ID and insert inside one transaction so concurrent
+        // saves cannot both land on the same ID; the create path uses the ABORT insert
+        // so a collision fails loudly instead of REPLACE-deleting the other patient.
+        val entity = database.withTransaction {
+            val finalClinicId = if (patient.patientClinicId.isNullOrBlank()) {
+                idGenerator.generateUniqueClinicId()
+            } else {
+                if (patient.patientClinicId.startsWith("TEMP-")) {
+                    throw IllegalArgumentException("Invalid Clinic ID format.")
+                }
+                if (!idGenerator.isIdUnique(patient.patientClinicId, patient.id)) {
+                    throw IllegalStateException("A patient with Clinic ID ${patient.patientClinicId} already exists.")
+                }
+                patient.patientClinicId
+            }
+
+            val built = patient.copy(
+                patientClinicId = finalClinicId,
+                createdBy = if (isUpdate) patient.createdBy else userName,
+                updatedBy = userName,
+                updatedAt = patient.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+                isSynced = false
+            )
+            if (isUpdate) patientDao.insertPatient(built) else patientDao.insertPatientStrict(built)
+            built
+        }
         
         syncRepository.enqueue(
             entityName = "PATIENT",

@@ -188,7 +188,8 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         priority = 4,
         fetch = { db, id -> db.financeDao().getTransactionById(id) },
         // No FinanceEntity branch in the legacy getEntityUpdatedAt switch (fell to else -> "");
-        // preserved so the conflict check still favours the remote row for finance.
+        // kept blank: finance has no local timestamp, so the conflict check cannot order the
+        // rows and the local edit uploads instead of being silently dropped (BUG-005 fix).
         updatedAt = { "" },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<FinanceEntity>(JsonObject(m))
@@ -493,7 +494,11 @@ class SyncUploader @Inject constructor(
                 val remoteUpdatedAt = com.neochildclinic.core.common.PatientUtils.isoToLong(remoteUpdatedAtStr)
                 val localUpdatedAtLong = com.neochildclinic.core.common.PatientUtils.isoToLong(localUpdatedAt)
 
-                if (remoteUpdatedAt > localUpdatedAtLong) {
+                // BUG-005: localUpdatedAtLong == 0 means the local entity never stamped a
+                // timestamp (FINANCE/VACCINATION_ITEM/PROFILE don't maintain one), so its
+                // age is unknown - downloading here silently discarded the local edit and
+                // marked it synced. Unknown age must lose to nothing: let the edit upload.
+                if (remoteUpdatedAt > localUpdatedAtLong && localUpdatedAtLong > 0) {
                     // REMOTE IS NEWER: Sync back to local (Self-healing)
                     descriptor.download(database, remoteData)
                     return

@@ -15,7 +15,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.DigestInputStream
@@ -432,7 +431,12 @@ class AppUpdateManager @Inject constructor(
 
     private fun sha256Hex(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        DigestInputStream(file.inputStream(), digest).use { it.copyTo(OutputStream.nullOutputStream()) }
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        // DigestInputStream updates the digest as bytes pass through; discard them with a
+        // plain loop (OutputStream.nullOutputStream() needs API 33, minSdk is 29).
+        DigestInputStream(file.inputStream(), digest).use { input ->
+            while (input.read(buffer) != -1) { /* consumed by the digest above */ }
+        }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 

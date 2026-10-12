@@ -29,8 +29,11 @@ object SecurityUtils {
         val sharedPreferences = try {
             createEncryptedPrefs(context, masterKey)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize EncryptedSharedPreferences: ${e.message}. Attempting recovery...")
-            deleteCorruptedPrefs(context)
+            // BUG-003: never delete the prefs here. Deleting them destroys the stored
+            // passphrase, a fresh one gets minted, the old database then fails to open
+            // and the open path wipes it. Retry once; if this still fails, propagate
+            // (app shows an error) instead of silently destroying the clinic's data.
+            Log.e(TAG, "EncryptedSharedPreferences init failed; retrying once: ${e.message}")
             createEncryptedPrefs(context, masterKey)
         }
 
@@ -53,15 +56,6 @@ object SecurityUtils {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
-
-    private fun deleteCorruptedPrefs(context: Context) {
-        try {
-            // Delete the underlying XML file to clear corrupted data
-            context.deleteSharedPreferences(PREFS_NAME)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete corrupted prefs: ${e.message}")
-        }
-    }
 
     // ---- Backup & Restore: automatic-backup password storage ----
     //

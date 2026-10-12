@@ -148,55 +148,55 @@ class ConsultationRepositoryImpl @Inject constructor(
         }
     }
 
-override suspend fun deleteConsultation(id: String) {
+    override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
         val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
 
         transactionRunner.run {
             val existing = consultationDao.getConsultationById(id) ?: return@run
 
-// 1. Delete Consultation (Child)
-              consultationDao.deleteConsultation(id)
-              syncRepository.enqueue(
-                  entityName = "CONSULTATION",
-                  entityId = id,
-                  operation = SyncOperation.DELETE,
-                  priority = SyncPriority.MEDIUM
-              )
+            // 1. Delete Consultation (Child)
+            consultationDao.deleteConsultation(id)
+            syncRepository.enqueue(
+                entityName = "CONSULTATION",
+                entityId = id,
+                operation = SyncOperation.DELETE,
+                priority = SyncPriority.MEDIUM
+            )
 
-              // 2. Delete associated finance transactions for the visit
-              if (existing.visitId.isNotBlank()) {
-                  val visitFinanceTxns = financeDao.getTransactionsByVisitId(existing.visitId)
-                  for (txn in visitFinanceTxns) {
-                      financeDao.deleteTransactionById(txn.id)
-                      syncRepository.enqueue(
-                          entityName = "FINANCE",
-                          entityId = txn.id,
-                          operation = SyncOperation.DELETE,
-                          priority = SyncPriority.MEDIUM
-                      )
-                  }
-              }
+            // 2. Delete associated finance transactions for the visit
+            if (existing.visitId.isNotBlank()) {
+                val visitFinanceTxns = financeDao.getTransactionsByVisitId(existing.visitId)
+                for (txn in visitFinanceTxns) {
+                    financeDao.deleteTransactionById(txn.id)
+                    syncRepository.enqueue(
+                        entityName = "FINANCE",
+                        entityId = txn.id,
+                        operation = SyncOperation.DELETE,
+                        priority = SyncPriority.MEDIUM
+                    )
+                }
+            }
 
-              // 3. Delete Visit Header (Mother) - enqueued last, after its children.
-              if (existing.visitId.isNotBlank()) {
-                  vaccinationDao.deleteVaccination(existing.visitId)
-                  syncRepository.enqueue(
-                      entityName = "VISIT",
-                      entityId = existing.visitId,
-                      operation = SyncOperation.DELETE,
-                      priority = SyncPriority.MEDIUM
-                  )
-              }
+            // 3. Delete Visit Header (Mother) - enqueued last, after its children.
+            if (existing.visitId.isNotBlank()) {
+                vaccinationDao.deleteVaccination(existing.visitId)
+                syncRepository.enqueue(
+                    entityName = "VISIT",
+                    entityId = existing.visitId,
+                    operation = SyncOperation.DELETE,
+                    priority = SyncPriority.MEDIUM
+                )
+            }
 
-              auditLogger.recordLog(
-                  module = "PATIENT",
-                  entityType = "CONSULTATION",
-                  entityId = id,
-                  action = "DELETED",
-                  patientId = existing.patientId,
-                  remarks = "Consultation and associated visit header deleted"
-              )
+            auditLogger.recordLog(
+                module = "PATIENT",
+                entityType = "CONSULTATION",
+                entityId = id,
+                action = "DELETED",
+                patientId = existing.patientId,
+                remarks = "Consultation and associated visit header deleted"
+            )
         }
     }
 
