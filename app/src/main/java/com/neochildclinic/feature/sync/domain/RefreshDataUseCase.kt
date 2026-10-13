@@ -15,11 +15,21 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
+import javax.inject.Singleton
+import com.neochildclinic.core.sync.SingleFlight
 
 /**
  * Use case to trigger a full refresh of local data from remote sources.
  * Coordinates multiple repository refreshes.
+ *
+ * @Singleton so the [flight] gate is shared by every caller: previously nine ViewModels
+ * could run this 11-repository pipeline concurrently, which both wasted network and -
+ * because refreshVaccinations skips visits whose patient is not local yet - made
+ * vaccination records land in Room across several overlapping runs (the "records keep
+ * appearing over time" symptom). Concurrent callers now wait for the one in-flight run
+ * instead of starting a second one.
  */
+@Singleton
 class RefreshDataUseCase @Inject constructor(
     private val patientRepository: PatientRepository,
     private val vaccinationRepository: VaccinationRepository,
@@ -33,7 +43,11 @@ class RefreshDataUseCase @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val doctorAvailabilityRepository: DoctorAvailabilityRepository
 ) {
-    suspend operator fun invoke() = coroutineScope {
+    private val flight = SingleFlight()
+
+    suspend operator fun invoke() = flight.run { runRefresh() }
+
+    private suspend fun runRefresh() = coroutineScope {
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
         patientRepository.refreshPatients()
         vaccinationRepository.refreshVaccinations()

@@ -86,7 +86,16 @@ class SyncRepositoryImpl @Inject constructor(
         syncDao.clearSynced()
     }
 
-    override suspend fun processNextItems() {
+    // Single-flight: only one queue run at a time in this process. Three unique
+    // WorkManager names plus direct in-process callers (Dashboard, Sync screen,
+    // reconciler) could otherwise read the same PENDING rows concurrently and upload
+    // them twice - and the 5-minute stale-SYNCING requeue below could only ever see
+    // rows orphaned by a dead run, never rows a live run owns.
+    private val flight = com.neochildclinic.core.sync.SingleFlight()
+
+    override suspend fun processNextItems() = flight.run { processNextItemsInternal() }
+
+    private suspend fun processNextItemsInternal() {
         syncDao.cleanCorruptedItems()
         syncDao.requeueStaleSyncingItems(
             staleBefore = com.neochildclinic.core.common.PatientUtils.getIsoTimestampMinutesAgo(5)
@@ -143,9 +152,10 @@ class SyncRepositoryImpl @Inject constructor(
 
         _syncState.value = if (hasError) SyncState.ERROR else SyncState.IDLE
 
-        // 3. Loop if more items arrived during processing
+        // 3. Loop if more items arrived during processing (inner call: the flight lock
+        // above is already held by this coroutine).
         if (syncDao.getPendingCountSync() > 0 && !hasError) {
-            processNextItems()
+            processNextItemsInternal()
         }
     }
 

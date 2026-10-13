@@ -232,8 +232,10 @@ fun DashboardScreen(
                 },
                 onLogout = {
                     scope.launch { drawerState.close() }
-                    authViewModel.logout()
-                    onLogout()
+                    // Navigation only fires after a real sign-out: if the safety gate
+                    // blocks (unsynced changes), the confirmation dialog appears first
+                    // and the callback runs after the user decides (see AppNavigation).
+                    authViewModel.logout(onLogout)
                 },
                 onSyncClick = {
                     // Close the drawer before navigating to Cloud Synchronization.

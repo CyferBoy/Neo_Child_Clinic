@@ -166,6 +166,8 @@ Application updates are provided through the **in-app update system**. The app c
 - Automatic synchronization with Supabase.
 - Sync queue and retry handling.
 - Refresh data manually when needed.
+- Startup/reconnection reconciliation and the sign-out isolation gate.
+  See [docs/SYNC.md](docs/SYNC.md) for the full synchronization model and its invariants.
 
 ### 📱 Home Screen Widget
 

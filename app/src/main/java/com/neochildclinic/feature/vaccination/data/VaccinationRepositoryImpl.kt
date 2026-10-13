@@ -173,8 +173,9 @@ override val allVaccinations: Flow<List<Vaccination>> =
 
             transactionRunner.run {
                 for (remoteItem in entities) {
-                    // FOREIGN KEY CHECK: the visit this item belongs to must exist locally
-                    // and must NOT be soft-deleted. getActiveVaccinationById filters is_deleted = 0.
+                    // FOREIGN KEY CHECK: the visit this item belongs to must exist locally.
+                    // (This is a plain existence check - patient_visits has had no is_deleted
+                    // column since migration 31->32; local deletes are hard deletes.)
                     val visitExists = vaccinationDao.getActiveVaccinationById(remoteItem.vaccinationId) != null
                     if (!visitExists) {
                         itemsSkippedMissingVisit++

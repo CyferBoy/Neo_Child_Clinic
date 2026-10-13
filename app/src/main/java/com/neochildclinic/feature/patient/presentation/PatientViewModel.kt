@@ -4,10 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientDocument
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
@@ -15,7 +13,6 @@ import com.neochildclinic.feature.consultation.domain.repository.ConsultationRep
 import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
 import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
-import com.neochildclinic.core.common.PatientUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -28,6 +25,7 @@ data class PatientVaccinationCardData(
 )
 
 @HiltViewModel
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PatientViewModel @Inject constructor(
     private val vaccinationRepository: VaccinationRepository,
     private val refreshDataUseCase: RefreshDataUseCase,
@@ -98,17 +96,55 @@ class PatientViewModel @Inject constructor(
         _documentError.value = null
     }
     
-    val allPatients: StateFlow<List<Patient>>
+    // null = Room has not emitted yet. Callers must distinguish that from "no patients
+    // exist" - the details screen used to render "Patient not found" in this window.
+    val allPatients: StateFlow<List<Patient>?>
     val doctorMap: StateFlow<Map<String, String>>
     val vaccineMap: StateFlow<Map<String, String>>
 
+    /**
+     * Explicit loading/data state for Patient Details (vaccinations, consultations,
+     * notes). Keyed to the attached patient id; Room is the only source, so a network
+     * refresh never resets it - it only changes when Room changes. Initial value is the
+     * loading state: an empty-but-unqueried list must never look like "loaded empty".
+     */
+    val historyState: StateFlow<PatientHistoryUiState>
+
+    private val attachedPatientId = MutableStateFlow<String?>(null)
+
+    /** Binds the history flows to one patient; re-attaching switches flows atomically. */
+    fun attachPatient(patientId: String) {
+        attachedPatientId.value = patientId
+    }
+
     init {
         // State Streams
-        allPatients = patientRepository.allPatients.stateIn(
-            scope = viewModelScope,
+        allPatients = patientRepository.allPatients.stateIn(            scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = emptyList()
+            initialValue = null
         )
+
+        historyState = attachedPatientId
+            .filterNotNull()
+            .flatMapLatest { pid ->
+                combine(
+                    vaccinationRepository.getVaccinationCardsForPatient(pid),
+                    consultationRepository.getConsultationsForPatient(pid),
+                    patientRepository.getNotes(pid)
+                ) { cards, consults, notes ->
+                    PatientHistoryUiState.loaded(
+                        cards = cards.map { PatientVaccinationCardData(it.vaccination, it.reminders) },
+                        consultations = consults,
+                        notes = notes
+                    )
+                }
+            }
+            .flowOn(Dispatchers.Default)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = PatientHistoryUiState()
+            )
 
         doctorMap = profileRepository.allProfiles
             .map { profiles -> profiles.associate { it.employeeId.orEmpty() to it.displayName } }
@@ -197,42 +233,11 @@ class PatientViewModel @Inject constructor(
         }
     }
 
-    fun getPatientConsultations(patientId: String): Flow<List<Consultation>> {
-        return consultationRepository.getConsultationsForPatient(patientId)
-            .map { consultations ->
-                consultations.sortedByDescending { PatientUtils.parseDate(it.date)?.time ?: 0L }
-            }
-    }
-
     /**
      * Patient audit history is online-only (see PatientAuditLogPager) - the dialog drives this
      * directly via load()/loadMore()/clear() rather than through a Flow.
      */
     val auditLogPager = com.neochildclinic.feature.audit.presentation.PatientAuditLogPager(auditLogRepository, viewModelScope)
-
-    /**
-     * Emits each patient's vaccination history as one Room transaction snapshot.
-     * The visit, vaccination items, and reminders are loaded together so the
-     * card is not rendered first and then completed by a later reminder flow.
-     */
-    fun getPatientVaccinationCards(patientId: String): Flow<List<PatientVaccinationCardData>> =
-        vaccinationRepository.getVaccinationCardsForPatient(patientId)
-            .map { snapshots ->
-                snapshots
-                    .filter { it.vaccination.visitType == "VACCINATION" }
-                    .sortedByDescending { PatientUtils.parseDate(it.vaccination.dateGiven)?.time ?: 0L }
-                    .map { snapshot ->
-                        PatientVaccinationCardData(
-                            vaccination = snapshot.vaccination,
-                            reminders = snapshot.reminders
-                        )
-                    }
-            }
-            .flowOn(Dispatchers.Default)
-
-    fun getPatientNotes(patientId: String): Flow<List<PatientNote>> {
-        return patientRepository.getNotes(patientId)
-    }
 
     suspend fun getInventoryDeductions(vaccinationId: String): List<InventoryDeduction> {
         return inventoryRepository.getInventoryDeductionsForVaccination(vaccinationId)

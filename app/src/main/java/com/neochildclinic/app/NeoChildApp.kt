@@ -38,6 +38,9 @@ class NeoChildApp : Application(), Configuration.Provider {
     @Inject
     lateinit var backupAutoScheduler: com.neochildclinic.data.backup.BackupAutoScheduler
 
+    @Inject
+    lateinit var syncReconciler: com.neochildclinic.core.sync.SyncReconciler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -62,6 +65,9 @@ class NeoChildApp : Application(), Configuration.Provider {
         installSecurityProvider()
 
         setupSync()
+        // Startup + reconnection reconciliation: pull missed remote changes and push
+        // pending local ones as soon as we're online and signed in (see SyncReconciler).
+        syncReconciler.start()
         
         // Register Screen Off Receiver
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)

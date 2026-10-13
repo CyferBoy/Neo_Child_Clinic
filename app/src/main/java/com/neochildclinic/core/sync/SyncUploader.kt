@@ -471,14 +471,7 @@ class SyncUploader @Inject constructor(
             }
         }
 
-        val localData = try {
-            descriptor.fetch(database, item.entityId)
-        } catch (e: Exception) {
-            // Same containment the legacy fetchEntityData provided: a local DB read failure
-            // yields "nothing to upload" (null) rather than failing the whole group.
-            android.util.Log.e("SyncRepositoryImpl", "Error fetching data for sync: ${item.entityName} ID ${item.entityId}", e)
-            null
-        }
+        val localData = descriptor.fetch(database, item.entityId)
         if (localData != null) {
             val localUpdatedAt = descriptor.updatedAt(localData)
 

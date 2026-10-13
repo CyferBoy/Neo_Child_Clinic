@@ -15,11 +15,13 @@ import io.github.jan.supabase.auth.user.UserInfo
 import androidx.compose.runtime.State
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,11 +31,27 @@ class AuthViewModel @Inject constructor(
     private val deviceRepository: DeviceRepositoryImpl,
     private val syncManager: SyncManagerImpl,
     private val cacheRegistry: CacheRegistry,
-    private val currentUserProvider: CurrentUserProvider
+    private val currentUserProvider: CurrentUserProvider,
+    private val syncRepository: com.neochildclinic.feature.sync.domain.repository.SyncRepository,
+    private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
+    private val appDatabase: com.neochildclinic.data.local.database.AppDatabase,
+    private val networkMonitor: com.neochildclinic.core.network.NetworkMonitor,
+    @ApplicationContext private val appContext: android.content.Context
 ) : ViewModel() {
 
     companion object {
         private const val SESSION_STATUS_TIMEOUT_MS = 4_000L
+
+        // Bounded flush pass before sign-out: enough time for one queue run over a
+        // normal connection, short enough that Logout never feels hung up.
+        private const val SIGN_OUT_FLUSH_TIMEOUT_MS = 20_000L
+
+        // Which account the local Room database currently belongs to. Written on every
+        // completed sign-in, cleared whenever the local data is erased. This is what
+        // lets a sign-in detect "the cached rows on this device belong to someone else"
+        // without adding an owner column to every table (no schema change).
+        private const val ACCOUNT_PREFS = "account_prefs"
+        private const val KEY_LAST_ACCOUNT = "last_account_id"
     }
 
     val currentUser: UserInfo? get() = auth.currentSessionOrNull()?.user
@@ -80,6 +98,27 @@ class AuthViewModel @Inject constructor(
 
     /** Authorization role from the session's app_metadata — the single source of truth. */
     val currentUserRole: UserRole? get() = currentUserProvider.getCurrentUserRole()
+
+    private val accountPrefs =
+        appContext.getSharedPreferences(ACCOUNT_PREFS, android.content.Context.MODE_PRIVATE)
+
+    // --- Sign-out / account-switch isolation -----------------------------------
+    // Sign-out must never silently erase unsynced local work, and must never leave one
+    // account's rows readable by the next. Flow: flush (bounded) -> if anything is
+    // still unacknowledged, block and ask; only after sync or explicit consent is the
+    // local database erased.
+
+    /** Non-null while a sign-out is waiting for the user to confirm erasing N unsynced changes. */
+    private val _logoutBlocked = MutableStateFlow<Int?>(null)
+    val logoutBlocked: StateFlow<Int?> = _logoutBlocked.asStateFlow()
+    private var pendingSignOutCallback: (() -> Unit)? = null
+
+    private data class PendingAccountSwitch(val userId: String, val onSuccess: () -> Unit)
+
+    /** Non-null while a sign-in is waiting for consent to erase the previous account's data. */
+    private val _loginSwitchBlocked = MutableStateFlow<Int?>(null)
+    val loginSwitchBlocked: StateFlow<Int?> = _loginSwitchBlocked.asStateFlow()
+    private var pendingSwitch: PendingAccountSwitch? = null
 
     init {
         // Mark loading immediately so the profile skeleton shows instead of stale data.
@@ -176,19 +215,24 @@ class AuthViewModel @Inject constructor(
                     this.password = pass
                 }
 
-                auth.currentSessionOrNull()?.user?.id?.let {
-                    if (!fetchProfile(it)) {
+                val userId = auth.currentSessionOrNull()?.user?.id
+                val lastAccount = accountPrefs.getString(KEY_LAST_ACCOUNT, null)
+                if (userId != null && lastAccount != null && lastAccount != userId) {
+                    // The Room database on this device belongs to a different account.
+                    val unacknowledged = syncQueueDao.getUnacknowledgedCountSync()
+                    if (unacknowledged > 0) {
+                        // Never erase another account's unsynced work silently - ask.
+                        pendingSwitch = PendingAccountSwitch(userId, onSuccess)
+                        _loginSwitchBlocked.value = unacknowledged
                         _isLoading.value = false
-                        return@launch // stay on the login screen; error is already set
+                        return@launch
                     }
-                    // Device registration is best-effort and must not delay or block
-                    // the initial application data sync if Supabase/user_devices times out.
-                    launch { deviceRepository.registerCurrentDevice() }
+                    // Everything is already acknowledged: dropping the cached rows is a
+                    // cache invalidation, not data loss, and keeps one clinic's patients
+                    // out of another account's screens.
+                    runCatching { appDatabase.clearAllTables() }
                 }
-
-                _isLoading.value = false
-                syncManager.scheduleImmediateSync()
-                onSuccess()
+                finishLogin(userId, onSuccess)
             } catch (e: Exception) {
                 _isLoading.value = false
                 _error.value = e.message
@@ -196,17 +240,108 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun logout() {
-        viewModelScope.launch {
-            try {
-                deviceRepository.deactivateCurrentDevice()
-                auth.signOut()
-            } finally {
-                // Session isolation: in-memory caches must never carry User A's data to User B.
-                cacheRegistry.clearAll()
-                _profile.value = null
+    private suspend fun finishLogin(userId: String?, onSuccess: () -> Unit) {
+        if (userId != null) {
+            accountPrefs.edit().putString(KEY_LAST_ACCOUNT, userId).apply()
+            if (!fetchProfile(userId)) {
+                _isLoading.value = false
+                return // stay on the login screen; error is already set
             }
+            // Device registration is best-effort and must not delay or block
+            // the initial application data sync if Supabase/user_devices times out.
+            viewModelScope.launch { deviceRepository.registerCurrentDevice() }
         }
+
+        _isLoading.value = false
+        syncManager.scheduleImmediateSync()
+        onSuccess()
+    }
+
+    /** User consented to erase the previous account's local rows and continue signing in. */
+    fun confirmAccountSwitchReset() {
+        val pending = pendingSwitch ?: return
+        viewModelScope.launch {
+            runCatching { appDatabase.clearAllTables() }
+            pendingSwitch = null
+            _loginSwitchBlocked.value = null
+            finishLogin(pending.userId, pending.onSuccess)
+        }
+    }
+
+    /** User declined: drop the new session so nothing is written under it, keep old data. */
+    fun cancelAccountSwitch() {
+        pendingSwitch = null
+        _loginSwitchBlocked.value = null
+        viewModelScope.launch {
+            runCatching { auth.signOut() }
+            // signOut() only clears the local session after its network call resolves;
+            // clearSession() guarantees the new session is gone even offline, so a
+            // declined switch never leaves the new account signed in over old data.
+            runCatching { auth.clearSession() }
+            _isLoading.value = false
+            _error.value = "Sign-in cancelled. The previous account's unsynced changes were kept."
+        }
+    }
+
+    /**
+     * Sign-out with the safety gate: flush the sync queue (bounded, online only), then
+     * - if everything reached the server: sign out and erase local data (nothing pending
+     *   is lost, so nothing is erased "silently");
+     * - if changes remain unacknowledged: block and wait for an explicit decision via
+     *   [confirmSignOutErasingData] / [cancelSignOut].
+     *
+     * [onSignedOut] runs only after an actual sign-out, so navigation callbacks never
+     * fire while the gate is still up.
+     */
+    fun logout(onSignedOut: () -> Unit = {}) {
+        viewModelScope.launch {
+            if (networkMonitor.isOnline.first()) {
+                withTimeoutOrNull(SIGN_OUT_FLUSH_TIMEOUT_MS) {
+                    runCatching { syncRepository.processNextItems() }
+                }
+            }
+            val unacknowledged = syncQueueDao.getUnacknowledgedCountSync()
+            if (unacknowledged > 0) {
+                pendingSignOutCallback = onSignedOut
+                _logoutBlocked.value = unacknowledged
+                return@launch
+            }
+            completeSignOut()
+            onSignedOut()
+        }
+    }
+
+    fun confirmSignOutErasingData() {
+        val continuation = pendingSignOutCallback
+        viewModelScope.launch {
+            pendingSignOutCallback = null
+            _logoutBlocked.value = null
+            completeSignOut()
+            continuation?.invoke()
+        }
+    }
+
+    fun cancelSignOut() {
+        pendingSignOutCallback = null
+        _logoutBlocked.value = null
+    }
+
+    private suspend fun completeSignOut() {
+        // Each step is best-effort: a failed device deactivation or a failed server
+        // revocation must not leave a half-signed-out session pointing at another
+        // account's (now erased) data.
+        runCatching { deviceRepository.deactivateCurrentDevice() }
+        runCatching { auth.signOut() }
+        // signOut() clears the local session only after its network call resolves; this
+        // guarantees the session is gone even when signing out offline.
+        runCatching { auth.clearSession() }
+        // Session isolation: in-memory caches AND the Room database must never carry
+        // User A's data to User B. Safe here: only reached when the queue has no
+        // unacknowledged rows or the user explicitly confirmed the erase.
+        cacheRegistry.clearAll()
+        _profile.value = null
+        runCatching { appDatabase.clearAllTables() }
+        accountPrefs.edit().remove(KEY_LAST_ACCOUNT).apply()
     }
 
     fun refreshSessionStatus() {

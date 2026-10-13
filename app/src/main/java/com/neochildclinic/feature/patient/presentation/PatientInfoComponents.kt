@@ -21,12 +21,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.neochildclinic.domain.model.InventoryDeduction
-import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientDocument
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
 import com.neochildclinic.core.common.PatientUtils.formatAgeYearsMonths
 import com.neochildclinic.core.designsystem.*
@@ -36,11 +36,8 @@ import kotlinx.coroutines.launch
 fun PatientDetailsContent(
     paddingValues: PaddingValues,
     patient: Patient,
-    vaccinations: List<Vaccination>,
-    vaccinationCardData: List<PatientVaccinationCardData>?,
-    consultations: List<Consultation>,
+    history: PatientHistoryUiState,
     documents: List<PatientDocument>,
-    notes: List<PatientNote>,
     doctorMap: Map<String, String>,
     vaccineMap: Map<String, String>,
     canEditOrDelete: Boolean,
@@ -92,50 +89,61 @@ fun PatientDetailsContent(
 
         when (selectedSegment) {
             0 -> {
-                // Vaccination Segment: strictly show records where visitType is VACCINATION
-                val segmentVaccinations = vaccinations.filter { it.visitType == "VACCINATION" }
-                if (segmentVaccinations.isEmpty()) {
-                    item { EmptySectionText("No vaccination records found.") }
+                // Vaccination segment: strictly show records where visitType is VACCINATION.
+                // !isLoaded means Room has not answered yet - show a skeleton, never
+                // "No vaccination records found." (the false empty state this replaced).
+                if (!history.isLoaded) {
+                    item { SkeletonList(count = 3) }
                 } else {
-                    itemsIndexed(segmentVaccinations, key = { _, v -> v.id }) { _, vaccination ->
-                        val cardData = vaccinationCardData?.firstOrNull { it.vaccination.id == vaccination.id }
-                        VaccinationRecordCard(
-                            vaccination = vaccination,
-                            patient = patient,
-                            doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
-                            reminders = cardData?.reminders.orEmpty(),
-                            vaccineMap = vaccineMap,
-                            onClick = { onOpenVaccinationDetails(vaccination) },
-                            onLongClick = { onLongClickVaccination(vaccination) },
-                            onShowInventoryIssues = { id ->
-                                selectedVisitForDeductions = id
-                                scope.launch {
-                                    deductionsForVisit = viewModel.getInventoryDeductions(id)
+                    val emptyMessage = history.segmentEmptyMessage(PatientHistoryUiState.SEGMENT_VACCINATIONS)
+                    if (emptyMessage != null) {
+                        item { EmptySectionText(emptyMessage) }
+                    } else {
+                        itemsIndexed(history.vaccinations, key = { _, v -> v.id }) { _, vaccination ->
+                            val cardData = history.vaccinationCards.firstOrNull { it.vaccination.id == vaccination.id }
+                            VaccinationRecordCard(
+                                vaccination = vaccination,
+                                patient = patient,
+                                doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
+                                reminders = cardData?.reminders.orEmpty(),
+                                vaccineMap = vaccineMap,
+                                onClick = { onOpenVaccinationDetails(vaccination) },
+                                onLongClick = { onLongClickVaccination(vaccination) },
+                                onShowInventoryIssues = { id ->
+                                    selectedVisitForDeductions = id
+                                    scope.launch {
+                                        deductionsForVisit = viewModel.getInventoryDeductions(id)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
             1 -> {
                 // Consultation segment uses the Consultation table/model only.
-                if (consultations.isEmpty()) {
-                    item { EmptySectionText("No consultation records found.") }
+                if (!history.isLoaded) {
+                    item { SkeletonList(count = 3) }
                 } else {
-                    items(consultations, key = { it.id }) { consultation ->
-                        ConsultationRecordCard(
-                            consultation = consultation,
-                            doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
-                            onLongClick = { onLongClickConsultation(consultation) }
-                        )
+                    val emptyMessage = history.segmentEmptyMessage(PatientHistoryUiState.SEGMENT_CONSULTATIONS)
+                    if (emptyMessage != null) {
+                        item { EmptySectionText(emptyMessage) }
+                    } else {
+                        items(history.consultations, key = { it.id }) { consultation ->
+                            ConsultationRecordCard(
+                                consultation = consultation,
+                                doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
+                                onLongClick = { onLongClickConsultation(consultation) }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        if (notes.isNotEmpty()) {
+        if (history.isLoaded && history.notes.isNotEmpty()) {
             item { SectionHeader("Clinical Notes") }
-            items(notes, key = { it.id }) { note ->
+            items(history.notes, key = { it.id }) { note ->
                 ClinicalNoteCard(note)
             }
         }

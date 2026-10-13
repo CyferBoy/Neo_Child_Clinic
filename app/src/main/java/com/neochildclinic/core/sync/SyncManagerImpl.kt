@@ -37,7 +37,16 @@ class SyncManagerImpl @Inject constructor(
     }
 
     fun scheduleImmediateSync() {
+        // Same CONNECTED constraint as scheduleSync(): without it this expedited request
+        // runs immediately while offline, fails every upload, bumps the failure counter
+        // and burns WorkManager retry budget for nothing. Connectivity back only releases
+        // it, so "immediate" still means "as soon as it can possibly succeed".
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
         val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setConstraints(constraints)
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .addTag("IMMEDIATE_SYNC")
             .build()

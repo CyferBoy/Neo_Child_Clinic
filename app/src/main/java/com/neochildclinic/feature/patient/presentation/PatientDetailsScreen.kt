@@ -38,9 +38,10 @@ fun PatientDetailsScreen(
     viewModel: PatientViewModel = hiltViewModel()
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
+    // null until Room emits its first patient list - see the loading branch below.
     val allPatients by viewModel.allPatients.collectAsState()
 val snackbarHostState = remember { SnackbarHostState() }
-    val patient = remember(patientId, allPatients) { allPatients.find { it.id == patientId } }
+    val patient = remember(patientId, allPatients) { allPatients?.find { it.id == patientId } }
     // Invalidate this scope when the session (and app_metadata.role) changes —
     // the role getter below is a plain read with no other invalidation source.
     val sessionStatus by authViewModel.sessionStatus.collectAsState()
@@ -62,22 +63,17 @@ val snackbarHostState = remember { SnackbarHostState() }
         }
     }
     
-    // Flows are created once per patientId (not on every recomposition). Calling
-    // viewModel.getPatientVaccinationCards(...) etc. directly in the composable body
-    // would return a brand-new Flow instance on every recomposition (e.g. whenever
-    // allPatients changes after an edit), and since collectAsState keys its internal
-    // state on the Flow instance, that reset the displayed list to its initial value
-    // (null / empty) every time - making vaccination history appear to "vanish" until
-    // something else (like a fresh navigation) repopulated it.
-    val vaccinationCardsFlow = remember(patientId) { viewModel.getPatientVaccinationCards(patientId) }
-    val consultationsFlow = remember(patientId) { viewModel.getPatientConsultations(patientId) }
-    val notesFlow = remember(patientId) { viewModel.getPatientNotes(patientId) }
-
-    val patientVaccinationCards by vaccinationCardsFlow.collectAsState(initial = null)
-    val patientConsultations by consultationsFlow.collectAsState(initial = emptyList())
+    // The three history lists are collected as ONE explicit state (Loading -> Loaded)
+    // held by the ViewModel, instead of three nullable/empty-initial flows collected
+    // here. Two earlier bugs came from collecting raw flows in this composable body:
+    // (1) a fresh Flow instance per recomposition reset collectAsState to its initial
+    // value, making history "vanish"; (2) mapping an unresolved (null / empty) initial
+    // value to a list showed "No vaccination records found." before Room ever answered.
+    // PatientHistoryUiState makes loading vs loaded-but-empty distinguishable.
+    LaunchedEffect(patientId) { viewModel.attachPatient(patientId) }
+    val historyState by viewModel.historyState.collectAsState()
     val documents by viewModel.documents.collectAsState()
     val documentError by viewModel.documentError.collectAsState()
-    val patientNotes by notesFlow.collectAsState(initial = emptyList())
     val doctorMap by viewModel.doctorMap.collectAsState()
     val vaccineMap by viewModel.vaccineMap.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -362,7 +358,14 @@ val snackbarHostState = remember { SnackbarHostState() }
                 }
             }
         ) { paddingValues ->
-            if (patient == null) {
+            if (allPatients == null) {
+                // Room has not emitted the first patient list yet. Showing
+                // "Patient not found" here was a false empty state - same class of bug
+                // as the vaccination history one fixed via PatientHistoryUiState.
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (patient == null) {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     Text("Patient not found", style = MaterialTheme.typography.titleLarge)
                 }
@@ -370,11 +373,8 @@ val snackbarHostState = remember { SnackbarHostState() }
                 PatientDetailsContent(
                     paddingValues = paddingValues,
                     patient = patient,
-                    vaccinations = patientVaccinationCards?.map { it.vaccination }.orEmpty(),
-                    vaccinationCardData = patientVaccinationCards,
-                    consultations = patientConsultations,
+                    history = historyState,
                     documents = documents,
-                    notes = patientNotes,
                     doctorMap = doctorMap,
                     vaccineMap = vaccineMap,
                     canEditOrDelete = canEditOrDelete,

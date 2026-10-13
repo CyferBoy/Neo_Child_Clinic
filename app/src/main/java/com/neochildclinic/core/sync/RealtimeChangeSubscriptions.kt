@@ -61,13 +61,21 @@ class RealtimeChangeSubscriptions @Inject constructor(
             }
         }
         awaitClose {
+            // Remove the channel BEFORE cancelling the scope. The previous code launched
+            // the removal and then cancelled the scope in the next statement, which could
+            // cancel the removal coroutine before it ever ran - leaving a joined channel
+            // behind until some later subscription with the same name cleaned it up.
             changeScope.launch {
-                runCatching {
-                    val channel = realtime.subscriptions["realtime:$channelName"]
-                    if (channel != null) realtime.removeChannel(channel)
+                try {
+                    realtime.subscriptions["realtime:$channelName"]?.let { old ->
+                        realtime.removeChannel(old)
+                    }
+                } catch (e: Exception) {
+                    Log.e("Realtime", "Error removing channel $channelName", e)
+                } finally {
+                    changeScope.cancel()
                 }
             }
-            changeScope.cancel()
         }
     }
 }

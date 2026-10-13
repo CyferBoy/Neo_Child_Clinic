@@ -90,6 +90,69 @@ fun AppNavigation(
         statisticsGraph(navController, userRole, goBack)
         reminderGraph(navController, goBack)
     }
+
+    AccountIsolationDialogs(authViewModel)
+}
+
+/**
+ * Confirmation dialogs for the sign-out / account-switch isolation gate (see
+ * AuthViewModel): local data is erased only after everything reached the server or the
+ * user explicitly consents - never silently, and never left behind for the next account.
+ * Hosted here (not inside each screen) because every navigation graph shares this one
+ * AuthViewModel instance, so a gate raised anywhere in the session is answered here.
+ */
+@Composable
+private fun AccountIsolationDialogs(authViewModel: AuthViewModel) {
+    val logoutBlocked by authViewModel.logoutBlocked.collectAsState()
+    val switchBlocked by authViewModel.loginSwitchBlocked.collectAsState()
+
+    logoutBlocked?.let { unacknowledged ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { authViewModel.cancelSignOut() },
+            title = { Text("Unsynced changes") },
+            text = {
+                Text(
+                    "$unacknowledged change(s) from this device haven't reached the cloud yet. " +
+                        "Signing out erases the local database, which would discard them. " +
+                        "Cancel to stay signed in and sync first."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { authViewModel.confirmSignOutErasingData() }) {
+                    Text("Erase & Sign Out", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { authViewModel.cancelSignOut() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    switchBlocked?.let { unacknowledged ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { authViewModel.cancelAccountSwitch() },
+            title = { Text("Different account") },
+            text = {
+                Text(
+                    "This device holds $unacknowledged unsynced change(s) belonging to a " +
+                        "different account. Erase the local database and continue signing in? " +
+                        "Cancel keeps that account's data intact."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { authViewModel.confirmAccountSwitchReset() }) {
+                    Text("Erase & Continue", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { authViewModel.cancelAccountSwitch() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable

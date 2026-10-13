@@ -197,11 +197,15 @@ class DashboardViewModel @Inject constructor(
     // refresh" (req. 3/4) work without a second Today's Patient sync framework - the existing
     // sync_queue/SyncWorker path remains the only thing that ever pushes local -> cloud.
     // Channel teardown is handled by RealtimeChangeSubscriptions when viewModelScope cancels.
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun observeTodayPatientRealtimeChanges() {
         viewModelScope.launch {
+            // debounce(500) matches PatientListViewModel: a single save produces a burst
+            // of postgres events, and without it each event fired a separate two-table
+            // pull. onEach is suspending, so refreshes between bursts stay serialized.
             realtimeChangeSubscriptions.tableChanges(
                 "todays-patients-db-changes", "consultation_todos", "vaccination_todos"
-            ).onEach {
+            ).debounce(500).onEach {
                 runCatching { patientTodoRepository.refresh() }
             }.collect()
         }

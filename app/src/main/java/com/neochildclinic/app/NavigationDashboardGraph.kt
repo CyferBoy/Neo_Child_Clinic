@@ -131,9 +131,12 @@ internal fun NavGraphBuilder.dashboardNavGraph(
         ProfileScreen(
             onBack = goBack,
             onLogout = {
-                authViewModel.logout()
-                navController.navigate(Routes.LOGIN) {
-                    popUpTo(0) { inclusive = true }
+                // Runs only after the sign-out completes (or is confirmed via the
+                // unsynced-changes dialog hosted in AppNavigation).
+                authViewModel.logout {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             }
         )

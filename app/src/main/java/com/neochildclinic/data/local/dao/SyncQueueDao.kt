@@ -36,6 +36,13 @@ interface SyncQueueDao {
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     fun getPendingCount(): Flow<Int>
 
+    /**
+     * Rows not yet acknowledged by the server (queued, in flight, or failed). Used by
+     * the sign-out gate: these are the changes that would be lost by erasing local data.
+     */
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status != 'SYNCED'")
+    suspend fun getUnacknowledgedCountSync(): Int
+
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     suspend fun getPendingCountSync(): Int
 
