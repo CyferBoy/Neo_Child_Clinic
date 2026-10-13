@@ -47,6 +47,12 @@ object BackupCrypto {
     private const val IV_LEN = 12
     private const val GCM_TAG_BITS = 128
     private const val PBKDF2_ITERATIONS = 210_000
+    // Bounds for the iteration count read out of a container header. That value comes
+    // from the file, so a crafted .nccb could otherwise demand billions of iterations
+    // (the app looks frozen before GCM ever rejects it) or zero (no work factor at all).
+    // Every legitimate file uses PBKDF2_ITERATIONS above.
+    private const val MIN_ALLOWED_ITERATIONS = 10_000
+    private const val MAX_ALLOWED_ITERATIONS = 1_000_000
     private const val KEY_BITS = 256
     private const val MIN_CONTAINER_SIZE = 4 + 1 + 1 + SALT_LEN + 1 + IV_LEN + 4
 
@@ -93,6 +99,9 @@ object BackupCrypto {
             val ivLen = buffer.get().toInt().let { if (it < 0) it + 256 else it }
             val iv = ByteArray(ivLen).also { buffer.get(it) }
             val iterations = buffer.int
+            if (iterations < MIN_ALLOWED_ITERATIONS || iterations > MAX_ALLOWED_ITERATIONS) {
+                throw BackupException.Corrupted("Unreasonable PBKDF2 iteration count: $iterations")
+            }
             val ciphertext = ByteArray(buffer.remaining()).also { buffer.get(it) }
 
             val key = deriveKey(password, salt, iterations)

@@ -157,6 +157,14 @@ async function handleConfirm(request: Request, env: Env, accountId: string, back
   }
 
   const key = objectKey(accountId, backupId);
+
+  // `backup_id` is the global primary key, so a confirm must never adopt a row that
+  // belongs to someone else (the upsert below would otherwise re-point another
+  // account's backup at this caller's object). Same 404 as download/delete: do not
+  // leak whether the id exists at all.
+  const existing = await env.DB.prepare("SELECT * FROM backups WHERE backup_id = ?").bind(backupId).first<BackupRow>();
+  if (existing && existing.account_id !== accountId) return json({ error: "Not found" }, 404);
+
   const head = await env.BACKUP_BUCKET.head(key);
   if (!head) return json({ error: "Uploaded object not found - upload may have failed" }, 409);
   if (head.size > MAX_BACKUP_BYTES) {

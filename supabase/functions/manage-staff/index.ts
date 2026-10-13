@@ -7,6 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
+const MIN_PASSWORD_LENGTH = 12
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -46,6 +48,11 @@ serve(async (req) => {
       const { name, email, password, role, employeeId, phoneNumber } = body
       if (!name || !email || !password || !role) throw new Error("name, email, password and role are required")
       validateRole(role)
+      // Server-side floor: GoTrue's own minimum (6 by default) is too weak for accounts
+      // that hold patient records, and it is a project setting this function cannot see.
+      if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+        throw new Error(`password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+      }
 
       const { data: userData, error: authError } = await admin.auth.admin.createUser({
         email,

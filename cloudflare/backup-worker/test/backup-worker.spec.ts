@@ -88,4 +88,45 @@ describe("ownership isolation", () => {
     });
     expect(downloadAsA.status).toBe(200);
   });
+
+  it("does not let one account re-confirm (adopt) another account's backup id", async () => {
+    const tokenA = await tokenFor("clinic-a");
+    const tokenB = await tokenFor("clinic-b");
+
+    const payloadA = new TextEncoder().encode("clinic-a-encrypted-backup-bytes");
+    await SELF.fetch("https://worker.example/backups/confirm-cross-1", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenA}`, "Content-Type": "application/octet-stream" },
+      body: payloadA
+    });
+    const confirmA = await SELF.fetch("https://worker.example/backups/confirm-cross-1/confirm", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenA}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeBytes: payloadA.byteLength, appVersion: "1.0", backupVersion: 1, createdAt: new Date().toISOString() })
+    });
+    expect(confirmA.status).toBe(200);
+
+    // backup_id is the global primary key, so the confirm upsert must never adopt a row
+    // owned by someone else - otherwise clinic B could point clinic A's row at clinic
+    // B's object. B gets the same 404 as download/delete (no existence leak).
+    const payloadB = new TextEncoder().encode("clinic-b-encrypted-backup-bytes-longer");
+    await SELF.fetch("https://worker.example/backups/confirm-cross-1", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenB}`, "Content-Type": "application/octet-stream" },
+      body: payloadB
+    });
+    const confirmAsB = await SELF.fetch("https://worker.example/backups/confirm-cross-1/confirm", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenB}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeBytes: payloadB.byteLength, appVersion: "1.0", backupVersion: 1, createdAt: new Date().toISOString() })
+    });
+    expect(confirmAsB.status).toBe(404);
+
+    // Clinic A's row still resolves to clinic A's object.
+    const downloadAsA = await SELF.fetch("https://worker.example/backups/confirm-cross-1/download", {
+      headers: { Authorization: `Bearer ${tokenA}` }
+    });
+    expect(downloadAsA.status).toBe(200);
+    expect(await downloadAsA.text()).toBe("clinic-a-encrypted-backup-bytes");
+  });
 });

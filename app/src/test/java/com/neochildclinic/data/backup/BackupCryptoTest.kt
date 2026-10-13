@@ -1,5 +1,7 @@
 package com.neochildclinic.data.backup
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
@@ -71,5 +73,33 @@ class BackupCryptoTest {
     fun `sha256Hex is deterministic for the same input`() {
         val bytes = "checksum me".toByteArray(Charsets.UTF_8)
         assertTrue(BackupCrypto.sha256Hex(bytes) == BackupCrypto.sha256Hex(bytes))
+    }
+
+    @Test
+    fun `a container whose header demands an impossible iteration count is rejected immediately`() {
+        val container = BackupCrypto.encrypt("payload".toByteArray(Charsets.UTF_8), "a-password".toCharArray())
+
+        for (absurd in intArrayOf(1, Int.MAX_VALUE)) {
+            // Patch the iteration count in the container header (offset = magic 4 + version 1
+            // + saltLen 1 + salt 16 + ivLen 1 + iv 12). A crafted file could otherwise
+            // demand billions of PBKDF2 iterations (app looks frozen) or one (no work
+            // factor); either way the file is not a legitimate backup and must be
+            // rejected before key derivation starts.
+            val crafted = container.copyOf()
+            ByteBuffer.wrap(crafted).order(ByteOrder.BIG_ENDIAN).putInt(ITERATIONS_OFFSET, absurd)
+
+            val thrown = assertThrows(BackupException::class.java) {
+                BackupCrypto.decrypt(crafted, "a-password".toCharArray())
+            }
+            assertTrue(
+                "Expected Corrupted for $absurd iterations, got ${thrown::class.simpleName}",
+                thrown is BackupException.Corrupted
+            )
+        }
+    }
+
+    companion object {
+        // 4 (magic) + 1 (format version) + 1 (salt length) + 16 (salt) + 1 (iv length) + 12 (iv)
+        private const val ITERATIONS_OFFSET = 35
     }
 }

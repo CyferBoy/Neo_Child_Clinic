@@ -16,7 +16,9 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     const secret = Deno.env.get('UPDATE_NOTIFIER_SECRET')
 
-    if (!authHeader || authHeader !== `Bearer ${secret}`) {
+    // Fail closed: an unset secret must reject every caller, not become the literal
+    // string "Bearer undefined" that anyone on the internet can guess.
+    if (!secret || !authHeader || authHeader !== `Bearer ${secret}`) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
