@@ -1,6 +1,7 @@
 package com.neochildclinic.core.security
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
@@ -55,6 +56,17 @@ object SecurityUtils {
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+
+    /**
+     * The Keystore-backed encrypted prefs (same file as the database passphrase above).
+     * Exposed so the Supabase session token can be persisted here instead of in
+     * supabase-kt's default plaintext SharedPreferences - see SupabaseModule.
+     */
+    fun getSecurePrefs(context: Context): SharedPreferences =
+        createEncryptedPrefs(
+            context,
+            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
         )
 
     // ---- Backup & Restore: automatic-backup password storage ----

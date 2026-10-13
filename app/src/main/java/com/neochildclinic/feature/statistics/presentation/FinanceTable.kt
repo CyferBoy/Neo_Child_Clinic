@@ -3,6 +3,7 @@ package com.neochildclinic.feature.statistics.presentation
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
 import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Locale
@@ -29,16 +31,18 @@ fun FinanceTable(
     fyQuarter: Int = 0,
     selectedMonth: Int = -1,
     onMonthClick: (String) -> Unit = {},
-    visitDatesById: Map<String, String>? = null
+    visitDatesById: Map<String, String>? = null,
+    expenses: List<Expense> = emptyList()
 ) {
-    val displayData = remember(transactions, vaccinations, filterMode, fyQuarter, selectedMonth, visitDatesById) {
+    val displayData = remember(transactions, vaccinations, filterMode, fyQuarter, selectedMonth, visitDatesById, expenses) {
         FinanceCalculator.getMonthlyGroupedData(
             transactions = transactions,
             vaccinations = vaccinations,
             filterMode = filterMode,
             selectedQuarter = fyQuarter,
             selectedMonth = selectedMonth,
-            visitDatesById = visitDatesById
+            visitDatesById = visitDatesById,
+            expenses = expenses
         )
     }
 
@@ -78,12 +82,12 @@ private fun FinanceTableRow(data: FinanceSummaryItem, previous: FinanceSummaryIt
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(data.label, Modifier.weight(1.15f), style = MaterialTheme.typography.bodySmall)
-        Text("₹${data.revenue.toInt()}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(if (data.isProfitComplete) "₹${data.vaccineCost.toInt()}" else "Unavailable", Modifier.weight(0.9f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text("₹${data.expenses.toInt()}", Modifier.weight(0.95f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(StatisticsUtils.formatRupees(data.revenue), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(if (data.isProfitComplete) StatisticsUtils.formatRupees(data.vaccineCost) else "Unavailable", Modifier.weight(0.9f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(StatisticsUtils.formatRupees(data.expenses), Modifier.weight(0.95f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
         Column(Modifier.weight(0.95f), horizontalAlignment = Alignment.End) {
             Text(
-                if (data.isProfitComplete) "₹${data.netProfit.toInt()}" else "Unavailable",
+                if (data.isProfitComplete) StatisticsUtils.formatRupees(data.netProfit) else "Unavailable",
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.End,
@@ -114,9 +118,9 @@ private fun FinanceTableTotalRow(dataList: List<FinanceSummaryItem>) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("TOTAL", Modifier.weight(1.15f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-        Text("₹${totalRevenue.toInt()}", Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(if (allProfitComplete) "₹${totalCogs.toInt()}" else "Unavailable", Modifier.weight(0.9f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text("₹${totalExpenses.toInt()}", Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(if (allProfitComplete) "₹${totalNet.toInt()}" else "Unavailable", Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(StatisticsUtils.formatRupees(totalRevenue), Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(if (allProfitComplete) StatisticsUtils.formatRupees(totalCogs) else "Unavailable", Modifier.weight(0.9f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(StatisticsUtils.formatRupees(totalExpenses), Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(if (allProfitComplete) StatisticsUtils.formatRupees(totalNet) else "Unavailable", Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
     }
 }

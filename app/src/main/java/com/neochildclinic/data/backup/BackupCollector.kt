@@ -1,15 +1,21 @@
 package com.neochildclinic.data.backup
 
-import com.neochildclinic.data.local.dao.BackupDao
+import androidx.room.withTransaction
+import com.neochildclinic.data.local.database.AppDatabase
 
 /**
  * Collects the current state of every backup-eligible table into a [BackupPayloadV1].
  * Read-only - never mutates anything. Used for both real exports and the internal
  * pre-restore safety snapshot.
  */
-class BackupCollector(private val backupDao: BackupDao) {
+class BackupCollector(private val database: AppDatabase) {
 
-    suspend fun collect(): BackupPayloadV1 {
+    /** Runs every table read in one transaction so an auto-backup racing a commit sees the
+     * state either before or after it, never a half-written mix. */
+    suspend fun collect(): BackupPayloadV1 = database.withTransaction { snapshot() }
+
+    private suspend fun snapshot(): BackupPayloadV1 {
+        val backupDao = database.backupDao()
         return BackupPayloadV1(
             // fcmToken is a device push token, not clinic data - never leaves the device.
             profiles = backupDao.getAllProfilesForBackup().map { it.copy(fcmToken = null) },

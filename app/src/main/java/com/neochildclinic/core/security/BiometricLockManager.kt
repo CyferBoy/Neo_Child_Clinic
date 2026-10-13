@@ -13,9 +13,17 @@ object BiometricLockManager {
     private var lastActiveTime: Long = System.currentTimeMillis()
     private const val INACTIVITY_TIMEOUT = 5 * 60 * 1000L
 
+    /**
+     * Persists the arm flag (NotificationSettingsManager's `needs_auth`) so the lock
+     * survives process death - the in-memory [screenWasOff] flag above does not.
+     * Installed by NeoChildApp; null before that (e.g. in unit tests).
+     */
+    var onNeedsAuthChanged: ((Boolean) -> Unit)? = null
+
     fun onScreenOff() {
         if (protectionEnabled) {
             screenWasOff = true
+            onNeedsAuthChanged?.invoke(true)
         }
     }
 
@@ -29,7 +37,8 @@ object BiometricLockManager {
 
         val currentTime = System.currentTimeMillis()
         val inactiveTooLong = (currentTime - lastActiveTime) > INACTIVITY_TIMEOUT
-        if (screenWasOff || inactiveTooLong) _isAppLocked.value = true
+        // lock() (not a direct value set) so the arm flag is persisted too.
+        if (screenWasOff || inactiveTooLong) lock()
         screenWasOff = false
     }
 
@@ -49,6 +58,8 @@ object BiometricLockManager {
     /** Called only after BiometricAuthenticator completes the Keystore operation. */
     fun unlockAfterKeystoreVerification() {
         _isAppLocked.value = false
+        // The persisted arm flag is cleared only here - a real unlock, never on resume.
+        onNeedsAuthChanged?.invoke(false)
         onUserActive()
     }
 
@@ -60,5 +71,6 @@ object BiometricLockManager {
 
     fun lock() {
         _isAppLocked.value = true
+        onNeedsAuthChanged?.invoke(true)
     }
 }

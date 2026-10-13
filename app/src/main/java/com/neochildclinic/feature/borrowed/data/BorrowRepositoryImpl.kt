@@ -71,6 +71,33 @@ class BorrowRepositoryImpl @Inject constructor(
                     user = user,
                     transactionType = InventoryTransactionType.BORROWED
                 )
+            } else {
+                // Editing the quantity moves the difference (deduction above only ever ran
+                // for brand-new records): 5 -> 8 owes 3 more, 5 -> 3 gives back what is
+                // still outstanding (quantity minus already-returned, capped so an edit
+                // below the returned amount can't hand back stock that was never taken).
+                val existing = borrowDao.getRecordById(finalItem.id)
+                val diff = finalItem.quantity - (existing?.quantity ?: 0)
+                if (diff > 0) {
+                    inventoryRepository.deductStock(
+                        vaccineId = finalItem.vaccineId,
+                        quantity = diff,
+                        user = user,
+                        transactionType = InventoryTransactionType.BORROWED
+                    )
+                } else if (diff < 0 && existing != null) {
+                    val outstanding = existing.quantity - borrowReturnDao.getTotalReturnedQuantity(existing.id)
+                    val restore = minOf(-diff, outstanding)
+                    if (restore > 0) {
+                        inventoryRepository.returnBorrowedStock(
+                            originalBatchId = existing.batchId,
+                            returnToBatchId = existing.batchId,
+                            quantity = restore,
+                            user = user,
+                            notes = "Borrow quantity reduced from ${existing.quantity} to ${finalItem.quantity}"
+                        )
+                    }
+                }
             }
 
             val entity = finalItem.toEntity(isSynced = false)
@@ -99,6 +126,20 @@ class BorrowRepositoryImpl @Inject constructor(
         val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
         transactionRunner.run {
             borrowDao.getRecordById(id)?.let { record ->
+                // Reverse whatever stock this borrow still holds: quantity minus what the
+                // borrow_returns ledger already gave back (those returns restored their
+                // own stock when they were made). Without this, deleting an active borrow
+                // leaves the deducted doses gone from inventory forever.
+                val outstanding = record.quantity - borrowReturnDao.getTotalReturnedQuantity(record.id)
+                if (outstanding > 0) {
+                    inventoryRepository.returnBorrowedStock(
+                        originalBatchId = record.batchId,
+                        returnToBatchId = record.batchId,
+                        quantity = outstanding,
+                        user = userName,
+                        notes = "Borrow record deleted; outstanding stock restored"
+                    )
+                }
                 borrowDao.deleteById(id)
 syncRepository.enqueue(
                       entityName = "BORROW",
@@ -131,6 +172,18 @@ syncRepository.enqueue(
             val user = sessionManager.getCurrentUserName()
             val today = LocalDate.now().toString()
             val transactionGroupId = UUID.randomUUID().toString()
+
+            // Repository-side cap (the UI-level check in ReturnVaccineDialog can be
+            // bypassed by a stale dialog or double-submit): a return may only hand back
+            // what the borrow still holds - quantity minus everything already returned.
+            // Over-returning would mint stock the borrow never took.
+            val borrow = borrowDao.getRecordById(borrowRecordId)
+                ?: throw IllegalStateException("Borrow record not found.")
+            val outstanding = borrow.quantity - borrowReturnDao.getTotalReturnedQuantity(borrowRecordId)
+            if (quantity <= 0) throw IllegalStateException("Returned quantity must be greater than zero.")
+            if (quantity > outstanding) {
+                throw IllegalStateException("Returned quantity ($quantity) exceeds the outstanding borrowed quantity ($outstanding).")
+            }
 
             val effectiveBatchId = if (newBatchInfo != null) {
                 val vaccine = vaccineDao.getVaccineById(vaccineId)

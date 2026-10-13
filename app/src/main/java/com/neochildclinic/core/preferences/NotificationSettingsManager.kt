@@ -30,6 +30,7 @@ class NotificationSettingsManager @Inject constructor(
     
     // Internal Tracking
     private val LAST_APP_OPEN_TIMESTAMP = longPreferencesKey("last_app_open_timestamp")
+    private val NEEDS_AUTH = booleanPreferencesKey("needs_auth")
     private val LAST_SUMMARY_SENT_DATE = stringPreferencesKey("last_summary_sent_date")
     private val NOTIFIED_LOW_STOCK_VACCINES = stringSetPreferencesKey("notified_low_stock_vaccines")
 
@@ -46,6 +47,7 @@ class NotificationSettingsManager @Inject constructor(
             authOnEveryOpen = preferences[AUTH_ON_EVERY_OPEN] ?: false,
             
             lastAppOpenTimestamp = preferences[LAST_APP_OPEN_TIMESTAMP] ?: System.currentTimeMillis(),
+            needsAuth = preferences[NEEDS_AUTH] ?: false,
             lastSummarySentDate = preferences[LAST_SUMMARY_SENT_DATE] ?: "",
             notifiedLowStockVaccines = preferences[NOTIFIED_LOW_STOCK_VACCINES] ?: emptySet()
         )
@@ -68,6 +70,16 @@ class NotificationSettingsManager @Inject constructor(
     suspend fun updateLastOpenTimestamp() {
         context.dataStore.edit { preferences ->
             preferences[LAST_APP_OPEN_TIMESTAMP] = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Set when the app lock arms (screen off / lock), cleared only after a successful
+     * unlock. Unlike BiometricLockManager's in-memory state this survives process death.
+     */
+    suspend fun setNeedsAuth(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[NEEDS_AUTH] = value
         }
     }
 
@@ -104,6 +116,7 @@ data class NotificationSettings(
     val authOnEveryOpen: Boolean,
     
     val lastAppOpenTimestamp: Long,
+    val needsAuth: Boolean,
     val lastSummarySentDate: String,
     val notifiedLowStockVaccines: Set<String>
 )

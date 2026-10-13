@@ -2,6 +2,7 @@ package com.neochildclinic.feature.statistics.domain
 
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.startOfDay
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar
@@ -149,7 +150,8 @@ object FinanceCalculator {
         filterMode: String = "Overall",
         selectedQuarter: Int = 0,
         selectedMonth: Int = -1,
-        visitDatesById: Map<String, String>? = null
+        visitDatesById: Map<String, String>? = null,
+        expenses: List<Expense> = emptyList()
     ): List<FinanceSummaryItem> {
         val vaccinationById = StatisticsUtils.filterValidVaccinations(vaccinations).associateBy { it.id }
         
@@ -199,10 +201,15 @@ object FinanceCalculator {
         val result = mutableListOf<FinanceSummaryItem>()
         
         // Optimization: Pre-group transactions by month key once
-        val transactionsByMonth = parsed.groupBy { (_, date) ->
-            val cal = Calendar.getInstance().apply { time = date }
-            String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
-        }
+        val transactionsByMonth = parsed.groupBy { (_, date) -> monthKey(date) }
+
+        // The Expense column/TOTAL come from the separate `expenses` table - nothing
+        // writes EXPENSE rows to finance_transactions anymore - bucketed with the same
+        // month key as the income rows above.
+        val expensesByMonth = expenses.mapNotNull { exp ->
+            val date = PatientUtils.parseDate(exp.expenseDate) ?: return@mapNotNull null
+            monthKey(date) to exp.amountRupees
+        }.groupBy({ it.first }, { it.second }).mapValues { (_, amounts) -> amounts.sum() }
 
         var cursor = first.clone() as Calendar
         var iterationCount = 0
@@ -212,7 +219,7 @@ object FinanceCalculator {
             iterationCount++
             val year = cursor.get(Calendar.YEAR)
             val month = cursor.get(Calendar.MONTH)
-            val key = String.format(Locale.US, "%04d-%02d", year, month)
+            val key = monthKey(cursor.time)
             
             // Fast lookup from the pre-grouped map
             val monthTransactions = transactionsByMonth[key]?.map { it.first } ?: emptyList()
@@ -223,7 +230,7 @@ object FinanceCalculator {
             val revenue = effectiveMonthIncome.sumOf { it.amount.coerceAtLeast(0.0) }
             val cash = paymentAmount(effectiveMonthIncome, true)
             val online = paymentAmount(effectiveMonthIncome, false)
-            val expenses = monthTransactions.filter { it.type.equals(EXPENSE, true) }.sumOf { it.amount.coerceAtLeast(0.0) }
+            val monthExpenses = monthTransactions.filter { it.type.equals(EXPENSE, true) }.sumOf { it.amount.coerceAtLeast(0.0) } + (expensesByMonth[key] ?: 0.0)
             val countedVisitIds = mutableSetOf<String>()
             var vaccineCost = 0.0
             var missingCogsSnapshotCount = 0
@@ -245,12 +252,12 @@ object FinanceCalculator {
                 }
             }
             val isProfitComplete = missingCogsSnapshotCount == 0 && unmatchedVaccinationCount == 0
-            val netProfit = if (isProfitComplete) revenue - expenses - vaccineCost else 0.0
+            val netProfit = if (isProfitComplete) revenue - monthExpenses - vaccineCost else 0.0
 
             result += FinanceSummaryItem(
                 label = "${StatisticsUtils.monthNames[month]} $year",
                 revenue = revenue,
-                expenses = expenses,
+                expenses = monthExpenses,
                 vaccineCost = vaccineCost,
                 netProfit = netProfit,
                 key = key,
@@ -320,5 +327,11 @@ object FinanceCalculator {
         time = date
         set(Calendar.DAY_OF_MONTH, 1)
     }.startOfDay()
+
+    /** Shared "yyyy-MM" bucket key (0-based month, as FinanceTable's monthKey expects). */
+    private fun monthKey(date: Date): String {
+        val cal = Calendar.getInstance().apply { time = date }
+        return String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+    }
 }
 

@@ -66,13 +66,15 @@ class InventoryRepositoryImpl @Inject constructor(
             val globalThreshold = settings.lowStockThreshold
             vaccines.map { vaccine ->
                 val batches = allBatches.filter { it.vaccineId == vaccine.id }
-                val totalStock = batches.sumOf { it.remainingQuantity }
+                // Usable stock excludes expired batches: an expired dose can never be
+                // administered, so counting it inflates stock and hides low/out-of-stock.
+                val activeBatches = batches.filter { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
+                val totalStock = activeBatches.sumOf { it.remainingQuantity }
                 
                 val hasExpired = batches.any { InventoryUtils.isExpired(it.expiryDate) && it.remainingQuantity > 0 }
                 val isNearExpiry = batches.any { InventoryUtils.isNearExpiry(it.expiryDate) }
                 val isLowStock = totalStock <= globalThreshold
                 val isOutOfStock = totalStock <= 0
-                val activeBatches = batches.filter { it.remainingQuantity > 0 && !InventoryUtils.isExpired(it.expiryDate) }
 
                 // Fallback pricing from latest batch if not set in definition
                 val latestBatch = batches.maxByOrNull { it.purchaseDate }
@@ -189,6 +191,9 @@ class InventoryRepositoryImpl @Inject constructor(
         transactionGroupId: String?
     ) {
         val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
+        // Same trust boundary as updateBatch: the quantity field arrives as free text
+        // from the Add Batch form and must never create a negative stock level.
+        if (batch.remainingQuantity < 0) throw IllegalStateException("Quantity cannot be negative.")
         val userName = sessionManager.getCurrentUserName()
         val entityWithAudit = batch.toEntity().copy(
             createdBy = userName,
@@ -275,6 +280,9 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateBatch(batch: VaccineBatch, user: String, notes: String?) {
+        // Trust boundary (mirrors addStockBatch): the UI parses the quantity field with
+        // toIntOrNull() and can hand over nonsense; never write a negative stock level.
+        if (batch.remainingQuantity < 0) throw IllegalStateException("Quantity cannot be negative.")
         // Both the old row and the diff must be captured BEFORE the write below - reading
         // them afterwards returns the new quantity, so diff collapses to 0 and the
         // MANUAL_ADJUSTMENT row (the only channel that moves server-side remaining_quantity,
@@ -309,6 +317,19 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteBatch(batchId: String, user: String) {
+        // Same guard pattern as deleteVaccine: vaccination_items/borrow_records/
+        // borrow_returns are ForeignKey.CASCADE from vaccine_batches, so a blind delete
+        // here silently wipes patient history and the borrow ledger along with it.
+        val vaccinationCount = vaccineDao.getVaccinationCountForBatch(batchId)
+        val wasteCount = vaccineDao.getWasteCountForBatch(batchId)
+        val borrowCount = vaccineDao.getBorrowCountForBatch(batchId)
+        val borrowReturnCount = vaccineDao.getBorrowReturnCountForBatch(batchId)
+        val transactionCount = vaccineDao.getTransactionCountForBatch(batchId)
+        if (vaccinationCount > 0 || wasteCount > 0 || borrowCount > 0 ||
+            borrowReturnCount > 0 || transactionCount > 0
+        ) {
+            throw IllegalStateException("This batch cannot be deleted because it has historical records.")
+        }
         vaccineDao.deleteBatch(batchId)
         // DELETE (not UPDATE): the local row is hard-deleted, so an UPDATE would be skipped
         // server-side and refreshInventory() would re-pull the batch, putting deleted stock
@@ -356,14 +377,17 @@ action = "DELETED",
         patientId: String?
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
-        val totalAvailable = vaccineDao.getTotalStockForVaccine(vaccineId) ?: 0
+        // Usable stock = non-expired batches only (same InventoryUtils rule the loop
+        // below applies). Summing expired batches here used to pass this check and then
+        // die halfway through the loop with a bare "Insufficient stock".
+        val batches = vaccineDao.getActiveBatchesByExpiry(vaccineId)
+            .filter { !InventoryUtils.isExpired(it.expiryDate) }
+        val totalAvailable = batches.sumOf { it.remainingQuantity }
         if (totalAvailable < quantity) {
             throw IllegalStateException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
         }
 
         var remaining = quantity
-        val batches = vaccineDao.getActiveBatchesByExpiry(vaccineId)
-            .filter { !InventoryUtils.isExpired(it.expiryDate) }
 
         for (batch in batches) {
             if (remaining <= 0) break
@@ -575,6 +599,36 @@ action = "DELETED",
 
         val groupId = transactionGroupId ?: UUID.randomUUID().toString()
         enqueueBatchStockChange(returnToBatchId, transaction.transactionId, groupId)
+
+        if (!sameBatch) {
+            // Cross-batch return: the doses land in another batch, but the ORIGINAL batch
+            // still records them as borrowed - release that too, or it stays "on loan"
+            // forever after the stock physically came back. quantity = 0 because no
+            // stock moved on the original batch (its remainingQuantity was already
+            // reduced when the borrow happened); only the borrowed bucket changes, and a
+            // non-zero row here would double-count the return against the row above.
+            // Runs inside the caller's transaction (submitReturn), so a missing original
+            // batch rolls the whole return back instead of leaving it half-applied.
+            val originalBatch = vaccineDao.getBatchById(originalBatchId)
+                ?: throw IllegalStateException("Batch not found")
+            vaccineDao.updateBatch(originalBatch.copy(
+                borrowedQuantity = (originalBatch.borrowedQuantity - quantity).coerceAtLeast(0),
+                updatedBy = userName,
+                updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            ))
+            val releaseTransaction = buildStockTransaction(
+                vaccineId = originalBatch.vaccineId,
+                batchId = originalBatchId,
+                transactionType = InventoryTransactionType.BORROW_RETURN,
+                quantity = 0,
+                previousQuantity = originalBatch.remainingQuantity,
+                currentQuantity = originalBatch.remainingQuantity,
+                user = userName,
+                notes = "Borrow returned to a different batch; borrowed quantity released from batch ${originalBatch.batchNumber}"
+            )
+            vaccineDao.insertTransaction(releaseTransaction)
+            enqueueBatchStockChange(originalBatchId, releaseTransaction.transactionId, groupId)
+        }
     }
 
     override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {

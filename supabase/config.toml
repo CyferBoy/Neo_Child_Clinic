@@ -409,3 +409,17 @@ enabled = false
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Explicit JWT-verification settings (otherwise implicit/CLI-default).
+[functions.notify-update]
+# Deliberately false: the only caller is .github/workflows/notify-update.yml, which
+# sends `Authorization: Bearer $UPDATE_NOTIFIER_SECRET` - a shared secret, not a
+# Supabase user JWT. The function authenticates that secret itself (constant-time
+# SHA-256 compare in supabase/functions/notify-update/index.ts); gateway verification
+# would reject the workflow's call before that check runs.
+verify_jwt = false
+
+[functions.manage-staff]
+# The Android app invokes this with the signed-in admin's session JWT, and the
+# function re-checks the token plus app_metadata.role itself. Keep the gateway check on.
+verify_jwt = true

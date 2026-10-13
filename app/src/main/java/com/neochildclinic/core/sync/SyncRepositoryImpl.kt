@@ -65,6 +65,13 @@ class SyncRepositoryImpl @Inject constructor(
             return
         }
 
+        // Dedup: SyncQueueDao.enqueue is REPLACE on an autoincrement PK, so it never
+        // collapses anything - every repeated save of the same operation used to append
+        // another queue row (and another upload). Collapse PENDING duplicates for the
+        // same entity+operation first. shortcut: no unique index on (entityName,
+        // entityId, operation) - that needs a Room schema/version bump, so concurrent
+        // enqueues of the same op from two coroutines could still double-row.
+        syncDao.deletePendingDuplicates(entityName, entityId, operation.name)
         syncDao.enqueue(
             SyncQueueEntity(
                 entityName = entityName,
@@ -93,9 +100,19 @@ class SyncRepositoryImpl @Inject constructor(
     // rows orphaned by a dead run, never rows a live run owns.
     private val flight = com.neochildclinic.core.sync.SingleFlight()
 
-    override suspend fun processNextItems() = flight.run { processNextItemsInternal() }
+    override suspend fun processNextItems(): Boolean {
+        var anyFailed = false
+        flight.run { anyFailed = processNextItemsInternal() }
+        return anyFailed
+    }
 
-    private suspend fun processNextItemsInternal() {
+    /**
+     * Returns true when at least one queue item ended the run FAILED (permanent, visible
+     * on the Sync screen) - the worker uses this to stop reporting blind success (see
+     * SyncWorker's failure_count alert path). Transient requeues and quiet deferrals are
+     * not failures: they are already rescheduled below.
+     */
+    private suspend fun processNextItemsInternal(): Boolean {
         syncDao.cleanCorruptedItems()
         syncDao.requeueStaleSyncingItems(
             staleBefore = com.neochildclinic.core.common.PatientUtils.getIsoTimestampMinutesAgo(5)
@@ -106,16 +123,17 @@ class SyncRepositoryImpl @Inject constructor(
         val pending = syncDao.getItemsByStatus(SyncStatus.PENDING.name)
         if (pending.isEmpty()) {
             _syncState.value = SyncState.IDLE
-            return
+            return false
         }
 
         _syncState.value = SyncState.SYNCING
 
-        if (!resolveSessionOrDefer()) return
+        if (!resolveSessionOrDefer()) return false
 
         val groups = orderPendingIntoGroups(pending, ::getEntityPriority)
 
         var hasError = false
+        var anyFailed = false
         var sessionTransient = false
         var anyTransientRetry = false
 
@@ -123,10 +141,18 @@ class SyncRepositoryImpl @Inject constructor(
             when (processGroup(groupId, groupItems)) {
                 GroupResult.SUCCESS -> Unit
                 GroupResult.SESSION_DEFERRED -> sessionTransient = true
-                GroupResult.FAILED -> hasError = true
+                GroupResult.FAILED -> {
+                    hasError = true
+                    anyFailed = true
+                }
                 GroupResult.FAILED_TRANSIENT_RETRY -> {
                     hasError = true
                     anyTransientRetry = true
+                    // A transient failure (no network, 5xx, rate limiting) will hit every
+                    // remaining group the same way - stop here so untouched groups keep
+                    // their retry budget instead of churning it on a known-bad connection.
+                    // The scheduleSync below re-runs them once the network recovers.
+                    break
                 }
             }
         }
@@ -147,7 +173,7 @@ class SyncRepositoryImpl @Inject constructor(
             _syncState.value = SyncState.IDLE
             syncManager.scheduleSync()
             android.util.Log.w("SyncRepositoryImpl", "Session refresh unavailable; scheduled a background retry")
-            return
+            return false
         }
 
         _syncState.value = if (hasError) SyncState.ERROR else SyncState.IDLE
@@ -155,8 +181,9 @@ class SyncRepositoryImpl @Inject constructor(
         // 3. Loop if more items arrived during processing (inner call: the flight lock
         // above is already held by this coroutine).
         if (syncDao.getPendingCountSync() > 0 && !hasError) {
-            processNextItemsInternal()
+            anyFailed = processNextItemsInternal() || anyFailed
         }
+        return anyFailed
     }
 
     /**
@@ -246,6 +273,13 @@ class SyncRepositoryImpl @Inject constructor(
      * retried as a token problem.
      */
     private suspend fun processGroup(groupId: String, groupItems: List<SyncQueueEntity>): GroupResult {
+        // Index of the item whose upload threw. Everything before it already committed
+        // (upload + queue-row delete), everything after it was never attempted - so only
+        // this one item owns the error (finding 17b).
+        // -1 until an upload is actually attempted; stays -1 when the failure happens
+        // before the loop (group status marking, conflict-check read): nothing was
+        // attempted, so the whole group is the representative.
+        var failIndex = -1
         return try {
             transactionRunner.run {
                 for (item in groupItems) {
@@ -260,7 +294,8 @@ class SyncRepositoryImpl @Inject constructor(
             }
             val remoteConflictData = uploader.fetchRemoteConflictData(conflictCheckCandidates)
 
-            for (item in groupItems) {
+            for ((index, item) in groupItems.withIndex()) {
+                failIndex = index
                 try {
                     uploader.uploadEntity(item, remoteConflictData)
                 } catch (e: Exception) {
@@ -283,7 +318,16 @@ class SyncRepositoryImpl @Inject constructor(
             GroupResult.SESSION_DEFERRED
         } catch (e: Exception) {
             android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
-            if (classifyAndRecordError(groupItems, e)) {
+            // Everything after the failing item was never attempted (it is still sitting
+            // in SYNCING from the loop above): release it back to PENDING untouched, so a
+            // sibling's error neither burns its retry budget nor marks it FAILED with an
+            // error that is not its own (finding 17b).
+            if (failIndex >= 0) {
+                for (item in groupItems.drop(failIndex + 1)) {
+                    syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                }
+            }
+            if (classifyAndRecordError(errorClassificationTail(groupItems, failIndex), e)) {
                 GroupResult.FAILED_TRANSIENT_RETRY
             } else {
                 GroupResult.FAILED
@@ -653,6 +697,23 @@ internal fun orderPendingIntoGroups(
         .associate { (groupId, items) ->
             groupId to items.sortedWith(compareBy({ it.createdAt }, { it.queueId }))
         }
+}
+
+// Items of a failed group that own the error and need classification (retryCount /
+// FAILED, finding 17b). [failIndex] is the item whose upload threw: items before it
+// already committed (their queue rows are deleted - classifying them would touch rows
+// that no longer exist) and items after it were never attempted (burning their retry
+// budget on a sibling's error is exactly what this slicing prevents - processGroup sends
+// those back to PENDING instead). A negative index means the group failed before its
+// first attempt (group status marking, conflict read), where no single item owns the
+// error and the whole group is classified, as it always was.
+internal fun errorClassificationTail(
+    groupItems: List<SyncQueueEntity>,
+    failIndex: Int
+): List<SyncQueueEntity> = when {
+    failIndex < 0 -> groupItems
+    failIndex >= groupItems.size -> emptyList()
+    else -> listOf(groupItems[failIndex])
 }
 
 // Outcome of one ordered group upload in processNextItems.

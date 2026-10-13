@@ -19,5 +19,7 @@ interface SyncRepository {
 
     val syncState: StateFlow<SyncState>
     fun getPendingCount(): kotlinx.coroutines.flow.Flow<Int>
-    suspend fun processNextItems()
+
+    /** Drains the queue; returns true when at least one item ended FAILED (see SyncWorker). */
+    suspend fun processNextItems(): Boolean
 }

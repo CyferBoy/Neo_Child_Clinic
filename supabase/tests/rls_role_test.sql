@@ -39,11 +39,9 @@ set request.jwt.claims = '{"sub":"<DOCTOR-UUID>","role":"authenticated","app_met
 set role authenticated;
 insert into public.doctor_weekly_slots (doctor_id, day_of_week, start_minute, end_minute)
 values ('<OTHER-DOCTOR-UUID>', 1, 540, 570);
--- NOTE: succeeds for an ACTIVE placeholder because the 20260929 baseline
--- adds permissive "active staff" insert/update policies that OR with the
--- migrated role policy (pre-existing, out of scope here). Run this block
--- with a placeholder whose profile is_active = false to observe the
--- migrated policy denying; EXPECT ERROR then.
+-- NOTE: 20261013120000_role_policy_carveouts drops the blanket "active staff"
+-- insert policy, so only "doctor_weekly_slots_write_admin_or_own" applies:
+-- this doctor neither owns the row nor is an admin. EXPECT ERROR.
 reset role;
 reset request.jwt.claims;
 
@@ -67,11 +65,9 @@ reset request.jwt.claims;
 set request.jwt.claims = '{"sub":"<NURSE-UUID>","role":"authenticated","app_metadata":{"role":"nurse"}}';
 set role authenticated;
 update public.expenses set title = title where id = '<ANY-EXPENSE-ID>';
--- NOTE: succeeds for an ACTIVE placeholder because the 20260929 baseline
--- adds permissive "active staff" insert/update policies that OR with the
--- migrated role policy (pre-existing, out of scope here). Run this block
--- with a placeholder whose profile is_active = false to observe the
--- migrated policy denying; EXPECT ERROR then.
+-- NOTE: 20261013120000_role_policy_carveouts drops the blanket "active staff"
+-- update policy, so only "Admin or doctor can update expenses" applies and
+-- the nurse role fails its JWT check. EXPECT ERROR.
 reset role;
 reset request.jwt.claims;
 

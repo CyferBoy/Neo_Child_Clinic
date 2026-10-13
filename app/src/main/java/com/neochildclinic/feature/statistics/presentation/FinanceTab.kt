@@ -117,7 +117,8 @@ fun FinanceTab(
         prevExpensesRupees = prevExpensesPaise / 100.0,
         netIncome = netIncome,
         prevNetIncome = prevNetIncome,
-        visitDatesById = visitDatesById
+        visitDatesById = visitDatesById,
+        expenses = expenses
     )
 }
 
@@ -141,7 +142,8 @@ private fun FinanceContent(
     prevExpensesRupees: Double = 0.0,
     netIncome: Double = 0.0,
     prevNetIncome: Double = 0.0,
-    visitDatesById: Map<String, String>? = null
+    visitDatesById: Map<String, String>? = null,
+    expenses: List<Expense> = emptyList()
 ) {
     val customColors = LocalCustomColors.current
 
@@ -291,7 +293,8 @@ private fun FinanceContent(
             fyQuarter = fyQuarter,
             selectedMonth = selectedMonth,
             onMonthClick = onMonthClick,
-            visitDatesById = visitDatesById
+            visitDatesById = visitDatesById,
+            expenses = expenses
         )
 
         Spacer(modifier = Modifier.height(Spacing.xl))

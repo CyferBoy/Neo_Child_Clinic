@@ -27,6 +27,7 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
     val state by viewModel.uiState.collectAsState()
 
     var pendingAction by remember { mutableStateOf<PendingPasswordAction?>(null) }
+    var showUndoConfirm by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) pendingAction = PendingPasswordAction.ExportLocal(uri)
@@ -61,7 +62,7 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
                                     "A safety copy of your data from just before the last restore is available.",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
-                                OutlinedButton(onClick = { viewModel.restoreSafetyBackup() }, modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(onClick = { showUndoConfirm = true }, modifier = Modifier.fillMaxWidth()) {
                                     Text("Undo Last Restore")
                                 }
                             }
@@ -112,6 +113,22 @@ fun BackupSettingsScreen(onBack: () -> Unit, viewModel: BackupViewModel = hiltVi
                     onDismiss = { viewModel.dismissRestoreSummary() },
                     onReplace = { viewModel.confirmRestore(RestoreMode.REPLACE) },
                     onMerge = { viewModel.confirmRestore(RestoreMode.MERGE) }
+                )
+            }
+
+            // Same confirm step RestoreSummaryDialog uses before a Replace: undo is a full
+            // REPLACE of the current data, never a one-tap wipe.
+            if (showUndoConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showUndoConfirm = false },
+                    title = { Text("Undo last restore?") },
+                    text = { Text("This will replace the current clinic data with the safety copy taken just before your last restore.") },
+                    confirmButton = {
+                        TextButton(onClick = { showUndoConfirm = false; viewModel.restoreSafetyBackup() }) { Text("Undo") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showUndoConfirm = false }) { Text("Cancel") }
+                    }
                 )
             }
 

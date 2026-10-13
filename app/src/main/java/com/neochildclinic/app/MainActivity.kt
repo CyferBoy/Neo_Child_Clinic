@@ -215,7 +215,9 @@ class MainActivity : FragmentActivity() {
             val thresholdMillis = settings.inactivityDaysThreshold * 24L * 60L * 60L * 1000L
             
             val isLocked = BiometricLockManager.isAppLocked.value
-            if (isLocked || settings.authOnEveryOpen || (currentTime - lastOpen > thresholdMillis)) {
+            // needsAuth survives process death (set on screen-off/lock, cleared only by a
+            // successful unlock), unlike the in-memory state above.
+            if (isLocked || settings.needsAuth || settings.authOnEveryOpen || (currentTime - lastOpen > thresholdMillis)) {
                 BiometricLockManager.lock()
                 authenticateWithBiometrics()
             }

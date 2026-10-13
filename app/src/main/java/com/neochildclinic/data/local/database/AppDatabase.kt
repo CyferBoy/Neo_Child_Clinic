@@ -462,17 +462,32 @@ abstract class AppDatabase : RoomDatabase() {
                             null
                         ).close()
                     } catch (e: Exception) {
-                        // BUG-003: wipe ONLY on a wrong passphrase - that means the stored
-                        // key is unrecoverable (device format/restore) and no key on the
-                        // device can ever open this file again. Every other failure (I/O,
-                        // lock contention) must propagate instead of destroying the data.
+                        // BUG-003: this branch is reached for a wrong passphrase (device
+                        // format/restore, stored key unrecoverable) AND for a file truncated by
+                        // a mid-write crash - both raise the same exception - so the file must
+                        // never be deleted: move it aside (recoverable, logged) and let Room
+                        // create a fresh database. Every other failure (I/O, lock contention)
+                        // must still propagate instead of destroying the data.
                         val wrongPassphrase =
                             e is net.zetetic.database.sqlcipher.SQLiteNotADatabaseException ||
                                 e.message?.contains("not a database", ignoreCase = true) == true ||
                                 e.message?.contains("hmac", ignoreCase = true) == true
                         if (wrongPassphrase) {
-                            Log.w(TAG, "Existing database is unreadable with the stored passphrase (device format/restore). Wiping local database to recover...", e)
-                            context.deleteDatabase(DB_NAME)
+                            val suffix = ".corrupt-" + System.currentTimeMillis()
+                            // Sidecars first, main file last: if any rename fails nothing has
+                            // been destroyed, and the refuse-to-wipe throw below keeps the
+                            // whole database in place for the next attempt.
+                            val moved = listOf("-journal", "-wal", "-shm", "").all { ext ->
+                                val f = java.io.File(dbFile.path + ext)
+                                !f.exists() || f.renameTo(java.io.File(f.path + suffix))
+                            }
+                            if (!moved) {
+                                throw IllegalStateException(
+                                    "Existing database could not be opened and could not be moved aside; refusing to wipe local data. Retry, or restore from backup.",
+                                    e
+                                )
+                            }
+                            Log.w(TAG, "Existing database is unreadable with the stored passphrase (device format/restore or corrupt file). Kept at ${dbFile.path}$suffix; creating a fresh database.", e)
                         } else {
                             throw IllegalStateException(
                                 "Existing database could not be opened (not a passphrase failure); refusing to wipe local data. Retry, or restore from backup.",

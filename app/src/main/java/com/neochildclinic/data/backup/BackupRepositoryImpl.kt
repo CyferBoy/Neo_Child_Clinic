@@ -3,6 +3,7 @@ package com.neochildclinic.data.backup
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import android.util.Log
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.network.NetworkMonitor
@@ -44,7 +45,7 @@ class BackupRepositoryImpl @Inject constructor(
 ) : BackupRepository {
 
     private val backupDao = database.backupDao()
-    private val collector = BackupCollector(backupDao)
+    private val collector = BackupCollector(database)
     private val restorer = BackupRestorer(database, backupDao)
     private val safetyStore = SafetyBackupStore(context)
 
@@ -143,10 +144,14 @@ class BackupRepositoryImpl @Inject constructor(
         onProgress(BackupProgress.Stage("Creating safety backup..."))
         try {
             val currentPayload = collector.collect()
-            safetyStore.write(BackupSerializer.json.encodeToString(currentPayload).toByteArray(Charsets.UTF_8))
+            // Fully encoded in memory before anything touches disk, then staged beside the
+            // live snapshot (see SafetyBackupStore.stage) - the previous good snapshot is
+            // still intact at this point.
+            safetyStore.stage(BackupSerializer.json.encodeToString(currentPayload).toByteArray(Charsets.UTF_8))
         } catch (e: Exception) {
             // A failed safety snapshot must not silently allow a destructive restore to
             // proceed - fail closed.
+            safetyStore.discardStaged()
             throw BackupException.Failed("Could not create pre-restore safety backup", e)
         }
 
@@ -154,12 +159,21 @@ class BackupRepositoryImpl @Inject constructor(
         val outcome = try {
             restorer.restore(envelope.data, mode)
         } catch (e: BackupException) {
+            safetyStore.discardStaged()
             throw e
         } catch (e: Exception) {
             // Room's withTransaction rolls back automatically on any thrown exception -
             // existing data is guaranteed intact.
+            safetyStore.discardStaged()
             throw BackupException.Failed("Restore transaction failed, rolled back", e)
         }
+        // The staged snapshot only replaces the live one AFTER the restore succeeded, so a
+        // failed restore (or a crash mid-restore) never destroys the pre-existing snapshot -
+        // undo of an earlier restore still works after a failed later one. The swap itself
+        // is a metadata-only rename; if it somehow fails, the old snapshot is kept (logged)
+        // rather than reporting the already-applied restore as failed.
+        runCatching { safetyStore.commit() }
+            .onFailure { Log.e(TAG, "Safety snapshot swap failed - previous snapshot kept", it) }
 
         onProgress(BackupProgress.Stage("Rebuilding indexes..."))
         // Room maintains its own indexes as part of the same transaction; nothing extra
@@ -369,10 +383,27 @@ class BackupRepositoryImpl @Inject constructor(
     override suspend fun restoreSafetyBackup(onProgress: suspend (BackupProgress) -> Unit): BackupOperationResult =
         withContext(Dispatchers.IO) {
             runCatching {
-                val bytes = safetyStore.read() ?: throw BackupException.Corrupted("No safety backup is available")
+                val payload = try {
+                    val bytes = safetyStore.read() ?: throw BackupException.Corrupted("No safety backup is available")
+                    BackupSerializer.json.decodeFromString(BackupPayloadV1.serializer(), String(bytes, Charsets.UTF_8))
+                } catch (e: BackupException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Unreadable/undecodable snapshot is corruption (the device key and the
+                    // bytes disagree), not a wrong password - fail closed the same way
+                    // decodeFromContainer does for file restores.
+                    throw BackupException.Corrupted("Safety snapshot could not be decoded", e)
+                }
+                // The only restore input that skips the .nccb container's checks still gets
+                // the same relational validation as every other restore path, before any
+                // transaction is opened.
+                BackupValidator.validate(buildEnvelope(payload))
+
                 onProgress(BackupProgress.Stage("Restoring previous data..."))
-                val payload = BackupSerializer.json.decodeFromString(BackupPayloadV1.serializer(), String(bytes, Charsets.UTF_8))
                 val outcome = restorer.restore(payload, RestoreMode.REPLACE)
+                // Consumed: the snapshot only exists while there is an undo to offer, so the
+                // next restore's safety copy starts from a clean slate (see performRestore).
+                safetyStore.clear()
                 syncManager.scheduleImmediateSync()
                 onProgress(BackupProgress.Done)
                 BackupOperationResult(true, recordCounts = outcome.appliedRecordCounts)
@@ -398,8 +429,17 @@ class BackupRepositoryImpl @Inject constructor(
             ?: throw BackupException.Failed("Could not open destination for writing")
     }
 
-    private fun readBytesFromUri(uri: Uri): ByteArray? =
-        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    private fun readBytesFromUri(uri: Uri): ByteArray? {
+        // Fail fast before buffering: openInputStream gives an unbounded stream, so check the
+        // declared size against the same ceiling the Worker enforces (MAX_BACKUP_BYTES) first.
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) {
+                val size = c.getLong(0)
+                if (size > CloudBackupApi.MAX_BACKUP_BYTES) throw BackupException.TooLarge(size, CloudBackupApi.MAX_BACKUP_BYTES)
+            }
+        }
+        return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    }
 
     private suspend fun recordHistory(
         id: String,

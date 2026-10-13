@@ -26,6 +26,11 @@ class SyncViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
+    // Last forceRefreshFromCloud() failure, surfaced on the Sync screen. Mirrors the
+    // _refreshError pattern the statistics/patient ViewModels already use.
+    private val _refreshError = MutableStateFlow<String?>(null)
+    val refreshError = _refreshError.asStateFlow()
+
     fun processSync() {
         viewModelScope.launch {
             syncRepository.processNextItems()
@@ -35,10 +40,11 @@ class SyncViewModel @Inject constructor(
     fun forceRefreshFromCloud() {
         viewModelScope.launch {
             _isRefreshing.value = true
+            _refreshError.value = null
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
-                // Potential error handling
+                _refreshError.value = e.message ?: "Unable to refresh from cloud"
             } finally {
                 _isRefreshing.value = false
             }

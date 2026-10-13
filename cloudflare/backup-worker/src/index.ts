@@ -125,8 +125,33 @@ export default {
 // already namespaced per account, but there was no ceiling of any kind before this).
 const MAX_BACKUP_BYTES = 200 * 1024 * 1024;
 
+// Per-account object cap: each distinct backup id can be up to MAX_BACKUP_BYTES of R2
+// storage, and an authenticated account must not be able to park unbounded storage cost
+// by minting unlimited random ids. 50 backups is far beyond what the app's own retention
+// (1-30, see BackupSettingsManager) ever keeps.
+const MAX_ACCOUNT_BACKUPS = 50;
+
 async function handleUpload(request: Request, env: Env, accountId: string, backupId: string): Promise<Response> {
   if (!/^[a-zA-Z0-9-]{8,100}$/.test(backupId)) return json({ error: "Invalid backup id" }, 400);
+
+  // backup ids are random UUIDs the app mints once - a CONFIRMED row means this id was
+  // already uploaded and confirmed. R2 versioning is off, so putting over that object
+  // would silently destroy the only confirmed copy while D1 still reports the old size;
+  // handleDownload would then serve bytes nobody ever confirmed. Reject before reading
+  // the body.
+  const confirmed = await env.DB.prepare(
+    "SELECT status FROM backups WHERE backup_id = ? AND account_id = ?"
+  ).bind(backupId, accountId).first<{ status: string }>();
+  if (confirmed && confirmed.status === "CONFIRMED") {
+    return json({ error: "Backup already confirmed - backup ids are never re-uploaded" }, 409);
+  }
+
+  const countRow = await env.DB.prepare(
+    "SELECT COUNT(*) AS total FROM backups WHERE account_id = ?"
+  ).bind(accountId).first<{ total: number }>();
+  if ((countRow?.total ?? 0) >= MAX_ACCOUNT_BACKUPS) {
+    return json({ error: `Backup limit reached (${MAX_ACCOUNT_BACKUPS}) - delete an older backup first` }, 429);
+  }
 
   const declaredLength = request.headers.get("Content-Length");
   if (declaredLength && Number(declaredLength) > MAX_BACKUP_BYTES) {
@@ -228,7 +253,10 @@ async function handleRetention(request: Request, env: Env, accountId: string): P
   }
 
   const { results } = await env.DB.prepare(
-    "SELECT * FROM backups WHERE account_id = ? ORDER BY created_at DESC"
+    // confirmed_at is written from the server clock at confirm time; created_at comes from
+    // the device (confirmBody.createdAt) and a client with its clock set back a year would
+    // otherwise get its NEWEST backup deleted first by retention.
+    "SELECT * FROM backups WHERE account_id = ? ORDER BY confirmed_at DESC"
   ).bind(accountId).all<BackupRow>();
 
   const rows = results ?? [];

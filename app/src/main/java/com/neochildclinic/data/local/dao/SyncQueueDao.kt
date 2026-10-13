@@ -24,6 +24,12 @@ interface SyncQueueDao {
     @Query("DELETE FROM sync_queue WHERE entityId = 'kotlin.Unit' OR entityId = 'Unit' OR entityId = 'null'")
     suspend fun cleanCorruptedItems()
 
+    // Queue-row dedup for repeated saves of the same operation (see
+    // SyncRepositoryImpl.enqueue). Only PENDING rows: an in-flight (SYNCING) row is owned
+    // by a running batch and a FAILED row carries its error details for the Sync screen.
+    @Query("DELETE FROM sync_queue WHERE entityName = :name AND entityId = :id AND operation = :operation AND status = 'PENDING'")
+    suspend fun deletePendingDuplicates(name: String, id: String, operation: String)
+
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
     suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
 
@@ -49,7 +55,11 @@ interface SyncQueueDao {
     @Query("SELECT * FROM sync_queue ORDER BY updatedAt DESC")
     fun getAllItems(): Flow<List<SyncQueueEntity>>
 
-    @Query("DELETE FROM sync_queue WHERE status = 'SYNCED'")
+    // SYNCED is never written (rows are deleted after ack), so the old WHERE status =
+    // 'SYNCED' made this a no-op. Clear what "clear" can mean: rows that are neither
+    // queued (PENDING) nor in flight (SYNCING) - i.e. terminal FAILED rows - and never
+    // touch rows a live batch owns or still owes the server.
+    @Query("DELETE FROM sync_queue WHERE status NOT IN ('PENDING', 'SYNCING')")
     suspend fun clearSynced()
 
     @Query("SELECT EXISTS(SELECT 1 FROM sync_queue WHERE entityName = :name AND entityId = :id AND status != 'SYNCED')")

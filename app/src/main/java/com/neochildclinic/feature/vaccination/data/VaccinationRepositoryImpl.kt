@@ -319,7 +319,11 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     syncRepository.enqueue(
                         entityName = "VACCINATION_ITEM",
                         entityId = oldId,
-                        operation = SyncOperation.UPDATE,
+                        // DELETE (not UPDATE), same as deleteVaccination's item loop below:
+                        // the local row is already hard-deleted above, so an UPDATE would
+                        // find nothing to upload, its queue row would be dropped as
+                        // "success", and the next refresh would re-import the remote row.
+                        operation = SyncOperation.DELETE,
                         priority = SyncPriority.MEDIUM,
                         transactionGroupId = transactionGroupId
                     )

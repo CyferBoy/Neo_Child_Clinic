@@ -11,6 +11,7 @@ import com.neochildclinic.feature.patient.domain.repository.PatientTodoRepositor
 import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -48,45 +49,55 @@ class RefreshDataUseCase @Inject constructor(
     suspend operator fun invoke() = flight.run { runRefresh() }
 
     private suspend fun runRefresh() = coroutineScope {
+        // Audit finding 15: one broken pull used to abort every later step (and the error
+        // was swallowed by callers). Each step now runs regardless of earlier failures and
+        // its failure is collected; a single aggregated error is surfaced at the end.
+        val failures = mutableListOf<String>()
+        suspend fun step(name: String, block: suspend () -> Unit) {
+            runRefreshStep(name, block)?.let { failures += it }
+        }
+
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
-        patientRepository.refreshPatients()
-        vaccinationRepository.refreshVaccinations()
+        step("Patients") { patientRepository.refreshPatients() }
+        step("Vaccinations") { vaccinationRepository.refreshVaccinations() }
         // Finance transactions must be pulled down before the COGS migration below, since
         // that migration patches missing COGS snapshots onto the LOCAL finance rows - if
         // this is skipped (e.g. after the app's local data was cleared), Financial
         // Statistics has nothing to read and shows zero everywhere until this runs.
-        financeRepository.refreshTransactions()
+        step("Finance transactions") { financeRepository.refreshTransactions() }
         // Expenses has no FK dependencies on any other synced table, so it can refresh
         // independently at any point - placed here alongside the other finance-adjacent
         // pull so Financial Statistics has expense data available as soon as possible.
-        expenseRepository.refreshExpenses()
+        step("Expenses") { expenseRepository.refreshExpenses() }
         // Doctor weekly slots / date exceptions have no FK dependency on any other
         // synced table (doctor_id references profiles, already pulled via auth/profile
         // sync elsewhere), so - like expenses - this can refresh independently. Placed
         // before patientTodoRepository.refresh() below so the doctor/slot picker on
         // Today's Patient has fresh availability data as soon as the queue is populated.
-        doctorAvailabilityRepository.refresh()
+        step("Doctor availability") { doctorAvailabilityRepository.refresh() }
         // Remote vaccination records may arrive after the application-startup migration.
         // Re-run the idempotent COGS snapshot migration after refresh so legacy finance rows
         // are upgraded as soon as their linked vaccinations are available locally.
-        financeRepository.migrateLegacyVaccinationCogs(vaccinationRepository.allVaccinations.first())
-        consultationRepository.refreshConsultations()
+        step("COGS migration") {
+            financeRepository.migrateLegacyVaccinationCogs(vaccinationRepository.allVaccinations.first())
+        }
+        step("Consultations") { consultationRepository.refreshConsultations() }
         // Today's Patient (consultation_todos/vaccination_todos) previously only ever
         // refreshed once, inside DashboardViewModel's init block - a manual "Sync Now"
         // (SyncViewModel) or any other screen's pull-to-refresh that routes through this
         // use case never picked up a receptionist's newly added entry. Folding it into the
         // same full-refresh pipeline as every other synced entity closes that gap without
         // touching how Today's Patient data is written or displayed.
-        patientTodoRepository.refresh()
-        reminderRepository.refreshReminders()
-        
+        step("Today's Patient todos") { patientTodoRepository.refresh() }
+        step("Reminders") { reminderRepository.refreshReminders() }
+
         // 2. Inventory must land before vaccination_items. vaccination_items has Room
         // foreign keys to vaccines and vaccine_batches, so importing items in parallel can
         // otherwise permanently skip them on a fresh install.
         // Parallel: waste and inventory have no FK dependency on each other.
         kotlinx.coroutines.awaitAll(
-            async { wasteRepository.refreshWaste() },
-            async { inventoryRepository.refreshInventory() }
+            async { step("Waste") { wasteRepository.refreshWaste() } },
+            async { step("Inventory") { inventoryRepository.refreshInventory() } }
         )
 
         // Personal Vaccine Reminders can reference a vaccine_id via a Room foreign key
@@ -97,13 +108,36 @@ class RefreshDataUseCase @Inject constructor(
         // place: PersonalReminderScreen only pulls from Room, and previously nothing
         // triggered PersonalReminderRepositoryImpl.refresh() except a manual pull-to-refresh
         // on that screen, so reminders created outside this device never showed up.
-        personalReminderRepository.refresh()
+        step("Personal reminders") { personalReminderRepository.refresh() }
 
         // Fetch only after the catalog is locally available, then apply in the same refresh.
         // Unresolved dependencies are therefore retried by the next refresh instead of being
-        // lost behind an already-completed parallel fetch.
-        val vaccinationItems = vaccinationRepository.fetchRemoteVaccinationItems()
-        vaccinationRepository.applyDownloadedVaccinationItems(vaccinationItems)
+        // lost behind an already-completed parallel fetch. One step: a failed fetch must not
+        // proceed to apply an empty/stale list.
+        step("Vaccination items") {
+            val vaccinationItems = vaccinationRepository.fetchRemoteVaccinationItems()
+            vaccinationRepository.applyDownloadedVaccinationItems(vaccinationItems)
+        }
+
+        if (failures.isNotEmpty()) {
+            // One error for the whole pipeline: every failed step is named, so the caller
+            // can tell what was skipped instead of getting a silent partial refresh.
+            throw IllegalStateException("Cloud refresh failed: ${failures.joinToString()}")
+        }
     }
 }
+
+// Runs one pipeline step without letting its failure abort the remaining steps. Returns
+// null on success, or a "name: reason" description for the aggregated error thrown at the
+// end of the pipeline. Cancellation is rethrown: a cancelled refresh must stop the
+// pipeline immediately rather than be recorded as an ordinary step failure.
+internal suspend fun runRefreshStep(name: String, block: suspend () -> Unit): String? =
+    try {
+        block()
+        null
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        "$name: ${e.message ?: e::class.java.simpleName}"
+    }
 

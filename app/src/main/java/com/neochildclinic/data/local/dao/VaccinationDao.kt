@@ -75,10 +75,4 @@ interface VaccinationDao {
 
     @Query("UPDATE patient_visits SET inventoryStatus = :status WHERE id = :id")
     suspend fun updateInventoryStatus(id: String, status: String)
-
-    @Query("SELECT * FROM patient_visits WHERE inventoryStatus IN ('PENDING', 'FAILED', 'PARTIAL')")
-    suspend fun getVaccinationsPendingReconciliation(): List<VisitEntity>
-
-    @Query("SELECT * FROM patient_visits WHERE inventoryStatus != 'COMPLETED'")
-    fun getPendingInventoryVisits(): Flow<List<VisitEntity>>
 }

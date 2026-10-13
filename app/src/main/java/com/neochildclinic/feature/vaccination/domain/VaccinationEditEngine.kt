@@ -13,6 +13,23 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Per-batch quantity diff between two versions of a visit, keyed by batchId:
+ * negative = stock to reverse, positive = stock to deduct. Pure so it can be
+ * unit-tested without Room/Android (see VaccinationEditEngineTest).
+ */
+fun inventoryDiff(
+    old: Vaccination,
+    new: Vaccination
+): Map<String, Int> {
+    val oldByBatch = old.items.groupingBy { it.batchId }.fold(0) { total, item -> total + item.quantity.coerceAtLeast(0) }
+    val newByBatch = new.items.groupingBy { it.batchId }.fold(0) { total, item -> total + item.quantity.coerceAtLeast(0) }
+
+    return (oldByBatch.keys + newByBatch.keys)
+        .associateWith { batchId -> (newByBatch[batchId] ?: 0) - (oldByBatch[batchId] ?: 0) }
+        .filterValues { it != 0 }
+}
+
+/**
  * Single edit transaction coordinator for Vaccination.
  *
  * It compares the persisted vaccination with the edited vaccination and only applies
@@ -89,19 +106,20 @@ class VaccinationEditEngine @Inject constructor(
                 new.items.map { Triple(it.vaccineId, it.quantity, it.netRate) }.sortedBy { it.first }
     }
 
-    private fun inventoryDiff(
-        old: Vaccination,
-        new: Vaccination
-    ): Map<String, Int> {
-        val oldByBatch = old.items.groupingBy { it.batchId }.fold(0) { total, item -> total + item.quantity.coerceAtLeast(0) }
-        val newByBatch = new.items.groupingBy { it.batchId }.fold(0) { total, item -> total + item.quantity.coerceAtLeast(0) }
-
-        return (oldByBatch.keys + newByBatch.keys)
-            .associateWith { batchId -> (newByBatch[batchId] ?: 0) - (oldByBatch[batchId] ?: 0) }
-            .filterValues { it != 0 }
-    }
-
     private suspend fun applyInventoryDiff(old: Vaccination, new: Vaccination, user: String) {
+        // Only a COMPLETED inventory_deductions row means stock actually moved. A FAILED
+        // row (ClinicalVaccinationService writes one when e.g. stock was short) left
+        // stock untouched, so reversing its quantity would invent doses that never left:
+        // batch has 1 dose, visit for 2 -> deduction FAILED, stock stays 1; editing the
+        // visit to 1 must not push stock to 2. Cap every reversal at the ledger's
+        // completed quantity for that batch (0 when the ledger has no completed row,
+        // which also covers legacy visits created before the ledger existed - their
+        // stock was never deducted, so nothing may be given back on an edit).
+        val completedByBatch = inventoryRepository.getInventoryDeductionsForVaccination(old.id)
+            .filter { it.status == "COMPLETED" && it.batchId != null }
+            .groupingBy { it.batchId!! }
+            .fold(0) { acc, row -> acc + row.quantity }
+
         inventoryDiff(old, new).forEach { (batchId, delta) ->
             if (delta > 0) {
                 // A batch already recorded on the original visit was valid when first
@@ -120,13 +138,16 @@ class VaccinationEditEngine @Inject constructor(
                     givenDate = new.dateGiven
                 )
             } else {
-                inventoryRepository.reverseDeduction(
-                    batchId = batchId,
-                    quantity = -delta,
-                    user = user,
-                    visitId = new.id,
-                    patientId = new.patientId
-                )
+                val reverseQuantity = minOf(-delta, completedByBatch[batchId] ?: 0)
+                if (reverseQuantity > 0) {
+                    inventoryRepository.reverseDeduction(
+                        batchId = batchId,
+                        quantity = reverseQuantity,
+                        user = user,
+                        visitId = new.id,
+                        patientId = new.patientId
+                    )
+                }
             }
         }
     }
@@ -136,17 +157,34 @@ class VaccinationEditEngine @Inject constructor(
     // swapped-out batch left its old COMPLETED row behind and the patient's inventory
     // dialog kept showing both the old and the new vaccine. Recreate the set from the
     // final items whenever stock actually changed, mirroring the create-path rows.
+    //
+    // Status rule: a rewritten row keeps the verdict of the old row for the same batch,
+    // vaccine and quantity (that is the row whose stock actually moved or failed). If no
+    // exact match exists the row is new or re-sized here: COMPLETED, unless that
+    // vaccine's previous rows on the batch were all FAILED (stock was never moved and
+    // still is not - matches the reversal cap in applyInventoryDiff, so a FAILED batch
+    // never moves stock in either direction).
     private suspend fun reconcileInventoryDeductions(vaccination: Vaccination) {
+        val previousByBatch = inventoryRepository.getInventoryDeductionsForVaccination(vaccination.id)
+            .groupBy { it.batchId }
         inventoryRepository.deleteInventoryDeductionsForVaccination(vaccination.id)
         vaccination.items.forEach { item ->
+            val forVaccine = previousByBatch[item.batchId].orEmpty().filter { it.vaccineId == item.vaccineId }
+            val exact = forVaccine.firstOrNull { it.quantity == item.quantity }
+            val status = when {
+                exact != null -> exact.status
+                forVaccine.isEmpty() -> "COMPLETED"
+                forVaccine.none { it.status == "COMPLETED" } -> "FAILED"
+                else -> "COMPLETED"
+            }
             inventoryRepository.insertInventoryDeduction(InventoryDeduction(
                 vaccinationId = vaccination.id,
                 vaccineId = item.vaccineId,
                 vaccineName = item.vaccineName,
                 batchId = item.batchId,
                 quantity = item.quantity,
-                status = "COMPLETED",
-                errorMessage = null,
+                status = status,
+                errorMessage = if (status == "FAILED") exact?.errorMessage ?: forVaccine.firstOrNull { it.status == "FAILED" }?.errorMessage else null,
                 resolvedAt = System.currentTimeMillis()
             ))
         }

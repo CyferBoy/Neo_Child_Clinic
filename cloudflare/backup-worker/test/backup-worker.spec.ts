@@ -130,3 +130,85 @@ describe("ownership isolation", () => {
     expect(await downloadAsA.text()).toBe("clinic-a-encrypted-backup-bytes");
   });
 });
+
+describe("upload immutability", () => {
+  it("rejects a PUT to an already-CONFIRMED backup id with 409 and keeps the original bytes", async () => {
+    const token = await tokenFor("clinic-immutable");
+    const original = new TextEncoder().encode("original-confirmed-backup-bytes");
+
+    const put1 = await SELF.fetch("https://worker.example/backups/immutable-1", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+      body: original
+    });
+    expect(put1.status).toBe(200);
+
+    const confirm = await SELF.fetch("https://worker.example/backups/immutable-1/confirm", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeBytes: original.byteLength, appVersion: "1.0", backupVersion: 1, createdAt: new Date().toISOString() })
+    });
+    expect(confirm.status).toBe(200);
+
+    // R2 versioning is off: putting over a confirmed object would destroy the only copy
+    // while D1 still reports the old size. Must be rejected before any put happens.
+    const put2 = await SELF.fetch("https://worker.example/backups/immutable-1", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+      body: new TextEncoder().encode("overwrite-attempt-bytes")
+    });
+    expect(put2.status).toBe(409);
+
+    // The confirmed object still serves the original bytes.
+    const download = await SELF.fetch("https://worker.example/backups/immutable-1/download", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    expect(download.status).toBe(200);
+    expect(await download.text()).toBe("original-confirmed-backup-bytes");
+  });
+});
+
+describe("retention ordering", () => {
+  it("keeps the most recently CONFIRMED backup, not the one with the newest client timestamp", async () => {
+    const token = await tokenFor("clinic-retention");
+
+    const uploadAndConfirm = async (backupId: string, createdAt: string) => {
+      const payload = new TextEncoder().encode(`bytes-for-${backupId}`);
+      const put = await SELF.fetch(`https://worker.example/backups/${backupId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+        body: payload
+      });
+      expect(put.status).toBe(200);
+      const confirm = await SELF.fetch(`https://worker.example/backups/${backupId}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ sizeBytes: payload.byteLength, appVersion: "1.0", backupVersion: 1, createdAt })
+      });
+      expect(confirm.status).toBe(200);
+    };
+
+    // Confirmed FIRST (older server confirmed_at) but with a device clock set far ahead...
+    await uploadAndConfirm("retention-client-old-1", "2099-01-01T00:00:00.000Z");
+    // ...then confirmed SECOND, with the device clock set far back. The sleep keeps the
+    // two server confirmed_at values in different milliseconds so the assertion is stable.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await uploadAndConfirm("retention-client-new-1", "2000-01-01T00:00:00.000Z");
+
+    const retention = await SELF.fetch("https://worker.example/backups/retention", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ keep: 1 })
+    });
+    expect(retention.status).toBe(200);
+    expect(await retention.json()).toEqual({ deletedCount: 1 });
+
+    // keep=1 must retain the server-confirmed-newest backup; ordering by the client-supplied
+    // created_at would have deleted it and kept the far-future one instead.
+    const list = await SELF.fetch("https://worker.example/backups", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const rows = (await list.json()) as Array<{ backupId: string }>;
+    expect(rows.map((row) => row.backupId)).toEqual(["retention-client-new-1"]);
+  });
+});

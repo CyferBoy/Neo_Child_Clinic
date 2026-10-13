@@ -84,13 +84,14 @@ class VaccineInventoryViewModel @Inject constructor(
         _sort.value = sort
     }
 
-    fun deleteBatch(batchId: String) {
+    fun deleteBatch(batchId: String, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
             try {
                 val user = sessionManager.getCurrentUserEmail()
                 inventoryRepository.deleteBatch(batchId, user)
             } catch (e: Exception) {
                 android.util.Log.e("VaccineInventoryVM", "Delete batch failed", e)
+                onError(e.message ?: "Failed to delete batch")
             }
         }
     }

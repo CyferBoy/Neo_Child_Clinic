@@ -14,6 +14,7 @@ import com.google.android.gms.security.ProviderInstaller
 import android.content.Intent
 import android.content.IntentFilter
 import com.neochildclinic.core.security.BiometricLockManager
+import com.neochildclinic.core.preferences.NotificationSettingsManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
@@ -40,6 +41,9 @@ class NeoChildApp : Application(), Configuration.Provider {
 
     @Inject
     lateinit var syncReconciler: com.neochildclinic.core.sync.SyncReconciler
+
+    @Inject
+    lateinit var settingsManager: NotificationSettingsManager
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -69,6 +73,22 @@ class NeoChildApp : Application(), Configuration.Provider {
         // pending local ones as soon as we're online and signed in (see SyncReconciler).
         syncReconciler.start()
         
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
+        // BiometricLockManager's lock state is in-memory and dies with the process;
+        // mirror the arm flag into DataStore (NotificationSettingsManager.needsAuth) so a
+        // screen-off + process-death cycle still locks on the next cold start
+        // (MainActivity.checkAppLock reads the same flag).
+        BiometricLockManager.onNeedsAuthChanged = { needsAuth ->
+            scope.launch { settingsManager.setNeedsAuth(needsAuth) }
+        }
+        // Re-arm before any UI renders: checkAppLock has to wait for the session status to
+        // resolve (seconds when offline), and patient data must not be visible meanwhile.
+        scope.launch {
+            val settings = settingsManager.settingsFlow.first()
+            if (settings.biometricLockEnabled && settings.needsAuth) BiometricLockManager.lock()
+        }
+
         // Register Screen Off Receiver
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
         registerReceiver(object : android.content.BroadcastReceiver() {
@@ -79,7 +99,6 @@ class NeoChildApp : Application(), Configuration.Provider {
             }
         }, filter)
 
-        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
         scope.launch {
             reminderScheduler.scheduleDailySummary()
             reminderScheduler.schedulePersonalReminderNotifications()

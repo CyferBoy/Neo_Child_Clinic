@@ -16,10 +16,13 @@ interface PatientTodoDao {
     @Query("SELECT DISTINCT todo_date FROM consultation_todos WHERE todo_date BETWEEN :start AND :end UNION SELECT DISTINCT todo_date FROM vaccination_todos WHERE todo_date BETWEEN :start AND :end")
     fun getDatesWithData(start: String, end: String): Flow<List<String>>
 
-    @Query("UPDATE consultation_todos SET status = :status, updated_at = :updatedAt WHERE id = :id")
+    // is_synced = 0 marks the row dirty: without it the refresh guard in
+    // PatientTodoRepositoryImpl (local == null || local.isSynced) treats the row as fully
+    // synced and lets the next pull overwrite the local status change.
+    @Query("UPDATE consultation_todos SET status = :status, updated_at = :updatedAt, is_synced = 0 WHERE id = :id")
     suspend fun updateConsultationStatus(id: String, status: String, updatedAt: String)
 
-    @Query("UPDATE vaccination_todos SET status = :status, updated_at = :updatedAt WHERE id = :id")
+    @Query("UPDATE vaccination_todos SET status = :status, updated_at = :updatedAt, is_synced = 0 WHERE id = :id")
     suspend fun updateVaccinationStatus(id: String, status: String, updatedAt: String)
 
     @Query("SELECT * FROM consultation_todos WHERE id = :id LIMIT 1")

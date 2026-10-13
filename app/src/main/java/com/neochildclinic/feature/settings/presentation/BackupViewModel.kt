@@ -219,6 +219,9 @@ class BackupViewModel @Inject constructor(
     fun restoreSafetyBackup() = viewModelScope.launch {
         setBusy("Restoring previous data...")
         val result = backupRepository.restoreSafetyBackup { onProgress(it) }
+        // Undo consumes the snapshot - refresh so the Undo section disappears with it
+        // (same pattern as confirmRestore() above).
+        _uiState.value = _uiState.value.copy(hasSafetyBackup = backupRepository.hasSafetyBackup())
         showResult(result, "Previous data restored.")
     }
 }

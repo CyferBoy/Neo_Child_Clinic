@@ -162,7 +162,7 @@ fun AddBatchScreen(
                             batchId = batchId,
                             vaccineId = vaccineId,
                             batchNumber = batchNumber,
-                            quantity = quantity.toIntOrNull() ?: 0,
+                            quantity = quantity,
                             expiryDate = expiryDate,
                             mrp = mrp.toDoubleOrNull() ?: 0.0,
                             netRate = netRate.toDoubleOrNull() ?: 0.0,

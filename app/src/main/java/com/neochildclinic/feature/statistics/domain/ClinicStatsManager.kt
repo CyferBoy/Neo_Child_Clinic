@@ -57,15 +57,22 @@ class ClinicStatsManager @Inject constructor(
                 StatisticsDateUtils.monthOfIST(it.dateGiven) == currentMonth
             }
 
+            // Raw (status-unfiltered) visit dates, mirroring FinanceTab: a linked
+            // transaction's reporting date resolves from its visit regardless of status.
+            // resolveReportingDate is the Finance tab's single source of truth - bucketing
+            // by tx.timestamp here made the dashboard/day summary disagree with Finance.
+            val visitDatesById = allVaccinations.associate { it.id to it.dateGiven }
             val todayTransactions = transactions.filter { tx ->
-                StatisticsDateUtils.parseToISTLocalDate(tx.timestamp)?.toString() == todayStr
+                StatisticsDateUtils.parseToISTLocalDate(
+                    FinanceCalculator.resolveReportingDate(tx, visitDatesById)
+                ) == todayIST.toLocalDate()
             }
             val todayFinance = FinanceCalculator.calculateFinanceStats(todayTransactions, allVaccinations, transactions)
             val todayRevenue = todayFinance.totalRevenue
             val todayCash = todayFinance.cashTotal
             val todayOnline = todayFinance.onlineTotal
             val monthlyTransactions = transactions.filter { tx ->
-                StatisticsDateUtils.monthOfIST(tx.timestamp) == currentMonth
+                StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx, visitDatesById)) == currentMonth
             }
             val monthlyFinance = FinanceCalculator.calculateFinanceStats(monthlyTransactions, allVaccinations, transactions)
             val monthlyRevenue = monthlyFinance.totalRevenue

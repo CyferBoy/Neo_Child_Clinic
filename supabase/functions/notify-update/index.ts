@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.8/mod.ts"
+// Deno's global crypto has no timingSafeEqual (Web Crypto doesn't define it);
+// node:crypto is a Deno built-in, not an added dependency.
+import { timingSafeEqual } from "node:crypto"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,8 +20,10 @@ serve(async (req) => {
     const secret = Deno.env.get('UPDATE_NOTIFIER_SECRET')
 
     // Fail closed: an unset secret must reject every caller, not become the literal
-    // string "Bearer undefined" that anyone on the internet can guess.
-    if (!secret || !authHeader || authHeader !== `Bearer ${secret}`) {
+    // string "Bearer undefined" that anyone on the internet can guess. Both sides are
+    // hashed to equal length first, so timingSafeEqual (which throws on a length
+    // mismatch) stays constant-time regardless of the header length.
+    if (!secret || !(await bearerMatchesSecret(authHeader, secret))) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -98,12 +103,22 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Function error:", error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    // Generic body only: error.message can carry DB/secret/config detail.
+    return new Response(JSON.stringify({ error: 'Bad request' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
+
+async function bearerMatchesSecret(header: string | null, secret: string): Promise<boolean> {
+  if (!header?.startsWith('Bearer ')) return false
+  const enc = new TextEncoder()
+  const digest = (value: string) => crypto.subtle.digest('SHA-256', enc.encode(value))
+  const a = new Uint8Array(await digest(header.slice('Bearer '.length)))
+  const b = new Uint8Array(await digest(secret))
+  return timingSafeEqual(a, b)
+}
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const pem = serviceAccount.private_key

@@ -26,16 +26,37 @@ class SafetyBackupStore(private val context: Context) {
     private val file: File
         get() = File(context.filesDir, "backup_safety/safety_snapshot.bin")
 
+    private val tmpFile: File
+        get() = File(file.path + ".tmp")
+
     private val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 
-    fun write(plaintextJson: ByteArray) {
+    /**
+     * Encrypts [plaintextJson] into a side file, leaving the live snapshot untouched.
+     * Call [commit] to atomically swap it in once it is safe to replace the previous
+     * snapshot, or [discardStaged] to drop it.
+     */
+    fun stage(plaintextJson: ByteArray) {
         file.parentFile?.mkdirs()
         val key = getOrCreateKey()
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key)
         val iv = cipher.iv
         val ciphertext = cipher.doFinal(plaintextJson)
-        file.writeBytes(iv.size.toByte().let { byteArrayOf(it) } + iv + ciphertext)
+        // writeBytes truncates in place, so writing straight to `file` would destroy the
+        // previous good snapshot if this crashed mid-write - stage beside it instead and
+        // swap with rename (atomic on the same filesystem).
+        tmpFile.writeBytes(iv.size.toByte().let { byteArrayOf(it) } + iv + ciphertext)
+    }
+
+    /** Makes the staged snapshot live. Metadata-only rename, so it cannot fail for disk space. */
+    fun commit() {
+        if (!tmpFile.renameTo(file)) throw java.io.IOException("Could not replace safety snapshot")
+    }
+
+    /** Drops a staged snapshot (restore failed/aborted) - the live snapshot is untouched. */
+    fun discardStaged() {
+        tmpFile.delete()
     }
 
     fun read(): ByteArray? {

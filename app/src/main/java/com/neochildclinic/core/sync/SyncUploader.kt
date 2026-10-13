@@ -491,7 +491,17 @@ class SyncUploader @Inject constructor(
                 // timestamp (FINANCE/VACCINATION_ITEM/PROFILE don't maintain one), so its
                 // age is unknown - downloading here silently discarded the local edit and
                 // marked it synced. Unknown age must lose to nothing: let the edit upload.
-                if (remoteUpdatedAt > localUpdatedAtLong && localUpdatedAtLong > 0) {
+                //
+                // Pending-queue guard (docs/SYNC.md conflict policy: "local row has a
+                // pending queue entry -> local is authoritative until pushed"): while this
+                // entity still has an unacknowledged sync_queue row - including the very
+                // item being uploaded, which is SYNCING right now - the local row must
+                // never be replaced by the remote copy. Downloading here would destroy the
+                // queued local edit: the download overwrites it locally and the queue row
+                // is then deleted as "uploaded", so the edit is lost with no trace.
+                if (remoteUpdatedAt > localUpdatedAtLong && localUpdatedAtLong > 0 &&
+                    !database.syncQueueDao().isUnsynced(item.entityName, item.entityId)
+                ) {
                     // REMOTE IS NEWER: Sync back to local (Self-healing)
                     descriptor.download(database, remoteData)
                     return
@@ -549,6 +559,16 @@ class SyncUploader @Inject constructor(
                 is DoctorWeeklySlotEntity -> postgrest.from(table).upsert(localData)
                 is DoctorSlotExceptionEntity -> postgrest.from(table).upsert(localData)
             }
+        } else {
+            // The local row this queue item was queued to push is gone, so there is
+            // nothing to upload - but that is never what a CREATE/UPDATE enqueue meant,
+            // and silently dropping it here hid bugs (audit finding 5: deleted line items
+            // were enqueued as UPDATE after their local rows were hard-deleted). DELETE
+            // never reaches this branch (it returns above and stays idempotent).
+            android.util.Log.w(
+                "SyncRepositoryImpl",
+                "No local row for ${item.entityName} ${item.entityId} (${item.operation}); nothing uploaded"
+            )
         }
     }
 

@@ -10,6 +10,7 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import io.github.jan.supabase.postgrest.Postgrest
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,7 @@ import com.neochildclinic.core.sync.cloudRefresh
 class PatientTodoRepositoryImpl @Inject constructor(
     private val dao: PatientTodoDao,
     private val syncRepository: SyncRepository,
+    private val syncQueueDao: SyncQueueDao,
     private val postgrest: Postgrest,
     private val sessionManager: com.neochildclinic.core.security.SessionManager
 ) : PatientTodoRepository {
@@ -31,11 +33,13 @@ class PatientTodoRepositoryImpl @Inject constructor(
         val vaccinations = postgrest.from("vaccination_todos").select { filter { eq("is_deleted", false) } }.decodeList<VaccinationTodoEntity>()
         consultations.forEach { remote ->
             val local = dao.getConsultationTodoById(remote.id)
-            if (local == null || local.isSynced) dao.insertConsultation(remote.copy(isSynced = true))
+            // A queued row (unsynced edit, or a local delete awaiting upload) is the
+            // device's version until its push lands - same rule as every other repo.
+            if ((local == null || local.isSynced) && !syncQueueDao.isUnsynced("CONSULTATION_TODO", remote.id)) dao.insertConsultation(remote.copy(isSynced = true))
         }
         vaccinations.forEach { remote ->
             val local = dao.getVaccinationTodoById(remote.id)
-            if (local == null || local.isSynced) dao.insertVaccination(remote.copy(isSynced = true))
+            if ((local == null || local.isSynced) && !syncQueueDao.isUnsynced("VACCINATION_TODO", remote.id)) dao.insertVaccination(remote.copy(isSynced = true))
         }
     }
 

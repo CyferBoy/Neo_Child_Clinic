@@ -22,11 +22,11 @@ serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey)
 
     const authHeader = req.headers.get("Authorization")
-    if (!authHeader?.startsWith("Bearer ")) throw new Error("Missing Authorization header")
+    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401)
     const token = authHeader.substring("Bearer ".length)
 
     const { data: { user }, error: userError } = await admin.auth.getUser(token)
-    if (userError || !user) throw new Error("Invalid user token")
+    if (userError || !user) return json({ error: "Unauthorized" }, 401)
 
     const { data: actor, error: actorError } = await admin
       .from("profiles")
@@ -38,7 +38,7 @@ serve(async (req) => {
     // reads). profiles.is_active/is_deleted remain business gating (account status).
     const actorRole = (user.app_metadata as { role?: string } | null)?.role
     if (actorError || actorRole !== "admin" || actor.is_active !== true || actor.is_deleted === true) {
-      return json({ error: "Unauthorized: only active administrators can manage staff" }, 403)
+      return json({ error: "Unauthorized" }, 401)
     }
 
     const body = await req.json()
@@ -170,6 +170,14 @@ serve(async (req) => {
         }).eq("id", staffId)
         if (error) throw error
 
+        // Deactivating the profile alone leaves the GoTrue user enabled, so its refresh
+        // token keeps minting access tokens forever - ban to end existing sessions too
+        // (mirrored by SOFT_DELETE below, unbanned when the account is re-activated).
+        const { error: banError } = await admin.auth.admin.updateUserById(staffId, {
+          ban_duration: isActive ? "none" : "87600h",
+        })
+        if (banError) throw banError
+
         return json({ success: true })
       }
 
@@ -187,6 +195,14 @@ serve(async (req) => {
           .update({ is_active: false })
           .eq("user_id", staffId)
 
+        // Same as SET_STATUS: the GoTrue user must stop refreshing tokens, not just the
+        // profile row. A ban failure surfaces through the catch below instead of
+        // silently reporting success.
+        const { error: banError } = await admin.auth.admin.updateUserById(staffId, {
+          ban_duration: "87600h",
+        })
+        if (banError) throw banError
+
         return json({ success: true })
       }
 
@@ -201,26 +217,17 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error("manage-staff error:", error)
-    const message = errorMessage(error)
-    return json({ error: message }, 400)
+    // PostgrestError - returned by every .from(...) call above and thrown as-is - is a
+    // plain { message, details, hint, code } object whose text describes schema and
+    // constraints; it must never reach the client (400 + generic body). Plain Error
+    // instances without those DB fields are fixed strings thrown by this file
+    // (validation/guards) or client-facing Auth errors - safe to echo. Real detail for
+    // everything stays in the log line above.
+    const isDbError = typeof error === "object" && error !== null && "details" in error
+    if (error instanceof Error && !isDbError) return json({ error: error.message }, 400)
+    return json({ error: "Operation failed" }, 400)
   }
 })
-
-function errorMessage(error: unknown): string {
-  // Supabase's own AuthError extends Error, so `instanceof Error` catches that fine.
-  // But PostgrestError - returned by every .from(...).insert()/.update()/.select() call,
-  // and thrown as-is throughout this file (e.g. `throw profileError`, `throw error`) - is
-  // a plain { message, details, hint, code } object, NOT an Error instance. Relying on
-  // `instanceof Error` alone flattened every database-level failure (duplicate email,
-  // a unique/foreign-key/NOT NULL constraint, RLS denial, etc.) into an unhelpful generic
-  // "Unexpected error", hiding the real reason from both the client and these logs.
-  if (error instanceof Error) return error.message
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = (error as { message?: unknown }).message
-    if (typeof message === "string" && message.length > 0) return message
-  }
-  return "Unexpected error"
-}
 
 function validateRole(role: string) {
   const allowed = ["admin", "doctor", "receptionist", "nurse", "inventory_manager"]

@@ -37,13 +37,15 @@ fun SyncScreen(
 ) {
     val syncQueue by viewModel.syncQueue.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val refreshError by viewModel.refreshError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var wasRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(isRefreshing) {
         if (wasRefreshing && !isRefreshing) {
-            snackbarHostState.showSnackbar("Cloud data imported successfully")
+            // Surface a failed import instead of always claiming success (finding 15).
+            snackbarHostState.showSnackbar(refreshError ?: "Cloud data imported successfully")
         }
         wasRefreshing = isRefreshing
     }

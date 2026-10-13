@@ -52,7 +52,11 @@ val scope = rememberCoroutineScope()
         show = batchToDelete != null,
         onDismiss = { batchToDelete = null },
         onConfirm = {
-            batchToDelete?.let { viewModel.deleteBatch(it.batchId) }
+            batchToDelete?.let {
+                viewModel.deleteBatch(it.batchId) { error ->
+                    scope.launch { snackbarHostState.showSnackbar(error) }
+                }
+            }
             batchToDelete = null
         },
         title = "Delete Batch",

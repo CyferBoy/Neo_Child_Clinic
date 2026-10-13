@@ -274,7 +274,7 @@ class FinanceRepositoryImpl @Inject constructor(
                         onlineAmount > 0 -> "ONLINE"
                         else -> "FREE"
                     },
-                    patientId = null,
+                    patientId = vaccinationDao.getVaccinationById(visitId)?.patientId,
                     visitId = visitId,
                     remarks = remarks,
                     recordedBy = userName,
@@ -297,7 +297,11 @@ class FinanceRepositoryImpl @Inject constructor(
             }
 
             val snapshot = existingTransaction.remarks?.substringAfter("[COGS_SNAPSHOT:", missingDelimiterValue = "")?.substringBefore("]")?.toDoubleOrNull()
-            val updatedRemarks = if (snapshot != null) existingTransaction.remarks else remarks
+            // The edit path (VaccinationEditEngine/ClinicalVaccinationService) rebuilds
+            // remarks with the current items' COGS; keep the stored snapshot only when the
+            // caller didn't supply one, otherwise edits to items/prices never update profit.
+            val incomingHasSnapshot = remarks?.contains("[COGS_SNAPSHOT:") == true
+            val updatedRemarks = if (snapshot != null && !incomingHasSnapshot) existingTransaction.remarks else remarks
             val updated = existingTransaction.copy(
                 transactionDate = resolveTransactionDate(visitId),
                 amount = amount,

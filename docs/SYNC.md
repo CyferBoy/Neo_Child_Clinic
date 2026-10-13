@@ -89,7 +89,8 @@ Never map a flow's `initial` value straight to "empty".
 
 - No schema-level per-account scoping; isolation is enforced at the auth boundary above.
 - `sync_queue.status = 'SYNCED'` is dead (rows are deleted after ack);
-  `clearSynced()` is a no-op.
+  `clearSynced()` clears terminal rows (`FAILED` and older `SYNCED`), never
+  `PENDING`/`SYNCING` ones.
 - `FAILED` rows are retried only manually (Sync screen) or by the sign-out flush gate.
 - Remote rows deleted by another device are not removed by refresh (insert/update only).
 - Statistics aggregate whole tables in memory; pagination DAOs exist but are unused.

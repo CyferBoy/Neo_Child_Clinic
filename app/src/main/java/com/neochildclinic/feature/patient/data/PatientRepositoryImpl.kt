@@ -161,16 +161,18 @@ class PatientRepositoryImpl @Inject constructor(
                 isSynced = false
             )
             if (isUpdate) patientDao.insertPatient(built) else patientDao.insertPatientStrict(built)
+            // Enqueue inside the same transaction as the write (docs/SYNC.md: entity
+            // writes and enqueue commit together - no partial state). Follows
+            // VaccinationRepositoryImpl.addVaccination's pattern.
+            syncRepository.enqueue(
+                entityName = "PATIENT",
+                entityId = patient.id,
+                operation = if (isUpdate) SyncOperation.UPDATE else SyncOperation.CREATE,
+                priority = SyncPriority.HIGH
+            )
             built
         }
         
-        syncRepository.enqueue(
-            entityName = "PATIENT",
-            entityId = patient.id,
-            operation = if (isUpdate) SyncOperation.UPDATE else SyncOperation.CREATE,
-            priority = SyncPriority.HIGH
-        )
-
         auditLogger.recordLog(
             module = "PATIENT",
             entityType = "PATIENT",
@@ -184,46 +186,52 @@ class PatientRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deletePatient(id: String) {
-        val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
-        val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
-        val personalReminderIds = personalReminderDao.getActiveReminders().first().filter { it.patientId == id }.map { it.id }
-        val consultationIds = consultationDao.getConsultationsForPatient(id).first().map { it.id }
+        // One transaction for the whole delete (docs/SYNC.md: entity writes and enqueue
+        // commit together - no partial state). Previously every deleteX() was followed by
+        // its own enqueue outside any transaction, so a crash mid-way left deletes without
+        // their queue rows (remote rows surviving) or queue rows without deletes.
+        database.withTransaction {
+            val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
+            val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
+            val personalReminderIds = personalReminderDao.getActiveReminders().first().filter { it.patientId == id }.map { it.id }
+            val consultationIds = consultationDao.getConsultationsForPatient(id).first().map { it.id }
 
-        // Delete Reminders
-        dueReminderDao.deleteRemindersByPatientId(id)
-        reminderIds.forEach {
-            syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
+            // Delete Reminders
+            dueReminderDao.deleteRemindersByPatientId(id)
+            reminderIds.forEach {
+                syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
+            }
+
+            personalReminderIds.forEach {
+                personalReminderDao.delete(it)
+                syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.DELETE, SyncPriority.LOW)
+            }
+
+            // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs)
+            vaccinationIds.forEach {
+                vaccinationRepository.get().deleteVaccination(it)
+            }
+
+            // Delete Consultations
+            consultationIds.forEach {
+                consultationDao.deleteConsultation(it)
+                syncRepository.enqueue("CONSULTATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
+            }
+
+            // Delete Patient - enqueued last: every child is enqueued above so the server-side
+            // DELETE for patients can't hit a foreign-key reference from a child still on the row.
+            patientDao.deletePatient(id)
+            syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
+
+            auditLogger.recordLog(
+                module = "PATIENT",
+                entityType = "PATIENT",
+                entityId = id,
+                action = "DELETED",
+                patientId = id
+            )
         }
 
-        personalReminderIds.forEach {
-            personalReminderDao.delete(it)
-            syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.DELETE, SyncPriority.LOW)
-        }
-
-        // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs)
-        vaccinationIds.forEach {
-            vaccinationRepository.get().deleteVaccination(it)
-        }
-
-        // Delete Consultations
-        consultationIds.forEach {
-            consultationDao.deleteConsultation(it)
-            syncRepository.enqueue("CONSULTATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
-        }
-
-        // Delete Patient - enqueued last: every child is enqueued above so the server-side
-        // DELETE for patients can't hit a foreign-key reference from a child still on the row.
-        patientDao.deletePatient(id)
-        syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
-
-        auditLogger.recordLog(
-            module = "PATIENT",
-            entityType = "PATIENT",
-            entityId = id,
-            action = "DELETED",
-            patientId = id
-        )
-        
         patientCache.invalidate(id)
     }
 

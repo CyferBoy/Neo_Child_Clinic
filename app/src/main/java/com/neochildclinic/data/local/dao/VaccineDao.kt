@@ -101,10 +101,6 @@ interface VaccineDao {
         offset: Int
     ): List<InventoryTransactionEntity>
 
-    // Stock Summary
-    @Query("SELECT SUM(remainingQuantity) FROM vaccine_batches WHERE vaccineId = :vaccineId")
-    suspend fun getTotalStockForVaccine(vaccineId: String): Int?
-
     // Reference Checks
     @Query("SELECT COUNT(*) FROM vaccine_batches WHERE vaccineId = :vaccineId")
     suspend fun getBatchCountForVaccine(vaccineId: String): Int
@@ -117,6 +113,26 @@ interface VaccineDao {
 
     @Query("SELECT COUNT(*) FROM inventory_transactions WHERE vaccineId = :vaccineId")
     suspend fun getTransactionCountForVaccine(vaccineId: String): Int
+
+    // Per-batch reference checks for the deleteBatch guard. vaccination_items,
+    // borrow_records and borrow_returns CASCADE-delete with the batch (patient history
+    // and the borrow ledger would silently lose rows); waste_records and
+    // inventory_transactions have no FK on batchId but would be orphaned from the batch
+    // they describe.
+    @Query("SELECT COUNT(*) FROM vaccination_items WHERE batchId = :batchId")
+    suspend fun getVaccinationCountForBatch(batchId: String): Int
+
+    @Query("SELECT COUNT(*) FROM waste_records WHERE batchId = :batchId")
+    suspend fun getWasteCountForBatch(batchId: String): Int
+
+    @Query("SELECT COUNT(*) FROM borrow_records WHERE batchId = :batchId")
+    suspend fun getBorrowCountForBatch(batchId: String): Int
+
+    @Query("SELECT COUNT(*) FROM borrow_returns WHERE batch_id = :batchId")
+    suspend fun getBorrowReturnCountForBatch(batchId: String): Int
+
+    @Query("SELECT COUNT(*) FROM inventory_transactions WHERE batchId = :batchId")
+    suspend fun getTransactionCountForBatch(batchId: String): Int
 
     @Query("SELECT COUNT(*) FROM audit_logs WHERE remarks LIKE '%' || :brandName || '%'")
     suspend fun getAuditCountForVaccine(brandName: String): Int

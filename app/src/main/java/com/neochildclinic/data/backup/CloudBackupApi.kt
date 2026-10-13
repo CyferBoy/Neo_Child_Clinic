@@ -219,6 +219,11 @@ class CloudBackupApi @Inject constructor(private val auth: Auth) {
         }
         if (response.status == HttpStatusCode.NotFound) throw BackupException.Corrupted("Backup not found on server")
         checkStatus(response)
+        // Fail fast before buffering: the Worker serves Content-Length (handleDownload), so a
+        // response over the ceiling the Worker itself enforces never reaches bodyAsBytes().
+        response.headers[HttpHeaders.ContentLength]?.toLongOrNull()?.let { length ->
+            if (length > MAX_BACKUP_BYTES) throw BackupException.TooLarge(length, MAX_BACKUP_BYTES)
+        }
         response.bodyAsBytes()
     }
 

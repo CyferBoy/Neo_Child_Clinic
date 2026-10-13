@@ -70,7 +70,7 @@ class AddBatchViewModel @Inject constructor(
         batchId: String?,
         vaccineId: String,
         batchNumber: String,
-        quantity: Int,
+        quantity: String,
         expiryDate: String,
         mrp: Double,
         netRate: Double,
@@ -80,12 +80,18 @@ class AddBatchViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val user = sessionManager.getCurrentUserEmail()
-                
+                // The screen used to coerce junk to 0 ("1.5" silently saved as 0 stock).
+                // Parse here so bad input surfaces through the same error snackbar every
+                // other save failure uses; negative quantities are rejected in
+                // InventoryRepositoryImpl.updateBatch (the trust boundary).
+                val quantityValue = quantity.toIntOrNull()
+                    ?: throw IllegalStateException("Quantity must be a whole number, e.g. 5 or 10.")
+
                 if (batchId != null) {
                     val existing = _uiState.value.batch ?: throw IllegalStateException("Batch not loaded")
                     val updated = existing.copy(
                         batchNumber = batchNumber,
-                        remainingQuantity = quantity,
+                        remainingQuantity = quantityValue,
                         expiryDate = expiryDate,
                         sellingPrice = mrp,
                         purchaseCost = netRate,
@@ -102,8 +108,8 @@ class AddBatchViewModel @Inject constructor(
                         manufacturer = manufacturer,
                         purchaseDate = today,
                         expiryDate = expiryDate,
-                        purchaseQuantity = quantity,
-                        remainingQuantity = quantity,
+                        purchaseQuantity = quantityValue,
+                        remainingQuantity = quantityValue,
                         supplier = "Manual Entry",
                         purchaseCost = netRate,
                         sellingPrice = mrp,
