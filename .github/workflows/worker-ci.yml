@@ -24,7 +24,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # wrangler, miniflare and @cloudflare/kv-asset-handler all declare
+          # engines.node >=22.0.0, so npm ci needs 22 or it is working against
+          # a dependency tree that does not support the runtime.
+          node-version: "22"
           cache: npm
           cache-dependency-path: cloudflare/backup-worker/package-lock.json
 

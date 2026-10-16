@@ -217,10 +217,11 @@ class VaccinationEditEngine @Inject constructor(
         vaccination.items.forEach { item ->
             val shortfall = shortfalls[item.batchId]
             val forVaccine = previousByBatch[item.batchId].orEmpty().filter { it.vaccineId == item.vaccineId }
+            val exact = forVaccine.firstOrNull { it.quantity == item.quantity }
             val status = deductionStatus(
                 shortfall = shortfall,
                 deductedThisEdit = (delta[item.batchId] ?: 0) > 0,
-                exact = forVaccine.firstOrNull { it.quantity == item.quantity },
+                exact = exact,
                 previousForVaccine = forVaccine
             )
             inventoryRepository.insertInventoryDeduction(InventoryDeduction(
