@@ -100,11 +100,8 @@ class SyncRepositoryImpl @Inject constructor(
     // rows orphaned by a dead run, never rows a live run owns.
     private val flight = com.neochildclinic.core.sync.SingleFlight()
 
-    override suspend fun processNextItems(): Boolean {
-        var anyFailed = false
-        flight.run { anyFailed = processNextItemsInternal() }
-        return anyFailed
-    }
+    override suspend fun processNextItems(): Boolean =
+        flight.run { processNextItemsInternal() }
 
     /**
      * Returns true when at least one queue item ended the run FAILED (permanent, visible
