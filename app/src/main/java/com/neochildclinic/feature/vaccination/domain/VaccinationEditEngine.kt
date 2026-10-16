@@ -31,6 +31,38 @@ fun inventoryDiff(
 }
 
 /**
+ * Status for a rebuilt inventory_deductions row, mirroring the create-path rows written
+ * by ClinicalVaccinationService. Pure so it can be unit-tested without Room/Android (see
+ * VaccinationEditEngineTest), like [inventoryDiff].
+ *
+ * A batch this edit actually deducted from is COMPLETED: that deduction either succeeded
+ * (ground truth that stock moved) or is already covered by the shortfall branch, so it
+ * never inherits an older row's verdict. For a batch the edit did not touch, a rewritten
+ * row keeps the verdict of the old row with the same batch, vaccine and quantity; failing
+ * that the row is new or re-sized here and is COMPLETED, unless every previous row for
+ * that vaccine on that batch was FAILED (stock was never moved and still is not - matching
+ * the reversal cap in applyInventoryDiff).
+ */
+internal fun deductionStatus(
+    shortfall: String?,
+    deductedThisEdit: Boolean,
+    exact: InventoryDeduction?,
+    previousForVaccine: List<InventoryDeduction>
+): String = when {
+    // This edit could not take the extra doses off the shelf: stock did not move.
+    shortfall != null -> "FAILED"
+    // This edit did take doses off this batch. A batch that failed on create, then
+    // succeeded on edit after a restock, used to inherit the old FAILED row here - and
+    // deleteVaccination reverses only COMPLETED rows (VaccinationRepositoryImpl), so the
+    // dose was gone with no way back.
+    deductedThisEdit -> "COMPLETED"
+    exact != null -> exact.status
+    previousForVaccine.isEmpty() -> "COMPLETED"
+    previousForVaccine.none { it.status == "COMPLETED" } -> "FAILED"
+    else -> "COMPLETED"
+}
+
+/**
  * Single edit transaction coordinator for Vaccination.
  *
  * It compares the persisted vaccination with the edited vaccination and only applies
@@ -70,7 +102,8 @@ class VaccinationEditEngine @Inject constructor(
         var stockShortfalls: Map<String, String> = emptyMap()
 
         transactionRunner.run {
-            val inventoryChanged = inventoryDiff(original, updated).isNotEmpty()
+            val stockDelta = inventoryDiff(original, updated)
+            val inventoryChanged = stockDelta.isNotEmpty()
             val financeChanged = financeChanged(original, updated)
 
             // Item-level reconciliation (EditReconciler): unchanged vaccination_items keep
@@ -91,13 +124,13 @@ class VaccinationEditEngine @Inject constructor(
             }
 
             if (inventoryChanged) {
-                stockShortfalls = applyInventoryDiff(original, updated, user)
+                stockShortfalls = applyInventoryDiff(stockDelta, original, updated, user)
             }
             // Local-only deduction audit: rebuild whenever the item set moved at all so
             // no stale row (e.g. an old vaccine name) is left behind - but never as part
             // of a no-op save.
             if (inventoryChanged || itemsChanged) {
-                reconcileInventoryDeductions(updated, stockShortfalls)
+                reconcileInventoryDeductions(updated, stockDelta, stockShortfalls)
             }
 
             reconcileReminders(original.patientId, original.id, reminderSpecs, user, excludedReminderIds)
@@ -112,7 +145,7 @@ class VaccinationEditEngine @Inject constructor(
                 new.items.map { Triple(it.vaccineId, it.quantity, it.netRate) }.sortedBy { it.first }
     }
 
-    private suspend fun applyInventoryDiff(old: Vaccination, new: Vaccination, user: String): Map<String, String> {
+    private suspend fun applyInventoryDiff(delta: Map<String, Int>, old: Vaccination, new: Vaccination, user: String): Map<String, String> {
         // Only a COMPLETED inventory_deductions row means stock actually moved. A FAILED
         // row (ClinicalVaccinationService writes one when e.g. stock was short) left
         // stock untouched, so reversing its quantity would invent doses that never left:
@@ -128,8 +161,8 @@ class VaccinationEditEngine @Inject constructor(
 
         val shortfalls = mutableMapOf<String, String>()
 
-        inventoryDiff(old, new).forEach { (batchId, delta) ->
-            if (delta > 0) {
+        delta.forEach { (batchId, batchDelta) ->
+            if (batchDelta > 0) {
                 // A batch already recorded on the original visit was valid when first
                 // administered; don't block an edit (e.g. a quantity bump) just because
                 // the batch has since expired. Only brand-new batch selections must pass
@@ -138,7 +171,7 @@ class VaccinationEditEngine @Inject constructor(
                 try {
                     inventoryRepository.deductStockFromBatch(
                         batchId = batchId,
-                        quantity = delta,
+                        quantity = batchDelta,
                         user = user,
                         transactionType = InventoryTransactionType.VACCINATION,
                         visitId = new.id,
@@ -154,7 +187,7 @@ class VaccinationEditEngine @Inject constructor(
                     shortfalls[batchId] = e.message ?: "Insufficient stock"
                 }
             } else {
-                val reverseQuantity = minOf(-delta, completedByBatch[batchId] ?: 0)
+                val reverseQuantity = minOf(-batchDelta, completedByBatch[batchId] ?: 0)
                 if (reverseQuantity > 0) {
                     inventoryRepository.reverseDeduction(
                         batchId = batchId,
@@ -175,28 +208,21 @@ class VaccinationEditEngine @Inject constructor(
     // dialog kept showing both the old and the new vaccine. Recreate the set from the
     // final items whenever stock actually changed, mirroring the create-path rows.
     //
-    // Status rule: a rewritten row keeps the verdict of the old row for the same batch,
-    // vaccine and quantity (that is the row whose stock actually moved or failed). If no
-    // exact match exists the row is new or re-sized here: COMPLETED, unless that
-    // vaccine's previous rows on the batch were all FAILED (stock was never moved and
-    // still is not - matches the reversal cap in applyInventoryDiff, so a FAILED batch
-    // never moves stock in either direction).
-    private suspend fun reconcileInventoryDeductions(vaccination: Vaccination, shortfalls: Map<String, String> = emptyMap()) {
+    // Local-only deduction audit, rebuilt from the final items whenever stock actually
+    // changed, mirroring the create-path rows. Status comes from [deductionStatus].
+    private suspend fun reconcileInventoryDeductions(vaccination: Vaccination, delta: Map<String, Int> = emptyMap(), shortfalls: Map<String, String> = emptyMap()) {
         val previousByBatch = inventoryRepository.getInventoryDeductionsForVaccination(vaccination.id)
             .groupBy { it.batchId }
         inventoryRepository.deleteInventoryDeductionsForVaccination(vaccination.id)
         vaccination.items.forEach { item ->
             val shortfall = shortfalls[item.batchId]
             val forVaccine = previousByBatch[item.batchId].orEmpty().filter { it.vaccineId == item.vaccineId }
-            val exact = forVaccine.firstOrNull { it.quantity == item.quantity }
-            val status = when {
-                // This edit could not take the extra doses off the shelf: stock did not move.
-                shortfall != null -> "FAILED"
-                exact != null -> exact.status
-                forVaccine.isEmpty() -> "COMPLETED"
-                forVaccine.none { it.status == "COMPLETED" } -> "FAILED"
-                else -> "COMPLETED"
-            }
+            val status = deductionStatus(
+                shortfall = shortfall,
+                deductedThisEdit = (delta[item.batchId] ?: 0) > 0,
+                exact = forVaccine.firstOrNull { it.quantity == item.quantity },
+                previousForVaccine = forVaccine
+            )
             inventoryRepository.insertInventoryDeduction(InventoryDeduction(
                 vaccinationId = vaccination.id,
                 vaccineId = item.vaccineId,
