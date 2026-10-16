@@ -1,7 +1,9 @@
 # Feature Roadmap
 
-> Suggested order of work, derived from [[Known Bugs]] and [[Technical Debt]].
+> Suggested order of work, derived from [[Quality/Bug Register]] and [[Technical Debt]].
 > Not a commitment — a prioritisation.
+> ⚠️ **No task here is completed.** Verification standard: see
+> [[Documentation Maintenance]] § Verification evidence format.
 
 ## The organising principle
 
@@ -12,126 +14,118 @@ The app is **structurally sound** — Clean Architecture holds, Hilt is clean, 2
 pass, the crypto is correct, the offline-first guarantee is real. The problems are
 concentrated in a small number of specific places, most of them untested orchestrators.
 
-## Stage 1 — Data integrity (do first)
+⚠️ **Before starting Stage 1**, read [[Quality/Audit Reconciliation]]. Four findings were
+already "fixed" in a previous pass and are still open; re-deriving them wastes a day.
 
-These corrupt stock or visit records. All are small diffs.
+## Stage 1 — Data integrity
 
-| Task | Bug | Effort |
-|---|---|---|
-| Add `is_deleted = 0` to the 9 unfiltered `DueReminderDao` queries + a test | [[Known Bugs]] §1.4 | S |
-| Fix the stock trigger: `- OLD.quantity + NEW.quantity` | §1.5 | XS |
-| `drop trigger if exists tr_update_batch_stock` before installing the new one | §1.6 | XS |
-| Cap the **positive** delta in `applyInventoryDiff` by the ledger, or set `COMPLETED` when stock moved | §1.1 | S |
-| Move the two `IllegalStateException`s in `deductStockFromBatch` behind the `InsufficientStockException` recovery path | §1.2 | S |
-| Move the reminder loop into `recordVaccination`'s transaction | §1.3 | M |
+| Task | Bug | Sev | Effort | Test to add |
+|---|---|---|---|---|
+| Add `is_deleted = 0` to 5 live `DueReminderDao` queries | NCC-006 | S1 | S | extend `UpcomingVaccinationDaoTest` |
+| Fix the stock trigger: `- OLD.quantity + NEW.quantity` | NCC-002 | S1 | XS | psql/pgTAP delta assertion |
+| `drop trigger if exists tr_update_batch_stock` before installing | NCC-003 | S1 | XS | 🔍 live-DB trigger listing |
+| Cap the positive delta by the ledger in `applyInventoryDiff` | NCC-001 | S1 | S | in-memory Room, the 6-step repro |
+| Route the 2 pre-write throws through the recovery path | NCC-005 | S1 | S | stub throwing `IllegalStateException` |
+| Move the reminder loop into `recordVaccination`'s transaction | NCC-004 | S1 | M | stub `saveNextVaccination` to throw |
 
-**Why this stage first:** §1.1 and §1.3 produce a stock ledger that disagrees with the shelf,
-and a duplicate visit with a second deduction. For a clinic doing real inventory, that is the
-most expensive class of bug here.
+**Why first:** NCC-001 and NCC-004 leave the stock ledger disagreeing with the shelf. For a
+clinic doing real inventory that is the most expensive class of bug here.
 
 ## Stage 2 — Backend hardening (has a deadline)
 
-| Task | Bug | Effort |
-|---|---|---|
-| 🔍 Verify table `GRANT`s against the live DB — **`auto_expose_new_tables` is removed 2026-10-30** | §4.5 | S |
-| `git add` the 17 untracked migrations | §4.6 | XS |
-| 🔍 Check for the legacy `get_my_role()` policies on `profiles` / `audit_logs` | §4.2 | S |
-| 🔍 Confirm `todo_notification_events` RLS is actually applied | §4.3, §4.4 | S |
-| Narrow `profiles` SELECT to `id = auth.uid() or is_admin()` + column grants | §4.1 | S |
-| Add `idx_user_devices_user_id` | §4.9 | XS |
-| Schedule `cleanup_write_rate_limits()` (or delete the table) | §4.10 | S |
-| Add `neo_stamp_accountability` to `expenses` | §4.8 | XS |
+| Task | Bug | Sev | Effort |
+|---|---|---|---|
+| 🔍 Verify table `GRANT`s — **`auto_expose_new_tables` removed 2026-10-30** | NSC-005 | High | S |
+| 🔍 Check for legacy `get_my_role()` policies on `profiles` / `audit_logs` | NSC-002 | Critical | S |
+| Narrow `profiles` SELECT + column grants | NSC-001 | High | S |
+| Confirm `todo_notification_events` RLS is applied everywhere | NSC-004, NSC-003 | High | S |
+| Add `idx_user_devices_user_id` | NSC-006 | Low | XS |
+| Schedule or drop `cleanup_write_rate_limits()` | NSC-012 | Medium | S |
+| Add `neo_stamp_accountability` to `expenses` | NSC-007 | Medium | XS |
 
-**Why this stage:** §4.5 has a **hard date**. §4.6 means a fresh clone cannot rebuild the
-database at all.
+**Why:** NSC-005 has a hard date. Everything else needs the live database — see
+[[Release Checklist]] § 5.
 
-## Stage 3 — Error surfacing (biggest user-visible win)
+## Stage 3 — Error surfacing
 
-Small diffs, disproportionate impact.
+| Task | Bug | Sev | Effort |
+|---|---|---|---|
+| Wire or delete `DashboardViewModel.errorMessage` | NCC-013 | S2 | XS |
+| Wire `BorrowedViewModel.actionError` **or** give `BorrowedScreen` an error surface | NCC-014 | S2 | S |
+| Give `savePatient` an `onError` callback | NCC-015 | S2 | S |
+| Add `.catch {}` / `finally` to 5 ViewModels' loading flags | NCC-016 | S2 | S |
 
-| Task | Bug | Effort |
-|---|---|---|
-| Wire `DashboardViewModel.errorMessage` or delete it | §2.7 | XS |
-| Wire `BorrowedViewModel.actionError` **or** give `BorrowedScreen` an error surface | §2.7 | S |
-| Give `savePatient` an `onError` callback | §2.8 | S |
-| Add `.catch {}` to the 3 statistics ViewModels | §2.9 | S |
-| Add `finally` blocks to the 2 `ProfileViewModel` paths | §2.9 | XS |
-
-**Why this stage:** today a failed patient save, a failed borrow return, or a failed backup
-**all fail silently**. For clinic staff this is worse than a visible crash.
+**Why:** today a failed patient save, a failed borrow return and a failed backup **all fail
+silently**. For clinic staff that is worse than a visible crash.
 
 ## Stage 4 — Scheduling correctness
 
-| Task | Bug | Effort |
+| Task | Bug | Sev |
 |---|---|---|
-| Reschedule notifications when `reminderTime` changes | §2.4 | S |
-| Call `BackupAutoScheduler.schedule()` from `BackupViewModel` | §2.5 | XS |
-| Make `ReminderScheduler.runNow()` a **unique** work name | [[Due Vaccination]] #2 | XS |
-| Make `APPEAR` → `REPLACE` for the automatic-sync chain | §3.1 | S |
+| Reschedule notifications when `reminderTime` changes | NCC-010 | S2 |
+| Call `BackupAutoScheduler.schedule()` from `BackupViewModel` | NCC-011 | S2 |
+| Make `ReminderScheduler.runNow()` a unique work name | — | S3 |
+| `APPEND_OR_REPLACE` → `REPLACE` for the sync chain | NCC-019 | S3 |
 
-## Stage 5 — Known-correctness cleanups
+## Stage 5 — Correctness cleanups
 
-| Task | Bug | Effort |
-|---|---|---|
-| Fix the 4 `"d MMM yyyy"` lexicographic sorts | §2.10 | XS |
-| Make `addStockBatch` transactional | §2.11 | S |
-| Wrap `InventoryRepositoryImpl` batch reads+writes in a transaction | §3.3 | M |
-| `applyInventoryDiff` — pass `transactionGroupId` through to the stock calls | §3.x | XS |
-| `computeDaily` — route through `FinanceCalculator.effectiveIncome` | §2.2 | XS |
-| `SyncRepositoryImpl.processNextItems` — return the gated result | §2.3 | XS |
+| Task | Bug | Sev | Effort |
+|---|---|---|---|
+| Fix the 4 `"d MMM yyyy"` lexicographic sorts | NCC-017, NCC-040 | S2 | XS |
+| Make `addStockBatch` transactional | NCC-018 | S2 | S |
+| Wrap batch read+write; add `@Version` to `VaccineBatchEntity` | NCC-021 | S3 | M |
+| Pass `transactionGroupId` through `applyInventoryDiff` | — | S3 | XS |
+| Route `computeDaily` through `FinanceCalculator.effectiveIncome` | NCC-008 | S2 | XS |
+| `return flight.run { … }` in `processNextItems` | NCC-009 | S2 | XS |
+| Collapse `AuditLogger.log()` into `recordLog()` | NCC-022 | S3 | S |
 
-## Stage 6 — Deletion of dead code
+## Stage 6 — Dead code removal
 
 ~24 unused DAO methods, 50 lines of unreachable FEFO spread, `reservedQuantity`,
 `doseSchedule`, `Vaccine.stock`, and three unreachable sync paths. See [[Technical Debt]].
 
-⚠️ **Do `VaccineDao.getAuditCountForVaccine` first** — it is not just dead, it is *wrong*, so
-the destructive-delete guard it was meant to provide is enforced nowhere. Either fix the
-column or remove the claim that it exists.
+⚠️ **Do NCC-030 first** — it is not merely dead, it is *wrong*, so the destructive-delete
+guard it was meant to provide is enforced nowhere.
 
 ## Stage 7 — Tests
 
-The pattern is already established: pure functions are tested, orchestrators are not. Add
-tests in that order:
+The established pattern: pure functions are tested, orchestrators are not. Add tests in that
+order:
 
-1. `ClinicalVaccinationService.deductInventoryForNewVaccination` — the COMPLETED/FAILED
-   distinction and PARTIAL status
-2. `VaccinationEditEngine.applyInventoryDiff` + `reconcileInventoryDeductions`
+1. `ClinicalVaccinationService.deductInventoryForNewVaccination` — NCC-005 lives here
+2. `VaccinationEditEngine.applyInventoryDiff` + `reconcileInventoryDeductions` — NCC-001
 3. `BackupRestorer` — the three conflict modes and FK ordering
-4. `ReminderDueListProcessor.process()` / `.stats()`
-5. `SyncRepositoryImpl.processNextItems` — the wrapper, not just the extracted helpers
+4. `ReminderDueListProcessor.process()` / `.stats()` — **0 tests today**
+5. `SyncRepositoryImpl.processNextItems` — **the wrapper**, not the extracted helper — NCC-009
 6. One `*ViewModelTest.kt` — any of them, to establish the pattern
 
-Also worth doing: **make `SyncOrderingTest` assert against `SYNC_ENTITY_REGISTRY`** instead of
-its hand-copied table, which already disagrees with the registry.
+Also: make `SyncOrderingTest` assert against `SYNC_ENTITY_REGISTRY` instead of its
+hand-copied table, which already disagrees with the registry.
 
-## Stage 8 — Structural improvements (larger)
+## Stage 8 — Structural (larger)
 
 | Task | Why |
 |---|---|
-| Extract a shared `UiState` sealed hierarchy; retire the `error: String?` pattern | Would have made §2.7 impossible. The pattern already exists — `SlotsUiState` in `core/ui/Dropdowns.kt:162-169` |
-| Type-safe navigation | `Routes.kt:59-67` documents the bug and fixed it for one param; 26 raw interpolations remain |
-| Collapse `AuditLogger.log()` into `recordLog()` | Removes an entire class of out-of-transaction bug |
-| Give `vaccine_batches` an `@Version` column | Room's optimistic locking would fix §3.3 properly |
-| Consolidate the FEFO selector | 4 implementations, 5 "usable batch" predicates, 2 expiry semantics |
-| Run `MigrationTestHelper` properly | Only `33.json` was ever exported, so 14 of 16 migrations are untested |
+| Extract a shared sealed `UiState`; retire `error: String?` | Would have made NCC-013/014 impossible. The pattern exists — `SlotsUiState` |
+| Type-safe navigation | `Routes.kt:59-67` documents the bug; 26 raw interpolations remain |
+| Add `@Version` to `VaccineBatchEntity` | Room optimistic locking fixes NCC-021 properly |
+| Consolidate the FEFO selector | 4 implementations, 5 "usable batch" predicates |
+| Run `MigrationTestHelper` properly | only `33.json` exported, so 14 of 16 migrations untested |
+| Verify [[Quality/Hypotheses]] | 9 items blocked only on a runtime or live-DB check |
 
 ## Explicitly not worth doing
 
-To keep this honest about scope:
-
-- **A clinical schedule engine.** `Vaccine.doseSchedule` is write-only today and next-due
-  dates are free-text staff entry. Building a schedule engine is a real feature — but it is
-  a *product* decision for the clinic, not a technical debt item. Raise it with the clinic
-  before spending a sprint on it.
+- **A clinical schedule engine.** `doseSchedule` is write-only today; next-due dates are
+  free-text staff entry. That is a **product** decision for the clinic, not technical debt.
 - **Type-safe navigation across all 51 destinations.** Fix the `enc`/`dec` helpers for the
-  remaining 26 call sites (cheap) and leave the full migration.
-- **JaCoCo coverage measurement.** The untested orchestrators are obvious from the test
-  inventory; a percentage number adds little.
+  26 raw call sites (cheap); leave the full migration.
+- **JaCoCo coverage.** The untested orchestrators are obvious from the test inventory.
 
 ## Related
 
-- [[Known Bugs]] — every item referenced here, with severity and evidence
+- [[Quality/Bug Register]] — every item above, with evidence and status
+- [[Quality/Audit Reconciliation]] — read this before starting Stage 1
 - [[Technical Debt]] — the duplication behind stages 6 and 8
-- [[Testing]] — where to add tests and why
-- [[Release Notes]] — what is already shipped
+- [[Release Checklist]] — the gate before shipping any stage
+- [[Release Notes]] — what has already shipped
+

@@ -4,17 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "af1f3bbe6ae6148b",
+        "id": "52ad6f22716f2e6b",
         "type": "tabs",
         "children": [
           {
-            "id": "372bc5c6bdf72b5d",
+            "id": "020ffd91ba04c825",
             "type": "leaf",
             "state": {
-              "type": "graph",
+              "type": "empty",
               "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "icon": "lucide-file",
+              "title": "New tab"
             }
           }
         ]
@@ -184,14 +184,14 @@
       "bases:Create new base": false
     }
   },
-  "active": "372bc5c6bdf72b5d",
+  "active": "020ffd91ba04c825",
   "lastOpenFiles": [
+    "Welcome.md",
     "Untitled.base",
     "Home.md",
     "Feature Roadmap.md",
     "Supabase.md",
     "Release Notes.md",
-    "Neo Child Clinic.md",
-    "Welcome.md"
+    "Neo Child Clinic.md"
   ]
 }

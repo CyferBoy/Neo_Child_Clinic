@@ -10,6 +10,27 @@ permissions:
   contents: read
 
 jobs:
+  docs:
+    name: Validate documentation
+    runs-on: ubuntu-latest
+    # Advisory by default so it never blocks a build. To make it blocking, add
+    # "Validate documentation" to Settings -> Branches -> Branch protection rules.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate the Obsidian knowledge base
+        run: python3 scripts/validate_docs.py
+
+      - name: Validate (strict)
+        if: always()
+        continue-on-error: true
+        run: python3 scripts/validate_docs.py --strict
+
   build:
     name: Build and test Android app
     runs-on: ubuntu-latest

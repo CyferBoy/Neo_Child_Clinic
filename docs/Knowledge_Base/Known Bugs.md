@@ -6,7 +6,7 @@
 
 Nothing here is fixed. This page is the backlog.
 
-## Severity 1 — data loss or wrong clinical data
+## Confirmed — data loss or wrong clinical data
 
 ### 1.1 ✅ Stock ledger says `FAILED` while a dose actually left the shelf
 
@@ -149,7 +149,7 @@ by any migration**. `20261013140000:4-6` asserts the function *is* live in produ
 **Fix:** add `drop trigger if exists tr_update_batch_stock on public.inventory_transactions;`
 immediately before the install block. 🔍 Verify against the live DB first.
 
-## Severity 2 — user-visible wrong behaviour
+## Confirmed — user-visible wrong behaviour
 
 ### 2.1 ✅ The Postgres trigger can silently leave every batch at zero stock
 

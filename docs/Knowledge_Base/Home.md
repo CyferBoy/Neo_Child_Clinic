@@ -1,122 +1,143 @@
 # Neo Child Clinic — Knowledge Base
 
-> Index for the `Neo Child Clinic` Android app (package `com.neochildclinic`).
-> Generated from source at commit state of **2026-10-16**. Every claim is cited to a file.
-> See [[Neo Child Clinic]] for the original project hub.
+> **Project dashboard.** Generated from source at **2026-10-16**, commit `f8e5d8a`.
+> Every claim carries a `path:line` citation. Start at [[Architecture Map]] or
+> [[Quality/Bug Register]].
+> Conventions and evidence rules: [[Documentation Maintenance]].
 
-## What this app is
+## Status at a glance
 
-An offline-first Android clinic app for a paediatric vaccination centre: patients,
-vaccinations, batch-level vaccine inventory, finance, reminders, doctor availability,
-consultations, and statistics. Kotlin + Jetpack Compose, Hilt, Room (SQLCipher), and a
-Supabase/Postgres backend reached through the Data API.
+| | |
+|---|---|
+| Version | **0.5.1** (`versionCode 3`) |
+| Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
+| Supabase | 26 tables, 21 migrations, 2 edge functions |
+| Kotlin | 351 main files · 43 test files |
+| Tests | 252 unit passing, 0 failures · 5 instrumented, **no recorded result** |
+| Open bugs | **40 confirmed** (6 × S1) · 13 security concerns · 9 hypotheses |
+| 🚨 Deadline | **`auto_expose_new_tables` removed 2026-10-30** — see NSC-005 |
 
 ## Start here
 
 | If you want to… | Read |
 |---|---|
-| Understand the layering | [[Clean Architecture]] |
-| Understand a screen end to end | [[MVVM]] |
-| Understand data flow to/from the server | [[Offline-First Architecture]] |
-| Understand why the app works with no network | [[Offline-First Architecture]] |
-| Understand the local database | [[Room Database]] · [[Database Schema]] |
-| Understand the backend | [[Supabase]] · [[Row Level Security]] |
-| Understand the money/stock rules | [[Inventory Management]] |
-| Find out what is broken | [[Known Bugs]] |
+| Understand the whole system | [[Architecture Map]] |
+| Understand what happens at runtime | [[Data Flow]] |
+| Understand the backend | [[Supabase]] · [[Row Level Security]] · [[Database Schema]] |
+| Understand the local database | [[Room Database]] · [[Database Relationships]] |
+| Understand sync | [[Offline Synchronization]] · [[Offline-First Architecture]] |
+| **Find out what is broken** | [[Quality/Bug Register]] |
 | Understand a decision that was made | [[Architecture Decisions]] |
+| Understand a screen end to end | [[MVVM]] · [[Clean Architecture]] |
 | See what is untested | [[Testing]] |
+| Ship something | [[Release Checklist]] |
+| Change this vault | [[Documentation Maintenance]] |
 
 ## Architecture
 
-- [[Clean Architecture]] — module layout, the data flow, what belongs where
-- [[MVVM]] — the UI patterns actually used, and the four that coexist inconsistently
-- [[Offline-First Architecture]] — sync queue, push/pull, conflict resolution, realtime
-- [[Caching]] — the three cache layers and their invalidation rules
-- [[Error Handling]] — every error idiom in the app, counted, and which ones lose data
+- [[Architecture Map]] — packages, layers, DI, navigation
+- [[Clean Architecture]] — the principles and where they break
+- [[MVVM]] — the UI patterns actually used, and the four that coexist
+- [[Data Flow]] — read, write, sync, pull, notification and backup flows
+- [[Offline-First Architecture]] — the narrative of the sync design
+- [[Offline Synchronization]] — the machinery: triggers, queue, conflicts, retries
+- [[Caching]] — three cache layers and their invalidation
+- [[Error Handling]] — 15 idioms counted, 60 unguarded launches
+- [[Source File Index]] — every source root and what is load-bearing
 
-## Data & Backend
+## Data and backend
 
-- [[Room Database]] — v33, 25 entities, 21 DAOs, 16 migrations
-- [[Database Schema]] — full table inventory, client/server drift
-- [[Supabase]] — edge functions, triggers, migrations, rate limiting
-- [[Row Level Security]] — the policy matrix, role tiers, and the gaps
-- [[Backup and Restore]] — `.nccb` format, AES-GCM crypto, conflict resolution on restore
+- [[Room Database]] — v33, entities, migrations, converters
+- [[Database Relationships]] — the entity graph, FKs, client/server drift
+- [[Database Schema]] — Postgres tables, migration timeline, drift
+- [[Supabase]] — triggers, edge functions, rate limiting
+- [[Row Level Security]] — the policy matrix, role tiers, gaps
+- [[Backup and Restore]] — `.nccb` format, AES-GCM, restore conflict modes
 
 ## Features
 
-- [[Patient Management]]
-- [[Vaccination Management]]
-- [[Inventory Management]]
-- [[Due Vaccination]]
-- [[Statistics Dashboard]]
+- [[Patient Management]] · [[Vaccination Management]] · [[Inventory Management]]
+- [[Due Vaccination]] · [[Statistics Dashboard]]
 
-## Engineering
+## Quality
 
-- [[Known Bugs]] — verified defects, ranked
-- [[Architecture Decisions]] — what was decided and why
-- [[Technical Debt]] — duplication, dead code, complexity
-- [[Testing]] — what is covered and what is not
-- [[Feature Roadmap]] — suggested order of work
-- [[Release Notes]]
+- [[Quality/Bug Register]] — 40 confirmed defects, canonical status
+- [[Quality/Security Concerns]] — 13 items, 5 need a live database
+- [[Quality/Hypotheses]] — 9 unproven claims, kept separate
+- [[Quality/Audit Reconciliation]] — ⚠️ **read before fixing anything**
+- [[Technical Debt]] — dead code, duplication, complexity
+- [[Testing]] — 252 tests and the 12 untested critical paths
 
-## Project facts (verified)
+## Delivery
 
-| Fact | Value | Source |
-|---|---|---|
-| Kotlin files (main) | 351 | `app/src/main/**/*.kt` |
-| Kotlin files (test) | 43 | 38 unit + 5 instrumented |
-| Lines of Kotlin (main / test) | ~47,230 / ~4,470 | `wc -l` |
-| ViewModels | 34, **all** `@HiltViewModel` | `grep -rl @HiltViewModel` |
-| `@Singleton` bindings | 46 | `grep -rl @Singleton` |
-| DAOs | 21 | `data/local/dao/` |
-| Room entities | 25 across 21 files | `AppDatabase.kt:16-40` |
-| Room version | 33, 16 migrations registered | `AppDatabase.kt:42`, `:435-440` |
-| SQL migrations | 21 files, **only 4 tracked in git** | `git ls-files supabase/migrations/` |
-| Supabase edge functions | 2 | `manage-staff`, `notify-update` |
-| Unit tests passing | 252, 0 failures (recorded 2026-10-16 14:33) | `app/build/test-results/` |
-| Instrumented tests | 5, **no recorded result** | `app/src/androidTest/` |
+- [[Feature Roadmap]] — 8 stages, every task linked to a bug ID
+- [[Release Checklist]] — build, tests, migrations, security, docs
+- [[Release Notes]] — version history
 
-## Mermaid — system at a glance
+## System at a glance
 
 ```mermaid
 graph TB
     subgraph Device["Android device"]
-        UI[Compose Screens] --> VM[ViewModels]
+        UI[Compose screens] --> VM[ViewModels]
         VM --> REPO[Repositories]
         REPO --> DAO[Room DAOs]
-        REPO --> SYNC[Sync Repository]
-        DAO --> DB[(neochild_db<br/>Room v33 · SQLCipher)]
-        SYNC --> Q[(sync_queue)]
-        subgraph Cache[In-memory caches]
-            PC[PatientCache]
-            MC[MemoryCache]
-        end
-        DAO -.reads.-> PC
+        REPO --> SYNC[Sync repository]
+        DAO --> DB[("neochild_db · Room v33 · SQLCipher")]
+        SYNC --> Q[("sync_queue")]
+        PC[PatientCache] -.read-through.-> REPO
     end
 
     subgraph Cloud["Supabase"]
-        PG[(Postgres + RLS)]
-        FN[Edge Functions]
+        PG[("Postgres + RLS")]
+        FN[Edge functions]
         RT[Realtime]
     end
 
-    Q -->|WorkManager 15 min| SYNC
-    SYNC -->|PostgREST Data API| PG
+    Q -->|WorkManager| SYNC
+    SYNC -->|PostgREST| PG
     PG -->|pull| SYNC
     PG -->|postgres_changes| RT
     RT -->|triggers refresh| VM
     FN -->|manage-staff only| PG
 ```
 
-## Ground rules for this vault
+## Verified project facts
 
-- New notes link with `[[double bracket]]` wikilinks; every link must resolve to a real file in this vault.
-- Claims carry a `path:line` citation. A claim without one is a hypothesis.
-- Bugs go in [[Known Bugs]] with a severity and a reproduction.
-- Architecture changes get an entry in [[Architecture Decisions]].
+| Fact | Value | Source |
+|---|---|---|
+| Kotlin files (main) | 351 | `app/src/main/**/*.kt` |
+| Kotlin files (test) | 43 | 38 unit + 5 instrumented |
+| Lines of Kotlin | ~47,230 main · ~4,470 test | `wc -l` |
+| ViewModels | 34, **all** `@HiltViewModel` | `grep -rl @HiltViewModel` |
+| `@Singleton` bindings | 46 | `grep -rl @Singleton` |
+| Navigation destinations | 51, flat, **no nested graphs** | `app/Navigation.kt:83-92` |
+| Room entities / DAOs / migrations | 25 / 21 / 16 | `AppDatabase.kt:16-40` |
+| Room version | 33 | `AppDatabase.kt:42` |
+| SQL migrations | 21, all git-tracked | `git ls-files supabase/migrations/` |
+| Supabase tables / edge functions | 26 / 2 | — |
+| Unit tests passing | 252, 0 failures (2026-10-16 14:33) | `app/build/test-results/` |
+| Instrumented tests | 5, **no recorded result** | `app/src/androidTest/` |
 
-## Conventions used here
+## Validate this vault
+
+```bash
+python3 scripts/validate_docs.py --strict
+```
+
+Checks links, orphans, Mermaid blocks, required sections, stubs and secret patterns.
+Runs in CI as a **separate, advisory** job — see [[Documentation Maintenance]].
+
+## Ground rules
 
 - ✅ **Confirmed** — provable by reading the cited code.
 - ⚠️ **Suspect** — a real smell whose impact could not be proven from source alone.
 - 🔍 **Unverified** — needs a live database, a device, or a build that was not run.
+
+A claim without a citation is a hypothesis. **Never** mark a bug fixed without evidence
+against the original reproduction — see [[Quality/Audit Reconciliation]] for why.
+
+## Related
+
+- [[Neo Child Clinic]] — the original project hub
+- [[Welcome]] — Obsidian's own start page
