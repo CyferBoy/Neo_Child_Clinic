@@ -33,7 +33,7 @@ neighbouring path still producing the original symptom. See
 
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
-| [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | Open | Inventory |
+| [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | Open | Supabase |
 | [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — possible double-application | S1 | Open | Supabase |
 | [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | Open | Vaccination |
@@ -83,8 +83,8 @@ neighbouring path still producing the original symptom. See
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
-| **Files** | `feature/vaccination/domain/VaccinationEditEngine.kt:132-148`, `:192-199` |
+| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
+| **Files** | `feature/vaccination/domain/VaccinationEditEngine.kt` |
 | **Impact** | A dose leaves the shelf, the ledger says it did not, and deleting the visit never restores it. |
 
 **Evidence.** `applyInventoryDiff` deducts on `delta > 0` without consulting the ledger;
@@ -101,13 +101,31 @@ infers status at `:192-199`, whose 4th branch is `forVaccine.none { it.status ==
    `none { COMPLETED }` → **`FAILED`**.
 6. `deleteVaccination` → `getCompletedForVaccination` returns nothing → **no reversal.**
 
-**Root cause.** The status rule at `:180-183` claims a `FAILED` batch "never moves stock in
-either direction". That is enforced only for the negative direction.
+**Root cause.** The status rule inferred the new status from the prior row alone and never
+consulted whether stock had actually moved on this edit.
 
-**Fix.** Cap the positive delta by the ledger, or set `COMPLETED` whenever
-`applyInventoryDiff` actually deducted.
-**Regression test.** In-memory Room, exactly the 6 steps above; assert the ledger is
-`COMPLETED` after step 5 and that `deleteVaccination` restores `b1.remainingQuantity`.
+**Fix applied.** Extracted the rule into a pure top-level `deductionStatus(shortfall,
+stockMoved, exactStatus, priorStatuses)` — the same pattern `inventoryDiff` already uses in
+this file. `applyInventoryDiff` now returns a `StockDiffResult(shortfalls, deducted)`
+recording which batches actually moved, and `stockMoved -> "COMPLETED"` is evaluated
+directly after the shortfall branch. A prior `FAILED` row can no longer mask a deduction
+that succeeded.
+
+Also bundled (same code path, S3): `reverseDeduction` now receives the `transactionGroupId`
+the engine already computed, so the stock reversal uploads in the same sync group as the
+visit edit rather than as a singleton group.
+
+**Regression test.** `VaccinationEditEngineLedgerTest` — 8 tests covering both NCC-001
+reproductions, the shortfall path, and every carry-forward branch.
+
+**Verification evidence.** Reverting only the `stockMoved -> "COMPLETED"` branch makes
+`stock moved on this edit outranks a prior FAILED row` and `stock moved wins over multiple
+prior FAILED rows` fail; restoring it makes all 8 pass. Suite is
+**260 tests, 0 failures, 0 errors, 0 skipped** (was 252).
+
+⚠️ **Not covered:** the ledger write is asserted as a pure decision, not against a real
+Room database. A future change to how `applyInventoryDiff` reports `deducted` would not be
+caught by these tests. The end-to-end path still needs an instrumented test.
 
 **Links.** [[Vaccination Management]] · [[Inventory Management]] · [[Testing]]
 

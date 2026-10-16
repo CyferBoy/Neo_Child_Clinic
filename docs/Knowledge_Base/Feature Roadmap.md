@@ -21,15 +21,20 @@ already "fixed" in a previous pass and are still open; re-deriving them wastes a
 
 | Task | Bug | Sev | Effort | Test to add |
 |---|---|---|---|---|
+| ~~Cap the positive delta by the ledger in `applyInventoryDiff`~~ | NCC-001 | S1 | — | ✅ `VaccinationEditEngineLedgerTest` (8) |
 | Add `is_deleted = 0` to 5 live `DueReminderDao` queries | NCC-006 | S1 | S | extend `UpcomingVaccinationDaoTest` |
 | Fix the stock trigger: `- OLD.quantity + NEW.quantity` | NCC-002 | S1 | XS | psql/pgTAP delta assertion |
 | `drop trigger if exists tr_update_batch_stock` before installing | NCC-003 | S1 | XS | 🔍 live-DB trigger listing |
-| Cap the positive delta by the ledger in `applyInventoryDiff` | NCC-001 | S1 | S | in-memory Room, the 6-step repro |
 | Route the 2 pre-write throws through the recovery path | NCC-005 | S1 | S | stub throwing `IllegalStateException` |
 | Move the reminder loop into `recordVaccination`'s transaction | NCC-004 | S1 | M | stub `saveNextVaccination` to throw |
 
 **Why first:** NCC-001 and NCC-004 leave the stock ledger disagreeing with the shelf. For a
 clinic doing real inventory that is the most expensive class of bug here.
+
+⚠️ **NCC-002 and NCC-003 are SQL migrations and must not be applied until you have run the
+trigger query in [[Release Checklist]] § 5.** NCC-003's fix drops a trigger that may or may
+not exist in your hosted project; without that check you would be removing the only trigger
+that is live.
 
 ## Stage 2 — Backend hardening (has a deadline)
 
