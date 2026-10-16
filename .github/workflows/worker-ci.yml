@@ -24,18 +24,20 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          # wrangler, miniflare and @cloudflare/kv-asset-handler all declare
-          # engines.node >=22.0.0.
-          node-version: "22"
+          # Node 24 ships npm 11, which fixes the Arborist "edgesOut" crash. Node 22 ships
+          # npm 10.9.8 and dies on this dependency tree - see npm/cli#8261, closed
+          # upstream with "bump CI Node version to 24 to avoid npm Arborist edgesOut
+          # bug". 24 also satisfies the engines.node >=22.0.0 floor that wrangler,
+          # miniflare and @cloudflare/kv-asset-handler declare.
+          node-version: "24"
           cache: npm
           cache-dependency-path: cloudflare/backup-worker/package-lock.json
 
       # The committed package-lock.json is malformed: 102 of its 292 entries carry no
       # `resolved` and no `integrity`, so `npm ci` dies inside npm's dependency-tree
-      # builder with "Cannot read properties of null (reading 'edgesOut')". That breaks
-      # every `npm ci` in this repo, not just CI. Work around it here so the M3 fix
-      # actually gets tested; regenerate the lockfile locally and switch this back to
-      # `npm ci`.
+      # builder. That breaks every `npm ci` in this repo, not just CI. Work around it
+      # here so the M3 fix actually gets tested; regenerate the lockfile on a machine
+      # with Node and switch this back to `npm ci`.
       - name: Install dependencies
         run: rm -f package-lock.json && npm install
 
