@@ -37,21 +37,21 @@ neighbouring path still producing the original symptom. See
 | [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | Open | Supabase |
 | [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — possible double-application | S1 | Open | Supabase |
 | [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | Open | Vaccination |
-| [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write `IllegalStateException`s bypass stock recovery | S1 | Open | Inventory |
-| [[#ncc-006]] NCC-006 | Soft-delete filter missing on 5 live reminder queries | S1 | Open | Room |
+| [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
+| [[#ncc-006]] NCC-006 | Soft-delete filter missing on 9 reminder queries | S1 | ✅ **Fixed** | Room |
 | [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | Open | Supabase |
-| [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | Open | Statistics |
-| [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | Open | Sync |
+| [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
+| [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
 | [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | Open | Reminders |
 | [[#ncc-011]] NCC-011 | Auto-backup enable/disable needs a process restart | S2 | Open | Backup |
 | [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | Open | Security UX |
 | [[#ncc-013]] NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | Open | UI |
 | [[#ncc-014]] NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | Open | UI |
-| [[#ncc-015]] NCC-015 | `savePatient` swallows its own validation exception | S2 | Open | UI |
-| [[#ncc-016]] NCC-016 | `isLoading` can never clear in 5 ViewModels | S2 | Open | UI |
-| [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | Open | Inventory |
-| [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | Open | Inventory |
-| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | Open | Sync |
+| [[#ncc-015]] NCC-015 | `savePatient` swallows its own validation exception | S2 | ✅ **Fixed** | UI |
+| [[#ncc-016]] NCC-016 | `isLoading` can never clear | S2 | ⚠️ **Partial** | UI |
+| [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
+| [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
+| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ **Fixed** | Sync |
 | [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | Open | Sync |
 | [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | Open | Inventory |
 | [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | Open | Logging |
@@ -67,12 +67,12 @@ neighbouring path still producing the original symptom. See
 | [[#ncc-032]] NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | Open | Reminders |
 | [[#ncc-033]] NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | Open | Reminders |
 | [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | Open | Reminders |
-| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | Open | Reminders |
+| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ **Fixed** | Reminders |
 | [[#ncc-036]] NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
 | [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | Open | Backup |
 | [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | Open | Sync |
 | [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
-| [[#ncc-040]] NCC-040 | `isLower`-style lexicographic sort in `AddBatchViewModel` | S2 | Open | Inventory |
+| [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ **Fixed** | Inventory |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -204,6 +204,10 @@ to throw (e.g. empty DB constraint); tap Save again.
 **Regression test.** Inject a repository whose `saveNextVaccination` throws; assert no
 `patient_visits` row exists afterwards.
 
+**Status note.** ⚠️ **Deliberately not applied on 2026-10-16.** Moving the reminders into the
+clinical transaction also pulls `ReminderRepository`'s WorkManager scheduling inside it —
+the same coupling described above. It deserves its own reviewed change, not a drive-by.
+
 **Links.** [[Vaccination Management]] · [[Known Bugs]]
 
 ---
@@ -212,8 +216,8 @@ to throw (e.g. empty DB constraint); tap Save again.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
-| **Files** | `feature/inventory/data/InventoryRepositoryImpl.kt:435`, `:445`; `feature/vaccination/domain/ClinicalVaccinationService.kt:120` |
+| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
+| **Files** | `feature/inventory/domain/StockDeductionBlockedException.kt` (new); `InventoryRepositoryImpl.kt`; `ClinicalVaccinationService.kt`; `VaccinationEditEngine.kt` |
 | **Impact** | One bad batch line rolls back the visit, its items, the finance row and the inventory status. |
 
 **Evidence.** The catch is `InsufficientStockException` only (`:120`). Two plain
@@ -238,8 +242,8 @@ throws `IllegalStateException`; assert the visit is **not** saved.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
-| **Files** | `data/local/dao/DueReminderDao.kt:39,42,45,48,109`; `data/local/dao/BackupDao.kt:124`; `data/local/entity/PatientVaccinationCardEntity.kt:19-23` |
+| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
+| **Files** | `data/local/dao/DueReminderDao.kt`; `data/local/dao/BackupDao.kt` |
 | **Impact** | Soft-deleted reminders appear on patient history, in backups, and in the conflict guard. |
 
 **Evidence.** 7 of 19 `DueReminderDao` queries filter `is_deleted = 0`; the rest do not.
@@ -254,9 +258,16 @@ them into the `.nccb` payload.
 **Note.** Nothing in `app/src/main` writes `is_deleted = 1` today — only a pre-v31 client
 could create the rows. The inconsistency is latent, not active.
 
-**Fix.** Add `is_deleted = 0` to the 5 queries. For `@Relation`, filter in the repository.
-**Regression test.** Extend `UpcomingVaccinationDaoTest` — it already has a
-`softDeletedRemindersAreExcluded` case for the three `getUpcoming*` queries.
+**Fix applied.** All 9 lookups now filter, plus the 3 paginated variants (dead code, but
+wiring them later unfiltered is the same trap) and `BackupDao.getAllRemindersForBackup` — 18
+`is_deleted = 0` predicates in total. The file's header comment asserted the rule while
+breaking it; it now states what the file does and why (migration 31→32 leaves `reminders`
+out of its hard delete).
+
+**Verification.** 🔍 **Instrumented only.** `UpcomingVaccinationDaoTest` lives in
+`androidTest`, which `./gradlew test` does not run, so this is compile-verified only. Run
+`./gradlew connectedDebugAndroidTest` on a device and extend
+`softDeletedRemindersAreExcluded` to the five lookup queries before shipping.
 
 **Links.** [[Room Database]] · [[Statistics Dashboard]] · [[Quality/Audit Reconciliation]]
 
@@ -287,7 +298,7 @@ migration fail loudly instead of silently skipping.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 High (audit #15 residue) |
+| **Status** | ✅ **Fixed** · **Severity** S2 High (audit #15 residue) |
 | **Files** | `feature/statistics/presentation/FullReportViewModel.kt:282` (bad) vs `:198` (correct) |
 | **Impact** | Single-month drill-down over-reports revenue, cash, online and net profit. |
 
@@ -306,7 +317,7 @@ same file; only `computeMonthly` was converted.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 High (audit #14 residue) |
+| **Status** | ✅ **Fixed** · **Severity** S2 High (audit #14 residue) |
 | **Files** | `core/sync/SyncRepositoryImpl.kt:103-107` |
 | **Impact** | The "Some changes could not be synced" alert never fires for a coalesced call. |
 
@@ -316,10 +327,14 @@ resets `failure_count` and returns `Result.success()`.
 
 **Contrast** the correct usage at `RefreshDataUseCase.kt:49`: `= flight.run { runRefresh() }`.
 
-**Fix.** `return flight.run { processNextItemsInternal() }`.
-**Regression test.** Hold the flight with a failing run; call `processNextItems()` from a
-second coroutine; assert it returns `true`. ⚠️ `SingleFlightResultTest` does **not** cover
-this — it tests `run()`'s return value, not the wrapper.
+**Fix applied.** `return flight.run { processNextItemsInternal() }` — uses the shared result
+instead of a captured local.
+
+**Verification.** ✅ Compiles and the full suite passes (273 tests, 0 failures).
+**Regression test.** ⚠️ **Still missing.** `SingleFlightResultTest` exercises `run()`'s return
+value, not this wrapper — which is exactly why the bug survived the previous audit. The test
+to add: hold the flight with a failing run, call `processNextItems()` from a second
+coroutine, assert it returns `true`.
 
 **Links.** [[Offline Synchronization]] · [[Quality/Audit Reconciliation]]
 
@@ -380,8 +395,8 @@ drawn above it.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 |
-| **Files** | `FinanceDetailsViewModel.kt:50-57` · `FullReportViewModel.kt:66-94` · `StatisticsViewModel.kt:55-95` · `ProfileViewModel.kt:78-85`, `:101-106` |
+| **Status** | ⚠️ **Partial** · **Severity** S2 |
+| **Files** | `FinanceDetailsViewModel.kt` ✅ · `ProfileViewModel.kt` ✅ · `FullReportViewModel.kt` · `StatisticsViewModel.kt` |
 | **Impact** | Save/refresh buttons stay disabled forever with no error shown. |
 
 **Evidence.** `.first()` on Room flows inside `viewModelScope.launch` with no `try`/`finally`;
@@ -398,8 +413,8 @@ or `?: return@launch` after `isLoading = true`.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 |
-| **Files** | `InventoryRepositoryImpl.kt:121`, `:123-124`, `:81`; `AddBatchViewModel.kt:56` |
+| **Status** | ✅ **Fixed** · **Severity** S2 |
+| **Files** | `InventoryStockMovement.kt` (new helpers); `InventoryRepositoryImpl.kt`; `AddBatchViewModel.kt` |
 | **Impact** | `InventorySort.EXPIRY` is wrong for most of the year; the "latest" batch picked for the MRP fallback is the oldest. |
 
 **Evidence.** `Constants.DATE_FORMAT = "d MMM yyyy"` is not zero-padded, so
@@ -418,8 +433,8 @@ date order differ.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 |
-| **Files** | `feature/inventory/data/InventoryRepositoryImpl.kt:233-263`; `AddStockViewModel.kt:210` |
+| **Status** | ✅ **Fixed** · **Severity** S2 |
+| **Files** | `feature/inventory/data/InventoryRepositoryImpl.kt` |
 | **Impact** | Partial stock committed while the UI reports total failure; a retry duplicates stock under fresh UUIDs. |
 
 **Evidence.** ~10 validation branches interleaved with writes in one loop, **no

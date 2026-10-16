@@ -121,7 +121,7 @@ interface BackupDao {
     suspend fun clearConsultations()
 
     // ---- reminders (depends on patients) ----
-    @Query("SELECT * FROM reminders")
+    @Query("SELECT * FROM reminders WHERE is_deleted = 0")
     suspend fun getAllRemindersForBackup(): List<ReminderEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -82,7 +82,16 @@ class ProfileViewModel @Inject constructor(
 
                 // 2. Update via Repository (Handles local DB + Sync)
                 val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUserId)
-                val updated = currentProfile?.copy(displayName = newName) ?: return@launch
+                val updated = currentProfile?.copy(displayName = newName)
+                if (updated == null) {
+                    // Silently returning left isLoading = true forever, so Save stayed disabled
+                    // with no message (NCC-016).
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Could not load your profile. Please try again.",
+                    )
+                    return@launch
+                }
                 
                 profileRepository.updateProfile(updated)
                 
@@ -103,7 +112,14 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
             try {
                 val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUserId)
-                val updated = currentProfile?.copy(phoneNumber = newPhone) ?: return@launch
+                val updated = currentProfile?.copy(phoneNumber = newPhone)
+                if (updated == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Could not load your profile. Please try again.",
+                    )
+                    return@launch
+                }
                 
                 profileRepository.updateProfile(updated)
                 

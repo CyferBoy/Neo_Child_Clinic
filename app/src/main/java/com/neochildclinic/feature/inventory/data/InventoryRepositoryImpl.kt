@@ -7,6 +7,7 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
+import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedException
 import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils.parseDate
 import com.neochildclinic.data.local.entity.*
@@ -78,7 +79,9 @@ class InventoryRepositoryImpl @Inject constructor(
                 val isOutOfStock = totalStock <= 0
 
                 // Fallback pricing from latest batch if not set in definition
-                val latestBatch = batches.maxByOrNull { it.purchaseDate }
+                // Parsed, not string-max: the stored format is not zero-padded, so a textual
+                // max picked the OLDEST batch and used its price (NCC-017).
+                val latestBatch = batches.maxByOrNull { parseDate(it.purchaseDate)?.time ?: Long.MIN_VALUE }
                 val displayMrp = if (vaccine.mrp == 0.0) latestBatch?.sellingPrice ?: 0.0 else vaccine.mrp
                 val displayNetRate = if (vaccine.netRate == 0.0) latestBatch?.purchaseCost ?: 0.0 else vaccine.netRate
 
@@ -118,10 +121,13 @@ class InventoryRepositoryImpl @Inject constructor(
                     InventorySort.ALPHABETICAL -> a.brandName.lowercase().compareTo(b.brandName.lowercase())
                     InventorySort.HIGHEST_STOCK -> b.stock.compareTo(a.stock)
                     InventorySort.LOWEST_STOCK -> a.stock.compareTo(b.stock)
-                    InventorySort.EXPIRY -> (a.batches.firstOrNull()?.expiryDate ?: "9999-12-31").compareTo(b.batches.firstOrNull()?.expiryDate ?: "9999-12-31")
+                    // Compare parsed dates, not strings: Constants.DATE_FORMAT is "d MMM yyyy"
+                    // and is not zero-padded, so "16 Oct 2026" sorts BEFORE "9 Oct 2026" as
+                    // text. Same reason Vaccination.nextDueDate parses (NCC-017).
+                    InventorySort.EXPIRY -> a.batches.batchExpiryMillis().compareTo(b.batches.batchExpiryMillis())
                     InventorySort.MANUFACTURER -> a.company.lowercase().compareTo(b.company.lowercase())
-                    InventorySort.NEWEST -> (b.batches.maxOfOrNull { it.purchaseDate } ?: "").compareTo(a.batches.maxOfOrNull { it.purchaseDate } ?: "")
-                    InventorySort.OLDEST -> (a.batches.minOfOrNull { it.purchaseDate } ?: "").compareTo(b.batches.minOfOrNull { it.purchaseDate } ?: "")
+                    InventorySort.NEWEST -> b.batches.latestPurchaseMillis().compareTo(a.batches.latestPurchaseMillis())
+                    InventorySort.OLDEST -> a.batches.earliestPurchaseMillis().compareTo(b.batches.earliestPurchaseMillis())
                 }
             }
         }.flowOn(Dispatchers.Default)
@@ -237,26 +243,32 @@ class InventoryRepositoryImpl @Inject constructor(
         if (entriesByVaccine.isEmpty()) {
             throw IllegalStateException("Add at least one vaccine with a batch before saving.")
         }
-        for ((vaccineId, batches) in entriesByVaccine) {
-            val vaccine = vaccineDao.getVaccineById(vaccineId)
-                ?: throw IllegalStateException("Selected vaccine could not be found. Please refresh and try again.")
-            if (batches.isEmpty()) throw IllegalStateException("${vaccine.brandName}: add at least one batch.")
-            val seenBatchNumbers = mutableSetOf<String>()
-            for (batch in batches) {
-                if (batch.vaccineId != vaccineId) throw IllegalStateException("${vaccine.brandName}: batch data does not match the selected vaccine.")
-                val batchNumber = batch.batchNumber.trim()
-                if (batchNumber.isBlank()) throw IllegalStateException("${vaccine.brandName}: batch number is required.")
-                if (!seenBatchNumbers.add(batchNumber.lowercase())) throw IllegalStateException("${vaccine.brandName}: batch number '$batchNumber' was entered more than once in this submission.")
-                if (batch.expiryDate.isBlank()) throw IllegalStateException("${vaccine.brandName} ($batchNumber): expiry date is required.")
-                if (batch.purchaseQuantity <= 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
-                if (batch.sellingPrice < 0 || batch.purchaseCost < 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
-                val existingBatch = vaccineDao.getBatchByVaccineAndNumber(vaccineId, batchNumber)
-                if (existingBatch != null) throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
-                val normalizedBatch = batch.copy(batchNumber = batchNumber, remainingQuantity = batch.purchaseQuantity)
-                addBatch(normalizedBatch, user, null)
-                val currentVaccine = vaccineDao.getVaccineById(vaccineId) ?: vaccine
-                if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
-                    updateVaccine(currentVaccine.toDomain().copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost), user)
+        // Atomic: validation is interleaved with the writes below, so without a transaction a
+        // submission that trips a check on its 5th batch leaves the first 4 committed - with
+        // their PURCHASE ledger rows and sync enqueues - while the UI reports total failure.
+        // A retry then added the same stock again under fresh batch UUIDs (NCC-018).
+        transactionRunner.run {
+            for ((vaccineId, batches) in entriesByVaccine) {
+                val vaccine = vaccineDao.getVaccineById(vaccineId)
+                    ?: throw IllegalStateException("Selected vaccine could not be found. Please refresh and try again.")
+                if (batches.isEmpty()) throw IllegalStateException("${vaccine.brandName}: add at least one batch.")
+                val seenBatchNumbers = mutableSetOf<String>()
+                for (batch in batches) {
+                    if (batch.vaccineId != vaccineId) throw IllegalStateException("${vaccine.brandName}: batch data does not match the selected vaccine.")
+                    val batchNumber = batch.batchNumber.trim()
+                    if (batchNumber.isBlank()) throw IllegalStateException("${vaccine.brandName}: batch number is required.")
+                    if (!seenBatchNumbers.add(batchNumber.lowercase())) throw IllegalStateException("${vaccine.brandName}: batch number '$batchNumber' was entered more than once in this submission.")
+                    if (batch.expiryDate.isBlank()) throw IllegalStateException("${vaccine.brandName} ($batchNumber): expiry date is required.")
+                    if (batch.purchaseQuantity <= 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
+                    if (batch.sellingPrice < 0 || batch.purchaseCost < 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
+                    val existingBatch = vaccineDao.getBatchByVaccineAndNumber(vaccineId, batchNumber)
+                    if (existingBatch != null) throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
+                    val normalizedBatch = batch.copy(batchNumber = batchNumber, remainingQuantity = batch.purchaseQuantity)
+                    addBatch(normalizedBatch, user, null)
+                    val currentVaccine = vaccineDao.getVaccineById(vaccineId) ?: vaccine
+                    if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
+                        updateVaccine(currentVaccine.toDomain().copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost), user)
+                    }
                 }
             }
         }
@@ -432,7 +444,12 @@ action = "DELETED",
         givenDate: String?,
         transactionGroupId: String?
     ) {
-        val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
+        // Precondition failures, not post-write failures: nothing has been written yet, so
+        // the caller can record a FAILED deduction row and still save the visit. Reporting
+        // these as bare IllegalStateException made them escape the recovery branch in
+        // ClinicalVaccinationService and roll back the whole vaccination (NCC-005).
+        val batch = vaccineDao.getBatchById(batchId)
+            ?: throw StockDeductionBlockedException("Batch not found")
         if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired) {
             // Validity is judged against the vaccination's given date, not today - a
             // batch that has since expired by today is still valid for a historical
@@ -442,7 +459,9 @@ action = "DELETED",
             } else {
                 InventoryUtils.isExpired(batch.expiryDate)
             }
-            if (expired) throw IllegalStateException("Cannot deduct stock from a batch that had already expired on the vaccination date.")
+            if (expired) throw StockDeductionBlockedException(
+                "Cannot deduct stock from a batch that had already expired on the vaccination date."
+            )
         }
         if (batch.remainingQuantity < quantity) {
             throw InsufficientStockException("Insufficient stock in Batch ${batch.batchNumber}. Available: ${batch.remainingQuantity}")

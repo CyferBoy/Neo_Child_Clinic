@@ -22,10 +22,10 @@ already "fixed" in a previous pass and are still open; re-deriving them wastes a
 | Task | Bug | Sev | Effort | Test to add |
 |---|---|---|---|---|
 | ~~Cap the positive delta by the ledger in `applyInventoryDiff`~~ | NCC-001 | S1 | — | ✅ `VaccinationEditEngineLedgerTest` (8) |
-| Add `is_deleted = 0` to 5 live `DueReminderDao` queries | NCC-006 | S1 | S | extend `UpcomingVaccinationDaoTest` |
+| ~~Add `is_deleted = 0` to the reminder queries~~ | NCC-006 | S1 | — | 🔍 androidTest only |
 | Fix the stock trigger: `- OLD.quantity + NEW.quantity` | NCC-002 | S1 | XS | psql/pgTAP delta assertion |
 | `drop trigger if exists tr_update_batch_stock` before installing | NCC-003 | S1 | XS | 🔍 live-DB trigger listing |
-| Route the 2 pre-write throws through the recovery path | NCC-005 | S1 | S | stub throwing `IllegalStateException` |
+| ~~Route the pre-write throws through the recovery path~~ | NCC-005 | S1 | — | compile-verified |
 | Move the reminder loop into `recordVaccination`'s transaction | NCC-004 | S1 | M | stub `saveNextVaccination` to throw |
 
 **Why first:** NCC-001 and NCC-004 leave the stock ledger disagreeing with the shelf. For a
@@ -70,18 +70,18 @@ silently**. For clinic staff that is worse than a visible crash.
 | Reschedule notifications when `reminderTime` changes | NCC-010 | S2 |
 | Call `BackupAutoScheduler.schedule()` from `BackupViewModel` | NCC-011 | S2 |
 | Make `ReminderScheduler.runNow()` a unique work name | — | S3 |
-| `APPEND_OR_REPLACE` → `REPLACE` for the sync chain | NCC-019 | S3 |
+| ~~`APPEND_OR_REPLACE` → `REPLACE` for the sync chain~~ | NCC-019 | S3 | — |
 
 ## Stage 5 — Correctness cleanups
 
 | Task | Bug | Sev | Effort |
 |---|---|---|---|
-| Fix the 4 `"d MMM yyyy"` lexicographic sorts | NCC-017, NCC-040 | S2 | XS |
-| Make `addStockBatch` transactional | NCC-018 | S2 | S |
+| ~~Fix the `"d MMM yyyy"` lexicographic sorts~~ | NCC-017, NCC-040 | S2 | — | ✅ `InventorySortKeysTest` (12) |
+| ~~Make `addStockBatch` transactional~~ | NCC-018 | S2 | — |
 | Wrap batch read+write; add `@Version` to `VaccineBatchEntity` | NCC-021 | S3 | M |
 | Pass `transactionGroupId` through `applyInventoryDiff` | — | S3 | XS |
-| Route `computeDaily` through `FinanceCalculator.effectiveIncome` | NCC-008 | S2 | XS |
-| `return flight.run { … }` in `processNextItems` | NCC-009 | S2 | XS |
+| ~~Route `computeDaily` through `effectiveIncome`~~ | NCC-008 | S2 | — |
+| ~~`return flight.run { … }` in `processNextItems`~~ | NCC-009 | S2 | — | ⚠️ test still missing |
 | Collapse `AuditLogger.log()` into `recordLog()` | NCC-022 | S3 | S |
 
 ## Stage 6 — Dead code removal

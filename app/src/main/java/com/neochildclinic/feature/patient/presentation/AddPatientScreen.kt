@@ -133,11 +133,18 @@ fun AddPatientScreen(
                     registrationDate = if (isEditMode) registrationDate else LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
                 )
 
-                viewModel.savePatient(patient) {
-                    isLoading = false
-                    scope.launch { snackbarHostState.showSnackbar(if (isEditMode) "Patient Updated" else "Patient Added") }
-                    if (isEditMode) onBack() else onNavigateToDetails(patient.id)
-                }
+                viewModel.savePatient(
+                    patient = patient,
+                    onComplete = {
+                        isLoading = false
+                        scope.launch { snackbarHostState.showSnackbar(if (isEditMode) "Patient Updated" else "Patient Added") }
+                        if (isEditMode) onBack() else onNavigateToDetails(patient.id)
+                    },
+                    onError = { message ->
+                        isLoading = false
+                        scope.launch { snackbarHostState.showSnackbar(message) }
+                    }
+                )
             }
         }
     )

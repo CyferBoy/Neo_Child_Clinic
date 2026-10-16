@@ -13,8 +13,8 @@
 | Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
 | Supabase | 26 tables, 21 migrations, 2 edge functions |
 | Kotlin | 351 main files · 43 test files |
-| Tests | 252 unit passing, 0 failures · 5 instrumented, **no recorded result** |
-| Open bugs | **40 confirmed** (6 × S1) · 13 security concerns · 9 hypotheses |
+| Tests | **273 unit passing**, 0 failures · 5 instrumented, **no recorded result** |
+| Open bugs | **29 confirmed open** (4 × S1) · 11 fixed on 2026-10-16 · 13 security · 9 hypotheses |
 | 🚨 Deadline | **`auto_expose_new_tables` removed 2026-10-30** — see NSC-005 |
 
 ## Start here

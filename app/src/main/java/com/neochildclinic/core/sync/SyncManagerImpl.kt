@@ -29,9 +29,14 @@ class SyncManagerImpl @Inject constructor(
             .addTag("SYNC_JOB")
             .build()
 
+        // REPLACE, not APPEND_OR_REPLACE: scheduleSync() fires once per QUEUED ROW (and on
+        // every onResume and transient failure), so appending chained a dependent request per
+        // row. One deletePatient enqueues dozens inside a single transaction; offline those
+        // requests accumulated and, on reconnect, the whole chain ran sequentially against the
+        // same now-empty queue. REPLACE collapses any pending chain to the newest request.
         workManager.enqueueUniqueWork(
             "AUTOMATIC_SYNC",
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            ExistingWorkPolicy.REPLACE,
             syncRequest
         )
     }

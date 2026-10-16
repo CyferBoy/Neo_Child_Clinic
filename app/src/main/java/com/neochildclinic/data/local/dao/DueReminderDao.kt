@@ -8,9 +8,12 @@ import kotlinx.coroutines.flow.Flow
 interface DueReminderDao {
 
     // Unified Reminder Queries.
-    // All of these filter is_deleted = 0: the statistics "Upcoming" queries already did, so
-    // without it a soft-deleted reminder counted in Due today/Overdue but not in Upcoming.
-    // Harmless until the first soft delete, wrong from then on.
+    // Every read query below filters is_deleted = 0, including the paginated variants: the
+    // statistics "Upcoming" queries already did, so without it a soft-deleted reminder
+    // counted in Due today/Overdue but not in Upcoming, and the paged twins of the
+    // getAll* queries would disagree with them. Nothing in app/src/main writes
+    // is_deleted = 1 today, but migration 31->32 deliberately leaves reminders out of its
+    // hard delete, so a row from a pre-v31 client can still arrive soft-deleted.
     
     @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dueDate ASC")
     fun getAllDueReminders(): Flow<List<ReminderEntity>>
@@ -24,28 +27,28 @@ interface DueReminderDao {
     // --- Pagination (large-data scalability pass) ---
     // Due/Completed/Dismissed are explicitly called out in the spec; `status` is indexed
     // (see ReminderEntity). Additive - existing Flow methods above are untouched.
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC, id ASC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dueDate ASC, id ASC LIMIT :limit OFFSET :offset")
     suspend fun getDueRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
 
-    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC, id ASC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 AND is_deleted = 0 ORDER BY completionDate DESC, id ASC LIMIT :limit OFFSET :offset")
     suspend fun getCompletedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
 
-    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC, id ASC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dismissalDate DESC, id ASC LIMIT :limit OFFSET :offset")
     suspend fun getDismissedRemindersPage(limit: Int, offset: Int): List<ReminderEntity>
 
-    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND vaccineName = :vaccineName AND type = :type AND is_deleted = 0 LIMIT 1")
     suspend fun getDueReminder(patientId: String, visitId: String, vaccineName: String, type: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE originalVisitId = :visitId")
+    @Query("SELECT * FROM reminders WHERE originalVisitId = :visitId AND is_deleted = 0")
     suspend fun getRemindersByVisitId(visitId: String): List<ReminderEntity>
 
-    @Query("SELECT * FROM reminders WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE id = :id AND is_deleted = 0 LIMIT 1")
     suspend fun getReminderById(id: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND dueDate = :dueDate AND vaccineName = :vaccineName AND type = :type LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND originalVisitId = :visitId AND dueDate = :dueDate AND vaccineName = :vaccineName AND type = :type AND is_deleted = 0 LIMIT 1")
     suspend fun getReminderByUniqueEvent(patientId: String, visitId: String, dueDate: String, vaccineName: String, type: String): ReminderEntity?
 
-    @Query("SELECT * FROM reminders WHERE patientId = :pId AND originalVisitId = :vId AND vaccineName = :name AND type = :type LIMIT 1")
+    @Query("SELECT * FROM reminders WHERE patientId = :pId AND originalVisitId = :vId AND vaccineName = :name AND type = :type AND is_deleted = 0 LIMIT 1")
     suspend fun getReminderByStableId(pId: String, vId: String, name: String, type: String): ReminderEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -106,7 +109,7 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0")
     fun getUpcomingVaccinations(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE patientId = :patientId")
+    @Query("SELECT * FROM reminders WHERE patientId = :patientId AND is_deleted = 0")
     fun getDueRemindersForPatient(patientId: String): Flow<List<ReminderEntity>>
 
     @Transaction

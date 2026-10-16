@@ -13,6 +13,7 @@ import com.neochildclinic.domain.model.InventoryStatus
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
+import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedException
 import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
@@ -117,14 +118,16 @@ class ClinicalVaccinationService @Inject constructor(
                 completedCount++
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: InsufficientStockException) {
-                // Only a genuine shortfall is recoverable: the clinical record of a vaccination
-                // that already happened must still be saved, with stock flagged for staff to
-                // reconcile. Any OTHER failure here (a WorkManager rejection, a full disk) can
-                // arrive AFTER deductStockFromBatch already moved the stock, and recording it as
-                // FAILED committed a deducted dose with a FAILED ledger row that neither
-                // deleteVaccination nor VaccinationEditEngine will ever restore - the dose was
-                // lost. Let those propagate so the surrounding transaction rolls back.
+            } catch (e: StockDeductionBlockedException) {
+                // Only a PRE-WRITE rejection is recoverable: the clinical record of a
+                // vaccination that already happened must still be saved, with stock flagged
+                // for staff to reconcile. StockDeductionBlockedException is thrown only when
+                // nothing has been written yet - short shelf, missing batch, batch expired on
+                // the given date. Any OTHER failure here (a WorkManager rejection, a full disk)
+                // can arrive AFTER deductStockFromBatch already moved the stock, and recording
+                // that as FAILED committed a deducted dose with a FAILED ledger row that
+                // neither deleteVaccination nor VaccinationEditEngine will ever restore - the
+                // dose was lost. Let those propagate so the transaction rolls back.
                 inventoryRepository.insertInventoryDeduction(InventoryDeduction(
                     vaccinationId = vaccination.id,
                     vaccineId = item.vaccineId,

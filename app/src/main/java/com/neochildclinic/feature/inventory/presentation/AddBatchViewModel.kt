@@ -3,6 +3,7 @@ package com.neochildclinic.feature.inventory.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
+import com.neochildclinic.feature.inventory.data.newestBatch
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
@@ -53,7 +54,13 @@ class AddBatchViewModel @Inject constructor(
             // vaccine's own defaults (e.g. for a vaccine's very first batch).
             val vaccine = inventoryRepository.getVaccineById(vaccineId)
             val latest = inventoryRepository.getVaccineBatches(vaccineId).firstOrNull()
-                ?.let { batches -> batches.maxByOrNull { it.purchaseDate } ?: batches.maxByOrNull { it.expiryDate } }
+                // Parsed, not string-max: the stored date format is not zero-padded, so a
+                // textual max picked the OLDEST batch (NCC-040).
+                ?.let { batches ->
+                    batches.newestBatch()
+                        ?: batches.maxByOrNull { com.neochildclinic.core.common.PatientUtils.parseDate(it.expiryDate)?.time ?: Long.MIN_VALUE }
+
+                }
 
             _uiState.update {
                 it.copy(

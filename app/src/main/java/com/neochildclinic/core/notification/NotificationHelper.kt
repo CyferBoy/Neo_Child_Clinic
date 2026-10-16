@@ -181,7 +181,10 @@ class NotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-        notify(PERSONAL_REMINDER_BASE_ID + (id.hashCode() and 0x7fffffff) % 100000, builder.build())
+                // Parenthesised: an infix function call binds looser than `%`, so the previous
+        // expression parsed as BASE + (hash and (0x7fffffff % 100000)) and masked against the
+        // constant 83647 instead of the hash (NCC-035).
+        notify(PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000), builder.build())
     }
 
     fun showUpdateNotification(versionName: String, mandatory: Boolean) {

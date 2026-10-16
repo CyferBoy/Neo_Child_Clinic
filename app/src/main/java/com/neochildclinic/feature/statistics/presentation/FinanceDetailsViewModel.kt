@@ -49,10 +49,14 @@ class FinanceDetailsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            transactionsFlow.first()
-            patientsFlow.first()
-            vaccinationsFlow.first()
-            _isLoading.value = false
+            try {
+                transactionsFlow.first()
+                patientsFlow.first()
+                vaccinationsFlow.first()
+            } finally {
+                // Without this the spinner never clears if any Room flow throws (NCC-016).
+                _isLoading.value = false
+            }
         }
     }
 

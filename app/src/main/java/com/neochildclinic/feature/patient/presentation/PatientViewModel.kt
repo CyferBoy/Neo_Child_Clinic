@@ -16,6 +16,7 @@ import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -191,7 +192,16 @@ class PatientViewModel @Inject constructor(
         return patientRepository.getPatientById(id)
     }
 
-    fun savePatient(patient: Patient, onComplete: () -> Unit) {
+    /**
+     * [onError] is required: a blank name, a duplicate clinic id and any Room failure used to
+     * be swallowed by a catch block that also caught this method's own validation throw, so
+     * staff saw nothing at all and the screen never advanced (NCC-015).
+     */
+    fun savePatient(
+        patient: Patient,
+        onComplete: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
             try {
                 if (patient.name.isBlank() || patient.dob.isBlank()) {
@@ -199,8 +209,10 @@ class PatientViewModel @Inject constructor(
                 }
                 patientRepository.addPatient(patient)
                 onComplete()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Handle validation or save error
+                onError(e.message ?: "Could not save the patient. Please try again.")
             }
         }
     }

@@ -279,7 +279,9 @@ class FullReportViewModel @Inject constructor(
         validVaccinations.filter { it.visitType.equals("CONSULTATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { dayBuckets[it]?.consults?.plus(1)?.let { n -> dayBuckets[it] = dayBuckets[it]!!.copy(consults = n) } } }
         validVaccinations.filter { it.visitType.equals("VACCINATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { val qty = v.items.sumOf { it.quantity.coerceAtLeast(0) }; dayBuckets[it]?.let { b -> dayBuckets[it] = b.copy(vaccs = b.vaccs + qty) } } }
 
-        transactions.filter { it.type.equals("INCOME", true) }.forEach { tx ->
+        // Same rule as computeMonthly above: collapse duplicate vaccination income per visit,
+        // or this day view disagrees with the month view on the same screen (NCC-008).
+        FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) }).forEach { tx ->
             dayOfMonthIST(FinanceCalculator.resolveReportingDate(tx))?.let { day ->
                 val bucket = dayBuckets[day] ?: return@let
                 val amount = tx.amount.coerceAtLeast(0.0)

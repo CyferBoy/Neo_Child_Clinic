@@ -5,6 +5,7 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
+import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedException
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
@@ -124,7 +125,7 @@ class VaccinationEditEngine @Inject constructor(
             }
 
             if (inventoryChanged) {
-                stockShortfalls = applyInventoryDiff(stockDelta, original, updated, user)
+                stockShortfalls = applyInventoryDiff(stockDelta, original, updated, user, transactionGroupId)
             }
             // Local-only deduction audit: rebuild whenever the item set moved at all so
             // no stale row (e.g. an old vaccine name) is left behind - but never as part
@@ -145,7 +146,7 @@ class VaccinationEditEngine @Inject constructor(
                 new.items.map { Triple(it.vaccineId, it.quantity, it.netRate) }.sortedBy { it.first }
     }
 
-    private suspend fun applyInventoryDiff(delta: Map<String, Int>, old: Vaccination, new: Vaccination, user: String): Map<String, String> {
+    private suspend fun applyInventoryDiff(delta: Map<String, Int>, old: Vaccination, new: Vaccination, user: String, transactionGroupId: String): Map<String, String> {
         // Only a COMPLETED inventory_deductions row means stock actually moved. A FAILED
         // row (ClinicalVaccinationService writes one when e.g. stock was short) left
         // stock untouched, so reversing its quantity would invent doses that never left:
@@ -179,7 +180,7 @@ class VaccinationEditEngine @Inject constructor(
                         allowExpired = batchAlreadyUsed,
                         givenDate = new.dateGiven
                     )
-                } catch (e: InsufficientStockException) {
+                } catch (e: StockDeductionBlockedException) {
                     // Same rule as the create path: a short shelf is reconciled by staff, it
                     // must not discard the payment, date, doctor and reminder corrections the
                     // user made in this same save. Recorded as FAILED below, which also keeps
@@ -194,7 +195,8 @@ class VaccinationEditEngine @Inject constructor(
                         quantity = reverseQuantity,
                         user = user,
                         visitId = new.id,
-                        patientId = new.patientId
+                        patientId = new.patientId,
+                        transactionGroupId = transactionGroupId
                     )
                 }
             }
