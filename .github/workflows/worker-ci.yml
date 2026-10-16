@@ -25,14 +25,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           # wrangler, miniflare and @cloudflare/kv-asset-handler all declare
-          # engines.node >=22.0.0, so npm ci needs 22 or it is working against
-          # a dependency tree that does not support the runtime.
+          # engines.node >=22.0.0.
           node-version: "22"
           cache: npm
           cache-dependency-path: cloudflare/backup-worker/package-lock.json
 
+      # The committed package-lock.json is malformed: 102 of its 292 entries carry no
+      # `resolved` and no `integrity`, so `npm ci` dies inside npm's dependency-tree
+      # builder with "Cannot read properties of null (reading 'edgesOut')". That breaks
+      # every `npm ci` in this repo, not just CI. Work around it here so the M3 fix
+      # actually gets tested; regenerate the lockfile locally and switch this back to
+      # `npm ci`.
       - name: Install dependencies
-        run: npm ci
+        run: rm -f package-lock.json && npm install
 
       # The cross-account confirm guard (audit M3) was recorded as "verified by CI"
       # while android-ci.yml was failing validation and never ran a job. This is
