@@ -32,6 +32,11 @@ private val syncRemoteJson = kotlinx.serialization.json.Json {
 //   download          write a remote-newer row back into Room (no-op default preserves the
 //                     legacy behavior of tables that never downloaded: no branch ran)
 //   pkColumn          local PK column for the markUploaded UPDATE
+//   remotePkColumn    the column PostgREST filters on for a remote DELETE. Usually the same as
+//                     pkColumn, but NOT for inventory_transactions, whose local column is
+//                     `transactionId` while the remote column is `id`: filtering on the local
+//                     name made PostgREST reject the delete (PGRST100), so hard-deletes never
+//                     reached the server and the stock ledger kept rows the device deleted.
 //   syncedSqlColumn   isSynced column name for markUploaded; null => no such column, skip
 internal data class SyncEntityDescriptor(
     val tableName: String,
@@ -40,8 +45,12 @@ internal data class SyncEntityDescriptor(
     val updatedAt: (Any) -> String,
     val download: suspend (AppDatabase, Map<String, JsonElement>) -> Unit = { _, _ -> Unit },
     val pkColumn: String = "id",
+    val remotePkColumn: String? = null,
     val syncedSqlColumn: String? = "isSynced"
-)
+) {
+    /** Column to filter a remote DELETE on. Falls back to the local PK name. */
+    val deleteFilterColumn: String get() = remotePkColumn ?: pkColumn
+}
 
 // Built once, no AppDatabase in scope - every accessor takes the DB as a parameter, so the
 // registry is a plain static map safe to share and to unit-test priority/ordering against.
@@ -161,7 +170,8 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         priority = 4,
         fetch = { db, id -> db.vaccineDao().getTransactionById(id) },
         updatedAt = { (it as? InventoryTransactionEntity)?.timestamp ?: "" },
-        pkColumn = "transactionId"
+        pkColumn = "transactionId",
+        remotePkColumn = "id"
     ),
 
     "INVENTORY_TRANSACTION" to SyncEntityDescriptor(
@@ -169,7 +179,8 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         priority = 4,
         fetch = { db, id -> db.vaccineDao().getTransactionById(id) },
         updatedAt = { (it as? InventoryTransactionEntity)?.timestamp ?: "" },
-        pkColumn = "transactionId"
+        pkColumn = "transactionId",
+        remotePkColumn = "id"
     ),
 
     "PATIENT_NOTE" to SyncEntityDescriptor(
@@ -442,11 +453,13 @@ class SyncUploader @Inject constructor(
             // denial, a genuine network/server failure, etc.) is rethrown unchanged and
             // handled by the normal retry/failure path in processNextItems.
             try {
-                // Use the descriptor's pkColumn, not a hardcoded "id": inventory_transactions
-                // keys on transactionId, so "id" there would match nothing and the delete
-                // would silently succeed as a no-op.
+                // Filter on the REMOTE column name (descriptor.deleteFilterColumn), not the
+                // local one: inventory_transactions is `transactionId` in Room but `id` in
+                // Postgres, and the old filter sent the local name to PostgREST, which answered
+                // PGRST100 (400). The catch below only treats 404 as success, so the error was
+                // rethrown and the item failed permanently - the remote row survived.
                 postgrest.from(table).delete {
-                    filter { eq(descriptor.pkColumn, item.entityId) }
+                    filter { eq(descriptor.deleteFilterColumn, item.entityId) }
                 }
             } catch (e: io.github.jan.supabase.exceptions.RestException) {
                 if (e.statusCode != 404) throw e
@@ -458,15 +471,14 @@ class SyncUploader @Inject constructor(
         if (item.entityName == "REMINDERS") {
             val localReminder = database.dueReminderDao().getReminderById(item.entityId)
             if (localReminder != null) {
-                if (item.operation == SyncOperation.CREATE.name && localReminder.serverId == null) {
-                    // CREATE: use the locally generated UUID as the Supabase primary key.
-                    // This keeps Room and Supabase IDs identical and never sends id = NULL.
-                    postgrest.from(table).insert(localReminder.toRemote())
-                    database.dueReminderDao().updateServerId(localReminder.id, localReminder.id)
-                } else if (localReminder.serverId != null || item.operation == SyncOperation.CREATE.name) {
-                    // UPDATE or CREATE where the remote identity is already known.
-                    postgrest.from(table).upsert(localReminder.toRemote())
-                }
+                // Always upsert on the primary key (the locally generated UUID), for both CREATE
+                // and UPDATE. The old CREATE-only insert path was not idempotent: if the insert
+                // committed server-side but the reply was lost, serverId stayed null, the retry
+                // inserted again, PostgREST returned 409, and the item failed permanently.
+                // It was also silent for an UPDATE whose row had no serverId - neither branch
+                // matched, the item was marked uploaded and deleted, and the edit was never pushed.
+                postgrest.from(table).upsert(localReminder.toRemote())
+                database.dueReminderDao().updateServerId(localReminder.id, localReminder.id)
                 return
             }
         }
@@ -534,7 +546,15 @@ class SyncUploader @Inject constructor(
                 // explicit-nulls encode so a genuine null on this field is actually sent.
                 is InventoryTransactionEntity -> uploadWithExplicitNulls(table, localData, InventoryTransactionEntity.serializer())
                 is FinanceEntity -> uploadWithExplicitNulls(table, localData, FinanceEntity.serializer())
-                is AuditLogEntity -> postgrest.from(table).upsert(localData)
+                // audit_logs is append-only on the server: SELECT + INSERT policies only, no
+                // UPDATE and no DELETE (see 20260929000000_security_baseline.sql). upsert()
+                // compiles to INSERT ... ON CONFLICT DO UPDATE, which needs the UPDATE policy
+                // as soon as the id exists - so any retry after a lost response failed RLS
+                // (42501), was classified permanent, and the audit entry was lost. Insert with
+                // duplicate-tolerance instead: append-only stays append-only.
+                is AuditLogEntity -> postgrest.from(table).upsert(localData) {
+                    ignoreDuplicates = true
+                }
                 // profiles has no client-side INSERT policy at all (only the manage-staff
                 // edge function, using the service role, is allowed to create rows there -
                 // see the migration comment in 20260816_security_hardening.sql). upsert()

@@ -2,8 +2,10 @@
 .branches
 .temp
 
-# migrations
-migrations/
+# NOTE: migrations/ is intentionally NOT ignored. Ignoring it left 18 of 22 RLS/schema
+# migrations untracked, so policy changes could not be reviewed, diffed or replayed from a
+# clean checkout (a fresh `supabase db reset` applied 4 files against a hand-built schema).
+# These files contain schema DDL only - no keys, no credentials.
 
 # dotenvx
 .env.keys

@@ -6,16 +6,19 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DueReminderDao {
+
+    // Unified Reminder Queries.
+    // All of these filter is_deleted = 0: the statistics "Upcoming" queries already did, so
+    // without it a soft-deleted reminder counted in Due today/Overdue but not in Upcoming.
+    // Harmless until the first soft delete, wrong from then on.
     
-    // Unified Reminder Queries
-    
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 ORDER BY dueDate ASC")
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dueDate ASC")
     fun getAllDueReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 ORDER BY completionDate DESC")
+    @Query("SELECT * FROM reminders WHERE status = 'COMPLETED' AND reminderEnabled = 0 AND is_deleted = 0 ORDER BY completionDate DESC")
     fun getAllCompletedReminders(): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 ORDER BY dismissalDate DESC")
+    @Query("SELECT * FROM reminders WHERE status = 'DISMISSED' AND reminderEnabled = 1 AND is_deleted = 0 ORDER BY dismissalDate DESC")
     fun getAllDismissedReminders(): Flow<List<ReminderEntity>>
 
     // --- Pagination (large-data scalability pass) ---
@@ -69,7 +72,7 @@ interface DueReminderDao {
     @Query("UPDATE reminders SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
     suspend fun updatePatientId(duplicateId: String, masterId: String)
 
-    @Query("SELECT * FROM reminders")
+    @Query("SELECT * FROM reminders WHERE is_deleted = 0")
     fun getAllReminders(): Flow<List<ReminderEntity>>
 
     // --- Upcoming Vaccination drill-down (Statistics -> Vaccination -> Upcoming) ---

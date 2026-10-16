@@ -39,6 +39,7 @@ import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.EmptyState
+import com.neochildclinic.core.ui.ErrorState
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.common.PatientUtils.calculateAgeLabel
 
@@ -170,6 +171,15 @@ private fun PatientListContent(
                         cardShaped = true,
                         spacing = Spacing.sm,
                         contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.sm)
+                    )
+                } else if (uiState.patients.isEmpty() && uiState.error != null) {
+                    // A failed load with nothing on screen needs a state, not a snackbar that
+                    // disappears: the user was left staring at "No patients found" with no way
+                    // back. Same shape as ExpenseListScreen.
+                    ErrorState(
+                        modifier = Modifier.fillMaxSize(),
+                        message = uiState.error,
+                        onRetry = onRefresh
                     )
                 } else if (uiState.patients.isEmpty()) {
                     EmptyState(

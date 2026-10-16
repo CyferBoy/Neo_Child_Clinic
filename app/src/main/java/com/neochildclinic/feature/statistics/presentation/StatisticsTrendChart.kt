@@ -8,11 +8,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -70,10 +73,28 @@ fun TrendChart(
             }
         }
 
+        // Screen readers cannot see a Canvas; spell the trend out. Totals come from the same
+        // data the lines are drawn from, so the description can never disagree with the chart.
+        val trendDescription = remember(title, data, seriesLabels) {
+            val summary = seriesLabels.indices.joinToString("; ") { s ->
+                val total = data.fold(0f) { acc, point ->
+                    acc + (point.values.getOrNull(s) ?: 0f)
+                }
+                "${seriesLabels[s]} total ${total.toLong()}"
+            }
+            val first = data.firstOrNull()?.label.orEmpty()
+            val last = data.lastOrNull()?.label.orEmpty()
+            "$title. $summary. Period $first to $last."
+        }
+
         Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
             val maxVal = data.flatMap { it.values }.maxOrNull()?.coerceAtLeast(1f) ?: 1f
-            
-            Canvas(modifier = Modifier.fillMaxSize()) {
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { contentDescription = trendDescription }
+            ) {
                 val width = size.width
                 val height = size.height
                 val spacePerPoint = width / (data.size - 1).coerceAtLeast(1)

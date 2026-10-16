@@ -57,6 +57,28 @@ class InventoryStockMovementTest {
     }
 
     @Test
+    fun `a zero deduction is rejected instead of writing a bogus no-op movement`() {
+        try {
+            batch().deducted(0, InventoryTransactionType.VACCINATION, "doctor")
+            throw AssertionError("expected a zero quantity to be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message!!.contains("greater than zero"))
+        }
+    }
+
+    @Test
+    fun `a negative deduction is rejected instead of adding stock back and corrupting the buckets`() {
+        // Before this guard, quantity = -2 made remainingQuantity 12 (inventing doses that
+        // never left the shelf) and drove usedQuantity negative.
+        try {
+            batch().deducted(-2, InventoryTransactionType.VACCINATION, "doctor")
+            throw AssertionError("expected a negative quantity to be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message!!.contains("greater than zero"))
+        }
+    }
+
+    @Test
     fun `stock transaction maps the movement fields and stamps user and timestamp`() {
         val tx = buildStockTransaction(
             vaccineId = "v1",

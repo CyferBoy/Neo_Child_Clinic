@@ -54,6 +54,11 @@ fun PatientDetailsContent(
     viewModel: PatientViewModel
 ) {
     val scope = rememberCoroutineScope()
+    // One lookup per visible row instead of a linear scan: a long patient timeline turned the
+    // vaccination list into O(n^2) on every emission of the history flow.
+    val cardsByVaccinationId = remember(history.vaccinationCards) {
+        history.vaccinationCards.associateBy { it.vaccination.id }
+    }
     var selectedVisitForDeductions by remember { mutableStateOf<String?>(null) }
     var deductionsForVisit by remember { mutableStateOf<List<InventoryDeduction>>(emptyList()) }
 
@@ -100,7 +105,7 @@ fun PatientDetailsContent(
                         item { EmptySectionText(emptyMessage) }
                     } else {
                         itemsIndexed(history.vaccinations, key = { _, v -> v.id }) { _, vaccination ->
-                            val cardData = history.vaccinationCards.firstOrNull { it.vaccination.id == vaccination.id }
+                            val cardData = cardsByVaccinationId[vaccination.id]
                             VaccinationRecordCard(
                                 vaccination = vaccination,
                                 patient = patient,

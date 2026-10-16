@@ -90,6 +90,7 @@ data class SlotFilterState(
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val syncRepository: SyncRepository,
+    private val refreshDataUseCase: com.neochildclinic.feature.sync.domain.RefreshDataUseCase,
     private val networkMonitor: NetworkMonitor,
     private val patientRepository: PatientRepository,
     private val patientTodoRepository: PatientTodoRepository,
@@ -424,6 +425,11 @@ class DashboardViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 syncRepository.processNextItems()
+                // Push AND pull. This screen only uploaded before, so the spinner meant
+                // "uploaded": a patient registered on another device never appeared and the
+                // user concluded the entry was lost. Matches PatientListViewModel and
+                // StatisticsViewModel, which both call refreshDataUseCase().
+                refreshDataUseCase()
             } catch (e: Exception) {
                 android.util.Log.e("DashboardVM", "Sync refresh failed", e)
             }

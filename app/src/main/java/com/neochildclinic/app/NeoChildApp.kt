@@ -27,23 +27,28 @@ class NeoChildApp : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    // dagger.Lazy, not lateinit: field injection constructs these during onCreate() on the
+    // main thread, and each of them pulls AppDatabase.getDatabase() -> Keystore +
+    // EncryptedSharedPreferences + a full SQLCipher file open. On a cold start that froze
+    // the UI for hundreds of ms (seconds when the Keystore is slow, e.g. right after a
+    // reboot). Resolved inside the IO scope below instead, where it always runs anyway.
     @Inject
-    lateinit var reminderScheduler: ReminderScheduler
+    lateinit var reminderScheduler: dagger.Lazy<ReminderScheduler>
 
     @Inject
-    lateinit var financeRepository: FinanceRepositoryImpl
+    lateinit var financeRepository: dagger.Lazy<FinanceRepositoryImpl>
 
     @Inject
-    lateinit var vaccinationRepository: VaccinationRepositoryImpl
+    lateinit var vaccinationRepository: dagger.Lazy<VaccinationRepositoryImpl>
 
     @Inject
-    lateinit var backupAutoScheduler: com.neochildclinic.data.backup.BackupAutoScheduler
+    lateinit var backupAutoScheduler: dagger.Lazy<com.neochildclinic.data.backup.BackupAutoScheduler>
 
     @Inject
-    lateinit var syncReconciler: com.neochildclinic.core.sync.SyncReconciler
+    lateinit var syncReconciler: dagger.Lazy<com.neochildclinic.core.sync.SyncReconciler>
 
     @Inject
-    lateinit var settingsManager: NotificationSettingsManager
+    lateinit var settingsManager: dagger.Lazy<NotificationSettingsManager>
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -68,24 +73,27 @@ class NeoChildApp : Application(), Configuration.Provider {
         // Initialize GMS Security Provider
         installSecurityProvider()
 
-        setupSync()
-        // Startup + reconnection reconciliation: pull missed remote changes and push
-        // pending local ones as soon as we're online and signed in (see SyncReconciler).
-        syncReconciler.start()
-        
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
+        scope.launch {
+            setupSync()
+            // Startup + reconnection reconciliation: pull missed remote changes and push
+            // pending local ones as soon as we're online and signed in (see SyncReconciler).
+            // Off the main thread: building the reconciler opens the database.
+            syncReconciler.get().start()
+        }
 
         // BiometricLockManager's lock state is in-memory and dies with the process;
         // mirror the arm flag into DataStore (NotificationSettingsManager.needsAuth) so a
         // screen-off + process-death cycle still locks on the next cold start
         // (MainActivity.checkAppLock reads the same flag).
         BiometricLockManager.onNeedsAuthChanged = { needsAuth ->
-            scope.launch { settingsManager.setNeedsAuth(needsAuth) }
+            scope.launch { settingsManager.get().setNeedsAuth(needsAuth) }
         }
         // Re-arm before any UI renders: checkAppLock has to wait for the session status to
         // resolve (seconds when offline), and patient data must not be visible meanwhile.
         scope.launch {
-            val settings = settingsManager.settingsFlow.first()
+            val settings = settingsManager.get().settingsFlow.first()
             if (settings.biometricLockEnabled && settings.needsAuth) BiometricLockManager.lock()
         }
 
@@ -100,20 +108,20 @@ class NeoChildApp : Application(), Configuration.Provider {
         }, filter)
 
         scope.launch {
-            reminderScheduler.scheduleDailySummary()
-            reminderScheduler.schedulePersonalReminderNotifications()
+            reminderScheduler.get().scheduleDailySummary()
+            reminderScheduler.get().schedulePersonalReminderNotifications()
         }
         scope.launch {
             try {
-                val vaccinations = vaccinationRepository.allVaccinations.first()
-                financeRepository.migrateLegacyVaccinationCogs(vaccinations)
+                val vaccinations = vaccinationRepository.get().allVaccinations.first()
+                financeRepository.get().migrateLegacyVaccinationCogs(vaccinations)
             } catch (e: Exception) {
                 Log.e(TAG, "Unable to migrate historical finance COGS snapshots", e)
             }
         }
         scope.launch {
             try {
-                backupAutoScheduler.rearmIfEnabled()
+                backupAutoScheduler.get().rearmIfEnabled()
             } catch (e: Exception) {
                 Log.e(TAG, "Unable to re-arm Automatic Backup scheduling", e)
             }

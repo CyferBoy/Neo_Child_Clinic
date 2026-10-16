@@ -78,6 +78,47 @@ class FinanceCalculatorTest {
         assertEquals(0.0, rows.single { it.key == "2026-06" }.revenue, 0.001)
     }
 
+    private fun vaccinationIncome(id: String, visitId: String?, amount: Double, timestamp: String) =
+        income(id, transactionDate = null, timestamp = timestamp, visitId = visitId).copy(
+            category = "VACCINATION",
+            amount = amount
+        )
+
+    @Test
+    fun `duplicate vaccination income for one visit is counted once`() {
+        // A visit that wrote two VACCINATION income rows is a real historical failure mode
+        // (see FinanceRepositoryImpl). Financial Statistics collapsed these; Full Report and
+        // Overview summed both, so the clinic saw two revenue totals for the same month.
+        val rows = listOf(
+            vaccinationIncome("t1", "visit-1", 500.0, "2026-05-10T09:00:00+00:00"),
+            vaccinationIncome("t2", "visit-1", 500.0, "2026-05-10T09:05:00+00:00"),
+            vaccinationIncome("t3", "visit-2", 300.0, "2026-05-11T09:00:00+00:00")
+        )
+        val effective = FinanceCalculator.effectiveIncome(rows)
+        assertEquals(2, effective.size)
+        assertEquals(800.0, effective.sumOf { it.amount }, 0.001)
+        // the newest row of the duplicated visit wins
+        assertEquals(setOf("t2", "t3"), effective.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `non-vaccination income is never collapsed`() {
+        val rows = listOf(
+            income("a", "2026-05-10", "2026-05-10T09:00:00+00:00", visitId = "visit-1").copy(amount = 100.0),
+            income("b", "2026-05-10", "2026-05-10T10:00:00+00:00", visitId = "visit-1").copy(amount = 250.0)
+        )
+        assertEquals(2, FinanceCalculator.effectiveIncome(rows).size)
+    }
+
+    @Test
+    fun `vaccination income without a visit id is kept as its own row`() {
+        val rows = listOf(
+            vaccinationIncome("t1", null, 100.0, "2026-05-10T09:00:00+00:00"),
+            vaccinationIncome("t2", null, 200.0, "2026-05-10T10:00:00+00:00")
+        )
+        assertEquals(2, FinanceCalculator.effectiveIncome(rows).size)
+    }
+
     @Test
     fun `resolveReportingDate prefers transaction_date then visit date then timestamp`() {
         val withDate = income("t1", transactionDate = "2026-05-10", timestamp = "2026-06-15T10:00:00+00:00")

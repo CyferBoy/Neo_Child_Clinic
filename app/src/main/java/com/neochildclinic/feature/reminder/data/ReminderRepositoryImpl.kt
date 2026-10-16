@@ -453,7 +453,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshReminders() = cloudRefresh("ReminderRepo") {
+    override suspend fun refreshReminders() = cloudRefresh("ReminderRepo", rethrow = true) {
                 val entities = postgrest.from("reminders").select { filter { eq("is_deleted", false) } }.decodeList<RemoteReminder>()
                 transactionRunner.run {
                     for (remote in entities) {

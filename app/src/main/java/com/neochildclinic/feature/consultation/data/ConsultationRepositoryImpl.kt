@@ -200,7 +200,7 @@ class ConsultationRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo") {
+    override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo", rethrow = true) {
         val entities = postgrest.from("consultations").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationEntity>()
         transactionRunner.run {
             for (remote in entities) {

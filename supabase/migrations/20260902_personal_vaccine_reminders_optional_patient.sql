@@ -1,0 +1,10 @@
+begin;
+alter table public.personal_vaccine_reminders alter column patient_id drop not null;
+alter table public.personal_vaccine_reminders add column if not exists patient_name text;
+alter table public.personal_vaccine_reminders add column if not exists patient_phone text;
+update public.personal_vaccine_reminders r set patient_name = coalesce(p.name, '') , patient_phone = coalesce(p.phone, '') from public.patients p where r.patient_id = p.id and (r.patient_name is null or r.patient_phone is null);
+update public.personal_vaccine_reminders set patient_name = coalesce(patient_name, ''), patient_phone = coalesce(patient_phone, '');
+alter table public.personal_vaccine_reminders alter column patient_name set not null;
+alter table public.personal_vaccine_reminders alter column patient_phone set not null;
+alter table public.personal_vaccine_reminders alter column reminder_date drop not null;
+commit;

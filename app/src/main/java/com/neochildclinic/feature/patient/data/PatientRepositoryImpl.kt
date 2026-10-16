@@ -92,9 +92,14 @@ class PatientRepositoryImpl @Inject constructor(
         val entities = remoteDataSource.fetchAllPatients()
         android.util.Log.d("PatientRepo", "Pulled ${entities.size} patients from Supabase")
 
+        // One query each instead of three per patient: 5,000 remote patients used to cost
+        // ~15,000 SQLite round-trips inside this loop.
+        val pendingPatientIds = syncQueueDao.unsyncedIdSet("PATIENT")
+        val localById = patientDao.getPatientsByIds(entities.map { it.id }).associateBy { it.id }
+
         for (entity in entities) {
             try {
-                val existingLocal = patientDao.getPatientById(entity.id)
+                val existingLocal = localById[entity.id] ?: patientDao.getPatientById(entity.id)
                 val localClinicId = when {
                     entity.patientClinicId?.isNotBlank() == true && !entity.patientClinicId.startsWith("TEMP-") ->
                         entity.patientClinicId
@@ -116,7 +121,7 @@ class PatientRepositoryImpl @Inject constructor(
                     }
                 }
 
-                if ((existingLocal == null || existingLocal.isSynced) && !syncQueueDao.isUnsynced("PATIENT", entity.id)) {
+                if ((existingLocal == null || existingLocal.isSynced) && entity.id !in pendingPatientIds) {
                     patientDao.insertPatient(entity.copy(
                         patientClinicId = localClinicId,
                         updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
@@ -207,7 +212,17 @@ class PatientRepositoryImpl @Inject constructor(
                 syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.DELETE, SyncPriority.LOW)
             }
 
-            // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs)
+            // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs).
+            // Clear the local inventory_deductions ledger for these visits FIRST:
+            // deleteVaccination replenishes stock from every COMPLETED ledger row, so
+            // deleting a patient used to put every dose ever administered to that child
+            // back on the shelf - inventing stock for doses that were physically given.
+            // Dropping the ledger first makes the delete records-only. The visit, its
+            // finance row and the inventory_transactions audit trail are still removed.
+            // Not restoring is the safe direction: an over-counted shelf could re-issue a
+            // dose a child already received, while an under-count is a visible discrepancy
+            // staff can reconcile.
+            vaccinationIds.forEach { database.inventoryDeductionDao().deleteForVaccination(it) }
             vaccinationIds.forEach {
                 vaccinationRepository.get().deleteVaccination(it)
             }

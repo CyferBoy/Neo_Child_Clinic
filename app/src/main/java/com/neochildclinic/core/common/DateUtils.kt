@@ -91,6 +91,13 @@ object DateUtils {
         for (format in formats) {
             val sdf = SimpleDateFormat(format, Locale.ENGLISH)
             sdf.isLenient = false
+            // Date-only strings carry no offset, so the formatter falls back to the DEVICE
+            // timezone. On a device east of IST that lands on the previous calendar day once
+            // every consumer converts to IST (Date.toLocalDate()), which classified today's
+            // dose as overdue and made a batch expiring "today" look expired. Anchor parsing
+            // to the clinic timezone instead - it only affects patterns without an explicit
+            // offset; ISO timestamps that carry their own offset still win.
+            sdf.timeZone = JTimeZone.getTimeZone(IST_ZONE_ID)
             val pos = java.text.ParsePosition(0)
             val parsed = sdf.parse(dateStr, pos)
             if (parsed != null) {

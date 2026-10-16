@@ -6,6 +6,7 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.preferences.PreferenceManager
+import com.neochildclinic.feature.inventory.domain.InsufficientStockException
 import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils.parseDate
 import com.neochildclinic.data.local.entity.*
@@ -384,7 +385,7 @@ action = "DELETED",
             .filter { !InventoryUtils.isExpired(it.expiryDate) }
         val totalAvailable = batches.sumOf { it.remainingQuantity }
         if (totalAvailable < quantity) {
-            throw IllegalStateException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
+            throw InsufficientStockException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
         }
 
         var remaining = quantity
@@ -444,7 +445,7 @@ action = "DELETED",
             if (expired) throw IllegalStateException("Cannot deduct stock from a batch that had already expired on the vaccination date.")
         }
         if (batch.remainingQuantity < quantity) {
-            throw IllegalStateException("Insufficient stock in Batch ${batch.batchNumber}. Available: ${batch.remainingQuantity}")
+            throw InsufficientStockException("Insufficient stock in Batch ${batch.batchNumber}. Available: ${batch.remainingQuantity}")
         }
 
         val userName = sessionManager.getCurrentUserName()
@@ -635,18 +636,22 @@ action = "DELETED",
         vaccineDao.updatePatientIdInTransactions(duplicateId, masterId)
     }
 
-    override suspend fun refreshInventory() = cloudRefresh("InventoryRepo") {
+    override suspend fun refreshInventory() = cloudRefresh("InventoryRepo", rethrow = true) {
         val vaccines = postgrest.from("vaccines").select { filter { eq("is_deleted", false) } }.decodeList<VaccineEntity>()
         val batches = postgrest.from("vaccine_batches").select { filter { eq("is_deleted", false) } }.decodeList<VaccineBatchEntity>()
 
+        // One query per entity name instead of one per remote row (see SyncQueueDao.unsyncedIdSet).
+        val pendingVaccineIds = syncQueueDao.unsyncedIdSet("VACCINE")
+        val pendingBatchIds = syncQueueDao.unsyncedIdSet("BATCH")
+
         transactionRunner.run {
             for (v in vaccines) {
-                if (!syncQueueDao.isUnsynced("VACCINE", v.id)) {
+                if (v.id !in pendingVaccineIds) {
                     vaccineDao.insertVaccine(v)
                 }
             }
             for (b in batches) {
-                if (!syncQueueDao.isUnsynced("BATCH", b.batchId)) {
+                if (b.batchId !in pendingBatchIds) {
                     vaccineDao.insertBatch(b)
                 }
             }

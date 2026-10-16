@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.neochildclinic.core.ui.EmptyState
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -231,12 +233,16 @@ private fun BorrowedContent(
                             contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xs)
                         )
                     } else if (filteredList.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = if (uiState.mainTab == BorrowMainTab.RETURNED) "No fully returned records yet." else "No records found.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        // Shared EmptyState instead of a bare sentence: no icon, no message and
+                        // no distinction between "nothing borrowed yet" and "nothing matched".
+                        EmptyState(
+                            modifier = Modifier.fillMaxSize(),
+                            icon = Icons.Default.Inventory2,
+                            title = if (uiState.mainTab == BorrowMainTab.RETURNED) "No returns yet" else "No borrowed vaccines",
+                            message = if (uiState.mainTab == BorrowMainTab.RETURNED)
+                                "Doses returned to the clinic will be listed here."
+                            else "Record a vaccine borrowed from or lent to another clinic to track it here."
+                        )
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),

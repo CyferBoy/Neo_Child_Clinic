@@ -288,7 +288,10 @@ private fun ChangePasswordDialog(
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }) {
-                            Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
+                            Icon(
+                                if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (visible) "Hide password" else "Show password"
+                            )
                         }
                     }
                 )

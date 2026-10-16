@@ -7,7 +7,7 @@ import com.neochildclinic.core.sync.SyncManagerImpl
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
-import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
+import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -27,8 +27,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val auth: Auth,
-    private val profileRepository: ProfileRepositoryImpl,
-    private val deviceRepository: DeviceRepositoryImpl,
+    private val profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository,
+    private val deviceRepository: DeviceRepository,
     private val syncManager: SyncManagerImpl,
     private val cacheRegistry: CacheRegistry,
     private val currentUserProvider: CurrentUserProvider,

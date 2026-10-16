@@ -28,7 +28,7 @@ class PatientTodoRepositoryImpl @Inject constructor(
     private val sessionManager: com.neochildclinic.core.security.SessionManager
 ) : PatientTodoRepository {
 
-    override suspend fun refresh() = cloudRefresh("PatientTodoRepo") {
+    override suspend fun refresh() = cloudRefresh("PatientTodoRepo", rethrow = true) {
         val consultations = postgrest.from("consultation_todos").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationTodoEntity>()
         val vaccinations = postgrest.from("vaccination_todos").select { filter { eq("is_deleted", false) } }.decodeList<VaccinationTodoEntity>()
         consultations.forEach { remote ->

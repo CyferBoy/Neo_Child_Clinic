@@ -16,6 +16,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SyncViewModel @Inject constructor(
+    // Deliberately the impl, not the SyncRepository contract: this screen manages the queue
+    // (retry / clear / delete individual items), and the contract deliberately exposes only
+    // enqueue + state (see its own doc comment). Widening the contract to cover a single
+    // screen's needs would be a worse trade than this one injection.
     private val syncRepository: SyncRepositoryImpl,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {

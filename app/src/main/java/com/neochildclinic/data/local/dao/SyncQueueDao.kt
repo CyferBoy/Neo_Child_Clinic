@@ -64,4 +64,14 @@ interface SyncQueueDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM sync_queue WHERE entityName = :name AND entityId = :id AND status != 'SYNCED')")
     suspend fun isUnsynced(name: String, id: String): Boolean
+
+    // Bulk form of [isUnsynced] for pull/reconciliation loops. Calling isUnsynced once per
+    // remote row turns a 5,000-row refresh into 5,000 queries (15,000 in refreshPatients,
+    // which also looks the patient up twice per row). One query per entity name per refresh
+    // turns it into one. Same predicate, so the guard semantics are unchanged.
+    @Query("SELECT entityId FROM sync_queue WHERE entityName = :name AND status != 'SYNCED'")
+    suspend fun unsyncedIds(name: String): List<String>
+
+    /** [unsyncedIds] as a set, for membership tests inside reconciliation loops. */
+    suspend fun unsyncedIdSet(name: String): Set<String> = unsyncedIds(name).toHashSet()
 }

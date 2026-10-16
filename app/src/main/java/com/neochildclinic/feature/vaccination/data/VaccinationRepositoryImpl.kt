@@ -88,7 +88,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
             entity.toVaccination().copy(items = items.map { it.toDomain() })
         }
 
-    override suspend fun refreshVaccinations() = cloudRefresh("VaccinationRepo") {
+    override suspend fun refreshVaccinations() = cloudRefresh("VaccinationRepo", rethrow = true) {
                 // is_deleted filter matches the convention used by the 13 other refresh paths:
                 // rows soft-deleted by an earlier build are still on the server and would
                 // otherwise be re-imported here and counted by every vaccination statistic.
@@ -99,6 +99,10 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 var imported = 0
                 var failedValidation = 0
                 var skippedMissingPatient = 0
+
+                // One query for the whole pull instead of one per visit/item (see
+                // SyncQueueDao.unsyncedIdSet). The three guards below all ask the same question.
+                val pendingVaccinationIds = syncQueueDao.unsyncedIdSet("VACCINATION")
 
                 transactionRunner.run {
                     for (remote in entities) {
@@ -118,7 +122,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                         }
 
                         val local = vaccinationDao.getVaccinationById(remote.id)
-                        if ((local == null || local.isSynced) && !syncQueueDao.isUnsynced("VACCINATION", remote.id)) {
+                        if ((local == null || local.isSynced) && remote.id !in pendingVaccinationIds) {
                             vaccinationDao.insertVaccination(remote.copy(isSynced = true))
                             imported++
                         }
@@ -164,6 +168,8 @@ override val allVaccinations: Flow<List<Vaccination>> =
         val entities = items.map { it.toEntity() }
         withContext(Dispatchers.IO) {
             val totalItemsDownloaded = entities.size
+            // One query for this batch instead of one per item (see SyncQueueDao.unsyncedIdSet).
+            val pendingVaccinationIds = syncQueueDao.unsyncedIdSet("VACCINATION")
             var itemsImported = 0
             var itemsSkippedMissingVisit = 0
             var itemsSkippedUnsyncedVisit = 0
@@ -189,7 +195,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     // why Edit Vaccination can end up showing both the old and the new
                     // vaccine. Once the push lands, the remote copy no longer contains the
                     // removed rows, so nothing is lost by skipping here.
-                    if (syncQueueDao.isUnsynced("VACCINATION", remoteItem.vaccinationId)) {
+                    if (remoteItem.vaccinationId in pendingVaccinationIds) {
                         itemsSkippedUnsyncedVisit++
                         continue
                     }
@@ -215,7 +221,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 // resurrected while the DELETE was still queued (see the guard above) has no
                 // remote row anymore - drop the straggler.
                 for ((visitId, acceptedIds) in acceptedByVisit) {
-                    if (syncQueueDao.isUnsynced("VACCINATION", visitId)) continue
+                    if (visitId in pendingVaccinationIds) continue
                     val local = vaccinationItemDao.getItemsForVaccination(visitId).first()
                     val resurrected = local.filter { it.id !in acceptedIds }
                     if (resurrected.isEmpty()) continue

@@ -157,7 +157,12 @@ class AddVaccinationViewModel @Inject constructor(
                     }.first()
                 }
             } else if (_uiState.value.allDoctors.isEmpty()) {
-                uiState.filter { it.allDoctors.isNotEmpty() }.first()
+                // Bounded like its two siblings above. On a fresh install profiles holds only
+                // the signed-in user and RefreshDataUseCase does not pull profiles, so this
+                // filter can never match - the screen spun forever on a guaranteed path.
+                withTimeoutOrNull(5000) {
+                    uiState.filter { it.allDoctors.isNotEmpty() }.first()
+                }
             }
 
             val inventory = _uiState.value.inventory

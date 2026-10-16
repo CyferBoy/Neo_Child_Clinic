@@ -33,7 +33,6 @@ class MergePatientsUseCase @Inject constructor(
                 // Fetch record IDs before moving them so we can queue sync properly
                 val vaccIds = vaccinationRepository.getVaccinationsForPatient(dupId).first().map { it.id }
                 val reminderIds = reminderRepository.getPatientReminders(dupId).first().map { it.id }
-                val auditIds = reminderRepository.getAuditTrail(dupId).first().map { it.auditId }
 
                 // 1. Move all vaccinations from duplicate to master
                 vaccinationRepository.transferVaccinations(dupId, masterId)
@@ -64,9 +63,14 @@ class MergePatientsUseCase @Inject constructor(
                 reminderIds.forEach { id ->
                     syncRepository.enqueue("REMINDERS", id, SyncOperation.UPDATE, SyncPriority.LOW)
                 }
-                auditIds.forEach { id ->
-                    syncRepository.enqueue("REMINDER_AUDIT", id.toString(), SyncOperation.UPDATE, SyncPriority.LOW)
-                }
+                // NOTE: audit rows are deliberately NOT enqueued here. audit_logs is append-only
+                // on the server (no UPDATE policy), its sync entity is AUDIT_LOG, and there is no
+                // client-side patientId rewrite to push - AuditLogger already enqueues its own
+                // AUDIT_LOG writes. The old "REMINDER_AUDIT" entity name does not exist in the
+                // sync registry, so every patient merge pushed an item the uploader rejects as a
+                // permanent "Unknown entity": one FAILED row on the Sync screen per merge and a
+                // "Some changes could not be synced" alert after five. SyncEntityRegistryTest
+                // fails the build if an unregistered name comes back.
             }
             
             // Queue sync for the master patient

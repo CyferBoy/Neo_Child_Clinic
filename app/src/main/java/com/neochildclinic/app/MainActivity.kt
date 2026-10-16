@@ -28,7 +28,7 @@ import com.neochildclinic.core.ui.LockScreen
 import com.neochildclinic.feature.update.presentation.AppUpdateDialog
 import com.neochildclinic.feature.update.presentation.AppUpdateViewModel
 import com.neochildclinic.core.sync.SyncManagerImpl
-import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
+import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
 import com.neochildclinic.core.security.AuthViewModel
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.notification.NotificationHelper
@@ -63,7 +63,7 @@ class MainActivity : FragmentActivity() {
     lateinit var syncManager: SyncManagerImpl
 
     @Inject
-    lateinit var deviceRepository: DeviceRepositoryImpl
+    lateinit var deviceRepository: DeviceRepository
 
     @Inject
     lateinit var preferenceManager: PreferenceManager

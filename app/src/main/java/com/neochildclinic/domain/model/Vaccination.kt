@@ -57,7 +57,13 @@ data class Vaccination(
     val batchIds: List<String> get() = items.map { it.batchId }
     val expiryDates: List<String> get() = items.map { it.expiryDate }
     val nxtVaccineNames: List<String> get() = nextVaccinations.flatMap { it.vaccineNames }
-    val nextDueDate: String get() = nextVaccinations.minByOrNull { it.dueDate }?.dueDate ?: ""
+    // Compare parsed dates, not strings: the stored format ("d MMM yyyy") is not zero-padded,
+    // so "16 Oct 2026" sorts BEFORE "9 Oct 2026" as text while being a month later as a date.
+    val nextDueDate: String
+        get() = nextVaccinations
+            .minByOrNull { com.neochildclinic.core.common.PatientUtils.parseDate(it.dueDate)?.time ?: Long.MAX_VALUE }
+            ?.dueDate
+            ?: ""
 }
 
 @Serializable

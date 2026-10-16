@@ -4,6 +4,7 @@ import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.feature.inventory.domain.InsufficientStockException
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
@@ -63,6 +64,11 @@ class VaccinationEditEngine @Inject constructor(
 
         val transactionGroupId = UUID.randomUUID().toString()
 
+        // Batches whose extra deduction could not happen because the shelf was short, mapped
+        // to the reason. Recorded as FAILED in the deduction ledger below, exactly as the
+        // create path does, instead of throwing the whole clinical edit away.
+        var stockShortfalls: Map<String, String> = emptyMap()
+
         transactionRunner.run {
             val inventoryChanged = inventoryDiff(original, updated).isNotEmpty()
             val financeChanged = financeChanged(original, updated)
@@ -85,13 +91,13 @@ class VaccinationEditEngine @Inject constructor(
             }
 
             if (inventoryChanged) {
-                applyInventoryDiff(original, updated, user)
+                stockShortfalls = applyInventoryDiff(original, updated, user)
             }
             // Local-only deduction audit: rebuild whenever the item set moved at all so
             // no stale row (e.g. an old vaccine name) is left behind - but never as part
             // of a no-op save.
             if (inventoryChanged || itemsChanged) {
-                reconcileInventoryDeductions(updated)
+                reconcileInventoryDeductions(updated, stockShortfalls)
             }
 
             reconcileReminders(original.patientId, original.id, reminderSpecs, user, excludedReminderIds)
@@ -106,7 +112,7 @@ class VaccinationEditEngine @Inject constructor(
                 new.items.map { Triple(it.vaccineId, it.quantity, it.netRate) }.sortedBy { it.first }
     }
 
-    private suspend fun applyInventoryDiff(old: Vaccination, new: Vaccination, user: String) {
+    private suspend fun applyInventoryDiff(old: Vaccination, new: Vaccination, user: String): Map<String, String> {
         // Only a COMPLETED inventory_deductions row means stock actually moved. A FAILED
         // row (ClinicalVaccinationService writes one when e.g. stock was short) left
         // stock untouched, so reversing its quantity would invent doses that never left:
@@ -120,6 +126,8 @@ class VaccinationEditEngine @Inject constructor(
             .groupingBy { it.batchId!! }
             .fold(0) { acc, row -> acc + row.quantity }
 
+        val shortfalls = mutableMapOf<String, String>()
+
         inventoryDiff(old, new).forEach { (batchId, delta) ->
             if (delta > 0) {
                 // A batch already recorded on the original visit was valid when first
@@ -127,16 +135,24 @@ class VaccinationEditEngine @Inject constructor(
                 // the batch has since expired. Only brand-new batch selections must pass
                 // the expiry check.
                 val batchAlreadyUsed = old.items.any { it.batchId == batchId }
-                inventoryRepository.deductStockFromBatch(
-                    batchId = batchId,
-                    quantity = delta,
-                    user = user,
-                    transactionType = InventoryTransactionType.VACCINATION,
-                    visitId = new.id,
-                    patientId = new.patientId,
-                    allowExpired = batchAlreadyUsed,
-                    givenDate = new.dateGiven
-                )
+                try {
+                    inventoryRepository.deductStockFromBatch(
+                        batchId = batchId,
+                        quantity = delta,
+                        user = user,
+                        transactionType = InventoryTransactionType.VACCINATION,
+                        visitId = new.id,
+                        patientId = new.patientId,
+                        allowExpired = batchAlreadyUsed,
+                        givenDate = new.dateGiven
+                    )
+                } catch (e: InsufficientStockException) {
+                    // Same rule as the create path: a short shelf is reconciled by staff, it
+                    // must not discard the payment, date, doctor and reminder corrections the
+                    // user made in this same save. Recorded as FAILED below, which also keeps
+                    // the reversal cap from handing back doses that never left the batch.
+                    shortfalls[batchId] = e.message ?: "Insufficient stock"
+                }
             } else {
                 val reverseQuantity = minOf(-delta, completedByBatch[batchId] ?: 0)
                 if (reverseQuantity > 0) {
@@ -150,6 +166,7 @@ class VaccinationEditEngine @Inject constructor(
                 }
             }
         }
+        return shortfalls
     }
 
     // inventory_deductions is a local-only audit of what a visit took out of stock
@@ -164,14 +181,17 @@ class VaccinationEditEngine @Inject constructor(
     // vaccine's previous rows on the batch were all FAILED (stock was never moved and
     // still is not - matches the reversal cap in applyInventoryDiff, so a FAILED batch
     // never moves stock in either direction).
-    private suspend fun reconcileInventoryDeductions(vaccination: Vaccination) {
+    private suspend fun reconcileInventoryDeductions(vaccination: Vaccination, shortfalls: Map<String, String> = emptyMap()) {
         val previousByBatch = inventoryRepository.getInventoryDeductionsForVaccination(vaccination.id)
             .groupBy { it.batchId }
         inventoryRepository.deleteInventoryDeductionsForVaccination(vaccination.id)
         vaccination.items.forEach { item ->
+            val shortfall = shortfalls[item.batchId]
             val forVaccine = previousByBatch[item.batchId].orEmpty().filter { it.vaccineId == item.vaccineId }
             val exact = forVaccine.firstOrNull { it.quantity == item.quantity }
             val status = when {
+                // This edit could not take the extra doses off the shelf: stock did not move.
+                shortfall != null -> "FAILED"
                 exact != null -> exact.status
                 forVaccine.isEmpty() -> "COMPLETED"
                 forVaccine.none { it.status == "COMPLETED" } -> "FAILED"
@@ -184,7 +204,11 @@ class VaccinationEditEngine @Inject constructor(
                 batchId = item.batchId,
                 quantity = item.quantity,
                 status = status,
-                errorMessage = if (status == "FAILED") exact?.errorMessage ?: forVaccine.firstOrNull { it.status == "FAILED" }?.errorMessage else null,
+                errorMessage = when {
+                    shortfall != null -> shortfall
+                    status == "FAILED" -> exact?.errorMessage ?: forVaccine.firstOrNull { it.status == "FAILED" }?.errorMessage
+                    else -> null
+                },
                 resolvedAt = System.currentTimeMillis()
             ))
         }

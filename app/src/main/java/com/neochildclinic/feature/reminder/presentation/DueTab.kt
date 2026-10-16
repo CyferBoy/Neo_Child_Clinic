@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import com.neochildclinic.core.ui.EmptyState
+import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -84,9 +86,14 @@ fun DueTab(
 
         if (filteredVaccinations.isEmpty()) {
             item {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxl), contentAlignment = Alignment.Center) {
-                    Text("No vaccinations due.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                // Shared EmptyState, not a bare Text: this is the screen a receptionist opens
+                // first thing, and a plain sentence gave no icon and no sense of "all clear".
+                EmptyState(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xl),
+                    icon = Icons.Default.CheckCircleOutline,
+                    title = "Nothing due",
+                    message = "No vaccinations are due for the selected filter."
+                )
             }
         } else {
             items(

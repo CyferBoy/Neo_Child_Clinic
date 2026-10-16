@@ -134,7 +134,9 @@ fun OverviewTab(
         data class MonthFinance(val revenue: Double, val cash: Double, val online: Double)
 
         val financeByMonth = mutableMapOf<YearMonth, MonthFinance>()
-        financeTransactions.forEach { tx ->
+        // Shared rule: duplicate vaccination income per visit is counted once, so this trend
+        // agrees with Financial Statistics and Full Report.
+        FinanceCalculator.effectiveIncome(financeTransactions).forEach { tx ->
             val key = StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
             if (key !in monthKeys) return@forEach
             if (!tx.type.equals("INCOME", true)) return@forEach

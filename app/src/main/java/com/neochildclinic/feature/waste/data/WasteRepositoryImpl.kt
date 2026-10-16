@@ -146,7 +146,7 @@ class WasteRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshWaste() = cloudRefresh("WasteRepo") {
+    override suspend fun refreshWaste() = cloudRefresh("WasteRepo", rethrow = true) {
         val wasteRecords = postgrest.from("waste_records").select { filter { eq("is_deleted", false) } }.decodeList<WasteRecord>()
         transactionRunner.run {
             for (remote in wasteRecords) {

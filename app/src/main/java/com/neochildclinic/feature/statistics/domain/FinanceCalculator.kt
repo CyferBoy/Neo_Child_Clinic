@@ -79,8 +79,7 @@ object FinanceCalculator {
         val validVaccinationsForCogs = StatisticsUtils.filterValidVaccinations(vaccinationsForCogs)
         val vaccinationById = validVaccinationsForCogs.associateBy { it.id }
 
-        val effectiveVaccinationIncome = deduplicateVaccinationIncome(income)
-        val effectiveIncome = income.filterNot { it.category.equals(VACCINATION, true) } + effectiveVaccinationIncome
+        val effectiveIncome = effectiveIncome(income)
         val revenue = effectiveIncome.sumOf { it.amount.coerceAtLeast(0.0) }
         val totalExpenses = expenses.sumOf { it.amount.coerceAtLeast(0.0) }
         val cash = paymentAmount(effectiveIncome, true)
@@ -90,7 +89,7 @@ object FinanceCalculator {
         var missingCogsSnapshot = 0
         val countedVisitIds = mutableSetOf<String>()
         var vaccineCost = 0.0
-        effectiveVaccinationIncome.forEach { transaction ->
+        deduplicateVaccinationIncome(income).forEach { transaction ->
             val visitId = transaction.visitId
             if (visitId.isNullOrBlank()) {
                 unmatched++
@@ -304,6 +303,19 @@ object FinanceCalculator {
         val value = remarks?.substringAfter(COGS_MARKER, missingDelimiterValue = "")?.substringBefore("]")?.toDoubleOrNull()
         return value?.takeIf { it >= 0.0 }
     }
+
+    /**
+     * The income rows that may be summed for a revenue figure, with duplicate vaccination
+     * income collapsed to the newest row per visit.
+     *
+     * A visit that wrote two VACCINATION income rows is a real historical failure mode (see
+     * FinanceRepositoryImpl's self-healing comment). Financial Statistics collapsed those; Full
+     * Report and Overview summed both, so the clinic saw two different revenue and net-profit
+     * totals for the same month on two screens. Every screen that sums income must go through
+     * here - do not re-implement the sum.
+     */
+    fun effectiveIncome(income: List<FinanceTransaction>): List<FinanceTransaction> =
+        income.filterNot { it.category.equals(VACCINATION, true) } + deduplicateVaccinationIncome(income)
 
     private fun deduplicateVaccinationIncome(income: List<FinanceTransaction>): List<FinanceTransaction> {
         return income

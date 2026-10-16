@@ -17,11 +17,14 @@ import com.neochildclinic.data.local.dao.BorrowReturnDao
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
+import com.neochildclinic.feature.borrowed.domain.selectBorrowBatch
+import com.neochildclinic.feature.inventory.domain.InsufficientStockException
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -62,15 +65,27 @@ class BorrowRepositoryImpl @Inject constructor(
             val user = sessionManager.getCurrentUserName()
             val isNew = item.id.isEmpty()
             val finalItem = if (isNew) item.copy(id = UUID.randomUUID().toString()) else item
-            
+
+            // A borrow record stores ONE batchId and every return credits only that batch, so a
+            // borrow must never span batches. Deducting earliest-expiry-first across batches
+            // (what InventoryRepository.deductStock does) while recording a single batchId
+            // permanently invented doses: returning a 5-dose borrow that took 3 from B1 and 2
+            // from B2 put all 5 back on B1 and left B2 short forever.
+            val batches = inventoryRepository.getVaccineBatches(finalItem.vaccineId).first()
+
             if (isNew) {
-                // Deduct from inventory
-                inventoryRepository.deductStock(
-                    vaccineId = finalItem.vaccineId,
+                val batch = selectBorrowBatch(batches, finalItem.quantity, finalItem.batchId)
+                    ?: throw InsufficientStockException(
+                        noSingleBatchMessage(finalItem, finalItem.quantity)
+                    )
+                inventoryRepository.deductStockFromBatch(
+                    batchId = batch.batchId,
                     quantity = finalItem.quantity,
                     user = user,
                     transactionType = InventoryTransactionType.BORROWED
                 )
+                // The recorded batch must be the one stock actually left.
+                persistBorrow(finalItem.copy(batchId = batch.batchId), user, isNew = true)
             } else {
                 // Editing the quantity moves the difference (deduction above only ever ran
                 // for brand-new records): 5 -> 8 owes 3 more, 5 -> 3 gives back what is
@@ -78,9 +93,22 @@ class BorrowRepositoryImpl @Inject constructor(
                 // below the returned amount can't hand back stock that was never taken).
                 val existing = borrowDao.getRecordById(finalItem.id)
                 val diff = finalItem.quantity - (existing?.quantity ?: 0)
+                var batchId = existing?.batchId ?: finalItem.batchId
                 if (diff > 0) {
-                    inventoryRepository.deductStock(
-                        vaccineId = finalItem.vaccineId,
+                    // The extra doses must come from the batch this borrow already records,
+                    // otherwise the return would credit the wrong batch again.
+                    val recorded = batches.firstOrNull { it.batchId == batchId }
+                        ?: throw InsufficientStockException(
+                            "Borrowed batch $batchId is no longer in the catalog for ${finalItem.vaccineId}."
+                        )
+                    if (recorded.remainingQuantity < diff) {
+                        throw InsufficientStockException(
+                            "Batch ${recorded.batchNumber} has only ${recorded.remainingQuantity} doses left; " +
+                                "this borrow needs $diff more. Record a separate borrow for another batch."
+                        )
+                    }
+                    inventoryRepository.deductStockFromBatch(
+                        batchId = batchId,
                         quantity = diff,
                         user = user,
                         transactionType = InventoryTransactionType.BORROWED
@@ -98,11 +126,19 @@ class BorrowRepositoryImpl @Inject constructor(
                         )
                     }
                 }
+                persistBorrow(finalItem.copy(batchId = batchId), user, isNew = false)
             }
+        }
+    }
 
-            val entity = finalItem.toEntity(isSynced = false)
+    private fun noSingleBatchMessage(item: BorrowedVaccine, quantity: Int): String =
+        "No single batch has $quantity doses of vaccine ${item.vaccineId} in stock. " +
+            "Record separate borrows per batch so each return can be credited correctly."
+
+    private suspend fun persistBorrow(item: BorrowedVaccine, user: String, isNew: Boolean) {
+            val entity = item.toEntity(isSynced = false)
             borrowDao.insertRecord(entity)
-            
+
             syncRepository.enqueue(
                 entityName = "BORROW",
                 entityId = entity.id,
@@ -110,15 +146,14 @@ class BorrowRepositoryImpl @Inject constructor(
                 priority = SyncPriority.MEDIUM
             )
 
-            val vaccineName = inventoryRepository.getVaccineById(finalItem.vaccineId)?.let { "${it.type} (${it.brandName})" } ?: finalItem.vaccineId
+            val vaccineName = inventoryRepository.getVaccineById(item.vaccineId)?.let { "${it.type} (${it.brandName})" } ?: item.vaccineId
             auditLogger.log(
                 module = "INVENTORY",
                 entityType = "BORROW",
                 entityId = entity.id,
                 action = if (isNew) "BORROW_CREATED" else "BORROW_UPDATED",
-                remarks = "$vaccineName x${finalItem.quantity}"
+                remarks = "$vaccineName x${item.quantity}"
             )
-        }
     }
 
     override suspend fun deleteBorrowedItem(id: String) {
@@ -259,7 +294,7 @@ syncRepository.enqueue(
         }
     }
 
-    override suspend fun refreshBorrows() = cloudRefresh(TAG) {
+    override suspend fun refreshBorrows() = cloudRefresh(TAG, rethrow = true) {
                 Log.d(TAG, "Refreshing borrow records from Supabase...")
                 val records = postgrest.from("borrow_records").select { filter { eq("is_deleted", false) } }.decodeList<BorrowEntity>()
                 val returns = postgrest.from("borrow_returns").select { filter { eq("is_deleted", false) } }.decodeList<BorrowReturnEntity>()

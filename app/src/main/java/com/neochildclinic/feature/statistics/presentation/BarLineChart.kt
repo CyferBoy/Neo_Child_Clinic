@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,6 +20,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,8 +91,21 @@ fun BarLineChart(
         val maxVal = allValues.maxOrNull()?.coerceAtLeast(0.01f) ?: 1f
         val barCount = barSeries.size
 
+        // A raw Canvas exposes nothing to TalkBack: a screen-reader user got silence for the
+        // chart, including its legend values. Describe the same data the chart draws.
+        val chartDescription = remember(series, labels) {
+            val parts = series.flatMap { s -> s.values.mapIndexed { i, v ->
+                "${labels.getOrElse(i) { "point ${i + 1}" }} ${s.label}: ${v.formatForSpeech()}"
+            } }
+            "Chart. " + parts.joinToString(", ")
+        }
+
         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { contentDescription = chartDescription }
+            ) {
                 val width = size.width
                 val height = size.height
                 val barGroupWidth = width / labels.size
@@ -148,3 +164,7 @@ fun BarLineChart(
         }
     }
 }
+
+/** Speaks a chart value without a trailing ".0" on whole numbers ("3", not "3.0"). */
+private fun Float.formatForSpeech(): String =
+    if (this % 1f == 0f) toLong().toString() else String.format(java.util.Locale.US, "%.2f", this)

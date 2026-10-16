@@ -17,12 +17,11 @@ import org.junit.runner.RunWith
  * had no `dateGiven` index, so each of those sorted the whole table into a temp B-tree.
  * EXPLAIN QUERY PLAN on a 50k-row fixture: the temp B-tree disappears once this index exists.
  *
- * Deliberately NOT using MigrationTestHelper: this project never configured
- * `room.schemaLocation`, so no schema JSON is exported and the helper cannot find the
- * version it is asked to validate (this is why the pre-existing ExpenseMigrationTest
- * cannot execute either). Building the v32 table by hand keeps the test self-contained
- * and runnable. The migration SQL below is kept byte-identical to migration32_33 in
- * AppDatabase.getInstance() (which is a local val, so it is not reachable from a test).
+ * Deliberately NOT using MigrationTestHelper: `room.schemaLocation` IS configured, but only
+ * version 33 has ever been exported to app/schemas (hence no 32.json/33.json pair to validate
+ * against - the same reason ExpenseMigrationTest is @Ignore'd). Building the v32 table by hand
+ * keeps this test self-contained and runnable. The migration SQL below is kept byte-identical
+ * to migration32_33 in AppDatabase (MIGRATIONS is `internal`, so a test could also reach it).
  *
  * Also asserts the migration SQL matches what Room itself generates for the
  * `@Index("dateGiven")` declaration on VaccinationEntity, so the two cannot drift.

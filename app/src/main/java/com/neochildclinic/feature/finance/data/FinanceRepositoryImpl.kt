@@ -27,6 +27,7 @@ class FinanceRepositoryImpl @Inject constructor(
     private val vaccinationDao: VaccinationDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
+    private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
     private val auditLogger: AuditLogger,
     private val sessionManager: com.neochildclinic.core.security.SessionManager
 ) : FinanceRepository {
@@ -375,7 +376,7 @@ class FinanceRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshTransactions() = cloudRefresh("FinanceRepo") {
+    override suspend fun refreshTransactions() = cloudRefresh("FinanceRepo", rethrow = true) {
                 // is_deleted filter matches the convention used by the 13 other refresh paths:
                 // rows soft-deleted by an earlier build are still on the server and would
                 // otherwise be re-imported here and counted in revenue/profit totals.
@@ -403,7 +404,13 @@ class FinanceRepositoryImpl @Inject constructor(
                         }
 
                         val local = financeDao.getTransactionById(normalizedRemote.id)
-                        var shouldUpdateLocal = local == null || local.isSynced
+                        // Also honour the sync queue, like the other 13 pull paths: a row
+                        // edited while its upload was in flight is still isSynced=true
+                        // (markUploaded clears the flag by id only), so trusting that flag
+                        // alone let a concurrent pull overwrite the newer local edit - and the
+                        // rolled-back version was then uploaded, losing the edit on every device.
+                        var shouldUpdateLocal = local == null ||
+                                (local.isSynced && !syncQueueDao.isUnsynced("FINANCE", normalizedRemote.id))
                         var finalEntity = normalizedRemote.copy(isSynced = true)
 
                         if (local != null && wasHealed) {

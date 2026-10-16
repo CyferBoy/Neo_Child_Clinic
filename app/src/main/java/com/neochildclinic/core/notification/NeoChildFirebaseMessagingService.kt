@@ -1,7 +1,7 @@
 package com.neochildclinic.core.notification
 
 import com.google.firebase.messaging.FirebaseMessagingService
-import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
+import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
 import android.content.Intent
 import com.neochildclinic.app.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,7 +15,7 @@ import javax.inject.Inject
 class NeoChildFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
-    lateinit var deviceRepository: DeviceRepositoryImpl
+    lateinit var deviceRepository: DeviceRepository
 
     @Inject
     lateinit var notificationHelper: NotificationHelper

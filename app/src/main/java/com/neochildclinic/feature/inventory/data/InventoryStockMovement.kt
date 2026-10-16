@@ -9,6 +9,11 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 // used/wasted/borrowed bucket alongside remainingQuantity so those counters always
 // stay consistent with why stock left the batch.
 internal fun VaccineBatchEntity.deducted(quantity: Int, transactionType: InventoryTransactionType, userName: String): VaccineBatchEntity {
+    // Stock movement is a trust boundary: every repository entry point that moves doses
+    // funnels through here. A non-positive quantity used to pass the "enough stock?" check
+    // and then either write a bogus no-op transaction (0) or, worse, ADD doses back to the
+    // shelf and drive usedQuantity negative (-n) - inventing stock that never existed.
+    require(quantity > 0) { "Deduction quantity must be greater than zero, was $quantity" }
     val base = copy(
         remainingQuantity = remainingQuantity - quantity,
         updatedBy = userName,

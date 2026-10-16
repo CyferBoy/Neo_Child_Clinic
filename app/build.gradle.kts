@@ -88,6 +88,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // Any unit test that reaches android.util.Log (or Uri, or TextUtils) otherwise dies with
+    // "Method e in android.util.Log not mocked" - which reads like a failure in the code under
+    // test and makes a pass/fail assertion pass for the wrong reason. Returns defaults instead.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
     buildFeatures {
         compose = true
         buildConfig = true

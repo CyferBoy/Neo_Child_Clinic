@@ -24,6 +24,7 @@ import com.neochildclinic.core.sync.cloudRefresh
 class PersonalReminderRepositoryImpl @Inject constructor(
     private val dao: PersonalReminderDao,
     private val syncRepository: SyncRepository,
+    private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
     private val postgrest: Postgrest,
     private val sessionManager: SessionManager,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
@@ -174,7 +175,9 @@ syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIU
         Log.d("PersonalReminder", "Remote refresh: fetched " + remote.size + " reminders")
         remote.forEach { r ->
             val local = dao.getById(r.id)
-            if (local == null || local.isSynced) {
+            // Queue-aware guard: see FinanceRepositoryImpl - isSynced alone is not enough,
+            // a row edited during its own upload would be rolled back by this pull.
+            if (local == null || (local.isSynced && !syncQueueDao.isUnsynced("PERSONAL_REMINDER", r.id))) {
                 dao.insert(r.copy(isSynced = true))
             }
         }

@@ -5,6 +5,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,6 +24,10 @@ import java.io.IOException
  * This test instead defines an identical copy of migration22_23's SQL and validates it
  * against a real database at version 22, which is the closest available way to verify
  * the migration is non-destructive and produces the expected schema.
+ *
+ * It is currently @Ignore'd: only 33.json was ever exported, so MigrationTestHelper cannot
+ * find the v22/v23 schemas it validates against. androidTest is not part of the default
+ * test run, so this reported green without ever executing.
  */
 @RunWith(AndroidJUnit4::class)
 class ExpenseMigrationTest {
@@ -65,6 +70,14 @@ class ExpenseMigrationTest {
         FrameworkSQLiteOpenHelperFactory()
     )
 
+    @Ignore(
+        "Cannot run: MigrationTestHelper validates against the exported schema JSON for the " +
+            "requested version, and app/schemas only contains 33.json - 22.json and 23.json were " +
+            "never exported, so the helper throws before any assertion runs. Left visible rather " +
+            "than deleted because the SQL below is a faithful copy of migration22_23 and is worth " +
+            "executing. To enable: check out the schema at version 22/23 (or build the app at that " +
+            "version once so Room exports the JSON), then remove this @Ignore."
+    )
     @Test
     @Throws(IOException::class)
     fun migrate22To23_createsExpensesTable_withoutTouchingExistingData() {

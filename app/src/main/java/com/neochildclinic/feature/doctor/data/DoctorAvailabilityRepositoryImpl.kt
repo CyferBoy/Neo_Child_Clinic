@@ -24,6 +24,7 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     private val dao: DoctorAvailabilityDao,
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
+    private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
     private val auditLogger: com.neochildclinic.core.logger.AuditLogger
 ) : DoctorAvailabilityRepository {
 
@@ -142,17 +143,23 @@ syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPr
           )
     }
 
-    override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo") {
+    override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo", rethrow = true) {
         val remoteSlots = postgrest.from("doctor_weekly_slots").select { filter { eq("is_deleted", false) } }.decodeList<DoctorWeeklySlotEntity>()
         remoteSlots.forEach { remote ->
             val local = dao.getWeeklySlotById(remote.id)
-            if (local == null || local.isSynced) dao.upsertWeeklySlot(remote.copy(isSynced = true))
+            // Queue-aware guard: a row edited during its own upload still reports isSynced=true,
+            // so trusting that flag alone let a concurrent pull roll the newer edit back.
+            if (local == null || (local.isSynced && !syncQueueDao.isUnsynced("DOCTOR_WEEKLY_SLOT", remote.id))) {
+                dao.upsertWeeklySlot(remote.copy(isSynced = true))
+            }
         }
 
         val remoteExceptions = postgrest.from("doctor_slot_exceptions").select { filter { eq("is_deleted", false) } }.decodeList<DoctorSlotExceptionEntity>()
         remoteExceptions.forEach { remote ->
             val local = dao.getExceptionById(remote.id)
-            if (local == null || local.isSynced) dao.upsertException(remote.copy(isSynced = true))
+            if (local == null || (local.isSynced && !syncQueueDao.isUnsynced("DOCTOR_SLOT_EXCEPTION", remote.id))) {
+                dao.upsertException(remote.copy(isSynced = true))
+            }
         }
     }
 }

@@ -193,7 +193,9 @@ class FullReportViewModel @Inject constructor(
 
         data class MonthFinance(var revenue: Double = 0.0, var cash: Double = 0.0, var online: Double = 0.0, var cogs: Double = 0.0)
         val financeBuckets = mutableMapOf<YearMonth, MonthFinance>()
-        transactions.filter { it.type.equals("INCOME", true) }.forEach { tx ->
+        // effectiveIncome collapses duplicate vaccination income per visit, exactly like the
+        // Financial Statistics tab - the raw sum made this screen disagree with it.
+        FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) }).forEach { tx ->
             val key = StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
             if (key !in monthKeySet) return@forEach
             val mf = financeBuckets.getOrPut(key) { MonthFinance() }
