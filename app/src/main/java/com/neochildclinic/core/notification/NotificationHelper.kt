@@ -75,6 +75,10 @@ class NotificationHelper @Inject constructor(
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Daily and scheduled personal vaccine follow-up reminders"
+                    // Content carries patient name + phone. FLAG_SECURE covers the app
+                    // window, not the lock screen, so this is the only thing keeping it
+                    // out of the shade. Channel-level so it covers every reminder here.
+                    lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
                 }
             )
             notificationManager.createNotificationChannels(channels)
