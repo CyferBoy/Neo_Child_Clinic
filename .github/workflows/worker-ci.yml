@@ -1,0 +1,42 @@
+name: Worker CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and audit backup worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare/backup-worker
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: cloudflare/backup-worker/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The cross-account confirm guard (audit M3) was recorded as "verified by CI"
+      # while android-ci.yml was failing validation and never ran a job. This is
+      # the job that actually proves it.
+      - name: Run worker tests
+        run: npm test
+
+      # Closes security audit finding L7 (no dependency audit in CI).
+      - name: Audit dependencies
+        run: npm audit --audit-level=high

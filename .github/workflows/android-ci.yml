@@ -59,6 +59,7 @@ jobs:
           EOF
 
       - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon
