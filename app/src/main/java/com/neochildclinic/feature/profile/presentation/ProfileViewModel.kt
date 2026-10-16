@@ -119,8 +119,11 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun changePassword(newPassword: String) {
-        if (newPassword.length < 6) {
-            _uiState.value = _uiState.value.copy(error = "Password must be at least 6 characters")
+        // Must match MIN_PASSWORD_LENGTH in supabase/functions/manage-staff/index.ts and
+        // minimum_password_length in supabase/config.toml. The admin-provisioning path
+        // already enforces 12; letting self-service go lower was audit finding M2, half-fixed.
+        if (newPassword.length < 12) {
+            _uiState.value = _uiState.value.copy(error = "Password must be at least 12 characters")
             return
         }
         viewModelScope.launch {
