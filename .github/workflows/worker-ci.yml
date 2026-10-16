@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: rm -f package-lock.json && npm install
 
+      # The spec signs HS256 tokens with this secret and the Worker verifies them
+      # from env.SUPABASE_JWT_SECRET, which vitest-pool-workers loads out of
+      # .dev.vars. Throwaway value, scoped to this runner only.
+      - name: Provide test secret
+        run: echo "SUPABASE_JWT_SECRET=ci-test-secret-value" > .dev.vars
+
       # The cross-account confirm guard (audit M3) was recorded as "verified by CI"
       # while android-ci.yml was failing validation and never ran a job. This is
       # the job that actually proves it.

@@ -72,6 +72,11 @@ Thumbs.db
 # Cloudflare Wrangler
 **/.wrangler/
 *.heapsnapshot
+
+# Wrangler local secrets (SUPABASE_JWT_SECRET etc). .dev.vars.example is tracked.
+**/.dev.vars
+**/.dev.vars.*
+!**/.dev.vars.example
   
 # OpenCode  
 .opencode/ 
