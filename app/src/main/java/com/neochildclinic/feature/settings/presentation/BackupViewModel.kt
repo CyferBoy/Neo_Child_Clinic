@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.feature.settings.domain.repository.BackupRepository
+import com.neochildclinic.data.backup.BackupAutoScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +45,11 @@ data class BackupUiMessage(val text: String, val isError: Boolean)
 
 @HiltViewModel
 class BackupViewModel @Inject constructor(
-    private val backupRepository: BackupRepository
+    private val backupRepository: BackupRepository,
+    // BackupAutoScheduler.schedule() had ZERO call sites, so enabling or changing
+    // automatic backup did nothing until the next process start, and disabling left the
+    // worker enqueued until then too (NCC-011).
+    private val backupAutoScheduler: BackupAutoScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BackupUiState())
@@ -201,16 +206,19 @@ class BackupViewModel @Inject constructor(
 
     fun enableAutomaticBackup(password: CharArray, settings: AutoBackupSettings) = viewModelScope.launch {
         backupRepository.enableAutomaticBackup(password, settings)
+        backupAutoScheduler.schedule(backupRepository.getAutoBackupSettings())
         _uiState.value = _uiState.value.copy(autoBackupSettings = backupRepository.getAutoBackupSettings())
     }
 
     fun updateAutomaticBackupSettings(settings: AutoBackupSettings) = viewModelScope.launch {
         backupRepository.updateAutomaticBackupSettings(settings)
+        backupAutoScheduler.schedule(backupRepository.getAutoBackupSettings())
         _uiState.value = _uiState.value.copy(autoBackupSettings = backupRepository.getAutoBackupSettings())
     }
 
     fun disableAutomaticBackup() = viewModelScope.launch {
         backupRepository.disableAutomaticBackup()
+        backupAutoScheduler.cancel()
         _uiState.value = _uiState.value.copy(autoBackupSettings = backupRepository.getAutoBackupSettings())
     }
 

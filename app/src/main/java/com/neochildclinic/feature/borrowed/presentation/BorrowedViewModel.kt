@@ -1,5 +1,6 @@
 package com.neochildclinic.feature.borrowed.presentation
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.BorrowReturnRecord
@@ -12,6 +13,7 @@ import com.neochildclinic.feature.inventory.domain.repository.InventoryRepositor
 import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -69,6 +71,12 @@ class BorrowedViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(0)
     private val _isRefreshing = MutableStateFlow(false)
 
+    // BorrowedUiState.actionError used to be a plain field on a state derived from
+    // combine(), so it had no writer and could never change: saveBorrowedItem had no
+    // try/catch at all, and submitReturn/deleteBorrowedItem only logged. A failed borrow
+    // or return was therefore indistinguishable from a successful one (NCC-014).
+    private val _actionError = MutableStateFlow<String?>(null)
+
     init {
         viewModelScope.launch {
             borrowRepository.refreshBorrows()
@@ -82,7 +90,8 @@ class BorrowedViewModel @Inject constructor(
         inventoryRepository.getInventoryItems(),
         _mainTab,
         _selectedTab,
-        _isRefreshing
+        _isRefreshing,
+        _actionError
     ) { values ->
         @Suppress("UNCHECKED_CAST") val activeRecords = values[0] as List<BorrowedVaccine>
         @Suppress("UNCHECKED_CAST") val returnedRecords = values[1] as List<BorrowedVaccine>
@@ -91,6 +100,7 @@ class BorrowedViewModel @Inject constructor(
         val mainTab = values[4] as BorrowMainTab
         val tab = values[5] as Int
         val refreshing = values[6] as Boolean
+        val actionError = values[7] as String?
 
         val records = activeRecords + returnedRecords
         val allBatches: List<VaccineBatch> = inv.flatMap { it.batches }
@@ -150,7 +160,8 @@ class BorrowedViewModel @Inject constructor(
             isLoading = false, // If we reach here, we have a result
             isRefreshing = refreshing,
             mainTab = mainTab,
-            selectedTab = tab
+            selectedTab = tab,
+            actionError = actionError
         )
     }.flowOn(kotlinx.coroutines.Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BorrowedUiState(isLoading = true))
@@ -177,8 +188,23 @@ class BorrowedViewModel @Inject constructor(
 
     fun saveBorrowedItem(item: BorrowedVaccine) {
         viewModelScope.launch {
-            borrowRepository.saveBorrowedItem(item)
+            // Had no try/catch at all: a repository failure escaped viewModelScope and
+            // crashed the process (NCC-014, NCC-036).
+            try {
+                borrowRepository.saveBorrowedItem(item)
+                _actionError.value = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Save borrowed item failed", e)
+                _actionError.value = e.message ?: "Could not record the borrow."
+            }
         }
+    }
+
+    /** Clears [BorrowedUiState.actionError] once the snackbar has been shown. */
+    fun clearActionError() {
+        _actionError.value = null
     }
 
     /**
@@ -203,8 +229,13 @@ class BorrowedViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 borrowRepository.submitReturn(item.id, item.record.batchId, item.vaccineId, item.vaccineName, item.remainingQuantity, quantity, batchId, notes, newBatchInfo)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                android.util.Log.e("BorrowedViewModel", "Return failed", e)
+                Log.e(TAG, "Return failed", e)
+                // Was log-only: the screen had no error surface at all, so a rejected
+                // return looked identical to a successful one (NCC-014).
+                _actionError.value = e.message ?: "Could not record the return."
             }
         }
     }
@@ -213,9 +244,16 @@ class BorrowedViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 borrowRepository.deleteBorrowedItem(id)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                android.util.Log.e("BorrowedViewModel", "Delete borrowed item failed", e)
+                Log.e(TAG, "Delete borrowed item failed", e)
+                _actionError.value = e.message ?: "Could not delete the borrow."
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "BorrowedViewModel"
     }
 }

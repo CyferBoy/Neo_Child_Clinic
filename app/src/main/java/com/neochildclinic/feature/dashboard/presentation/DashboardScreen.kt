@@ -196,8 +196,12 @@ fun DashboardScreen(
         if (uiState.syncState == SyncState.ERROR) {
             snackbarHostState.showSnackbar("Working in offline mode.")
         }
+        // This branch was dead: errorMessage had no writer because DashboardUiState is
+        // derived from combine(). It is now fed by DashboardViewModel.refresh()'s catch
+        // (NCC-013), and cleared so a later failure re-shows it.
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
+            dashboardViewModel.clearError()
         }
     }
 

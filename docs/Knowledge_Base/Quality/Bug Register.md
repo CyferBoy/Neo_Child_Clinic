@@ -34,21 +34,21 @@ neighbouring path still producing the original symptom. See
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
 | [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
-| [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | Open | Supabase |
-| [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — possible double-application | S1 | Open | Supabase |
+| [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | 🔧 **PR #15** | Supabase |
+| [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | 🔧 **PR #15** | Supabase |
 | [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | Open | Vaccination |
 | [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-006]] NCC-006 | Soft-delete filter missing on 9 reminder queries | S1 | ✅ **Fixed** | Room |
 | [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | Open | Supabase |
 | [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
 | [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
-| [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | Open | Reminders |
-| [[#ncc-011]] NCC-011 | Auto-backup enable/disable needs a process restart | S2 | Open | Backup |
+| [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | ✅ **Fixed** | Reminders |
+| [[#ncc-011]] NCC-011 | Auto-backup enable/disable needs a process restart | S2 | ✅ **Fixed** | Backup |
 | [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | Open | Security UX |
-| [[#ncc-013]] NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | Open | UI |
-| [[#ncc-014]] NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | Open | UI |
+| [[#ncc-013]] NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | ✅ **Fixed** | UI |
+| [[#ncc-014]] NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | ✅ **Fixed** | UI |
 | [[#ncc-015]] NCC-015 | `savePatient` swallows its own validation exception | S2 | ✅ **Fixed** | UI |
-| [[#ncc-016]] NCC-016 | `isLoading` can never clear | S2 | ⚠️ **Partial** | UI |
+| [[#ncc-016]] NCC-016 | `isLoading` can never clear | S2 | ✅ **Fixed** | UI |
 | [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
 | [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
 | [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ **Fixed** | Sync |
@@ -395,8 +395,8 @@ drawn above it.
 
 | | |
 |---|---|
-| **Status** | ⚠️ **Partial** · **Severity** S2 |
-| **Files** | `FinanceDetailsViewModel.kt` ✅ · `ProfileViewModel.kt` ✅ · `FullReportViewModel.kt` · `StatisticsViewModel.kt` |
+| **Status** | ✅ **Fixed** · **Severity** S2 |
+| **Files** | all five: `FinanceDetailsViewModel`, `ProfileViewModel`, `FullReportViewModel`, `StatisticsViewModel`, `VaccineDetailViewModel` |
 | **Impact** | Save/refresh buttons stay disabled forever with no error shown. |
 
 **Evidence.** `.first()` on Room flows inside `viewModelScope.launch` with no `try`/`finally`;
