@@ -60,6 +60,14 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             versionNameSuffix = "-debug"
+            ndk {
+                // Instrumented tests run on an x86_64 emulator in CI. defaultConfig pins
+                // every build to arm64-v8a (release APKs ship arm64 only), which made
+                // :app:connectedDebugAndroidTest report "No compatible devices connected"
+                // even though the emulator had booted. Debug adds x86_64; release is
+                // untouched by this block.
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
         }
         release {
             isMinifyEnabled = true
