@@ -444,6 +444,16 @@ action = "DELETED",
         givenDate: String?,
         transactionGroupId: String?
     ) {
+        // The read at the top and the updateBatch below are a read-modify-write with no
+        // @Version on the entity, so without a transaction two concurrent deductions both
+        // read the same remainingQuantity, both compute the same new value, and the second
+        // write silently discards the first - stock goes down by one dose instead of two
+        // while the ledger records both (NCC-021).
+        //
+        // TransactionRunnerImpl uses Room's withTransaction, which nests safely: callers that
+        // already opened a transaction (ClinicalVaccinationService.recordVaccination does)
+        // simply join the outer one rather than starting a second.
+        transactionRunner.run {
         // Precondition failures, not post-write failures: nothing has been written yet, so
         // the caller can record a FAILED deduction row and still save the visit. Reporting
         // these as bare IllegalStateException made them escape the recovery branch in
@@ -485,6 +495,7 @@ action = "DELETED",
         vaccineDao.insertTransaction(transaction)
 
         enqueueBatchStockChange(batchId, transaction.transactionId, transactionGroupId)
+        }
     }
 
     override suspend fun addStockToBatch(
@@ -547,6 +558,10 @@ action = "DELETED",
         patientId: String?,
         transactionGroupId: String?
     ) {
+        // Same read-modify-write as deductStockFromBatch, and unlike its siblings this one has
+        // no caller holding a transaction: VaccinationEditEngine.execute is invoked directly
+        // from AddVaccinationViewModel and opens none itself (NCC-021).
+        transactionRunner.run {
         val batch = vaccineDao.getBatchById(batchId) ?: throw IllegalStateException("Batch not found")
         val userName = sessionManager.getCurrentUserName()
         vaccineDao.updateBatch(batch.copy(
@@ -571,6 +586,7 @@ action = "DELETED",
         vaccineDao.insertTransaction(transaction)
         val groupId = transactionGroupId ?: UUID.randomUUID().toString()
         enqueueBatchStockChange(batchId, transaction.transactionId, groupId)
+        }
     }
 
     override suspend fun returnBorrowedStock(
