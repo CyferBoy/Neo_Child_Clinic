@@ -53,7 +53,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
 | [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-006]] NCC-006 | Soft-delete filter missing on reminder queries | S1 | ✅ **Fixed** | Room |
-| [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | Open | Supabase |
+| [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | ✅ Fixed | Supabase |
 | [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
 | [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
 | [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | ✅ **Fixed** | Reminders |
@@ -331,9 +331,22 @@ omits the column on update. The trigger function body is wrapped in an existence
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
 
-**Fix.** Make the client send the true quantity when the trigger is absent, or make the
-migration fail loudly instead of silently skipping.
-**Verification.** 🔍 `select proname, prosecdef from pg_proc where pronamespace='public'::regnamespace and proname='update_batch_stock';`
+**Fix.** `20261018_ensure_stock_trigger_installed.sql`. The client cannot know whether the
+server trigger exists, so the fix belongs server-side, and the server must refuse to continue
+rather than silently zero all stock:
+1. installs `inventory_transactions_update_batch_stock` if it is missing but installable —
+   repairing 20261016's silent skip rather than only reporting it;
+2. raises with the specific missing piece if it still cannot be installed.
+
+Written as its own migration, not appended to `20261017`: a database that already applied
+`20261017` will not re-run it, and that is exactly the case that must be caught.
+
+⚠️ **Not executed.** No Postgres in this environment — statically checked only (delimiter
+balance, structure). Applying it to a live database is still required.
+
+**Verification.** ✅ once applied — the migration fails loudly if the trigger is absent.
+🔍 independent check still pending:
+`select proname, prosecdef from pg_proc where pronamespace='public'::regnamespace and proname='update_batch_stock';`
 
 **Links.** [[Supabase]] · [[Inventory Management]]
 
