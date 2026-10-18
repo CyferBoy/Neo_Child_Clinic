@@ -72,7 +72,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | ⚠️ Needs decision — systemic, see note | Sync |
 | [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
 | [[#ncc-025]] NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
-| [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | Open | Inventory |
+| [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
 | [[#ncc-027]] NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
 | [[#ncc-028]] NCC-028 | `consultations.visitId` defaults to `""` — an FK-violating value | S4 | Open | Room |
 | [[#ncc-029]] NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | Open | Room |
@@ -88,6 +88,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
 | [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
 | [[#ncc-041]] NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
+| [[#ncc-042]] NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -792,12 +793,47 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 | ID | Sev | Status | Summary | Location |
 |---|---|---|---|---|
 | NCC-025 | S4 | Open | `ORDER BY priority DESC` on TEXT sorts `HIGH` last | `SyncQueueDao.kt:12` — ✅ re-verified 2026-10-18 |
-| NCC-026 | S4 | Open | `isExpired` returns false on an unparseable date | `InventoryUtils.kt:24` — ✅ re-verified 2026-10-18 |
+| NCC-026 | S4 | ⚠️ Not a bug | `isExpired` returns false on an unparseable date — deliberate, see below | `InventoryUtils.kt:24` — comment added; no behaviour change |
 | NCC-027 | S4 | Open | `isLowStock = totalStock <= globalThreshold` flags at-threshold stock | `InventoryRepositoryImpl.kt:78` (was `:77`) |
 | NCC-028 | S4 | Open | `consultations.visitId` defaults to `""` against a NOT NULL CASCADE FK | `ConsultationEntity.kt:33` — ✅ re-verified 2026-10-18 |
 | NCC-029 | S4 | Open | `AuditLogDao` comment claims a composite index that does not exist | `AuditLogDao.kt:29-33` — ✅ re-verified 2026-10-18: the comment spans `:29-33` and the DAO contains **zero** `Index(` declarations |
 | NCC-030 | S4 | Open | Audit-count guards query `audit_logs.remarks`; the brand is in `old_value`/`new_value` — and both have **0 call sites** | `VaccineDao.kt:137-141` — ✅ re-verified 2026-10-18 |
 | NCC-031 | S4 | Open | `FinanceDao` orders by `COALESCE(...)` — unindexable, so its indices are dead | `FinanceDao.kt:15,18,36` — ✅ re-verified 2026-10-18 |
+
+### NCC-026 — reclassified, not fixed
+
+The card read `?: return false` as an oversight. It is not: it is the defensible choice, and
+failing closed would be worse.
+
+`isExpired == true` is not a label on the batch — `InventoryRepositoryImpl:73` uses it to build
+`activeBatches`, the list of doses a clinician can find and use. Returning `true` for a date nobody
+can read would **drop real stock out of that list**, so someone holding a usable dose would not
+find it and could conclude the clinic has none. Returning `false` keeps it visible, with the raw
+expiry string shown next to it. Both directions assert something unknown; the difference is that
+one hides stock and the other does not.
+
+The codebase already decided this once, explicitly — `BorrowBatchSelection:38`: *"An unparseable
+expiry date sorts last instead of first so it is only used when nothing better exists."* That is
+the same stance: usable, but deprioritised. `isExpired` was simply the undocumented half of it.
+
+**Not reachable by any app path.** The expiry field is a `DateDropdownPicker`, which writes
+`date.format(Constants.DATE_FORMAT)` — `"d MMM yyyy"` — and `DateUtils.parseDate` lists
+`Constants.DATE_FORMAT` among its accepted formats, so picker and parser agree. Both write paths
+reject a blank (`AddBatchScreen:155`, `AddStockViewModel:173`), and a batch's expiry *is* editable
+afterwards (`AddBatchViewModel:98-107`), so a bad value would be repairable even if one appeared.
+A remote row cannot supply one quietly either: `VaccineBatchEntity.expiryDate` is a non-nullable
+`String`, so a null `expiry_date` fails deserialization loudly rather than arriving as `""`.
+
+**What was changed.** A comment on `isExpired` recording the stance and why, so the next reader
+does not "fix" it into a stock-hiding bug. No behaviour change, so no test — there is nothing new
+to be wrong. The upgrade path, if it is ever hit for real, is to surface *expiry unknown* in the
+UI rather than to pick a direction.
+
+**Separately noted, unverified.** The picker's `"d MMM yyyy"` is written straight through
+`@SerialName("expiry_date")` with no ISO conversion, so that is the literal text sent to Postgres.
+If that column is a `date` rather than `text`, inserts would fail — the table's DDL is not in the
+migrations, so this needs the live database to settle. Grouped with the other unexecuted-migration
+checks in [[Release Checklist]].
 
 **Links.** [[Room Database]] · [[Inventory Management]]
 
@@ -904,6 +940,60 @@ check. Local confirmation is limited to the compile plus the observed-table arra
 `DueReminderDao_Impl`, because the failure mode above only appears on a real device.
 
 **Links.** [[Statistics Dashboard]] · [[Database Schema]]
+
+## NCC-042 — seven instrumented assertions that could not fail
+
+| | |
+|---|---|
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S3 High |
+| **Files** | `androidTest/.../DateGivenIndexMigrationTest.kt`; `androidTest/.../ExpenseMigrationTest.kt`; `.github/workflows/android-instrumented.yml` |
+| **Found by** | reading the `androidTest` log of a *green* build |
+
+**Evidence.** `DateGivenIndexMigrationTest` has two `@Test` methods that run on every push and used
+Kotlin's `assert(condition) { "message" }` — seven assertions in total, including the two the whole
+class exists for:
+
+```kotlin
+assert(after.any { it.contains("index_patient_visits_dateGiven") }) { "got $after" }
+assert(after.none { it.contains("TEMP B-TREE") }) { "still sorting: $after" }
+```
+
+Kotlin compiles `assert` against `_Assertions.ENABLED`, which is
+`javaClass.desiredAssertionStatus()` — **false** unless the JVM is started with `-ea`. An
+instrumentation process is started by `am instrument` and does not pass `-ea`, and Android cannot
+be made to: there is no `testOptions` flag for it. Every one of those assertions was therefore a
+no-op, and the class reported **green unconditionally**. It was the only thing verifying that
+`migration32_33` actually removes the temp B-tree sort it was written to remove; had the index
+silently stopped being used, CI would have said nothing.
+
+The trigger for finding this was a *false alarm in the other direction*: the instrumented job for
+NCC-041 was green (`BUILD SUCCESSFUL`, Gradle exited 0) while `.github/scripts/androidtest-failures.py`
+printed `FAILED: 1 instrumented test(s)` for the `@Ignore`d
+`ExpenseMigrationTest.migrate22To23_createsExpensesTable_withoutTouchingExistingData`.
+
+**Fix.** JUnit's real assertions, which have no such flag:
+`assertTrue("got $after", ...)`, `assertEquals("got $count", 3, count)`. The two plan assertions were
+first checked against SQLite 3.45.1 on the test's own 3-row fixture to confirm they *pass* once
+armed — `SCAN patient_visits` + `USE TEMP B-TREE FOR ORDER BY` before the index,
+`SCAN patient_visits USING INDEX index_patient_visits_dateGiven` after — so arming them does not
+turn a green test red.
+
+**Guard.** `android-instrumented.yml` now rejects any `(^|[^A-Za-z_.])assert\(` in `androidTest`
+before the emulator boots, so a no-op assertion cannot come back. Verified by inserting a probe
+file, confirming the grep caught it, and removing it. A bare `assert` there is never correct, so
+the rule needs no exceptions.
+
+**Also changed, same investigation.** The failure reporter now prints each `<testsuite>`'s own
+`tests/failures/errors/skipped` counters alongside its per-case scan, and the report upload is
+`if: always()` instead of `if: failure()`. Disassembling
+`com.android.ddmlib.testrunner.XmlTestRunListener` shows it writes `<failure>` only for
+`TestStatus.FAILURE` and `<skipped/>` for an ignored test — so the `@Ignore`d case above should
+not have produced a `<failure>` node at all, and the reason is not yet established. Gradle's own
+exit code, re-raised by both steps, is what determines the build; the reporter runs afterwards and
+never changes it. The next run's counters will settle which of the two disagrees, rather than
+guessing now.
+
+**Links.** [[Room Database]] · [[Documentation Maintenance]]
 
 ## Closing a bug
 

@@ -19,6 +19,19 @@ object InventoryUtils {
     /**
      * Checks if a batch is expired as of the given reference date (defaults to today in the
      * clinic timezone). Injectable so the boundary is deterministic in tests.
+     *
+     * An unparseable date returns false - "not expired" - deliberately. Returning true would
+     * assert expiry from a date nobody knows, and would silently drop real stock out of
+     * `activeBatches` in [com.neochildclinic.feature.inventory.data.InventoryRepositoryImpl], so a
+     * clinician looking for the dose in their hand would not find it. Unknown is left usable and
+     * deprioritised, matching how selectBorrowBatch treats it. Both answers are wrong here; the
+     * real fix, if this is ever hit in the field, is to show "expiry unknown" rather than to pick
+     * a direction.
+     *
+     * Nothing in the app can write a value that fails to parse: the field is a DateDropdownPicker
+     * using Constants.DATE_FORMAT, which DateUtils.parseDate accepts; both write paths reject a
+     * blank; and VaccineBatchEntity.expiryDate is non-nullable, so a remote row with a null expiry
+     * fails deserialization loudly instead of arriving as "".
      */
     fun isExpired(expiryDateStr: String, today: LocalDate = clinicToday()): Boolean {
         val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
