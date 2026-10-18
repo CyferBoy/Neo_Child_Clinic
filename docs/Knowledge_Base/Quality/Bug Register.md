@@ -816,7 +816,7 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 | NCC-038 | S3 | ⚠️ **Needs decision** | `inventory_deductions` is local-only — but this is a missing feature, not a defect, and the impact is narrower than stated | no server table exists in any migration, nothing enqueues `INVENTORY_DEDUCTION`, no descriptor |
 | NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
 | NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
-| NCC-041 | S2 | ✅ **Fixed** | `getUpcomingVaccinationsByVaccineId` matched `nxt_vaccine_id` as comma-joined text; the column is JSON, so it returned 0 rows for every brand | `DueReminderDao.kt` — `json_each`; `ReminderEntity.kt` comment corrected |
+| NCC-041 | S2 | ✅ **Fixed** | `getUpcomingVaccinationsByVaccineId` matched `nxt_vaccine_id` as comma-joined text; the column is JSON, so it returned 0 rows for every brand | `DueReminderDao.kt` — quoted-id `instr()` match; `ReminderEntity.kt` comment corrected |
 
 ---
 
@@ -849,17 +849,40 @@ since the column was introduced.
 the per-brand counts did not sum to the type card above them. The type-level view was unaffected
 (`getUpcomingVaccinationsByType` does not touch this column), which is why it went unnoticed.
 
-**Fix.** Match the column as JSON, exactly, with the JSON1 table-valued function:
+**Fix.** Match the JSON text exactly — the needle is the id wrapped in its own quotes:
 
 ```sql
-CASE WHEN json_valid(nxt_vaccine_id)
-     THEN EXISTS (SELECT 1 FROM json_each(nxt_vaccine_id) WHERE json_each.value = :vaccineId)
-     ELSE 0 END
+instr(COALESCE(nxt_vaccine_id, ''), '"' || :vaccineId || '"') > 0
 ```
 
-`json_each` is an exact element match with no delimiter or substring ambiguity, and `minSdk` is 29
-so JSON1 is available. `json_valid` guards it — `json_each()` raises on malformed input, which
-would fail the entire query rather than just that row.
+`'"vac-a"'` is found inside `["vac-a"]` and inside `["vac-b","vac-a"]`, but never inside
+`["vac-a2"]` — the closing quote has to be there. So the match is exact without needing
+delimiters, and it tolerates whitespace or escaping variations that a delimiter scheme would not.
+
+`instr()` rather than `LIKE` because the id becomes part of the pattern: a `%` or `_` in an id would
+be a wildcard under `LIKE`, but `instr()` has no pattern semantics at all.
+
+`NULL` needs no special case (`instr(NULL, x)` is `NULL`, and `NULL > 0` is not true), and a row
+still holding the old comma format simply fails to match rather than raising.
+
+> **Room cannot use `json_each` here.** The first version of this fix used SQLite's JSON1
+> table-valued function, which is the more literal expression of the intent and is *valid SQL* —
+> it passed Room's compile-time verification and behaved correctly under `sqlite3` 3.45.1. It then
+> failed in `androidTest` with `IllegalArgumentException: There is no table with name json_each`.
+> `TriggerBasedInvalidationTracker.validateTableNames` rejects it: Room parses the identifiers in
+> the `FROM` clause to learn which tables a `Flow` query must observe, treats `json_each` as a
+> table name, and cannot resolve it against the schema. A table-valued function in a `Flow`-returning
+> query is therefore unusable, and only a real device run reveals it — compilation does not.
+> The generated code for the final query registers exactly `arrayOf("reminders")`.
+
+**Related, not fixed.** `VaccineDao.getVaccinationCountForVaccine` matches
+`patient_visits.vaccine_ids` with `LIKE '%' || :vaccineId || '%'`, which is a substring match. That
+column genuinely *is* comma-joined (`VaccinationEntity:115`, and
+`20260822_patient_visit_backup_and_timestamps.sql` splits it with `string_to_array`), so unlike the
+query above the shape is right — it is only imprecise. Vaccine ids are `uuid`
+(`vaccine_id uuid references public.vaccines(id)`), so one cannot realistically be a substring of
+another. It over-counts only if that ever changes, and the effect would be a delete guard that is
+too strict — not data loss. Left alone deliberately.
 
 **Verification.** Executed against SQLite 3.45.1 with fixtures mirroring the instrumented tests:
 
@@ -867,12 +890,18 @@ would fail the entire query rather than just that row.
 |---|---|
 | `vac-a` with `["vac-a"]`, `["vac-a","vac-b"]`, `["vac-b","vac-a"]` | matched — including middle position |
 | `vac-a` must not match `["vac-a2"]` | not matched |
-| `NULL`, soft-deleted, `status = 'COMPLETED'` | excluded |
+| `vac_ax` probed as `vac_a` | **not** matched — `_` stayed literal |
+| `NULL`, `[]`, soft-deleted, `status = 'COMPLETED'` | excluded |
 | a malformed comma-format row present | query did not raise; row excluded |
 | **the old formula, same data** | matched **only** the malformed row — and nothing JSON-shaped |
 
-**Regression test.** `UpcomingVaccinationDaoTest` — 8 cases, already written, red until this fix.
-They had never executed before PR #17; they are the check.
+The `vac_ax` probe is the case that rules out `LIKE`: with a pattern it would have matched as a
+wildcard.
+
+**Regression test.** `UpcomingVaccinationDaoTest` and `ReminderSoftDeleteFilterTest` — 12 cases in
+total, already written, red until this fix. They had never executed before PR #17; they are the
+check. Local confirmation is limited to the compile plus the observed-table array in the generated
+`DueReminderDao_Impl`, because the failure mode above only appears on a real device.
 
 **Links.** [[Statistics Dashboard]] · [[Database Schema]]
 

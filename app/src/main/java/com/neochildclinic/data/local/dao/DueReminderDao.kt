@@ -103,11 +103,22 @@ interface DueReminderDao {
     // patient_visits.vaccine_ids, which is a plain TEXT column joined with joinToString - not
     // this one. The androidTest suite found it the first time it ever ran.
     //
-    // json_each gives an exact element match with no delimiter or substring ambiguity. minSdk is
-    // 29, so JSON1 is available. json_valid guards the call: a malformed value (junk data, or a
-    // hand-edited row) makes json_each() raise, which would fail the whole query rather than
-    // just that row, so invalid values are excluded instead.
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND (CASE WHEN json_valid(nxt_vaccine_id) THEN EXISTS (SELECT 1 FROM json_each(nxt_vaccine_id) WHERE json_each.value = :vaccineId) ELSE 0 END) ORDER BY dueDate ASC")
+    // Matching is done on the JSON text itself: the needle is the id wrapped in its own quotes,
+    // so '"vac-a"' is found inside ["vac-a"] and inside ["vac-b","vac-a"], but never inside
+    // ["vac-a2"] - the closing quote has to be there. That is exact without needing delimiters.
+    //
+    // instr() rather than LIKE because the id becomes part of the pattern: a '%' or '_' in an id
+    // would be a wildcard under LIKE, but instr() has no pattern semantics at all. It is also a
+    // plain scalar function, so Room generates the cursor normally.
+    //
+    // SQLite's own json_each() would be the more literal expression of this, but Room cannot
+    // resolve a table-valued function: it fails at runtime with "There is no table with name
+    // json_each". It parses fine, so this only shows up when the query actually runs - which is
+    // why androidTest caught it and compilation did not.
+    //
+    // NULL needs no special case (instr(NULL, x) is NULL, and NULL > 0 is not true). A row still
+    // holding the old comma format simply fails to match, rather than raising.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND instr(COALESCE(nxt_vaccine_id, ''), '\"' || :vaccineId || '\"') > 0 ORDER BY dueDate ASC")
     fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<ReminderEntity>>
 
     // Aggregate form of the same predicate, used by the Upcoming statistics section so the
