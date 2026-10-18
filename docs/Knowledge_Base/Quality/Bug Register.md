@@ -70,7 +70,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | Open | Inventory |
 | [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | Open | Logging |
 | [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | Open | Sync |
-| [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | Open | Sync |
+| [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
 | [[#ncc-025]] NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
 | [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | Open | Inventory |
 | [[#ncc-027]] NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
@@ -83,7 +83,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | Open | Reminders |
 | [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ **Fixed** | Reminders |
 | [[#ncc-036]] NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
-| [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | Open | Backup |
+| [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | ✅ Fixed | Backup |
 | [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | Open | Sync |
 | [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
 | [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ **Fixed** | Inventory |
@@ -330,6 +330,30 @@ run, so this is compile-verified only. ⚠️ **Not executed in this pass.** Run
 omits the column on update. The trigger function body is wrapped in an existence check, and
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
+
+**NCC-024 fix.** `.catch { Log.e(...) }` completes a flow. Every transient failure — a dropped
+socket, a failed token refresh, a server-side channel error, all routine in the field — therefore
+ended that table's collector for the life of the process. The channel stayed joined, so nothing
+looked broken and no further change ever arrived until restart.
+
+Replaced with a retry loop: exponential backoff 1 s → 60 s, `CancellationException` rethrown so
+cancellation still works, and a flow that completes on its own is treated as a failure (a live
+subscription that completes will never deliver again) rather than exiting quietly. Bounded so a
+persistently failing channel cannot spin.
+
+⚠️ **No automated test.** The retry sits inside a `callbackFlow` over a real `Realtime`, which
+would need a fake channel implementation. Verified by compilation and inspection only.
+
+**NCC-037 fix.** `OpenableColumns.SIZE` is advisory, so the check could never be the only guard:
+providers commonly report `SIZE` as null, and a streaming provider can declare a length that does
+not match the bytes it yields. In that case the code called `readBytes()` on an unbounded stream —
+not merely a race, but no bound at all.
+
+The read is now bounded: a 64 KiB buffer loop that throws `TooLarge` the moment the running total
+passes `MAX_BACKUP_BYTES`. The pre-check stays as a cheap fail-fast, but correctness no longer
+depends on provider metadata being honest.
+
+⚠️ **No automated test.** `readBytesFromUri` is private and takes a `ContentResolver`.
 
 **NCC-033 fix.** Same shape as NCC-032. `notificationSent` and `lastReminderTime` were
 `@Transient` on the entity with no writer anywhere, so
@@ -644,7 +668,7 @@ movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 | NCC-021 | S3 | Open | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt:451`, `:471` (was `:435`, `:452`) |
 | NCC-022 | S3 | Open | `AuditLogger.log()` fires on a separate coroutine; called inside 5 live transactions | `AuditLogger.kt:40-42`; `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:150,185,287` — ✅ all five re-verified exact 2026-10-18 |
 | NCC-023 | S3 | Open | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
-| NCC-024 | S3 | Open | `.catch {}` on each realtime table flow kills the subscription permanently | `RealtimeChangeSubscriptions.kt:52-54` |
+| NCC-024 | S3 | ✅ **Fixed** | `.catch {}` on each realtime table flow killed the subscription permanently | `RealtimeChangeSubscriptions.kt` — retry loop with backoff |
 
 **Fixes.** NCC-019 `ExistingWorkPolicy.REPLACE`. NCC-020 either delete the branch or
 evaluate the guard before committing `SYNCING`. NCC-021 add `@Version` to
@@ -680,7 +704,7 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 | NCC-034 | S3 | ⚠️ **Not a bug** | Blank `reminderDate` notifies on every run — this is the stated design | `PersonalReminderNotificationWorker.kt:27-31`; intent quoted from `NotificationHelper.kt:171` |
 | NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |
 | NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **34** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
-| NCC-037 | S3 | Open | `readBytesFromUri` checks `OpenableColumns.SIZE` then calls `readBytes()` unbounded | `BackupRepositoryImpl.kt:435-441` |
+| NCC-037 | S3 | ✅ **Fixed** | `readBytesFromUri` checked `OpenableColumns.SIZE` then read unbounded | `BackupRepositoryImpl.kt` — read is now bounded at `MAX_BACKUP_BYTES` |
 | NCC-038 | S3 | Open | `inventory_deductions` has no `SyncEntityDescriptor` — the per-dose ledger never reaches the server | `SyncUploader.kt` registry — ✅ re-verified 2026-10-18: **24** descriptors (`grep -c "to SyncEntityDescriptor("`), **0** matching `INVENTORY_DEDUCTION`. ⚠️ Several notes cite "22" or "23" for this registry; **24** is current. |
 | NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
 | NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
