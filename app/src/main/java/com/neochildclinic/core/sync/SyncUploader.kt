@@ -505,14 +505,18 @@ class SyncUploader @Inject constructor(
                 // marked it synced. Unknown age must lose to nothing: let the edit upload.
                 //
                 // Pending-queue guard (docs/SYNC.md conflict policy: "local row has a
-                // pending queue entry -> local is authoritative until pushed"): while this
-                // entity still has an unacknowledged sync_queue row - including the very
-                // item being uploaded, which is SYNCING right now - the local row must
-                // never be replaced by the remote copy. Downloading here would destroy the
-                // queued local edit: the download overwrites it locally and the queue row
+                // pending queue entry -> local is authoritative until pushed"): while some
+                // OTHER unacknowledged edit for this entity is still queued, the local row
+                // must never be replaced by the remote copy. Downloading here would destroy
+                // the queued local edit: the download overwrites it locally and the queue row
                 // is then deleted as "uploaded", so the edit is lost with no trace.
+                //
+                // The in-flight item is excluded (NCC-020). It is SYNCING right now, not
+                // SYNCED, so testing it too made this whole branch unreachable - the remote
+                // never won, and the conflict policy below never ran for anybody.
                 if (remoteUpdatedAt > localUpdatedAtLong && localUpdatedAtLong > 0 &&
-                    !database.syncQueueDao().isUnsynced(item.entityName, item.entityId)
+                    !database.syncQueueDao()
+                        .isUnsyncedExcluding(item.entityName, item.entityId, item.queueId)
                 ) {
                     // REMOTE IS NEWER: Sync back to local (Self-healing)
                     descriptor.download(database, remoteData)

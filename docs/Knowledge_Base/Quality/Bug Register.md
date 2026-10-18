@@ -66,7 +66,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
 | [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
 | [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ **Fixed** | Sync |
-| [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | Open | Sync |
+| [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
 | [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | Open | Inventory |
 | [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | Open | Logging |
 | [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | Open | Sync |
@@ -330,6 +330,28 @@ run, so this is compile-verified only. ⚠️ **Not executed in this pass.** Run
 omits the column on update. The trigger function body is wrapped in an existence check, and
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
+
+**NCC-020 fix.** The remote-newer self-heal branch was guarded by
+`!syncQueueDao.isUnsynced(entityName, entityId)`. The item being uploaded had already been
+committed as `SYNCING` (not `SYNCED`) by the group-status transaction, so that predicate was
+permanently true for the row in flight and the branch **could never execute**. The conflict
+policy had never run for anyone, and the `fetchRemoteConflictData` read was paid for on every
+item purely to be ignored.
+
+Added `SyncQueueDao.isUnsyncedExcluding(name, id, queueId)`, which asks the question the guard
+actually means: is some *other* unacknowledged edit for this entity still queued? The in-flight
+row says nothing about whether the local edit is safely on the server — it is about to be.
+
+The other 15 `isUnsynced` callers are all in **pull** paths, where no row is in flight, so they
+never shared the defect and are untouched.
+
+⚠️ **Behaviour change.** This branch has never executed, so the code it enables has never run in
+production. It is now reachable for the first time and will start discarding local copies when
+the remote is genuinely newer. That is the documented policy (`docs/SYNC.md`), but it is worth
+watching on the first real sync after this ships.
+
+⚠️ **No automated test.** The branch sits inside the uploader's per-item path against a real
+PostgREST client.
 
 **NCC-024 fix.** `.catch { Log.e(...) }` completes a flow. Every transient failure — a dropped
 socket, a failed token refresh, a server-side channel error, all routine in the field — therefore
@@ -664,7 +686,7 @@ movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 | ID | Sev | Status | Summary | Location |
 |---|---|---|---|---|
 | NCC-019 | S3 | ✅ **Fixed** | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:39`, `:61` — now `ExistingWorkPolicy.REPLACE`; `:32-36` is the comment recording the switch. This is what refuted [[#hyp-002]]. |
-| NCC-020 | S3 | Open | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt:486-521` — ✅ re-verified 2026-10-18: the row is committed `SYNCING` at `SyncRepositoryImpl.kt:281-285` before the check runs, so the branch still cannot be reached |
+| NCC-020 | S3 | ✅ **Fixed** | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt`; new `SyncQueueDao.isUnsyncedExcluding` |
 | NCC-021 | S3 | Open | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt:451`, `:471` (was `:435`, `:452`) |
 | NCC-022 | S3 | Open | `AuditLogger.log()` fires on a separate coroutine; called inside 5 live transactions | `AuditLogger.kt:40-42`; `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:150,185,287` — ✅ all five re-verified exact 2026-10-18 |
 | NCC-023 | S3 | Open | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
