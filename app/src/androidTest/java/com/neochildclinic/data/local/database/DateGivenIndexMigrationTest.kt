@@ -5,6 +5,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -25,6 +27,12 @@ import org.junit.runner.RunWith
  *
  * Also asserts the migration SQL matches what Room itself generates for the
  * `@Index("dateGiven")` declaration on VaccinationEntity, so the two cannot drift.
+ *
+ * Assertions are JUnit's `assertTrue`/`assertEquals`, not Kotlin's `assert`. Kotlin's `assert`
+ * is compiled against `_Assertions.ENABLED`, which is `desiredAssertionStatus()` - false unless
+ * the JVM is started with `-ea`, and instrumentation on Android is not. Every `assert` here was
+ * therefore a no-op and this class could not fail. `-ea` cannot be turned on for a device test,
+ * so the only correct fix is not to use `assert` in androidTest at all.
  */
 @RunWith(AndroidJUnit4::class)
 class DateGivenIndexMigrationTest {
@@ -79,7 +87,7 @@ class DateGivenIndexMigrationTest {
 
         // Baseline: the hot query sorts the whole table.
         val before = plan(db, "SELECT * FROM patient_visits ORDER BY dateGiven DESC")
-        assert(before.any { it.contains("TEMP B-TREE") }) { "expected a temp sort before: $before" }
+        assertTrue("expected a temp sort before: $before", before.any { it.contains("TEMP B-TREE") })
 
         migrate32To33(db)
 
@@ -88,19 +96,19 @@ class DateGivenIndexMigrationTest {
         db.query("SELECT id FROM patient_visits ORDER BY dateGiven DESC").use { c ->
             while (c.moveToNext()) order.add(c.getString(0))
         }
-        assert(order == listOf("visit-b", "visit-c", "visit-a")) { "got $order" }
+        assertTrue("got $order", order == listOf("visit-b", "visit-c", "visit-a"))
 
         // ...and the new index is present.
         val names = mutableSetOf<String>()
         db.query("PRAGMA index_list(patient_visits)").use { c ->
             while (c.moveToNext()) names.add(c.getString(1))
         }
-        assert(names.contains("index_patient_visits_dateGiven")) { "got $names" }
+        assertTrue("got $names", names.contains("index_patient_visits_dateGiven"))
 
         // The whole point: index used, temp sort gone.
         val after = plan(db, "SELECT * FROM patient_visits ORDER BY dateGiven DESC")
-        assert(after.any { it.contains("index_patient_visits_dateGiven") }) { "got $after" }
-        assert(after.none { it.contains("TEMP B-TREE") }) { "still sorting: $after" }
+        assertTrue("got $after", after.any { it.contains("index_patient_visits_dateGiven") })
+        assertTrue("still sorting: $after", after.none { it.contains("TEMP B-TREE") })
 
         db.close()
     }
@@ -115,7 +123,7 @@ class DateGivenIndexMigrationTest {
         db.query("SELECT COUNT(*) FROM patient_visits").use { c ->
             c.moveToFirst(); count = c.getInt(0)
         }
-        assert(count == 3) { "got $count" }
+        assertEquals("got $count", 3, count)
         db.close()
     }
 

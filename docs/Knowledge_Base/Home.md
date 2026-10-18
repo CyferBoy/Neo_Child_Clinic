@@ -116,8 +116,8 @@ graph TB
 | Room version | 33 | `AppDatabase.kt:42` |
 | SQL migrations | 21, all git-tracked | `git ls-files supabase/migrations/` |
 | Supabase tables / edge functions | 26 / 2 | — |
-| Unit tests passing | 270, 0 failures (2026-10-17 07:48) | `app/build/test-results/` |
-| Instrumented tests | 6 files, 48 `@Test`, **no recorded result** | `app/src/androidTest/` |
+| Unit tests passing | 277, 0 failures (2026-10-18) | `app/build/test-results/` |
+| Instrumented tests | 6 files, 48 `@Test` (1 `@Ignore`d), **green in CI 2026-10-18** | `app/src/androidTest/` |
 
 ## Validate this vault
 

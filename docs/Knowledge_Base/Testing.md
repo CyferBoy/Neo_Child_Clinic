@@ -1,26 +1,33 @@
 # Testing
 
-> 43 test files. 252 unit tests passing. Where the coverage actually is — and where it is not.
+> 47 test files. 277 unit tests passing. Where the coverage actually is — and where it is not.
 > Related: [[Known Bugs]] · [[Room Database]] · [[Error Handling]]
 
 ## The headline number
 
 | Metric | Value |
 |---|---|
-| Unit test files (`app/src/test`) | **38** |
-| Instrumented test files (`app/src/androidTest`) | **5** |
-| Total test lines | ~4,470 (vs ~47,230 in main — **9.5%**) |
-| Unit tests passing | **252, 0 failures, 0 errors** |
-| Last recorded run | `app/build/test-results/testDebugUnitTest/`, **2026-10-16 14:33** |
-| Instrumented tests | **no recorded result** — they need a device |
+| Unit test files (`app/src/test`) | **41** |
+| Instrumented test files (`app/src/androidTest`) | **6** (48 `@Test`, 1 `@Ignore`d) |
+| Total test lines | ~5,320 (vs ~47,680 in main — **11.2%**) |
+| Unit tests passing | **277, 0 failures, 0 errors** |
+| Last recorded run | `./gradlew :app:testDebugUnitTest`, **2026-10-18** |
+| Instrumented tests | ✅ **green in CI 2026-10-18** on API 34 — see below |
 
-🔍 The 252 figure is the last recorded result, not a run performed for this vault.
+✅ The 277 figure and the instrumented result are both from runs performed while writing this
+vault, not carried over.
+
+| Lines | Count |
+|---|---|
+| `app/src/main` | 47,679 |
+| `app/src/test` | 4,118 |
+| `app/src/androidTest` | 1,205 |
 
 ## The pattern that explains everything
 
 > **Every extracted pure function is tested. Every orchestrator is not.**
 
-The 38 unit test files cover pure/domain logic almost exclusively: `MemoryCache`,
+The 41 unit test files cover pure/domain logic almost exclusively: `MemoryCache`,
 `PatientCache`, `DateClassifier`, `InventoryUtils`, `InventoryStockMovement`,
 `VaccinationEditEngine.inventoryDiff`, `EditReconciler`, `ReminderDueListProcessor`'s
 neighbours, `FinanceCalculator`, `ExpenseCalculator`, `StatisticsUtils`, `BackupCrypto`,
@@ -29,33 +36,53 @@ neighbours, `FinanceCalculator`, `ExpenseCalculator`, `StatisticsUtils`, `Backup
 🔍 **Zero `*ViewModelTest.kt` files exist.** No coverage of `stateIn` wiring, no coverage of
 an error path, no coverage of a `combine` chain.
 
-## The 4 instrumented tests matter more than their count suggests
+## The 6 instrumented tests matter more than their count suggests
 
-**They are not run by `./gradlew test`.** `ExpenseMigrationTest.kt:28-30` says so outright:
+**They are not run by `./gradlew test`** — they need a device. That used to mean DAO SQL
+correctness was invisible to CI, and for a long time it was: `ExpenseMigrationTest.kt` says the
+quiet part out loud in its own KDoc —
 
 > *"It is currently @Ignore'd: only 33.json was ever exported… androidTest is not part of the
 > default test run, so this reported green without ever executing."*
 
-That last clause is the finding: **the default `test` task runs exactly one
-local-persistence test** — `AppDatabaseMigrationTest`, which asserts migration contiguity
-and nothing else. All DAO SQL correctness is invisible to CI.
+✅ **That is no longer true.** `.github/workflows/android-instrumented.yml` runs
+`connectedDebugAndroidTest` on an API 34 emulator for every push and pull request. Its first real
+execution is the most useful thing to have happened to this suite: 17 cases failed on a foreign-key
+violation they had never been able to reach, and once their fixtures were seeded, **12 more failed
+on a real product bug** — `getUpcomingVaccinationsByVaccineId` was matching a JSON column as
+comma-separated text and returned nothing for every brand ([[Quality/Bug Register]] NCC-041).
+
+The job is **advisory**: it is a separate workflow, so a device-level failure never blocks the main
+build. Make it blocking through branch protection when it has a longer green history.
 
 | File | Covers | Notable assertions |
 |---|---|---|
-| `ExpenseDaoTest.kt` | `ExpenseDao` | delete removes **physically**; category+method+date filters; amount/date sort; limit/offset paging |
-| `PatientVisitPriceQueryTest.kt` | unpaid-patient + batch-item queries | flags when any visit unpaid; **not** flagged with zero visits; flags on exactly 0 but not a small positive; **re-emits when a price changes** |
-| `UpcomingVaccinationDaoTest.kt` | `getUpcomingVaccinationsByType` / `ByVaccineId` (15 tests) | brand match **exact not substring**; `softDeletedRemindersAreExcluded`; legacy NULL/empty `nxt_vaccine_id` excluded; **type card count == sum of brand counts** |
-| `DateGivenIndexMigrationTest.kt` | migration 32→33 | adds the index without touching data; idempotent |
-| `ExpenseMigrationTest.kt` | migration 22→23 | `@Ignore`d — **never executed** |
+| `ExpenseDaoTest.kt` | `ExpenseDao` (8) | delete removes **physically**; category+method+date filters; amount/date sort; limit/offset paging |
+| `PatientVisitPriceQueryTest.kt` | unpaid-patient + batch-item queries (9) | flags when any visit unpaid; **not** flagged with zero visits; flags on exactly 0 but not a small positive; **re-emits when a price changes** |
+| `UpcomingVaccinationDaoTest.kt` | `getUpcomingVaccinationsByType` / `ByVaccineId` (16) | brand match **exact not substring**; `_` in an id stays literal; `softDeletedRemindersAreExcluded`; legacy NULL/empty `nxt_vaccine_id` excluded; **type card count == sum of brand counts** |
+| `ReminderSoftDeleteFilterTest.kt` | soft-delete filtering across `DueReminderDao` (12) | every pre-existing filter still excludes deleted rows, plus the new ones |
+| `DateGivenIndexMigrationTest.kt` | migration 32→33 (2) | adds the index without touching data; idempotent; `EXPLAIN QUERY PLAN` loses its temp B-tree |
+| `ExpenseMigrationTest.kt` | migration 22→23 (1) | `@Ignore`d — **never executed** |
 
-`UpcomingVaccinationDaoTest` is genuinely good work: its `EXPLAIN QUERY PLAN` assertions and
-the "card count == detail count" invariant are exactly the tests this codebase needs more of.
+`UpcomingVaccinationDaoTest` is genuinely good work: its plan and "card count == detail count"
+invariants are exactly the tests this codebase needs more of. They also proved their worth
+immediately — see [[Quality/Bug Register]] (“NCC-041 — Brand drill-down returned nothing for every brand”).
 
-## DAO coverage: 4 of 21
+⚠️ **A test can run, pass, and verify nothing.** `DateGivenIndexMigrationTest` asserted with
+Kotlin's `assert(...)`, which is a no-op unless the JVM runs with `-ea` — impossible for a device
+test. Seven assertions, including the two the class exists for, could not fail. They are JUnit
+assertions now and the workflow rejects a bare `assert` in `androidTest` outright. See
+[[Quality/Bug Register]] (“NCC-042 — seven instrumented assertions that could not fail”). Anything in this table is worth a second look for the same pattern.
+
+## DAO coverage: 5 of 21, up from 3
 
 | Covered | Uncovered |
 |---|---|
-| `PatientDao`, `VaccinationDao`, `VaccinationItemDao` (via `PatientVisitPriceQueryTest`) | `VaccineDao`, `SyncQueueDao`, `DueReminderDao` (7 of 16 queries), `WasteDao`, `WidgetDueDao`, `AuditLogDao`, `FinanceDao`, `BorrowDao`, `BorrowReturnDao`, `PatientNotesDao`, `PatientTodoDao`, `PersonalReminderDao`, `ProfileDao`, `InventoryDeductionDao`, `ConsultationDao`, `DoctorAvailabilityDao`, `BackupDao` |
+| `ExpenseDao` (`ExpenseDaoTest`) · `PatientDao`, `VaccinationDao`, `VaccinationItemDao` (`PatientVisitPriceQueryTest`) · `DueReminderDao` — the upcoming and soft-delete queries only (`UpcomingVaccinationDaoTest`, `ReminderSoftDeleteFilterTest`) | `VaccineDao`, `SyncQueueDao`, `WasteDao`, `WidgetDueDao`, `AuditLogDao`, `FinanceDao`, `BorrowDao`, `BorrowReturnDao`, `PatientNotesDao`, `PatientTodoDao`, `PersonalReminderDao`, `ProfileDao`, `InventoryDeductionDao`, `ConsultationDao`, `DoctorAvailabilityDao`, `BackupDao` |
+
+✅ `DueReminderDao` was listed here as uncovered, one of "7 of 16 queries" with no test at all.
+It now has 28 instrumented cases behind it, and the two that mattered were red on the first run
+that could execute them.
 
 `BackupDao` is a 272-line DAO over 20 tables with **zero** tests.
 
@@ -99,7 +126,7 @@ This is the pattern to copy for any source-scanning test. It is also why
 | `SyncOrderingTest.kt` | asserts against a **hand-copied** priority table (`:17-26`) that already disagrees with `SYNC_ENTITY_REGISTRY` — `TRANSACTION`, `AUDIT_LOG`, `PROFILE`, `STAFF` are absent from the test's `when`. It does not assert against the registry, so the two can drift silently. |
 | `VaccinationEditEngineTest.kt` | 3 tests covering only the pure `inventoryDiff`; `applyInventoryDiff` and `reconcileInventoryDeductions` are untested |
 | `ExpenseMigrationTest.kt` | `@Ignore`d — never executed |
-| `DateGivenIndexMigrationTest.kt` | re-implements migration 32→33 with a hand-built 5-column `patient_visits` fixture, so `MigrationTestHelper.runMigrationsAndValidate` semantics are not exercised |
+| `DateGivenIndexMigrationTest.kt` | re-implements migration 32→33 with a hand-built 5-column `patient_visits` fixture, so `MigrationTestHelper.runMigrationsAndValidate` semantics are not exercised. Its assertions were also no-ops until 2026-10-18 — see [[Quality/Bug Register]] (“NCC-042 — seven instrumented assertions that could not fail”) |
 
 ## Schema-migration coverage
 
@@ -120,10 +147,16 @@ matches the `@Database(version =)` annotation, nor that entity↔schema identity
 
 ## 🔍 Not checked
 
-- The instrumented suite was never run here; its 5 files have no recorded result.
+- The instrumented suite runs in CI, but **not here** — this environment has no usable emulator,
+  so every androidTest assertion above is reported from CI, not reproduced locally.
 - `supabase/tests/rls_role_test.sql` and `verify_security.sql` exist but were not executed —
   they need a live database.
-- No coverage measurement (JaCoCo) is configured.
+- No coverage measurement (JaCoCo) is configured, so every percentage here is lines, not branches.
+- One open question from the 2026-10-18 CI run: the instrumented job was **green** (`BUILD SUCCESSFUL`,
+  Gradle exited 0) while the JUnit XML still carried a `<failure>` node for the `@Ignore`d
+  `ExpenseMigrationTest` case. `XmlTestRunListener` in ddmlib writes `<failure>` only for
+  `TestStatus.FAILURE`, so the two disagree and the cause is not established. The reporter now
+  prints each suite's own counters, which will settle it on the next run.
 
 ## Related
 

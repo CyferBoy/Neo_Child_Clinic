@@ -116,6 +116,28 @@ invalid graph. Render the note in Obsidian to be sure.
 scanning, because Obsidian does not render them as links. Do not rely on that to hide a
 real broken link.
 
+### ⚠️ Not checked: heading anchors
+
+The validator resolves **note names only**. It does not resolve the fragment in
+`[[Note#Heading]]` or `[[#Heading]]`, so a link can name the right note and still go nowhere.
+
+This is not hypothetical. `Quality/Bug Register.md` links its 40-odd index and detail rows to
+short anchors — `[[#ncc-026]]`, `[[#ncc-041]]` — while every card is headed `## NCC-026 — …`,
+i.e. with its full title. Obsidian's rule is that the fragment is *the heading text*
+([Internal links](https://obsidian.md/help/links)) and it does not prefix-match, so none of those
+anchors resolve. They read as navigation and are inert.
+
+Two ways out, neither taken yet:
+
+- **Block references.** Put `^ncc-026` on its own line under each card and link `[[#^ncc-026]]`.
+  Stable under retitling, which is the usual reason heading links rot. Requires touching every
+  card plus the index — worth doing in one pass, not piecemeal.
+- **Full heading text.** `[[#NCC-026 — isExpired fails open on an unparseable date]]`. No card
+  edits, but the link breaks whenever a heading is reworded.
+
+Until then, prefer a plain `[[Note Name]]` link plus the bug id in prose — that always resolves.
+New links added in this vault should not use short anchors.
+
 ## Mermaid conventions used here
 
 - One diagram per idea. If it needs a legend, split it.
