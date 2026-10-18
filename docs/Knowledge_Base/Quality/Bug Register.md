@@ -68,7 +68,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ **Fixed** | Sync |
 | [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
 | [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | Open | Inventory |
-| [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | Open | Logging |
+| [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
 | [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | Open | Sync |
 | [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
 | [[#ncc-025]] NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
@@ -330,6 +330,43 @@ run, so this is compile-verified only. ⚠️ **Not executed in this pass.** Run
 omits the column on update. The trigger function body is wrapped in an existence check, and
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
+
+**NCC-038 — re-scoped, not fixed.** The card says "`inventory_deductions` has no
+`SyncEntityDescriptor`", which reads like one missing registry entry. It is not:
+
+* no `INVENTORY_DEDUCTION` string exists anywhere in `app/src/main` — nothing enqueues it;
+* `inventory_deductions` appears in **no** migration — there is no server table at all;
+* there is therefore nothing for a descriptor to point at.
+
+So closing it means building the feature: a Supabase table plus RLS, a descriptor, an enqueue call
+at every deduction site, and a pull path. That is a product decision nobody has asked for, so it
+is recorded rather than silently built.
+
+**The impact is also narrower than the card implies.** `inventory_transactions` *is* synced
+(`INVENTORY_TRANSACTION` descriptor) and carries `batchId` and `visitId`, so per-dose batch
+linkage and server-side stock accounting are already covered. What is genuinely missing is the
+**FAILED** deductions — a failed deduction writes no ledger row, so it is invisible on other
+devices and on the server. That is a genuine audit gap, and it is the part worth deciding on.
+
+**NCC-022 fix.** `AuditLogger.log()` launches on its own `CoroutineScope`, so it never joins
+the caller's transaction. Called inside `transactionRunner.run`, the audit row commits
+independently — it survives a rollback and records an action that never happened.
+
+Re-measured rather than trusting the card: 17 `log()` call sites across 5 files, of which exactly
+**5** sit inside a live transaction (`WasteRepositoryImpl:64,102`, `MergePatientsUseCase:47`,
+`BorrowRepositoryImpl:185,287`). `BorrowRepositoryImpl:150` was cited but is not in a transaction.
+The other 12 are genuine fire-and-forget and are untouched.
+
+The five now call `recordLog`, the existing suspend version documented "for use inside
+transactions". No new API.
+
+`MergePatientsUseCase` is the worst of the five: a patient merge whose transaction later rolls
+back would leave an audit row asserting two patient records were merged when they were not.
+
+`log()` now carries a warning pointing at `recordLog` for transactional callers, since the trap is
+invisible at the call site.
+
+⚠️ **No automated test.** The distinction is observable only as a rollback-and-inspect case.
 
 **NCC-020 fix.** The remote-newer self-heal branch was guarded by
 `!syncQueueDao.isUnsynced(entityName, entityId)`. The item being uploaded had already been
@@ -688,7 +725,7 @@ movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 | NCC-019 | S3 | ✅ **Fixed** | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:39`, `:61` — now `ExistingWorkPolicy.REPLACE`; `:32-36` is the comment recording the switch. This is what refuted [[#hyp-002]]. |
 | NCC-020 | S3 | ✅ **Fixed** | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt`; new `SyncQueueDao.isUnsyncedExcluding` |
 | NCC-021 | S3 | Open | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt:451`, `:471` (was `:435`, `:452`) |
-| NCC-022 | S3 | Open | `AuditLogger.log()` fires on a separate coroutine; called inside 5 live transactions | `AuditLogger.kt:40-42`; `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:150,185,287` — ✅ all five re-verified exact 2026-10-18 |
+| NCC-022 | S3 | ✅ **Fixed** | `AuditLogger.log()` fired on a separate coroutine inside 5 live transactions | `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:185,287` — all now call `recordLog` |
 | NCC-023 | S3 | Open | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
 | NCC-024 | S3 | ✅ **Fixed** | `.catch {}` on each realtime table flow killed the subscription permanently | `RealtimeChangeSubscriptions.kt` — retry loop with backoff |
 
@@ -727,7 +764,7 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 | NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |
 | NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **34** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
 | NCC-037 | S3 | ✅ **Fixed** | `readBytesFromUri` checked `OpenableColumns.SIZE` then read unbounded | `BackupRepositoryImpl.kt` — read is now bounded at `MAX_BACKUP_BYTES` |
-| NCC-038 | S3 | Open | `inventory_deductions` has no `SyncEntityDescriptor` — the per-dose ledger never reaches the server | `SyncUploader.kt` registry — ✅ re-verified 2026-10-18: **24** descriptors (`grep -c "to SyncEntityDescriptor("`), **0** matching `INVENTORY_DEDUCTION`. ⚠️ Several notes cite "22" or "23" for this registry; **24** is current. |
+| NCC-038 | S3 | ⚠️ **Needs decision** | `inventory_deductions` is local-only — but this is a missing feature, not a defect, and the impact is narrower than stated | no server table exists in any migration, nothing enqueues `INVENTORY_DEDUCTION`, no descriptor |
 | NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
 | NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
 

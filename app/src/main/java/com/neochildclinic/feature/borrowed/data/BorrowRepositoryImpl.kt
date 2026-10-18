@@ -182,7 +182,7 @@ syncRepository.enqueue(
                       operation = SyncOperation.DELETE,
                       priority = SyncPriority.MEDIUM
                   )
-                auditLogger.log(
+                auditLogger.recordLog(
                     module = "INVENTORY",
                     entityType = "BORROW",
                     entityId = id,
@@ -284,7 +284,7 @@ syncRepository.enqueue(
                 )
             }
 
-            auditLogger.log(
+            auditLogger.recordLog(
                 module = "INVENTORY",
                 entityType = "BORROW_RETURN",
                 entityId = entity.id,
