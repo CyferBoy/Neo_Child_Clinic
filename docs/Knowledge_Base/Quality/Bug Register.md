@@ -58,7 +58,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
 | [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | ✅ **Fixed** | Reminders |
 | [[#ncc-011]] NCC-011 | Auto-backup enable/disable needs a process restart | S2 | ✅ **Fixed** | Backup |
-| [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | Open | Security UX |
+| [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | ✅ Fixed | Security UX |
 | [[#ncc-013]] NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | ✅ **Fixed** | UI |
 | [[#ncc-014]] NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | ✅ **Fixed** | UI |
 | [[#ncc-015]] NCC-015 | `savePatient` swallows its own validation exception | S2 | ✅ **Fixed** | UI |
@@ -439,9 +439,30 @@ re-arm at `NeoChildApp.kt:93-98` runs on an untracked IO scope and is not awaite
 `_isAppLocked` starts `false`. `checkAppLock()` first waits up to 4 s for session resolution
 (`MainActivity.kt:194-225`).
 
-**Fix.** Gate composition on `isLocked`, or construct the `NavHost` only once unlocked.
-**Verification.** 🔍 On-device: confirm whether the opaque `Surface` fully occludes dialogs
-drawn above it.
+**Fix.** Two parts, because gating alone would not have closed the window.
+
+1. `MainActivity` now composes `AppNavigation` only when `lockStateResolved && !isLocked`.
+   `navController` deliberately stays outside the gate — `NavController` saves its own back
+   stack, so unlocking returns the user where they were.
+2. `isAppLocked == false` used to mean both "unlocked" and "nobody has checked". Deciding needs
+   the session status, which takes seconds when offline, so the whole patient-data tree was
+   built during that gap. `BiometricLockManager.lockStateResolved` now separates the two, and
+   the UI shows a progress indicator while the answer is unknown — never patient data.
+
+While unresolved the UI renders neither the app nor the lock screen; `checkAppLock()` marks the
+state resolved in a `finally`, so the not-authenticated early return cannot strand a logged-out
+user on the spinner.
+
+**Regression test.** 4 cases added to `BiometricLockManagerTest`. The load-bearing one:
+`lock()` must not mark the state resolved — NeoChildApp's pre-render re-arm makes the app locked
+without anyone having authenticated.
+
+⚠️ **Not covered:** the composition gate itself. Asserting "navigation is not composed" needs a
+Compose UI test, which needs `createAndroidComposeRule` (not a dependency) and an emulator this
+environment lacks. The gate is verified by compilation and inspection only.
+
+**Verification.** 🔍 On-device still pending: confirm the opaque `Surface` fully occludes dialogs,
+and that unlocking restores the previous screen.
 
 **Links.** [[Architecture Map]] · [[Error Handling]]
 

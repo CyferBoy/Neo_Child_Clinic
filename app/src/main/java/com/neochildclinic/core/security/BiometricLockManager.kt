@@ -8,6 +8,30 @@ object BiometricLockManager {
     private val _isAppLocked = MutableStateFlow(false)
     val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
+    /**
+     * Whether [isAppLocked] is meaningful yet.
+     *
+     * [isAppLocked] is `false` both when the app is genuinely unlocked and when nobody has
+     * checked yet - and at launch it is the latter, because deciding requires awaiting the
+     * session status, which takes seconds when offline. A caller that treats that initial
+     * `false` as "unlocked" composes the whole patient-data tree during the gap.
+     *
+     * This separates the two. Until [markLockStateResolved] is called, the answer is unknown
+     * and callers must not render protected content. Lives on the object rather than in
+     * MainActivity so it survives configuration change without a second unlock round-trip.
+     */
+    private val _lockStateResolved = MutableStateFlow(false)
+    val lockStateResolved: StateFlow<Boolean> = _lockStateResolved.asStateFlow()
+
+    fun markLockStateResolved() {
+        _lockStateResolved.value = true
+    }
+
+    /** Test-only: restores the unknown state so each test starts from the same place. */
+    internal fun resetLockStateResolvedForTest() {
+        _lockStateResolved.value = false
+    }
+
     private var screenWasOff = false
     private var protectionEnabled = true
     private var lastActiveTime: Long = System.currentTimeMillis()
