@@ -87,6 +87,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | ⚠️ Needs decision | Sync |
 | [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
 | [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
+| [[#ncc-041]] NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -815,8 +816,65 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 | NCC-038 | S3 | ⚠️ **Needs decision** | `inventory_deductions` is local-only — but this is a missing feature, not a defect, and the impact is narrower than stated | no server table exists in any migration, nothing enqueues `INVENTORY_DEDUCTION`, no descriptor |
 | NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
 | NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
+| NCC-041 | S2 | ✅ **Fixed** | `getUpcomingVaccinationsByVaccineId` matched `nxt_vaccine_id` as comma-joined text; the column is JSON, so it returned 0 rows for every brand | `DueReminderDao.kt` — `json_each`; `ReminderEntity.kt` comment corrected |
 
 ---
+
+## NCC-041 — Brand drill-down returned nothing for every brand
+
+| | |
+|---|---|
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S2 High |
+| **Files** | `data/local/dao/DueReminderDao.kt`; `data/local/entity/ReminderEntity.kt` |
+| **Found by** | the first real execution of `androidTest` (PR #17) |
+
+**Evidence.** `nxtVaccineId` is a `List<String>?` with a `TypeConverter`, so it is stored as
+**JSON** — `Converter.fromList` calls `Json.encodeToString`, producing `["vac-a"]`. The query
+tested it as comma-joined text:
+
+```sql
+(',' || COALESCE(nxt_vaccine_id, '') || ',') LIKE '%,' || :vaccineId || ',%'
+```
+
+Building `,["vac-a"],` and looking for `,vac-a,` can never match, so
+`getUpcomingVaccinationsByVaccineId` returned **zero rows for every brand**.
+
+The entity comment is what caused it, and read plausibly: *"matching the comma-separated
+convention already used for list-like columns elsewhere (e.g. `patient_visits.vaccine_ids`)"*.
+That convention is real — but it belongs to `patient_visits.vaccine_ids`, a plain TEXT column
+written with `joinToString(",")`. `nxt_vaccine_id` never used it; `Converters` has written JSON
+since the column was introduced.
+
+**Impact.** The Statistics → Vaccination → Upcoming → *by brand* drill-down showed no rows, and
+the per-brand counts did not sum to the type card above them. The type-level view was unaffected
+(`getUpcomingVaccinationsByType` does not touch this column), which is why it went unnoticed.
+
+**Fix.** Match the column as JSON, exactly, with the JSON1 table-valued function:
+
+```sql
+CASE WHEN json_valid(nxt_vaccine_id)
+     THEN EXISTS (SELECT 1 FROM json_each(nxt_vaccine_id) WHERE json_each.value = :vaccineId)
+     ELSE 0 END
+```
+
+`json_each` is an exact element match with no delimiter or substring ambiguity, and `minSdk` is 29
+so JSON1 is available. `json_valid` guards it — `json_each()` raises on malformed input, which
+would fail the entire query rather than just that row.
+
+**Verification.** Executed against SQLite 3.45.1 with fixtures mirroring the instrumented tests:
+
+| Probe | Result |
+|---|---|
+| `vac-a` with `["vac-a"]`, `["vac-a","vac-b"]`, `["vac-b","vac-a"]` | matched — including middle position |
+| `vac-a` must not match `["vac-a2"]` | not matched |
+| `NULL`, soft-deleted, `status = 'COMPLETED'` | excluded |
+| a malformed comma-format row present | query did not raise; row excluded |
+| **the old formula, same data** | matched **only** the malformed row — and nothing JSON-shaped |
+
+**Regression test.** `UpcomingVaccinationDaoTest` — 8 cases, already written, red until this fix.
+They had never executed before PR #17; they are the check.
+
+**Links.** [[Statistics Dashboard]] · [[Database Schema]]
 
 ## Closing a bug
 

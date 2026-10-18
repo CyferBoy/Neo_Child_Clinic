@@ -95,13 +95,19 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND type = :type ORDER BY dueDate ASC")
     fun getUpcomingVaccinationsByType(type: String): Flow<List<ReminderEntity>>
 
-    // Brand drill-down. nxt_vaccine_id is a comma-joined TEXT column, so there is no join
-    // table to filter against - the id must be matched as a whole delimited element.
-    // The surrounding commas are what make this exact rather than a substring match:
-    // ',a1b,' matches 'a1' and 'a1b' but never 'a1b2'. COALESCE covers rows written before
-    // the column existed (NULL/empty), which cannot match any id and so are excluded -
-    // the same outcome calculateUpcomingVaccineNeeds produced for those rows.
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND (',' || COALESCE(nxt_vaccine_id, '') || ',') LIKE '%,' || :vaccineId || ',%' ORDER BY dueDate ASC")
+    // Brand drill-down. nxt_vaccine_id is NOT comma-joined - the List<String>? TypeConverter
+    // writes it as JSON (`["vac-a"]`, or `["vac-a","vac-b"]`), so the old comma formula
+    // (',' || nxt_vaccine_id || ',') LIKE '%,vac-a,%' could never match anything and this query
+    // returned 0 rows for every brand. The entity comment claiming "the comma-separated
+    // convention already used for list-like columns elsewhere" describes
+    // patient_visits.vaccine_ids, which is a plain TEXT column joined with joinToString - not
+    // this one. The androidTest suite found it the first time it ever ran.
+    //
+    // json_each gives an exact element match with no delimiter or substring ambiguity. minSdk is
+    // 29, so JSON1 is available. json_valid guards the call: a malformed value (junk data, or a
+    // hand-edited row) makes json_each() raise, which would fail the whole query rather than
+    // just that row, so invalid values are excluded instead.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND (CASE WHEN json_valid(nxt_vaccine_id) THEN EXISTS (SELECT 1 FROM json_each(nxt_vaccine_id) WHERE json_each.value = :vaccineId) ELSE 0 END) ORDER BY dueDate ASC")
     fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<ReminderEntity>>
 
     // Aggregate form of the same predicate, used by the Upcoming statistics section so the
