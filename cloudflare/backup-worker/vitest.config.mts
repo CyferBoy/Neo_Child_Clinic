@@ -11,9 +11,13 @@ export default defineConfig({
       wrangler: { configPath: "./wrangler.toml" },
       miniflare: {
         // wrangler.toml interpolates ${DATABASE_ID}; it is unset in CI, which left the
-        // D1 binding unusable and every test hitting "no such table: backups".
+        // D1 binding unusable. This fixes the binding only - the test D1 still has no
+        // tables until test/setup.ts applies schema.sql.
         d1Databases: ["DB"],
       },
     }),
   ],
+  test: {
+    setupFiles: ["./test/setup.ts"],
+  },
 });

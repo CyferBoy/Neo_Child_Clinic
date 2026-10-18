@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.entity.PatientEntity
 import com.neochildclinic.data.local.entity.ReminderEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -34,6 +35,7 @@ class ReminderSoftDeleteFilterTest {
     private lateinit var db: AppDatabase
     private lateinit var dao: DueReminderDao
     private lateinit var backupDao: com.neochildclinic.data.local.dao.BackupDao
+    private lateinit var patientDao: com.neochildclinic.data.local.dao.PatientDao
 
     @Before
     fun setup() {
@@ -43,6 +45,25 @@ class ReminderSoftDeleteFilterTest {
         ).allowMainThreadQueries().build()
         dao = db.dueReminderDao()
         backupDao = db.backupDao()
+        patientDao = db.patientDao()
+        seedPatients("p-1", "p-7")
+    }
+
+    // reminders has a CASCADE foreign key onto patients and Room turns foreign keys on by
+    // default, so a reminder whose patientId has no parent row is rejected at insert time.
+    // Every seeded patient has to exist first.
+    private fun seedPatients(vararg ids: String) = runBlocking {
+        ids.forEach {
+            patientDao.insertPatient(
+                PatientEntity(
+                    id = it,
+                    name = "Patient $it",
+                    phone = "0000000000",
+                    dob = "2020-01-01",
+                    gender = "MALE",
+                )
+            )
+        }
     }
 
     @After
@@ -77,9 +98,18 @@ class ReminderSoftDeleteFilterTest {
 
     // ── the nine lookups that were missing the filter ───────────────────────
 
+    // reminders carries a UNIQUE index on (patientId, originalVisitId, dueDate, type,
+    // vaccineName). A live/deleted pair that matches on all five cannot both be inserted,
+    // so the soft-deleted twin always differs on dueDate. That leaves the column each test
+    // filters on (visitId / status / reminderEnabled) identical for the pair, which is the
+    // whole point of the test.
+
     @Test
     fun getRemindersByVisitId_excludesDeleted() = runBlocking {
-        seed(row("live", visitId = "v-9", deleted = false), row("dead", visitId = "v-9", deleted = true))
+        seed(
+            row("live", visitId = "v-9", deleted = false),
+            row("dead", visitId = "v-9", dueDate = "2026-01-02", deleted = true),
+        )
 
         assertEquals(listOf("live"), dao.getRemindersByVisitId("v-9").map { it.id })
     }
@@ -116,7 +146,7 @@ class ReminderSoftDeleteFilterTest {
     fun getDueRemindersForPatient_excludesDeleted() = runBlocking {
         seed(
             row("live-a", patientId = "p-7", deleted = false),
-            row("dead", patientId = "p-7", deleted = true),
+            row("dead", patientId = "p-7", dueDate = "2026-01-02", deleted = true),
         )
 
         assertEquals(listOf("live-a"), dao.getDueRemindersForPatient("p-7").first().map { it.id })
@@ -128,7 +158,7 @@ class ReminderSoftDeleteFilterTest {
     fun pagedQueries_excludeDeleted() = runBlocking {
         seed(
             row("live", status = "ACTIVE", enabled = true, deleted = false),
-            row("dead", status = "ACTIVE", enabled = true, deleted = true),
+            row("dead", status = "ACTIVE", enabled = true, dueDate = "2026-01-02", deleted = true),
         )
 
         assertEquals(listOf("live"), dao.getDueRemindersPage(limit = 50, offset = 0).map { it.id })
@@ -138,7 +168,7 @@ class ReminderSoftDeleteFilterTest {
     fun completedPage_excludesDeleted() = runBlocking {
         seed(
             row("live", status = "COMPLETED", enabled = false, deleted = false),
-            row("dead", status = "COMPLETED", enabled = false, deleted = true),
+            row("dead", status = "COMPLETED", enabled = false, dueDate = "2026-01-02", deleted = true),
         )
 
         assertEquals(listOf("live"), dao.getCompletedRemindersPage(limit = 50, offset = 0).map { it.id })
@@ -148,7 +178,7 @@ class ReminderSoftDeleteFilterTest {
     fun dismissedPage_excludesDeleted() = runBlocking {
         seed(
             row("live", status = "DISMISSED", enabled = true, deleted = false),
-            row("dead", status = "DISMISSED", enabled = true, deleted = true),
+            row("dead", status = "DISMISSED", enabled = true, dueDate = "2026-01-02", deleted = true),
         )
 
         assertEquals(listOf("live"), dao.getDismissedRemindersPage(limit = 50, offset = 0).map { it.id })
@@ -158,7 +188,7 @@ class ReminderSoftDeleteFilterTest {
 
     @Test
     fun backupExport_excludesDeleted() = runBlocking {
-        seed(row("live", deleted = false), row("dead", deleted = true))
+        seed(row("live", deleted = false), row("dead", dueDate = "2026-01-02", deleted = true))
 
         assertEquals(
             "a .nccb carrying a soft-deleted reminder restores it on the other device",
@@ -173,7 +203,7 @@ class ReminderSoftDeleteFilterTest {
     fun preExistingFilters_stillExcludeDeleted() = runBlocking {
         seed(
             row("live", deleted = false),
-            row("dead", deleted = true),
+            row("dead", dueDate = "2026-01-02", deleted = true),
         )
 
         assertTrue(dao.getAllReminders().first().none { it.id == "dead" })
