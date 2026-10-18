@@ -21,6 +21,7 @@ class BiometricLockManagerTest {
         BiometricLockManager.setProtectionEnabled(false) // clears lock + screen-off state
         BiometricLockManager.setProtectionEnabled(true)
         BiometricLockManager.onNeedsAuthChanged = { persisted.add(it) }
+        BiometricLockManager.resetLockStateResolvedForTest()
         persisted.clear()
     }
 
@@ -64,6 +65,45 @@ class BiometricLockManagerTest {
     @Test
     fun resumeWithoutScreenOffStaysUnlocked() {
         BiometricLockManager.onAppResume()
+        assertFalse(BiometricLockManager.isAppLocked.value)
+    }
+
+    // ── NCC-012: "unlocked" and "not checked yet" are different answers ───────────────
+
+    @Test
+    fun lockStateIsUnknownBeforeAnyoneChecks() {
+        // The ambiguity the bug depended on: isAppLocked reads false, but nobody has
+        // established that the app is unlocked - the session status takes seconds to
+        // resolve and MainActivity renders immediately.
+        assertFalse(BiometricLockManager.lockStateResolved.value)
+        assertFalse(BiometricLockManager.isAppLocked.value)
+    }
+
+    @Test
+    fun lockingBeforeResolutionDoesNotResolveTheState() {
+        // NeoChildApp re-arms from the persisted needsAuth flag before any UI renders. That
+        // makes the app locked but says nothing about whether the app is safe to show - only
+        // MainActivity.checkAppLock, after the session resolves, may resolve the state.
+        BiometricLockManager.lock()
+        assertTrue(BiometricLockManager.isAppLocked.value)
+        assertFalse(
+            "lock() must not mark the state resolved - no authentication has happened yet",
+            BiometricLockManager.lockStateResolved.value,
+        )
+    }
+
+    @Test
+    fun unlockingBeforeResolutionDoesNotResolveTheState() {
+        BiometricLockManager.unlockAfterKeystoreVerification()
+        assertFalse(BiometricLockManager.isAppLocked.value)
+        assertFalse(BiometricLockManager.lockStateResolved.value)
+    }
+
+    @Test
+    fun resolvingIsIndependentOfTheLockDecision() {
+        BiometricLockManager.markLockStateResolved()
+        assertTrue(BiometricLockManager.lockStateResolved.value)
+        // Resolving says only that we know. It must not itself unlock a locked app.
         assertFalse(BiometricLockManager.isAppLocked.value)
     }
 }

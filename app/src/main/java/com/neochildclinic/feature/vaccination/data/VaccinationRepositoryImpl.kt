@@ -123,7 +123,9 @@ override val allVaccinations: Flow<List<Vaccination>> =
 
                         val local = vaccinationDao.getVaccinationById(remote.id)
                         if ((local == null || local.isSynced) && remote.id !in pendingVaccinationIds) {
-                            vaccinationDao.insertVaccination(remote.copy(isSynced = true))
+                            // Upsert: REPLACE would delete the existing visit and cascade away
+                            // its vaccination_items and consultations.
+                            vaccinationDao.upsertVaccination(remote.copy(isSynced = true))
                             imported++
                         }
                     }
@@ -298,7 +300,10 @@ override val allVaccinations: Flow<List<Vaccination>> =
             // writes nothing and queues nothing.
             val parentChanged = existing == null || itemPlan.anyChange || businessDiffers(existing, entity)
             if (parentChanged) {
-                vaccinationDao.insertVaccination(entity)
+                // Upsert, not insertVaccination: REPLACE deletes the parent row, which
+                // cascades away its vaccination_items and consultations - the relationships
+                // this branch says it keeps.
+                vaccinationDao.upsertVaccination(entity)
                 syncRepository.enqueue(
                     entityName = "VACCINATION",
                     entityId = vaccination.id,

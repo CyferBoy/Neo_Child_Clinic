@@ -71,7 +71,7 @@ before dropping columns. Anything similar needs a release note, not just a code 
 - [ ] New migration added to `supabase/migrations/` with a **lexically sortable** timestamp
 - [ ] ⚠️ Timestamp prefix sorts correctly — `20261013120000` sorts **after** `20261013_profiles`
       because `_` > digits. Rename to `20261013000000_profiles…` style
-- [ ] Migration wrapped in `begin; … commit;` — ⚠️ 17 of 21 are currently bare DDL
+- [ ] Migration wrapped in `begin; … commit;` — ⚠️ 7 of 22 are currently bare DDL
 - [ ] Migration is **idempotent** (`if exists`, `if not exists`, `to_regclass` guards)
 - [ ] Any `SECURITY DEFINER` function sets `search_path`
 - [ ] Existing triggers dropped before a replacement is installed — ⚠️ see [[#ncc-003]] NCC-003
@@ -163,6 +163,18 @@ select count(*) from public.api_write_rate_limits;
 
 - [ ] Row count is bounded, not growing one row per user per minute forever — ⚠️
       [[#nsc-012]] NSC-012
+
+### Column types the app writes strings into
+
+```sql
+select column_name, data_type from information_schema.columns
+where table_name='vaccine_batches' and column_name='expiry_date';
+```
+
+- [ ] `expiry_date` is `text`, not `date` — ⚠️ [[#ncc-026]] NCC-026. The app stores the
+      date picker's display format (`d MMM yyyy`, e.g. `5 Jan 2026`) and uploads it as-is,
+      with no ISO conversion. `vaccine_batches` has no DDL in the migrations, so this cannot
+      be settled from the repository. A `date` here means every batch insert is rejected.
 
 ## 6. Data safety
 

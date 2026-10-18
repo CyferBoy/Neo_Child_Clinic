@@ -112,7 +112,9 @@ class PatientRepositoryImpl @Inject constructor(
                     val existingByClinicId = patientDao.getPatientByClinicId(localClinicId)
                     if (existingByClinicId != null && existingByClinicId.id != entity.id) {
                         val resolvedId = localClinicId + "-CONFLICT-" + entity.id.take(4)
-                        patientDao.insertPatient(entity.copy(
+                        // Upsert, not insertPatient: this row can already exist (same remote id
+                        // pulled again) and a REPLACE would delete it and cascade its children.
+                        patientDao.upsertPatient(entity.copy(
                             patientClinicId = resolvedId,
                             updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
                             isSynced = true
@@ -122,7 +124,9 @@ class PatientRepositoryImpl @Inject constructor(
                 }
 
                 if ((existingLocal == null || existingLocal.isSynced) && entity.id !in pendingPatientIds) {
-                    patientDao.insertPatient(entity.copy(
+                    // Upsert: REPLACE would delete this patient row and cascade away every
+                    // visit/item/consultation/reminder/note under it.
+                    patientDao.upsertPatient(entity.copy(
                         patientClinicId = localClinicId,
                         updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
                         isSynced = true
@@ -165,7 +169,7 @@ class PatientRepositoryImpl @Inject constructor(
                 updatedAt = patient.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
                 isSynced = false
             )
-            if (isUpdate) patientDao.insertPatient(built) else patientDao.insertPatientStrict(built)
+            if (isUpdate) patientDao.upsertPatient(built) else patientDao.insertPatientStrict(built)
             // Enqueue inside the same transaction as the write (docs/SYNC.md: entity
             // writes and enqueue commit together - no partial state). Follows
             // VaccinationRepositoryImpl.addVaccination's pattern.

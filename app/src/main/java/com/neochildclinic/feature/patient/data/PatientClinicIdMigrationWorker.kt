@@ -57,7 +57,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                         patientClinicId = clinicId,
                         isSynced = false
                     )
-                    patientDao.insertPatient(updatedPatient)
+                    patientDao.upsertPatient(updatedPatient)
                     
                     // Queue for cloud sync
                     syncRepository.enqueue(

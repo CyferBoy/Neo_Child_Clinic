@@ -95,13 +95,30 @@ interface DueReminderDao {
     @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND type = :type ORDER BY dueDate ASC")
     fun getUpcomingVaccinationsByType(type: String): Flow<List<ReminderEntity>>
 
-    // Brand drill-down. nxt_vaccine_id is a comma-joined TEXT column, so there is no join
-    // table to filter against - the id must be matched as a whole delimited element.
-    // The surrounding commas are what make this exact rather than a substring match:
-    // ',a1b,' matches 'a1' and 'a1b' but never 'a1b2'. COALESCE covers rows written before
-    // the column existed (NULL/empty), which cannot match any id and so are excluded -
-    // the same outcome calculateUpcomingVaccineNeeds produced for those rows.
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND (',' || COALESCE(nxt_vaccine_id, '') || ',') LIKE '%,' || :vaccineId || ',%' ORDER BY dueDate ASC")
+    // Brand drill-down. nxt_vaccine_id is NOT comma-joined - the List<String>? TypeConverter
+    // writes it as JSON (`["vac-a"]`, or `["vac-a","vac-b"]`), so the old comma formula
+    // (',' || nxt_vaccine_id || ',') LIKE '%,vac-a,%' could never match anything and this query
+    // returned 0 rows for every brand. The entity comment claiming "the comma-separated
+    // convention already used for list-like columns elsewhere" describes
+    // patient_visits.vaccine_ids, which is a plain TEXT column joined with joinToString - not
+    // this one. The androidTest suite found it the first time it ever ran.
+    //
+    // Matching is done on the JSON text itself: the needle is the id wrapped in its own quotes,
+    // so '"vac-a"' is found inside ["vac-a"] and inside ["vac-b","vac-a"], but never inside
+    // ["vac-a2"] - the closing quote has to be there. That is exact without needing delimiters.
+    //
+    // instr() rather than LIKE because the id becomes part of the pattern: a '%' or '_' in an id
+    // would be a wildcard under LIKE, but instr() has no pattern semantics at all. It is also a
+    // plain scalar function, so Room generates the cursor normally.
+    //
+    // SQLite's own json_each() would be the more literal expression of this, but Room cannot
+    // resolve a table-valued function: it fails at runtime with "There is no table with name
+    // json_each". It parses fine, so this only shows up when the query actually runs - which is
+    // why androidTest caught it and compilation did not.
+    //
+    // NULL needs no special case (instr(NULL, x) is NULL, and NULL > 0 is not true). A row still
+    // holding the old comma format simply fails to match, rather than raising.
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND reminderEnabled = 1 AND category = 'VACCINATION' AND is_deleted = 0 AND instr(COALESCE(nxt_vaccine_id, ''), '\"' || :vaccineId || '\"') > 0 ORDER BY dueDate ASC")
     fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<ReminderEntity>>
 
     // Aggregate form of the same predicate, used by the Upcoming statistics section so the

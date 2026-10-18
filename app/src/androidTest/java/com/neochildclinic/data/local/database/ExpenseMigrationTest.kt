@@ -5,6 +5,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
@@ -28,6 +30,10 @@ import java.io.IOException
  * It is currently @Ignore'd: only 33.json was ever exported, so MigrationTestHelper cannot
  * find the v22/v23 schemas it validates against. androidTest is not part of the default
  * test run, so this reported green without ever executing.
+ *
+ * Uses JUnit's assertTrue/assertEquals rather than Kotlin's `assert`, which is a no-op unless
+ * the JVM runs with `-ea` - impossible for a device test - so every assertion here would have
+ * been decorative the moment the @Ignore came off.
  */
 @RunWith(AndroidJUnit4::class)
 class ExpenseMigrationTest {
@@ -92,8 +98,8 @@ class ExpenseMigrationTest {
 
         // Pre-existing data survived (non-destructive).
         val patientCursor = dbAt23.query("SELECT name FROM patients WHERE id = 'patient-1'")
-        assert(patientCursor.moveToFirst())
-        assert(patientCursor.getString(0) == "Existing Patient")
+        assertTrue(patientCursor.moveToFirst())
+        assertEquals("Existing Patient", patientCursor.getString(0))
         patientCursor.close()
 
         // New table exists and accepts a row matching ExpenseEntity's shape.
@@ -109,9 +115,9 @@ class ExpenseMigrationTest {
             )"""
         )
         val expenseCursor = dbAt23.query("SELECT amountPaise, isDeleted FROM expenses WHERE id = 'expense-1'")
-        assert(expenseCursor.moveToFirst())
-        assert(expenseCursor.getLong(0) == 5000000L)
-        assert(expenseCursor.getInt(1) == 0)
+        assertTrue(expenseCursor.moveToFirst())
+        assertEquals(5000000L, expenseCursor.getLong(0))
+        assertEquals(0, expenseCursor.getInt(1))
         expenseCursor.close()
 
         // Indexes required for filtered queries (task section 15) were created.
@@ -121,9 +127,9 @@ class ExpenseMigrationTest {
             indexNames.add(indexCursor.getString(1))
         }
         indexCursor.close()
-        assert(indexNames.contains("index_expenses_expenseDate"))
-        assert(indexNames.contains("index_expenses_category"))
-        assert(indexNames.contains("index_expenses_isDeleted"))
+        assertTrue(indexNames.contains("index_expenses_expenseDate"))
+        assertTrue(indexNames.contains("index_expenses_category"))
+        assertTrue(indexNames.contains("index_expenses_isDeleted"))
 
         dbAt23.close()
     }

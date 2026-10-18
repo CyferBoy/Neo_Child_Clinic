@@ -78,6 +78,19 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      # Kotlin's `assert` compiles against `_Assertions.ENABLED`, which is
+      # `desiredAssertionStatus()` - false unless the JVM is started with `-ea`, and an
+      # instrumentation process cannot be. An `assert` in androidTest is therefore a no-op that
+      # cannot fail, whatever the code under test does. 14 of them were found this way, in
+      # DateGivenIndexMigrationTest (live, reported green) and ExpenseMigrationTest. Runs before
+      # the emulator so it costs seconds, not minutes.
+      - name: Reject Kotlin assert() in androidTest
+        run: |
+          if grep -rnE "(^|[^A-Za-z_.])assert\(" app/src/androidTest --include=*.kt; then
+            echo "::error::Kotlin assert() is a no-op in androidTest (needs -ea, which a device test cannot set). Use JUnit assertTrue/assertEquals/assertNotNull instead."
+            exit 1
+          fi
+
       # `rc=$?` then `exit $rc`: the reporter runs even when Gradle fails (which is the only
       # time it has anything to say) and cannot swallow the failure. Emitting into this
       # step's own log rather than a separate one, because "There were failing tests" was
@@ -91,8 +104,11 @@ jobs:
           script: ./gradlew :app:connectedDebugAndroidTest --no-daemon; rc=$?; python3 .github/scripts/androidtest-failures.py; exit $rc
           disable-animations: true
 
+      # `if: always()` rather than `if: failure()`: a report is worth having whenever the job is
+      # being investigated, and the interesting case here was a *green* job whose XML still
+      # contained a failure node. With `if: failure()` that evidence is discarded.
       - name: Upload test reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: instrumented-test-reports

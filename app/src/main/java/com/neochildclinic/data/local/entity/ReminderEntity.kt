@@ -51,18 +51,18 @@ data class ReminderEntity(
     val type: String = "",
 
     // Vaccine catalog IDs for the vaccine(s) selected alongside Type
-    // (optional -- may be blank/null if no vaccine was selected). Kept individually so
-    // they remain available for future editing and sync, matching the comma-separated
-    // convention already used for list-like columns elsewhere (e.g. patient_visits.vaccine_ids).
+    // (optional -- may be blank/null if no vaccine was selected).
+    //
+    // Stored as JSON by Converters.fromList (`["vac-a"]`), NOT comma-joined. The comment here
+    // used to claim a comma-separated convention borrowed from patient_visits.vaccine_ids;
+    // DueReminderDao.getUpcomingVaccinationsByVaccineId was written against that claim and
+    // silently matched nothing for every brand. Query this column as JSON (see that query).
     @ColumnInfo(name = "nxt_vaccine_id")
     val nxtVaccineId: List<String>? = null,
     
     // Local-only or derived fields
     @Transient val vaccinationSource: String? = null,
-    @Transient val reminderDate: String? = null,
     @Transient val source: String? = null,
-    @Transient val lastReminderTime: Long = 0,
-    @Transient val notificationSent: Boolean = false,
     
     val notes: String? = null,
     val completionDate: String? = null, // Changed to String? for TEXT compatibility
@@ -107,10 +107,7 @@ fun ReminderEntity.toDomain() = Reminder(
     deletedAt = deletedAt,
     deletedBy = deletedBy,
     vaccinationSource = vaccinationSource,
-    reminderDate = reminderDate,
     source = source,
-    lastReminderTime = lastReminderTime,
-    notificationSent = notificationSent
 )
 
 /**

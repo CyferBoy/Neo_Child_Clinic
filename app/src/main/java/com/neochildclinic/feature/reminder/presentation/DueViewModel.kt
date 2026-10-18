@@ -139,10 +139,10 @@ class DueViewModel @Inject constructor(
         }
     }
 
-    fun rescheduleVaccination(vaccination: Vaccination, newDate: String, reminderDate: String, reason: String) {
+    fun rescheduleVaccination(vaccination: Vaccination, newDate: String, reason: String) {
         viewModelScope.launch {
             remindersFor(vaccination).forEach { reminder ->
-                reminderRepository.reschedule(reminder, newDate, reminderDate, reason, currentUserEmail)
+                reminderRepository.reschedule(reminder, newDate, reason, currentUserEmail)
             }
         }
     }

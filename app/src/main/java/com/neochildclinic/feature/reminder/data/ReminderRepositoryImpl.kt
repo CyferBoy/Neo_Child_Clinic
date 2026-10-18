@@ -293,7 +293,7 @@ class ReminderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun reschedule(reminder: Reminder, newDate: String, reminderDate: String, reason: String, performedBy: String) {
+    override suspend fun reschedule(reminder: Reminder, newDate: String, reason: String, performedBy: String) {
         withContext(Dispatchers.IO) {
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run

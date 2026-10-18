@@ -6,6 +6,5 @@ data class ReminderStats(
     val dueTomorrow: Int = 0,
     val overdue: Int = 0,
     val completedToday: Int = 0,
-    val dismissedToday: Int = 0,
-    val notificationsSentToday: Int = 0
+    val dismissedToday: Int = 0
 )

@@ -65,6 +65,17 @@ interface SyncQueueDao {
     @Query("SELECT EXISTS(SELECT 1 FROM sync_queue WHERE entityName = :name AND entityId = :id AND status != 'SYNCED')")
     suspend fun isUnsynced(name: String, id: String): Boolean
 
+    // Same question as [isUnsynced], minus the row currently being uploaded.
+    //
+    // The item in flight is itself SYNCING, not SYNCED, so plain isUnsynced always matched it
+    // and every `!isUnsynced(...)` guard was permanently false - including the remote-newer
+    // self-heal branch in SyncUploader, which could never run (NCC-020). The row being uploaded
+    // says nothing about whether the local edit is already safely on the server; it is about to
+    // be. What actually matters is whether some OTHER unacknowledged edit for the same entity is
+    // still queued.
+    @Query("SELECT EXISTS(SELECT 1 FROM sync_queue WHERE entityName = :name AND entityId = :id AND status != 'SYNCED' AND queueId != :queueId)")
+    suspend fun isUnsyncedExcluding(name: String, id: String, queueId: Long): Boolean
+
     // Bulk form of [isUnsynced] for pull/reconciliation loops. Calling isUnsynced once per
     // remote row turns a 5,000-row refresh into 5,000 queries (15,000 in refreshPatients,
     // which also looks the patient up twice per row). One query per entity name per refresh

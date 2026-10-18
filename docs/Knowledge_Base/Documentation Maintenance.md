@@ -53,6 +53,11 @@ tests logic well and does not test wiring at all. That is a decision note earnin
 
 ## Recording and verifying a bug
 
+Start from a template — [[Templates/Bug Report Template]] for a general defect, or
+[[Templates/Inventory Deduction Bug]] for a stock/deduction-ledger issue, where the
+reproduction has to pin down which batch, which direction the quantity moved, and what the
+ledger claimed afterwards.
+
 1. **Reproduce it, or prove it by reading the cited code.** If neither, it is a hypothesis
    → [[Quality/Hypotheses]].
 2. Take the next free ID in [[Quality/Bug Register]] — `NCC-nnn`, `NSC-nnn`, `HYP-nnn`.
@@ -110,6 +115,28 @@ invalid graph. Render the note in Obsidian to be sure.
 ⚠️ Brackets inside code fences and inline `` `code` `` spans are excluded from link
 scanning, because Obsidian does not render them as links. Do not rely on that to hide a
 real broken link.
+
+### ⚠️ Not checked: heading anchors
+
+The validator resolves **note names only**. It does not resolve the fragment in
+`[[Note#Heading]]` or `[[#Heading]]`, so a link can name the right note and still go nowhere.
+
+This is not hypothetical. `Quality/Bug Register.md` links its 40-odd index and detail rows to
+short anchors — `[[#ncc-026]]`, `[[#ncc-041]]` — while every card is headed `## NCC-026 — …`,
+i.e. with its full title. Obsidian's rule is that the fragment is *the heading text*
+([Internal links](https://obsidian.md/help/links)) and it does not prefix-match, so none of those
+anchors resolve. They read as navigation and are inert.
+
+Two ways out, neither taken yet:
+
+- **Block references.** Put `^ncc-026` on its own line under each card and link `[[#^ncc-026]]`.
+  Stable under retitling, which is the usual reason heading links rot. Requires touching every
+  card plus the index — worth doing in one pass, not piecemeal.
+- **Full heading text.** `[[#NCC-026 — isExpired fails open on an unparseable date]]`. No card
+  edits, but the link breaks whenever a heading is reworded.
+
+Until then, prefer a plain `[[Note Name]]` link plus the bug id in prose — that always resolves.
+New links added in this vault should not use short anchors.
 
 ## Mermaid conventions used here
 

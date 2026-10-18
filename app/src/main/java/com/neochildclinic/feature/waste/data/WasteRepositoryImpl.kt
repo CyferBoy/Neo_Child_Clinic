@@ -61,7 +61,7 @@ class WasteRepositoryImpl @Inject constructor(
                 priority = SyncPriority.MEDIUM
             )
 
-            auditLogger.log(
+            auditLogger.recordLog(
                 module = "INVENTORY",
                 entityType = "WASTE",
                 entityId = record.id,
@@ -99,7 +99,7 @@ class WasteRepositoryImpl @Inject constructor(
                 updatedAt = newRecord.updatedAt.ifEmpty { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
             ))
 
-            auditLogger.log(
+            auditLogger.recordLog(
                 module = "INVENTORY",
                 entityType = "WASTE",
                 entityId = newRecord.id,

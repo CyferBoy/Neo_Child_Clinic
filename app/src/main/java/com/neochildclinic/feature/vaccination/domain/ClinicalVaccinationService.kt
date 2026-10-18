@@ -34,10 +34,26 @@ class ClinicalVaccinationService @Inject constructor(
     private val syncRepository: SyncRepository,
     private val inventoryRepository: com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 ) {
+    /**
+     * [reminderSpecs] are the visit's next-vaccination reminders. They are written INSIDE
+     * this transaction, not by the caller afterwards.
+     *
+     * They used to be written by AddVaccinationViewModel in separate transactions after this
+     * one had already committed the visit AND its stock deduction. A failure there left the
+     * clinic with a saved visit but no reminder, and the UI reported total failure - so staff
+     * pressed Save again. The retry minted a new vaccinationId while reusing the same
+     * `vaccination_items` primary keys, and because that table is
+     * OnConflictStrategy.REPLACE, visit #2's items re-pointed away from visit #1. Net: two
+     * visits, one set of item rows, and two stock deductions (NCC-004).
+     *
+     * The edit path already reconciles reminders inside VaccinationEditEngine's transaction;
+     * this makes create symmetric with it.
+     */
     suspend fun recordVaccination(
         vaccination: Vaccination,
         user: String,
-        isNew: Boolean = true
+        isNew: Boolean = true,
+        reminderSpecs: List<VaccinationEditEngine.ReminderSpec> = emptyList()
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
         transactionRunner.run {
@@ -87,6 +103,21 @@ class ClinicalVaccinationService @Inject constructor(
             // vaccination that already happened must still be saved; inventory gets flagged
             // FAILED/PARTIAL for staff to reconcile manually rather than blocking the visit.
             if (isNew) deductInventoryForNewVaccination(vaccination, user)
+
+            // 5. Next-vaccination reminders, inside the same transaction as the visit and its
+            // stock movement. Either the whole record lands or none of it does.
+            reminderSpecs.forEach { spec ->
+                reminderRepository.saveNextVaccination(
+                    patientId = vaccination.patientId,
+                    originalVisitId = vaccination.id,
+                    type = spec.type,
+                    vaccineNames = spec.vaccineNames,
+                    nxtVaccineId = spec.vaccineIds,
+                    dueDate = spec.dueDate,
+                    notes = spec.notes,
+                    performedBy = user
+                )
+            }
         }
     }
 

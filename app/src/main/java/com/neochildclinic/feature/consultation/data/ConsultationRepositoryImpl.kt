@@ -102,7 +102,9 @@ class ConsultationRepositoryImpl @Inject constructor(
                         visit.totalPaid != updatedEntity.amount
 
                     if (visitChanged) {
-                        vaccinationDao.insertVaccination(
+                        // Upsert: REPLACE would delete the linked visit row and cascade away
+                        // its vaccination_items and consultations.
+                        vaccinationDao.upsertVaccination(
                             visit.copy(
                                 dateGiven = updatedEntity.date,
                                 doctorId = updatedEntity.doctorId,

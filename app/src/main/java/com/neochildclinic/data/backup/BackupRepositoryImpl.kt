@@ -438,7 +438,26 @@ class BackupRepositoryImpl @Inject constructor(
                 if (size > CloudBackupApi.MAX_BACKUP_BYTES) throw BackupException.TooLarge(size, CloudBackupApi.MAX_BACKUP_BYTES)
             }
         }
-        return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        return context.contentResolver.openInputStream(uri)?.use { stream ->
+            // The check above is advisory and cannot be the only guard. Providers commonly
+            // report a null SIZE, and a streaming provider can report a length that does not
+            // match the bytes it actually yields - so a file that under-declares its size was
+            // read unbounded and could exhaust the heap (NCC-037). Bound the read itself and
+            // stop at the ceiling instead of trusting the metadata.
+            val out = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(64 * 1024)
+            var total = 0L
+            while (true) {
+                val read = stream.read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > CloudBackupApi.MAX_BACKUP_BYTES) {
+                    throw BackupException.TooLarge(total, CloudBackupApi.MAX_BACKUP_BYTES)
+                }
+                out.write(buffer, 0, read)
+            }
+            out.toByteArray()
+        }
     }
 
     private suspend fun recordHistory(

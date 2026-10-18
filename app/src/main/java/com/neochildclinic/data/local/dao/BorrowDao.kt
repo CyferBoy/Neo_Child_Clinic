@@ -9,6 +9,11 @@ interface BorrowDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecord(record: BorrowEntity)
 
+    // Pull/conflict-download path. REPLACE would delete the record and cascade away its
+    // borrow_returns. See PullUpsertPreservesChildrenTest.
+    @Upsert
+    suspend fun upsertRecord(record: BorrowEntity)
+
     @Query("SELECT * FROM borrow_records WHERE id = :id LIMIT 1")
     suspend fun getRecordById(id: String): BorrowEntity?
 

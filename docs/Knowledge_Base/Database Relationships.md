@@ -79,8 +79,22 @@ of an implied-but-missing FK.
 | `consultation_todos`, `vaccination_todos` | `patient_id?` | optional by design |
 | `doctor_weekly_slots`, `doctor_slot_exceptions` | `doctorId` | targets `profiles`, server-side only |
 
-🔍 Whether SQLite enforces these at runtime is a framework behaviour (`PRAGMA
-foreign_keys`), not visible in this repository.
+✅ **Room DOES enforce these at runtime in this project.** This was previously recorded as
+🔍 unverified (`PRAGMA foreign_keys` is framework behaviour, not visible in source), and was
+settled empirically on 2026-10-18: the first real execution of `androidTest` in CI failed 17
+tests with `SQLiteConstraintException: FOREIGN KEY constraint failed (code 787)`.
+
+Three consequences worth knowing:
+
+1. **A child insert without its parent row fails.** Instrumented fixtures must seed parents
+   in FK order — `reminders` needs a `patients` row; `vaccination_items` needs
+   `patient_visits`, `vaccines` **and** `vaccine_batches`.
+2. **The tables listed above without a declared FK are genuinely unenforced.** A dangling
+   `finance_transactions.visit_id` or `inventory_deductions.vaccinationId` is accepted by
+   SQLite; only the application's own logic keeps them honest. This raises the stakes on
+   those columns being cleaned up deliberately.
+3. **It is a real runtime constraint, not a lint suggestion** — an entity that declares an
+   FK it cannot satisfy is a production crash, not a warning.
 
 ## The clinical core
 

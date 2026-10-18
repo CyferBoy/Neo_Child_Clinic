@@ -3,6 +3,9 @@ package com.neochildclinic.data.local.dao
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.neochildclinic.data.local.dao.VaccineDao
+import com.neochildclinic.data.local.entity.VaccineEntity
+import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PatientEntity
 import com.neochildclinic.data.local.entity.VaccinationItemEntity
@@ -31,6 +34,7 @@ class PatientVisitPriceQueryTest {
     private lateinit var patientDao: PatientDao
     private lateinit var vaccinationDao: VaccinationDao
     private lateinit var itemDao: VaccinationItemDao
+    private lateinit var vaccineDao: VaccineDao
 
     @Before
     fun setup() {
@@ -41,6 +45,41 @@ class PatientVisitPriceQueryTest {
         patientDao = db.patientDao()
         vaccinationDao = db.vaccinationDao()
         itemDao = db.vaccinationItemDao()
+        vaccineDao = db.vaccineDao()
+    }
+
+    // vaccination_items carries THREE cascading foreign keys - vaccinationId onto
+    // patient_visits, vaccineId onto vaccines, batchId onto vaccine_batches - and Room
+    // enforces foreign keys by default. The item tests below inserted items with no parent
+    // vaccine or batch, so every insert was rejected with SQLITE_CONSTRAINT_FOREIGNKEY
+    // before the @Relation under test ever ran. These tests had never executed: they live
+    // in androidTest, which CI did not run.
+    private fun seedCatalog(names: List<String>) = runBlocking {
+        names.forEach { name ->
+            vaccineDao.insertVaccine(
+                VaccineEntity(
+                    id = "vac-$name",
+                    type = "VACCINE",
+                    brandName = name,
+                    companyName = "Test Co"
+                )
+            )
+            vaccineDao.insertBatch(
+                VaccineBatchEntity(
+                    batchId = "batch-of-$name",
+                    vaccineId = "vac-$name",
+                    batchNumber = "LOT-$name",
+                    manufacturer = "Test Co",
+                    purchaseDate = "2026-01-01",
+                    expiryDate = "2027-01-01",
+                    supplier = "Test Co",
+                    purchaseQuantity = 100,
+                    remainingQuantity = 100,
+                    purchaseCost = 1.0,
+                    sellingPrice = 2.0
+                )
+            )
+        }
     }
 
     @After
@@ -68,8 +107,11 @@ class PatientVisitPriceQueryTest {
         vaccinationId = visitId,
         vaccineId = "vac-$name",
         vaccineName = name,
-        batchId = "batch-$id"
+        // Must match a seeded batch; the old value was unique per item and had no parent.
+        batchId = "batch-of-$name"
     )
+
+    private val SEED_NAMES = listOf("VAX-A", "VAX-B", "VAX-C", "VAX-Z")
 
     @Test
     fun missingPrice_flagsPatient_whenAnyVisitIsUnpaid() = runBlocking {
@@ -144,6 +186,7 @@ class PatientVisitPriceQueryTest {
         patientDao.insertPatient(patient("p1"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 100.0, "2026-04-01"))
         vaccinationDao.insertVaccination(visit("v2", "p1", 200.0, "2026-04-02"))
+        seedCatalog(SEED_NAMES)
         itemDao.insertItems(
             listOf(
                 item("i1", "v1", "VAX-A"),
@@ -166,6 +209,7 @@ class PatientVisitPriceQueryTest {
         vaccinationDao.insertVaccination(visit("v1", "p1", 100.0, "2026-04-01"))
         vaccinationDao.insertVaccination(visit("v2", "p1", 100.0, "2026-04-02"))
         vaccinationDao.insertVaccination(visit("v3", "p2", 100.0, "2026-04-03"))
+        seedCatalog(SEED_NAMES)
         itemDao.insertItems(listOf(item("i1", "v1", "VAX-A"), item("i2", "v3", "VAX-Z")))
 
         val rows = vaccinationDao.getVaccinationsForPatientWithItems("p1").first()

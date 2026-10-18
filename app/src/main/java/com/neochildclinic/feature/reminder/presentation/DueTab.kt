@@ -34,7 +34,7 @@ fun DueTab(
     onSearchQueryChanged: (String) -> Unit = {},
     onComplete: (Vaccination) -> Unit = {},
     onDismissReminder: (Vaccination, String) -> Unit = { _, _ -> },
-    onReschedule: (Vaccination, String, String, String) -> Unit = { _, _, _, _ -> },
+    onReschedule: (Vaccination, String, String) -> Unit = { _, _, _ -> },
     onNavigateToCompleted: () -> Unit = {},
     onNavigateToDismissed: () -> Unit = {},
     onPatientClick: (String) -> Unit = {}
@@ -162,8 +162,8 @@ fun DueTab(
     if (showReschedulePicker && selectedVaccination != null) {
         RescheduleDialog(
             onDismiss = { showReschedulePicker = false },
-            onConfirm = { newDate, reminderDate, reason ->
-                selectedVaccination?.let { onReschedule(it, newDate, reminderDate, reason) }
+            onConfirm = { newDate, reason ->
+                selectedVaccination?.let { onReschedule(it, newDate, reason) }
                 showReschedulePicker = false
             }
         )
@@ -200,7 +200,7 @@ private fun DueTabPreview() {
             stats = ReminderStats(completedToday = 12, dismissedToday = 3),
             onComplete = {},
             onDismissReminder = { _, _ -> },
-            onReschedule = { _, _, _, _ -> },
+            onReschedule = { _, _, _ -> },
         )
     }
 }

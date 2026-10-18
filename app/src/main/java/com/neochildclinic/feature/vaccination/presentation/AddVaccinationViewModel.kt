@@ -682,20 +682,17 @@ class AddVaccinationViewModel @Inject constructor(
                     )
                 } else {
                     // New vaccination keeps the existing creation workflow.
-                    clinicalService.recordVaccination(vaccination, user, isNew = true)
-
-                    reminderSpecs.forEach { spec ->
-                        reminderRepository.saveNextVaccination(
-                            patientId = patient.id,
-                            originalVisitId = vaccinationId,
-                            type = spec.type,
-                            vaccineNames = spec.vaccineNames,
-                            nxtVaccineId = spec.vaccineIds,
-                            dueDate = spec.dueDate,
-                            notes = spec.notes,
-                            performedBy = user
-                        )
-                    }
+                    // Reminders go in with the visit, inside the same transaction. Writing
+                    // them here afterwards meant a reminder failure rolled back nothing:
+                    // the visit and its stock deduction were already committed, the UI said
+                    // "failed", and a retry produced a second visit whose items REPLACED the
+                    // first's - two visits, one item set, two stock deductions (NCC-004).
+                    clinicalService.recordVaccination(
+                        vaccination = vaccination,
+                        user = user,
+                        isNew = true,
+                        reminderSpecs = reminderSpecs
+                    )
                 }
 
                 _uiState.update { it.copy(isLoading = false, saveSuccess = true) }

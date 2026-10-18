@@ -27,8 +27,9 @@
 against a hand-built schema.
 
 ✅ **That gap is closed.** Commit `f8e5d8a` ("chore: track migrations and full project
-documentation") added the folder, and all 21 `.sql` migrations plus the CSV catalog are
-tracked today:
+documentation") added the folder, and all **22** `.sql` migrations plus the CSV catalog are
+tracked today (`98f8172` added the 22nd, `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`,
+when `origin/main` was fast-forwarded into this branch):
 
 ```
 git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 21
@@ -77,7 +78,7 @@ order. Rename to `20261013000000_profiles_…`.
 
 ### Files with no `begin`/`commit`
 
-6 of 21 are bare DDL with no transaction wrapper. A failure mid-file leaves the database
+7 of 22 are bare DDL with no transaction wrapper. A failure mid-file leaves the database
 half-migrated with no rollback. Riskiest: `20260909_expenses.sql` and
 `20260929001000_write_rate_limit.sql`.
 

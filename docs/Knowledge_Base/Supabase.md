@@ -8,8 +8,8 @@
 ```
 supabase/
 ├── config.toml                       425+ lines; JWT config per function
-├── migrations/                       21 .sql + 1 stale CSV catalog
-│                                    ✅ all 21 tracked in git (fixed in f8e5d8a)
+├── migrations/                       22 .sql + 1 stale CSV catalog
+│                                    ✅ all 22 tracked in git (fixed in f8e5d8a)
 ├── functions/
 │   ├── manage-staff/index.ts         257 lines — the only writer of `profiles`
 │   └── notify-update/index.ts        166 lines — FCM fan-out

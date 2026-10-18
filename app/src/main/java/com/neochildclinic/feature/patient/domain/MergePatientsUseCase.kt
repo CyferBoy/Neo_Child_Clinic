@@ -44,7 +44,7 @@ class MergePatientsUseCase @Inject constructor(
                 inventoryRepository.transferPatientTransactions(dupId, masterId)
 
                 // 4. Create an audit log for the merge
-                auditLogger.log(
+                auditLogger.recordLog(
                     module = "PATIENT",
                     entityType = "PATIENT",
                     entityId = masterId,

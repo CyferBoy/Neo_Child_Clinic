@@ -25,6 +25,12 @@ class AuditLogger @Inject constructor(
 
     /**
      * Centralized logging for all business modules.
+     *
+     * ⚠️ Fire-and-forget: this writes on its own scope and does **not** join the caller's
+     * transaction. Called inside `transactionRunner.run`, the audit row is committed
+     * independently, so it survives a rollback and records an action that never happened —
+     * and on a patient merge, claims two records were merged when they were not (NCC-022).
+     * Inside a transaction, use [recordLog].
      */
     fun log(
         module: String,

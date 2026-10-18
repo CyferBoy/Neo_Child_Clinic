@@ -97,6 +97,7 @@ class MainActivity : FragmentActivity() {
 
             NeoChildTheme(darkTheme = darkTheme) {
                 val isLocked by BiometricLockManager.isAppLocked.collectAsState()
+                val lockStateResolved by BiometricLockManager.lockStateResolved.collectAsState()
                 val navController = rememberNavController()
                 val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
                 val startupPopup by appUpdateViewModel.startupPopup.collectAsState()
@@ -104,8 +105,28 @@ class MainActivity : FragmentActivity() {
                 val downloadProgress by appUpdateViewModel.downloadProgress.collectAsState()
                 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation(navController = navController, appUpdateViewModel = appUpdateViewModel)
-                    
+                    // The navigation tree - and every ViewModel scoped to it - is only composed
+                    // once the app is known to be unlocked. Previously it was always composed and
+                    // LockScreen was drawn on top, so a locked app still had every screen's
+                    // ViewModel alive and its patient rows in memory behind an overlay (NCC-012).
+                    // navController stays outside the gate: NavController saves its own back
+                    // stack, so unlocking returns the user where they were.
+                    if (lockStateResolved && !isLocked) {
+                        AppNavigation(navController = navController, appUpdateViewModel = appUpdateViewModel)
+                    }
+
+                    // Unknown state renders neither the app nor the lock screen - deciding takes
+                    // as long as the session status takes to resolve. A progress indicator is
+                    // honest here; patient data is not an option.
+                    if (!lockStateResolved) {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator()
+                        }
+                    }
+
                     if (isLocked) {
                         LockScreen(
                             onAuthenticate = { authenticateWithBiometrics() },
@@ -193,33 +214,40 @@ class MainActivity : FragmentActivity() {
 
     private fun checkAppLock() {
         lifecycleScope.launch {
-            val status = authViewModel.awaitResolvedSessionStatus()
-            // Same offline fallback as Navigation.kt's start-destination resolution: a
-            // timed-out (null) status almost always means no network at launch, not "not
-            // logged in" - and app-lock exists specifically to protect an already logged-in
-            // user's local data, so it should still apply in that case rather than being
-            // silently skipped.
-            val isAuthenticated = status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated ||
-                (status == null && authViewModel.currentUser != null)
-            if (!isAuthenticated) return@launch
+            try {
+                val status = authViewModel.awaitResolvedSessionStatus()
+                // Same offline fallback as Navigation.kt's start-destination resolution: a
+                // timed-out (null) status almost always means no network at launch, not "not
+                // logged in" - and app-lock exists specifically to protect an already logged-in
+                // user's local data, so it should still apply in that case rather than being
+                // silently skipped.
+                val isAuthenticated = status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated ||
+                    (status == null && authViewModel.currentUser != null)
+                if (!isAuthenticated) return@launch
 
-            val settings = settingsManager.settingsFlow.first()
-            BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)
-            if (!settings.biometricLockEnabled) {
-                BiometricLockManager.unlockBecauseProtectionIsDisabled()
-                return@launch
-            }
+                val settings = settingsManager.settingsFlow.first()
+                BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)
+                if (!settings.biometricLockEnabled) {
+                    BiometricLockManager.unlockBecauseProtectionIsDisabled()
+                    return@launch
+                }
 
-            val currentTime = System.currentTimeMillis()
-            val lastOpen = settings.lastAppOpenTimestamp
-            val thresholdMillis = settings.inactivityDaysThreshold * 24L * 60L * 60L * 1000L
+                val currentTime = System.currentTimeMillis()
+                val lastOpen = settings.lastAppOpenTimestamp
+                val thresholdMillis = settings.inactivityDaysThreshold * 24L * 60L * 60L * 1000L
             
-            val isLocked = BiometricLockManager.isAppLocked.value
-            // needsAuth survives process death (set on screen-off/lock, cleared only by a
-            // successful unlock), unlike the in-memory state above.
-            if (isLocked || settings.needsAuth || settings.authOnEveryOpen || (currentTime - lastOpen > thresholdMillis)) {
-                BiometricLockManager.lock()
-                authenticateWithBiometrics()
+                val isLocked = BiometricLockManager.isAppLocked.value
+                // needsAuth survives process death (set on screen-off/lock, cleared only by a
+                // successful unlock), unlike the in-memory state above.
+                if (isLocked || settings.needsAuth || settings.authOnEveryOpen || (currentTime - lastOpen > thresholdMillis)) {
+                    BiometricLockManager.lock()
+                    authenticateWithBiometrics()
+                }
+            } finally {
+                // Reached on every path, including the not-authenticated early return.
+                // Without this the UI would sit on the progress indicator forever for
+                // logged-out users.
+                BiometricLockManager.markLockStateResolved()
             }
         }
     }

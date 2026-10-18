@@ -3,6 +3,8 @@ package com.neochildclinic.data.local.dao
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.neochildclinic.data.local.dao.PatientDao
+import com.neochildclinic.data.local.entity.PatientEntity
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.ReminderEntity
 import kotlinx.coroutines.flow.first
@@ -28,6 +30,7 @@ class UpcomingVaccinationDaoTest {
 
     private lateinit var db: AppDatabase
     private lateinit var dao: DueReminderDao
+    private lateinit var patientDao: PatientDao
 
     @Before
     fun setup() {
@@ -36,6 +39,25 @@ class UpcomingVaccinationDaoTest {
             AppDatabase::class.java
         ).allowMainThreadQueries().build()
         dao = db.dueReminderDao()
+        patientDao = db.patientDao()
+    }
+
+    // reminders.patientId has a CASCADE foreign key onto patients, and Room enforces
+    // foreign keys by default. These tests were written before anything executed androidTest
+    // in CI, so every insert here failed with SQLITE_CONSTRAINT_FOREIGNKEY before the
+    // query under test ever ran. Seed the parent row for each reminder first.
+    private fun seedPatients(vararg ids: String) = runBlocking {
+        ids.forEach {
+            patientDao.insertPatient(
+                PatientEntity(
+                    id = it,
+                    name = "Patient $it",
+                    phone = "0000000000",
+                    dob = "2020-01-01",
+                    gender = "MALE",
+                )
+            )
+        }
     }
 
     @After
@@ -68,6 +90,8 @@ class UpcomingVaccinationDaoTest {
     )
 
     private fun seed(vararg rows: ReminderEntity) = runBlocking {
+        // Parents first: every reminder's patientId must resolve.
+        seedPatients(*rows.map { it.patientId }.distinct().toTypedArray())
         rows.forEach { dao.insertReminder(it) }
     }
 

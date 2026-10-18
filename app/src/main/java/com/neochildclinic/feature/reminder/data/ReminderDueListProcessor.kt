@@ -111,8 +111,7 @@ object ReminderDueListProcessor {
                 cat is DateCategory.Overdue
             },
             completedToday = reminders.count { it.status == "COMPLETED" && com.neochildclinic.core.common.PatientUtils.isoToLong(it.completionDate) >= todayStart },
-            dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.common.PatientUtils.isoToLong(it.dismissalDate) >= todayStart },
-            notificationsSentToday = reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }
+            dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.common.PatientUtils.isoToLong(it.dismissalDate) >= todayStart }
         )
     }
 }

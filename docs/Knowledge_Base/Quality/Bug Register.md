@@ -21,6 +21,19 @@ were each marked fixed in `docs/AUDIT_REPORT_2026-10-16.md`; re-verification fou
 neighbouring path still producing the original symptom. See
 [[Quality/Audit Reconciliation]].
 
+⚠️ **What "Fixed" means here, and where it is weakest.** The vocabulary above requires
+verification evidence. This register does not carry that evidence uniformly, and the
+difference matters when deciding what is safe to regress:
+
+| Evidence class | Meaning | Items |
+|---|---|---|
+| **Test-pinned** | a named test fails without the fix and passes with it | [[#ncc-001]], [[#ncc-006]] (🔍 instrumented only), [[#ncc-009]] ⚠️ test still missing, [[#ncc-017]], [[#ncc-019]] |
+| **Source-verified** | re-read at `e05f7c0` and confirmed fixed, **no regression test** | [[#ncc-002]], [[#ncc-003]], [[#ncc-005]], [[#ncc-008]], [[#ncc-013]], [[#ncc-014]], [[#ncc-015]], [[#ncc-016]], [[#ncc-018]], [[#ncc-035]], [[#ncc-040]] |
+| **Needs a live DB** | cannot be settled by reading source | [[#ncc-002]], [[#ncc-003]] |
+
+⚠️ The repository contains **zero** `*ViewModelTest.kt` files, which is why everything in the
+UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
+
 ## Severity scale
 
 | Level | Definition |
@@ -37,43 +50,45 @@ neighbouring path still producing the original symptom. See
 | [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
 | [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
-| [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | Open | Vaccination |
+| [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
 | [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-006]] NCC-006 | Soft-delete filter missing on reminder queries | S1 | ✅ **Fixed** | Room |
-| [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | Open | Supabase |
+| [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | ✅ Fixed | Supabase |
 | [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
 | [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
 | [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | ✅ **Fixed** | Reminders |
 | [[#ncc-011]] NCC-011 | Auto-backup enable/disable needs a process restart | S2 | ✅ **Fixed** | Backup |
-| [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | Open | Security UX |
+| [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | ✅ Fixed | Security UX |
 | [[#ncc-013]] NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | ✅ **Fixed** | UI |
 | [[#ncc-014]] NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | ✅ **Fixed** | UI |
 | [[#ncc-015]] NCC-015 | `savePatient` swallows its own validation exception | S2 | ✅ **Fixed** | UI |
 | [[#ncc-016]] NCC-016 | `isLoading` can never clear | S2 | ✅ **Fixed** | UI |
 | [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
 | [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
-| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ **Fixed** | Sync |
-| [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | Open | Sync |
-| [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | Open | Inventory |
-| [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | Open | Logging |
-| [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | Open | Sync |
-| [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | Open | Sync |
+| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ Fixed | Sync |
+| [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
+| [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | ✅ Fixed | Inventory |
+| [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
+| [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | ⚠️ Needs decision — systemic, see note | Sync |
+| [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
 | [[#ncc-025]] NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
-| [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | Open | Inventory |
+| [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
 | [[#ncc-027]] NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
 | [[#ncc-028]] NCC-028 | `consultations.visitId` defaults to `""` — an FK-violating value | S4 | Open | Room |
 | [[#ncc-029]] NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | Open | Room |
 | [[#ncc-030]] NCC-030 | `VaccineDao` audit-count guards query the wrong column | S4 | Open | Inventory |
 | [[#ncc-031]] NCC-031 | `FinanceDao` sorts on an expression no index can serve | S4 | Open | Room |
-| [[#ncc-032]] NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | Open | Reminders |
-| [[#ncc-033]] NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | Open | Reminders |
-| [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | Open | Reminders |
-| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ **Fixed** | Reminders |
+| [[#ncc-032]] NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | ✅ Fixed | Reminders |
+| [[#ncc-033]] NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | ✅ Fixed | Reminders |
+| [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | ⚠️ Not a bug | Reminders |
+| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ Fixed | Reminders |
 | [[#ncc-036]] NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
-| [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | Open | Backup |
-| [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | Open | Sync |
+| [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | ✅ Fixed | Backup |
+| [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | ⚠️ Needs decision | Sync |
 | [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
-| [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ **Fixed** | Inventory |
+| [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
+| [[#ncc-041]] NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
+| [[#ncc-042]] NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -201,7 +216,7 @@ where tgrelid = 'public.inventory_transactions'::regclass and not tgisinternal;
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S1 Critical |
 | **Files** | `feature/vaccination/presentation/AddVaccinationViewModel.kt:685-698`, `:554`; `feature/vaccination/domain/EditReconciler.kt:50-53`; `data/local/dao/VaccinationItemDao.kt:12-13` |
 | **Impact** | Retry produces a second visit, re-points the first's item row, and deducts stock twice. |
 
@@ -215,9 +230,19 @@ regenerated (`:554`) but item ids come from stable UI row ids, so `EditReconcile
 **Reproduction.** Save a visit with a next-vaccination reminder; force `saveNextVaccination`
 to throw (e.g. empty DB constraint); tap Save again.
 
-**Fix.** Move the reminder loop inside `recordVaccination`'s transaction.
-**Regression test.** Inject a repository whose `saveNextVaccination` throws; assert no
-`patient_visits` row exists afterwards.
+**Fix.** `ClinicalVaccinationService.recordVaccination` now takes `reminderSpecs` and writes
+them inside its own `transactionRunner.run` block. `AddVaccinationViewModel` passes the specs
+instead of looping. `vaccination.patientId` / `vaccination.id` replace `patient.id` /
+`vaccinationId` at the call site — verified value-identical (`Vaccination` is built from both).
+The edit path already did this via `VaccinationEditEngine`, so create is now symmetric.
+
+**Regression test.** `RecordVaccinationTransactionTest` (3 cases). Asserts the reminder write
+happens *inside* `TransactionRunner.run` — `RecordingTransactionRunner.inTransaction` is true
+only while its block executes. Verified to fail when the loop is moved back out. Service-level
+doubles are generated from the interfaces (`ServiceStubs.kt`) so they cannot drift.
+
+⚠️ The test asserts ordering, not rollback. Room's `withTransaction` owns the rollback; proving
+that needs a real instrumented DB test, which needs an emulator this environment lacks.
 
 **Status note.** ⚠️ **Deliberately not applied on 2026-10-16.** Moving the reminders into the
 clinical transaction also pulls `ReminderRepository`'s WorkManager scheduling inside it —
@@ -308,9 +333,197 @@ omits the column on update. The trigger function body is wrapped in an existence
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
 
-**Fix.** Make the client send the true quantity when the trigger is absent, or make the
-migration fail loudly instead of silently skipping.
-**Verification.** 🔍 `select proname, prosecdef from pg_proc where pronamespace='public'::regnamespace and proname='update_batch_stock';`
+**NCC-023 — re-scoped, not fixed.** The card describes this as "pull paths never apply
+tombstones", which implies a tombstone exists to apply. **It does not.**
+
+A reminder delete is a hard `postgrest.from(table).delete()` (`SyncUploader.kt:460`). There is no
+soft-delete and no tombstone row. The `eq("is_deleted", false)` filter on the pull is a leftover
+from `20260816_security_hardening.sql`, which added `is_deleted` to `profiles` explicitly and to
+other tables opportunistically — the app never sets it for reminders. So the filter is inert, and
+a row deleted on device B is simply *absent* from the remote set.
+
+The only way to propagate that is **absence reconciliation**: fetch the full remote set, then
+delete local rows that are `isSynced`, absent remotely, and have no pending queue entry. Nothing
+in the codebase does this — checked all 15 refresh/pull sites, and the 21 `eq("is_deleted", ...)`
+filters are all row-level, never set-level.
+
+⚠️ **Not implemented here, deliberately.** That reconciliation deletes rows, and a partial or
+failed remote fetch would then delete healthy local records — for a clinical app that is
+catastrophic and not a bug's worth of blast radius. Doing it safely means deciding the policy once
+and applying it consistently across every pull path, not patching the reminders query and calling
+it fixed. It needs review and a staged rollout, and no pull path can be trusted to be complete
+until the reconciliation exists.
+
+**NCC-021 fix.** `getBatchById` → `updateBatch` is a read-modify-write, `VaccineBatchEntity`
+carries no `@Version`, and the surrounding code held no transaction. Two concurrent deductions
+could both read the same `remainingQuantity`, compute the same new value, and have the second
+write discard the first — stock falls by one dose while the ledger records both.
+
+`TransactionRunnerImpl` uses Room's `withTransaction`, which **nests safely**, so wrapping is
+correct even where the caller already opened one.
+
+Rather than patch only the cited lines, every sibling was checked. Four methods share the shape:
+
+| Method | Caller holds a transaction? |
+|---|---|
+| `deductStockFromBatch` | no — **wrapped** |
+| `reverseDeduction` | no — `execute` is called straight from `AddVaccinationViewModel:676` and opens none — **wrapped** |
+| `addStockToBatch` | yes (both callers, in `WasteRepositoryImpl`) |
+| `returnBorrowedStock` | yes (all three callers, in `BorrowRepositoryImpl`) |
+
+Only the two genuinely unprotected ones were wrapped; the other two already inherit atomicity
+from their callers and adding wrappers there would be noise.
+
+⚠️ **Found while tracing this, not fixed:** `VaccinationEditEngine.execute` runs with **no
+transaction around it at all** (`AddVaccinationViewModel:676` → `execute`, and `execute` opens
+none). So the whole edit path — stock reversal, item reconciliation, reminder reconciliation — is
+non-atomic, and a failure partway through leaves a half-edited visit. `reverseDeduction` being
+unprotected above is a symptom of that. The fix mirrors NCC-004: put the transaction inside the
+domain service. It changes failure semantics, so it is raised rather than done under this ticket.
+
+**NCC-038 — re-scoped, not fixed.** The card says "`inventory_deductions` has no
+`SyncEntityDescriptor`", which reads like one missing registry entry. It is not:
+
+* no `INVENTORY_DEDUCTION` string exists anywhere in `app/src/main` — nothing enqueues it;
+* `inventory_deductions` appears in **no** migration — there is no server table at all;
+* there is therefore nothing for a descriptor to point at.
+
+So closing it means building the feature: a Supabase table plus RLS, a descriptor, an enqueue call
+at every deduction site, and a pull path. That is a product decision nobody has asked for, so it
+is recorded rather than silently built.
+
+**The impact is also narrower than the card implies.** `inventory_transactions` *is* synced
+(`INVENTORY_TRANSACTION` descriptor) and carries `batchId` and `visitId`, so per-dose batch
+linkage and server-side stock accounting are already covered. What is genuinely missing is the
+**FAILED** deductions — a failed deduction writes no ledger row, so it is invisible on other
+devices and on the server. That is a genuine audit gap, and it is the part worth deciding on.
+
+**NCC-022 fix.** `AuditLogger.log()` launches on its own `CoroutineScope`, so it never joins
+the caller's transaction. Called inside `transactionRunner.run`, the audit row commits
+independently — it survives a rollback and records an action that never happened.
+
+Re-measured rather than trusting the card: 17 `log()` call sites across 5 files, of which exactly
+**5** sit inside a live transaction (`WasteRepositoryImpl:64,102`, `MergePatientsUseCase:47`,
+`BorrowRepositoryImpl:185,287`). `BorrowRepositoryImpl:150` was cited but is not in a transaction.
+The other 12 are genuine fire-and-forget and are untouched.
+
+The five now call `recordLog`, the existing suspend version documented "for use inside
+transactions". No new API.
+
+`MergePatientsUseCase` is the worst of the five: a patient merge whose transaction later rolls
+back would leave an audit row asserting two patient records were merged when they were not.
+
+`log()` now carries a warning pointing at `recordLog` for transactional callers, since the trap is
+invisible at the call site.
+
+⚠️ **No automated test.** The distinction is observable only as a rollback-and-inspect case.
+
+**NCC-020 fix.** The remote-newer self-heal branch was guarded by
+`!syncQueueDao.isUnsynced(entityName, entityId)`. The item being uploaded had already been
+committed as `SYNCING` (not `SYNCED`) by the group-status transaction, so that predicate was
+permanently true for the row in flight and the branch **could never execute**. The conflict
+policy had never run for anyone, and the `fetchRemoteConflictData` read was paid for on every
+item purely to be ignored.
+
+Added `SyncQueueDao.isUnsyncedExcluding(name, id, queueId)`, which asks the question the guard
+actually means: is some *other* unacknowledged edit for this entity still queued? The in-flight
+row says nothing about whether the local edit is safely on the server — it is about to be.
+
+The other 15 `isUnsynced` callers are all in **pull** paths, where no row is in flight, so they
+never shared the defect and are untouched.
+
+⚠️ **Behaviour change.** This branch has never executed, so the code it enables has never run in
+production. It is now reachable for the first time and will start discarding local copies when
+the remote is genuinely newer. That is the documented policy (`docs/SYNC.md`), but it is worth
+watching on the first real sync after this ships.
+
+⚠️ **No automated test.** The branch sits inside the uploader's per-item path against a real
+PostgREST client.
+
+**NCC-024 fix.** `.catch { Log.e(...) }` completes a flow. Every transient failure — a dropped
+socket, a failed token refresh, a server-side channel error, all routine in the field — therefore
+ended that table's collector for the life of the process. The channel stayed joined, so nothing
+looked broken and no further change ever arrived until restart.
+
+Replaced with a retry loop: exponential backoff 1 s → 60 s, `CancellationException` rethrown so
+cancellation still works, and a flow that completes on its own is treated as a failure (a live
+subscription that completes will never deliver again) rather than exiting quietly. Bounded so a
+persistently failing channel cannot spin.
+
+⚠️ **No automated test.** The retry sits inside a `callbackFlow` over a real `Realtime`, which
+would need a fake channel implementation. Verified by compilation and inspection only.
+
+**NCC-037 fix.** `OpenableColumns.SIZE` is advisory, so the check could never be the only guard:
+providers commonly report `SIZE` as null, and a streaming provider can declare a length that does
+not match the bytes it yields. In that case the code called `readBytes()` on an unbounded stream —
+not merely a race, but no bound at all.
+
+The read is now bounded: a 64 KiB buffer loop that throws `TooLarge` the moment the running total
+passes `MAX_BACKUP_BYTES`. The pre-check stays as a cheap fail-fast, but correctness no longer
+depends on provider metadata being honest.
+
+⚠️ **No automated test.** `readBytesFromUri` is private and takes a `ContentResolver`.
+
+**NCC-033 fix.** Same shape as NCC-032. `notificationSent` and `lastReminderTime` were
+`@Transient` on the entity with no writer anywhere, so
+`reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }` was structurally
+`0`. That fed `ReminderStats.notificationsSentToday`, which **nothing reads** — no screen, no
+consumer. So the statistic was a permanent, invisible zero.
+
+Deleted the count, the unused `ReminderStats` field, and both dead declarations. A dashboard
+number that is always 0 and never shown is not worth persisting two columns to fix; if the
+statistic is ever wanted, it needs a real writer and a real consumer at the same time.
+
+**NCC-034 reclassified — the register was wrong.** "Notifies on every run" is the stated
+behaviour, not a defect. `NotificationHelper.showPersonalReminderNotification` renders the undated
+branch as:
+
+> `undated -> "Daily follow-up reminder"`
+
+The worker is a 24-hour `PeriodicWorkRequest` (`ReminderScheduler.kt:81`), `getActiveReminders`
+selects only `PENDING`/`READY`, and the notification uses a stable id with `setAutoCancel(true)` —
+so it re-posts once a day until the reminder is completed or cancelled, which is exactly what the
+copy promises. The overdue branch behaves the same way, consistently.
+
+**No code changed.** Adding a "notify once" flag would have silently broken the documented
+behaviour, on the strength of a report that never checked the copy. If daily nagging is *not*
+wanted, that is a product decision, and the change is a `notified_at` column plus a guard in the
+worker.
+
+**NCC-032 fix.** The chain was dead at *every* layer, not just the repository:
+
+| Layer | State |
+|---|---|
+| `RescheduleDialog` | collected a "Reminder Date" |
+| `DueTab` → `DueViewModel` → interface → impl | passed it along |
+| `ReminderRepositoryImpl.reschedule` | discarded it |
+| `ReminderEntity.reminderDate` | `@Transient` — never stored, no column exists |
+| `Reminder.reminderDate` (domain) | never read or written by anything |
+
+`reminder_date` exists only on `PersonalReminderEntity`, a different table with its own worker.
+So the user picked a date, the app accepted it, and nothing happened — with no error anywhere.
+
+Deleted rather than implemented. Persisting it would mean a new column, a Room migration, a
+sync field and a server-side counterpart, for a feature nobody asked for, against a field that
+had been inert since it was written. Removing it makes the dialog tell the truth. Verified with
+`grep`: no `reminderDate` reference remains outside the personal-reminder path.
+
+**NCC-007 fix.** `20261018_ensure_stock_trigger_installed.sql`. The client cannot know whether the
+server trigger exists, so the fix belongs server-side, and the server must refuse to continue
+rather than silently zero all stock:
+1. installs `inventory_transactions_update_batch_stock` if it is missing but installable —
+   repairing 20261016's silent skip rather than only reporting it;
+2. raises with the specific missing piece if it still cannot be installed.
+
+Written as its own migration, not appended to `20261017`: a database that already applied
+`20261017` will not re-run it, and that is exactly the case that must be caught.
+
+⚠️ **Not executed.** No Postgres in this environment — statically checked only (delimiter
+balance, structure). Applying it to a live database is still required.
+
+**Verification.** ✅ once applied — the migration fails loudly if the trigger is absent.
+🔍 independent check still pending:
+`select proname, prosecdef from pg_proc where pronamespace='public'::regnamespace and proname='update_batch_stock';`
 
 **Links.** [[Supabase]] · [[Inventory Management]]
 
@@ -368,10 +581,23 @@ coroutine, assert it returns `true`.
 | | NCC-010 | NCC-011 |
 |---|---|---|
 | **Severity** | S2 | S2 |
+| **Status** | ✅ **Fixed** | ✅ **Fixed** |
 | **Files** | `core/notification/ReminderScheduler.kt` | `data/backup/BackupAutoScheduler.kt` |
-| **Call sites** | 2, both `NeoChildApp.kt:111-112` | **0** for `schedule()` |
-| **Effect** | reminder time change waits for a restart | auto-backup enable/disable waits for a restart |
-| **Fix** | call the scheduler from `NotificationSettingsViewModel.updateSettings` | call `schedule()`/`cancel()` from `BackupViewModel:202-215` |
+| **Call sites (as found)** | 2, both `NeoChildApp.kt:111-112` | **0** for `schedule()` |
+| **Effect (as found)** | reminder time change waits for a restart | auto-backup enable/disable waits for a restart |
+| **Fix** | call the scheduler from `NotificationSettingsViewModel.updateSettings` | call `schedule()`/`cancel()` from `BackupViewModel` |
+
+⚠️ **Corrected 2026-10-18.** Both are **fixed in source**; the "as found" rows are kept for
+provenance. Re-verified:
+
+- **NCC-010** — `NotificationSettingsViewModel.updateSettings` now calls
+  `reminderScheduler.scheduleDailySummary()` (`:37`) and
+  `schedulePersonalReminderNotifications()` (`:38`). The inline comment records
+  `ExistingPeriodicWorkPolicy.UPDATE` recomputing the delay. Note the card's fix text said
+  one call; there are **two**.
+- **NCC-011** — `BackupViewModel` now calls `backupAutoScheduler.schedule(...)` at `:209`
+  and `:215`, and `cancel()` at `:221`. The card's fix text cited `:202-215`; the scheduler
+  calls are at **`:209`/`:215`**, outside that range.
 
 **Links.** [[Due Vaccination]] · [[Backup and Restore]]
 
@@ -390,9 +616,30 @@ re-arm at `NeoChildApp.kt:93-98` runs on an untracked IO scope and is not awaite
 `_isAppLocked` starts `false`. `checkAppLock()` first waits up to 4 s for session resolution
 (`MainActivity.kt:194-225`).
 
-**Fix.** Gate composition on `isLocked`, or construct the `NavHost` only once unlocked.
-**Verification.** 🔍 On-device: confirm whether the opaque `Surface` fully occludes dialogs
-drawn above it.
+**Fix.** Two parts, because gating alone would not have closed the window.
+
+1. `MainActivity` now composes `AppNavigation` only when `lockStateResolved && !isLocked`.
+   `navController` deliberately stays outside the gate — `NavController` saves its own back
+   stack, so unlocking returns the user where they were.
+2. `isAppLocked == false` used to mean both "unlocked" and "nobody has checked". Deciding needs
+   the session status, which takes seconds when offline, so the whole patient-data tree was
+   built during that gap. `BiometricLockManager.lockStateResolved` now separates the two, and
+   the UI shows a progress indicator while the answer is unknown — never patient data.
+
+While unresolved the UI renders neither the app nor the lock screen; `checkAppLock()` marks the
+state resolved in a `finally`, so the not-authenticated early return cannot strand a logged-out
+user on the spinner.
+
+**Regression test.** 4 cases added to `BiometricLockManagerTest`. The load-bearing one:
+`lock()` must not mark the state resolved — NeoChildApp's pre-render re-arm makes the app locked
+without anyone having authenticated.
+
+⚠️ **Not covered:** the composition gate itself. Asserting "navigation is not composed" needs a
+Compose UI test, which needs `createAndroidComposeRule` (not a dependency) and an emulator this
+environment lacks. The gate is verified by compilation and inspection only.
+
+**Verification.** 🔍 On-device still pending: confirm the opaque `Surface` fully occludes dialogs,
+and that unlocking restores the previous screen.
 
 **Links.** [[Architecture Map]] · [[Error Handling]]
 
@@ -403,12 +650,32 @@ drawn above it.
 | | NCC-013 | NCC-014 | NCC-015 |
 |---|---|---|---|
 | **Severity** | S2 | S2 | S2 |
-| **Location** | `DashboardViewModel.kt:47` | `BorrowedViewModel.kt:59` | `PatientViewModel.kt:194-206` |
-| **Defect** | `errorMessage` declared, **0 writers** | `actionError` declared, **0 writers** | throws its own validation error, catches and discards it |
-| **User sees** | nothing | nothing — and `BorrowedScreen.kt` has 0 error references | nothing, and the screen never advances |
-| **Evidence** | the only `DashboardUiState(...)` construction (`:270-290`) never passes it | 1 grep hit — the declaration | caller passes only `onComplete` (`AddPatientScreen.kt:136`) |
+| **Status** | ✅ **Fixed** | ✅ **Fixed** | ✅ **Fixed** |
+| **Location** | `DashboardViewModel.kt:48` | `BorrowedViewModel.kt:61` | `PatientViewModel.kt:200-215` |
+| **Defect (as found)** | `errorMessage` declared, **0 writers** | `actionError` declared, **0 writers** | throws its own validation error, catches and discards it |
+| **User saw** | nothing | nothing | nothing, and the screen never advanced |
+| **Evidence (as found)** | the only `DashboardUiState(...)` construction never passed it | 1 grep hit — the declaration | caller passed only `onComplete` |
 
 **Fix.** Wire the field or delete it; give `savePatient` an `onError` callback.
+
+⚠️ **Corrected 2026-10-18 (commit `e05f7c0`, "fix(ui): five silent-failure paths").** All
+three are **fixed in source**; the "as found" rows are preserved for provenance.
+Line numbers were previously off by 1–5:
+
+| | Was cited | Actual | Fix in source |
+|---|---|---|---|
+| NCC-013 | `:47` | `:48` | written at `:279` from `_refreshError`; cleared at `:431-432` |
+| NCC-014 | `:59` | `:61` | written at `:195, :200, :207, :238, :251`; note at `:74-77` records why it was dead |
+| NCC-015 | `:194-206` | `:200-215` | `savePatient(onComplete, onError)`; `onError` at `:203`, rethrows `CancellationException` at `:212`, invokes at `:215` |
+
+⚠️ "**`BorrowedScreen.kt` has 0 error references**" is **wrong** — the file has 9
+case-insensitive matches. The defect was in the ViewModel, not the screen.
+
+⚠️ **Regression tests are missing for all three.** Verified 2026-10-18: `grep -rl
+savePatient app/src/test app/src/androidTest` returns nothing, and the repository contains
+**zero** `*ViewModelTest.kt` files. These are ✅ Fixed on **source inspection** plus compile,
+not on a test that fails without the fix — narrower evidence than [[#ncc-001]] and
+[[#ncc-009]] carry. Do not read "Fixed" here as "regression-protected".
 
 **Links.** [[MVVM]] · [[Error Handling]]
 
@@ -422,11 +689,24 @@ drawn above it.
 | **Files** | all five: `FinanceDetailsViewModel`, `ProfileViewModel`, `FullReportViewModel`, `StatisticsViewModel`, `VaccineDetailViewModel` |
 | **Impact** | Save/refresh buttons stay disabled forever with no error shown. |
 
-**Evidence.** `.first()` on Room flows inside `viewModelScope.launch` with no `try`/`finally`;
-or `?: return@launch` after `isLoading = true`.
-✅ The correct pattern exists at `VaccineDetailViewModel.kt:99-104` — but it discards `e.message`.
+**Evidence (as found).** `.first()` on Room flows inside `viewModelScope.launch` with no
+`try`/`finally`; or `?: return@launch` after `isLoading = true`.
 
 **Fix.** Add `.catch {}` or `finally { isLoading = false }`.
+
+⚠️ **Corrected 2026-10-18 (commit `e05f7c0`).** All five are fixed, but **by two different
+mechanisms** — the card implies one. Re-verified:
+
+| ViewModel | Mechanism |
+|---|---|
+| `FinanceDetailsViewModel` | `try`/`finally` at `:50-60`, comment citing NCC-016 at `:57` |
+| `ProfileViewModel` | sets `isLoading = false` **and** an `error` message before `return@launch` (`:86-93`) — no `.catch`, no `finally` |
+| `FullReportViewModel` | `.catch` at `:99` |
+| `StatisticsViewModel` | `.catch` at `:100` |
+| `VaccineDetailViewModel` | `.catch` — the reference pattern |
+
+⚠️ The card called `VaccineDetailViewModel.kt:99-104` correct "but it discards `e.message`".
+That remains true and is not part of this bug.
 
 **Links.** [[MVVM]] · [[Statistics Dashboard]]
 
@@ -440,13 +720,24 @@ or `?: return@launch` after `isLoading = true`.
 | **Files** | `InventoryStockMovement.kt` (new helpers); `InventoryRepositoryImpl.kt`; `AddBatchViewModel.kt` |
 | **Impact** | `InventorySort.EXPIRY` is wrong for most of the year; the "latest" batch picked for the MRP fallback is the oldest. |
 
-**Evidence.** `Constants.DATE_FORMAT = "d MMM yyyy"` is not zero-padded, so
+**Evidence (as found).** `Constants.DATE_FORMAT = "d MMM yyyy"` is not zero-padded, so
 `"16 Oct 2026".compareTo("9 Oct 2026") < 0`. ✅ The app documents this hazard and fixes it
 in `domain/model/Vaccination.kt:60-61`; these four sites were missed.
 
 **Fix.** `PatientUtils.parseDate(...)?.time`, as `Vaccination.kt` does.
 **Regression test.** `InventoryUtilsExpiryTest` style — two batches whose string order and
 date order differ.
+
+✅ **Fixed in source**, re-verified 2026-10-18 at `InventoryRepositoryImpl.kt:127-130`:
+`EXPIRY` → `batchExpiryMillis()`, `NEWEST` → `latestPurchaseMillis()`, `OLDEST` →
+`earliestPurchaseMillis()`. The MRP fallback at `:84` parses rather than string-maxing, with
+an inline comment citing NCC-017. ⚠️ The card cites `:121`, `:123-124` and `:81`; those were
+the pre-fix lines.
+
+✅ **Regression test present:** `InventorySortKeysTest` (13 `@Test`) pins both halves — the
+stored format genuinely misorders (`the stored format really does misorder across a month
+boundary`) and the sort keys do not (`expiry key orders 2 Jan after 28 Dec`, plus day/month
+and year boundaries and blank-expiry handling).
 
 **Links.** [[Inventory Management]] · [[Statistics Dashboard]]
 
@@ -460,12 +751,18 @@ date order differ.
 | **Files** | `feature/inventory/data/InventoryRepositoryImpl.kt` |
 | **Impact** | Partial stock committed while the UI reports total failure; a retry duplicates stock under fresh UUIDs. |
 
-**Evidence.** ~10 validation branches interleaved with writes in one loop, **no
+**Evidence (as found).** ~10 validation branches interleaved with writes in one loop, **no
 `transactionRunner.run`**. Contrast `BorrowRepositoryImpl.saveBorrowedItem:64` and
 `WasteRepositoryImpl.recordWaste:38`, which are wrapped.
 
 **Fix.** Wrap the loop.
 **Regression test.** Fail on the 3rd of 5 batches; assert zero batches committed.
+
+✅ **Fixed in source** — `InventoryRepositoryImpl.addStockBatch` (`:239`) now opens
+`transactionRunner.run {` at `:250`, with an inline comment citing NCC-018 and describing
+the partial-commit failure mode. ⚠️ The regression test named above was **not** located in
+`app/src/test` during the 2026-10-18 pass; `InventoryStockMovementTest` covers stock
+movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 
 **Links.** [[Inventory Management]] · [[Database Relationships]]
 
@@ -473,14 +770,14 @@ date order differ.
 
 ## NCC-019 to NCC-024 — Sync and integrity
 
-| ID | Sev | Summary | Location |
-|---|---|---|---|
-| NCC-019 | S3 | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:32-36`, `SyncRepositoryImpl.kt:84` |
-| NCC-020 | S3 | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt:486-521` |
-| NCC-021 | S3 | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt:435` + `:452` |
-| NCC-022 | S3 | `AuditLogger.log()` fires on a separate coroutine; called inside 5 live transactions | `AuditLogger.kt:40-42`; `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:150,185,287` |
-| NCC-023 | S3 | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
-| NCC-024 | S3 | `.catch {}` on each realtime table flow kills the subscription permanently | `RealtimeChangeSubscriptions.kt:52-54` |
+| ID | Sev | Status | Summary | Location |
+|---|---|---|---|---|
+| NCC-019 | S3 | ✅ **Fixed** | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:39`, `:61` — now `ExistingWorkPolicy.REPLACE`; `:32-36` is the comment recording the switch. This is what refuted [[#hyp-002]]. |
+| NCC-020 | S3 | ✅ **Fixed** | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt`; new `SyncQueueDao.isUnsyncedExcluding` |
+| NCC-021 | S3 | ✅ **Fixed** | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt` — `deductStockFromBatch` and `reverseDeduction` now transactional |
+| NCC-022 | S3 | ✅ **Fixed** | `AuditLogger.log()` fired on a separate coroutine inside 5 live transactions | `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:185,287` — all now call `recordLog` |
+| NCC-023 | S3 | ⚠️ **Needs decision** | No pull path reconciles remote *absence* — and there are no tombstones to apply | all pull paths; deletes are a hard PostgREST `delete()` (`SyncUploader.kt:460`) |
+| NCC-024 | S3 | ✅ **Fixed** | `.catch {}` on each realtime table flow killed the subscription permanently | `RealtimeChangeSubscriptions.kt` — retry loop with backoff |
 
 **Fixes.** NCC-019 `ExistingWorkPolicy.REPLACE`. NCC-020 either delete the branch or
 evaluate the guard before committing `SYNCING`. NCC-021 add `@Version` to
@@ -493,15 +790,50 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 
 ## NCC-025 to NCC-031 — S4 items
 
-| ID | Summary | Location |
-|---|---|---|
-| NCC-025 | `ORDER BY priority DESC` on TEXT sorts `HIGH` last | `SyncQueueDao.kt:12` |
-| NCC-026 | `isExpired` returns false on an unparseable date | `InventoryUtils.kt:24` |
-| NCC-027 | `isLowStock = totalStock <= globalThreshold` flags at-threshold stock | `InventoryRepositoryImpl.kt:77` |
-| NCC-028 | `consultations.visitId` defaults to `""` against a NOT NULL CASCADE FK | `ConsultationEntity.kt:33` |
-| NCC-029 | `AuditLogDao` comment claims a composite index that does not exist | `AuditLogDao.kt:30-33` |
-| NCC-030 | Audit-count guards query `audit_logs.remarks`; the brand is in `old_value`/`new_value` — and both have **0 call sites** | `VaccineDao.kt:137-141` |
-| NCC-031 | `FinanceDao` orders by `COALESCE(...)` — unindexable, so its indices are dead | `FinanceDao.kt:15,18,36,…` |
+| ID | Sev | Status | Summary | Location |
+|---|---|---|---|---|
+| NCC-025 | S4 | Open | `ORDER BY priority DESC` on TEXT sorts `HIGH` last | `SyncQueueDao.kt:12` — ✅ re-verified 2026-10-18 |
+| NCC-026 | S4 | ⚠️ Not a bug | `isExpired` returns false on an unparseable date — deliberate, see below | `InventoryUtils.kt:24` — comment added; no behaviour change |
+| NCC-027 | S4 | Open | `isLowStock = totalStock <= globalThreshold` flags at-threshold stock | `InventoryRepositoryImpl.kt:78` (was `:77`) |
+| NCC-028 | S4 | Open | `consultations.visitId` defaults to `""` against a NOT NULL CASCADE FK | `ConsultationEntity.kt:33` — ✅ re-verified 2026-10-18 |
+| NCC-029 | S4 | Open | `AuditLogDao` comment claims a composite index that does not exist | `AuditLogDao.kt:29-33` — ✅ re-verified 2026-10-18: the comment spans `:29-33` and the DAO contains **zero** `Index(` declarations |
+| NCC-030 | S4 | Open | Audit-count guards query `audit_logs.remarks`; the brand is in `old_value`/`new_value` — and both have **0 call sites** | `VaccineDao.kt:137-141` — ✅ re-verified 2026-10-18 |
+| NCC-031 | S4 | Open | `FinanceDao` orders by `COALESCE(...)` — unindexable, so its indices are dead | `FinanceDao.kt:15,18,36` — ✅ re-verified 2026-10-18 |
+
+### NCC-026 — reclassified, not fixed
+
+The card read `?: return false` as an oversight. It is not: it is the defensible choice, and
+failing closed would be worse.
+
+`isExpired == true` is not a label on the batch — `InventoryRepositoryImpl:73` uses it to build
+`activeBatches`, the list of doses a clinician can find and use. Returning `true` for a date nobody
+can read would **drop real stock out of that list**, so someone holding a usable dose would not
+find it and could conclude the clinic has none. Returning `false` keeps it visible, with the raw
+expiry string shown next to it. Both directions assert something unknown; the difference is that
+one hides stock and the other does not.
+
+The codebase already decided this once, explicitly — `BorrowBatchSelection:38`: *"An unparseable
+expiry date sorts last instead of first so it is only used when nothing better exists."* That is
+the same stance: usable, but deprioritised. `isExpired` was simply the undocumented half of it.
+
+**Not reachable by any app path.** The expiry field is a `DateDropdownPicker`, which writes
+`date.format(Constants.DATE_FORMAT)` — `"d MMM yyyy"` — and `DateUtils.parseDate` lists
+`Constants.DATE_FORMAT` among its accepted formats, so picker and parser agree. Both write paths
+reject a blank (`AddBatchScreen:155`, `AddStockViewModel:173`), and a batch's expiry *is* editable
+afterwards (`AddBatchViewModel:98-107`), so a bad value would be repairable even if one appeared.
+A remote row cannot supply one quietly either: `VaccineBatchEntity.expiryDate` is a non-nullable
+`String`, so a null `expiry_date` fails deserialization loudly rather than arriving as `""`.
+
+**What was changed.** A comment on `isExpired` recording the stance and why, so the next reader
+does not "fix" it into a stock-hiding bug. No behaviour change, so no test — there is nothing new
+to be wrong. The upgrade path, if it is ever hit for real, is to surface *expiry unknown* in the
+UI rather than to pick a direction.
+
+**Separately noted, unverified.** The picker's `"d MMM yyyy"` is written straight through
+`@SerialName("expiry_date")` with no ISO conversion, so that is the literal text sent to Postgres.
+If that column is a `date` rather than `text`, inserts would fail — the table's DDL is not in the
+migrations, so this needs the live database to settle. Grouped with the other unexecuted-migration
+checks in [[Release Checklist]].
 
 **Links.** [[Room Database]] · [[Inventory Management]]
 
@@ -509,19 +841,159 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 
 ## NCC-032 to NCC-040 — remaining
 
-| ID | Sev | Summary | Location |
-|---|---|---|---|
-| NCC-032 | S3 | `reschedule` accepts `reminderDate` and silently discards it | `ReminderRepositoryImpl.kt:296-314` |
-| NCC-033 | S3 | `notificationsSentToday` reads two `@Transient` fields with no writer ⇒ always 0 | `ReminderDueListProcessor.kt:115` |
-| NCC-034 | S3 | Blank `reminderDate` personal reminder notifies on **every** run | `PersonalReminderNotificationWorker.kt:26-28` |
-| NCC-035 | S4 | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:180` |
-| NCC-036 | S3 | 60 `viewModelScope.launch` bodies with no `try`/`catch`; 24 are writes | 27 ViewModels |
-| NCC-037 | S3 | `readBytesFromUri` checks `OpenableColumns.SIZE` then calls `readBytes()` unbounded | `BackupRepositoryImpl.kt:435-441` |
-| NCC-038 | S3 | `inventory_deductions` has no `SyncEntityDescriptor` — the per-dose ledger never reaches the server | `SyncUploader.kt` registry |
-| NCC-039 | S4 | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
-| NCC-040 | S2 | `AddBatchViewModel.kt:56` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:56` |
+| ID | Sev | Status | Summary | Location |
+|---|---|---|---|---|
+| NCC-032 | S3 | ✅ **Fixed** | `reschedule` accepted `reminderDate` and discarded it — deleted the dead chain | `ReminderDialogs.kt` (picker removed), `DueTab.kt`, `DueViewModel.kt`, `ReminderRepository.kt`, `ReminderRepositoryImpl.kt`, `ReminderEntity.kt`, `Reminder.kt` |
+| NCC-033 | S3 | ✅ **Fixed** | `notificationsSentToday` read two `@Transient` fields with no writer ⇒ always 0 — deleted the dead chain | `ReminderDueListProcessor.kt`, `ReminderStats.kt`, `ReminderEntity.kt`, `Reminder.kt` |
+| NCC-034 | S3 | ⚠️ **Not a bug** | Blank `reminderDate` notifies on every run — this is the stated design | `PersonalReminderNotificationWorker.kt:27-31`; intent quoted from `NotificationHelper.kt:171` |
+| NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |
+| NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **34** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
+| NCC-037 | S3 | ✅ **Fixed** | `readBytesFromUri` checked `OpenableColumns.SIZE` then read unbounded | `BackupRepositoryImpl.kt` — read is now bounded at `MAX_BACKUP_BYTES` |
+| NCC-038 | S3 | ⚠️ **Needs decision** | `inventory_deductions` is local-only — but this is a missing feature, not a defect, and the impact is narrower than stated | no server table exists in any migration, nothing enqueues `INVENTORY_DEDUCTION`, no descriptor |
+| NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
+| NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
+| NCC-041 | S2 | ✅ **Fixed** | `getUpcomingVaccinationsByVaccineId` matched `nxt_vaccine_id` as comma-joined text; the column is JSON, so it returned 0 rows for every brand | `DueReminderDao.kt` — quoted-id `instr()` match; `ReminderEntity.kt` comment corrected |
 
 ---
+
+## NCC-041 — Brand drill-down returned nothing for every brand
+
+| | |
+|---|---|
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S2 High |
+| **Files** | `data/local/dao/DueReminderDao.kt`; `data/local/entity/ReminderEntity.kt` |
+| **Found by** | the first real execution of `androidTest` (PR #17) |
+
+**Evidence.** `nxtVaccineId` is a `List<String>?` with a `TypeConverter`, so it is stored as
+**JSON** — `Converter.fromList` calls `Json.encodeToString`, producing `["vac-a"]`. The query
+tested it as comma-joined text:
+
+```sql
+(',' || COALESCE(nxt_vaccine_id, '') || ',') LIKE '%,' || :vaccineId || ',%'
+```
+
+Building `,["vac-a"],` and looking for `,vac-a,` can never match, so
+`getUpcomingVaccinationsByVaccineId` returned **zero rows for every brand**.
+
+The entity comment is what caused it, and read plausibly: *"matching the comma-separated
+convention already used for list-like columns elsewhere (e.g. `patient_visits.vaccine_ids`)"*.
+That convention is real — but it belongs to `patient_visits.vaccine_ids`, a plain TEXT column
+written with `joinToString(",")`. `nxt_vaccine_id` never used it; `Converters` has written JSON
+since the column was introduced.
+
+**Impact.** The Statistics → Vaccination → Upcoming → *by brand* drill-down showed no rows, and
+the per-brand counts did not sum to the type card above them. The type-level view was unaffected
+(`getUpcomingVaccinationsByType` does not touch this column), which is why it went unnoticed.
+
+**Fix.** Match the JSON text exactly — the needle is the id wrapped in its own quotes:
+
+```sql
+instr(COALESCE(nxt_vaccine_id, ''), '"' || :vaccineId || '"') > 0
+```
+
+`'"vac-a"'` is found inside `["vac-a"]` and inside `["vac-b","vac-a"]`, but never inside
+`["vac-a2"]` — the closing quote has to be there. So the match is exact without needing
+delimiters, and it tolerates whitespace or escaping variations that a delimiter scheme would not.
+
+`instr()` rather than `LIKE` because the id becomes part of the pattern: a `%` or `_` in an id would
+be a wildcard under `LIKE`, but `instr()` has no pattern semantics at all.
+
+`NULL` needs no special case (`instr(NULL, x)` is `NULL`, and `NULL > 0` is not true), and a row
+still holding the old comma format simply fails to match rather than raising.
+
+> **Room cannot use `json_each` here.** The first version of this fix used SQLite's JSON1
+> table-valued function, which is the more literal expression of the intent and is *valid SQL* —
+> it passed Room's compile-time verification and behaved correctly under `sqlite3` 3.45.1. It then
+> failed in `androidTest` with `IllegalArgumentException: There is no table with name json_each`.
+> `TriggerBasedInvalidationTracker.validateTableNames` rejects it: Room parses the identifiers in
+> the `FROM` clause to learn which tables a `Flow` query must observe, treats `json_each` as a
+> table name, and cannot resolve it against the schema. A table-valued function in a `Flow`-returning
+> query is therefore unusable, and only a real device run reveals it — compilation does not.
+> The generated code for the final query registers exactly `arrayOf("reminders")`.
+
+**Related, not fixed.** `VaccineDao.getVaccinationCountForVaccine` matches
+`patient_visits.vaccine_ids` with `LIKE '%' || :vaccineId || '%'`, which is a substring match. That
+column genuinely *is* comma-joined (`VaccinationEntity:115`, and
+`20260822_patient_visit_backup_and_timestamps.sql` splits it with `string_to_array`), so unlike the
+query above the shape is right — it is only imprecise. Vaccine ids are `uuid`
+(`vaccine_id uuid references public.vaccines(id)`), so one cannot realistically be a substring of
+another. It over-counts only if that ever changes, and the effect would be a delete guard that is
+too strict — not data loss. Left alone deliberately.
+
+**Verification.** Executed against SQLite 3.45.1 with fixtures mirroring the instrumented tests:
+
+| Probe | Result |
+|---|---|
+| `vac-a` with `["vac-a"]`, `["vac-a","vac-b"]`, `["vac-b","vac-a"]` | matched — including middle position |
+| `vac-a` must not match `["vac-a2"]` | not matched |
+| `vac_ax` probed as `vac_a` | **not** matched — `_` stayed literal |
+| `NULL`, `[]`, soft-deleted, `status = 'COMPLETED'` | excluded |
+| a malformed comma-format row present | query did not raise; row excluded |
+| **the old formula, same data** | matched **only** the malformed row — and nothing JSON-shaped |
+
+The `vac_ax` probe is the case that rules out `LIKE`: with a pattern it would have matched as a
+wildcard.
+
+**Regression test.** `UpcomingVaccinationDaoTest` and `ReminderSoftDeleteFilterTest` — 12 cases in
+total, already written, red until this fix. They had never executed before PR #17; they are the
+check. Local confirmation is limited to the compile plus the observed-table array in the generated
+`DueReminderDao_Impl`, because the failure mode above only appears on a real device.
+
+**Links.** [[Statistics Dashboard]] · [[Database Schema]]
+
+## NCC-042 — seven instrumented assertions that could not fail
+
+| | |
+|---|---|
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S3 High |
+| **Files** | `androidTest/.../DateGivenIndexMigrationTest.kt`; `androidTest/.../ExpenseMigrationTest.kt`; `.github/workflows/android-instrumented.yml` |
+| **Found by** | reading the `androidTest` log of a *green* build |
+
+**Evidence.** `DateGivenIndexMigrationTest` has two `@Test` methods that run on every push and used
+Kotlin's `assert(condition) { "message" }` — seven assertions in total, including the two the whole
+class exists for:
+
+```kotlin
+assert(after.any { it.contains("index_patient_visits_dateGiven") }) { "got $after" }
+assert(after.none { it.contains("TEMP B-TREE") }) { "still sorting: $after" }
+```
+
+Kotlin compiles `assert` against `_Assertions.ENABLED`, which is
+`javaClass.desiredAssertionStatus()` — **false** unless the JVM is started with `-ea`. An
+instrumentation process is started by `am instrument` and does not pass `-ea`, and Android cannot
+be made to: there is no `testOptions` flag for it. Every one of those assertions was therefore a
+no-op, and the class reported **green unconditionally**. It was the only thing verifying that
+`migration32_33` actually removes the temp B-tree sort it was written to remove; had the index
+silently stopped being used, CI would have said nothing.
+
+The trigger for finding this was a *false alarm in the other direction*: the instrumented job for
+NCC-041 was green (`BUILD SUCCESSFUL`, Gradle exited 0) while `.github/scripts/androidtest-failures.py`
+printed `FAILED: 1 instrumented test(s)` for the `@Ignore`d
+`ExpenseMigrationTest.migrate22To23_createsExpensesTable_withoutTouchingExistingData`.
+
+**Fix.** JUnit's real assertions, which have no such flag:
+`assertTrue("got $after", ...)`, `assertEquals("got $count", 3, count)`. The two plan assertions were
+first checked against SQLite 3.45.1 on the test's own 3-row fixture to confirm they *pass* once
+armed — `SCAN patient_visits` + `USE TEMP B-TREE FOR ORDER BY` before the index,
+`SCAN patient_visits USING INDEX index_patient_visits_dateGiven` after — so arming them does not
+turn a green test red.
+
+**Guard.** `android-instrumented.yml` now rejects any `(^|[^A-Za-z_.])assert\(` in `androidTest`
+before the emulator boots, so a no-op assertion cannot come back. Verified by inserting a probe
+file, confirming the grep caught it, and removing it. A bare `assert` there is never correct, so
+the rule needs no exceptions.
+
+**Also changed, same investigation.** The failure reporter now prints each `<testsuite>`'s own
+`tests/failures/errors/skipped` counters alongside its per-case scan, and the report upload is
+`if: always()` instead of `if: failure()`. Disassembling
+`com.android.ddmlib.testrunner.XmlTestRunListener` shows it writes `<failure>` only for
+`TestStatus.FAILURE` and `<skipped/>` for an ignored test — so the `@Ignore`d case above should
+not have produced a `<failure>` node at all, and the reason is not yet established. Gradle's own
+exit code, re-raised by both steps, is what determines the build; the reporter runs afterwards and
+never changes it. The next run's counters will settle which of the two disagrees, rather than
+guessing now.
+
+**Links.** [[Room Database]] · [[Documentation Maintenance]]
 
 ## Closing a bug
 

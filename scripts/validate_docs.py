@@ -85,6 +85,10 @@ REQUIRED_SECTIONS = {
 # Minimum useful byte size before a note counts as a stub.
 STUB_BYTES = 500
 
+# Directories whose notes are legitimately empty or skeletal: a template with blank
+# headings is doing its job, so flagging it as a stub is noise, not signal.
+TEMPLATE_DIRS = {"Templates"}
+
 
 class Report:
     def __init__(self) -> None:
@@ -309,7 +313,8 @@ def check_stubs(vault: Path, notes: list[Path], inbound: dict[str, set[str]],
     for note in notes:
         size = note.stat().st_size
         where = note.relative_to(vault).as_posix()
-        if size < STUB_BYTES:
+        is_template = bool(TEMPLATE_DIRS.intersection(note.relative_to(vault).parts))
+        if size < STUB_BYTES and not is_template:
             rep.warn(where, f"stub note ({size} bytes) — fill or delete")
         if not inbound.get(_key(vault, note)):
             rep.warn(where, "orphan note — nothing links to it")
