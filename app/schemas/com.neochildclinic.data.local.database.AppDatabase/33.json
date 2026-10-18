@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 33,
-    "identityHash": "19ced092d4b9f066600a2b57f4295175",
+    "identityHash": "cc6f04d53b60e80ad938f865e6b8b08e",
     "entities": [
       {
         "tableName": "patients",
@@ -386,7 +386,7 @@
       },
       {
         "tableName": "reminders",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverId` TEXT, `patientId` TEXT NOT NULL, `originalVisitId` TEXT NOT NULL, `vaccineName` TEXT NOT NULL, `dueDate` TEXT NOT NULL, `status` TEXT NOT NULL, `priority` TEXT NOT NULL, `reminderEnabled` INTEGER NOT NULL, `category` TEXT NOT NULL, `type` TEXT NOT NULL, `nxt_vaccine_id` TEXT, `vaccinationSource` TEXT, `source` TEXT, `lastReminderTime` INTEGER NOT NULL, `notificationSent` INTEGER NOT NULL, `notes` TEXT, `completionDate` TEXT, `performedBy` TEXT, `dismissalDate` TEXT, `dismissalReason` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, `is_deleted` INTEGER NOT NULL DEFAULT 0, `deleted_at` TEXT, `deleted_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverId` TEXT, `patientId` TEXT NOT NULL, `originalVisitId` TEXT NOT NULL, `vaccineName` TEXT NOT NULL, `dueDate` TEXT NOT NULL, `status` TEXT NOT NULL, `priority` TEXT NOT NULL, `reminderEnabled` INTEGER NOT NULL, `category` TEXT NOT NULL, `type` TEXT NOT NULL, `nxt_vaccine_id` TEXT, `vaccinationSource` TEXT, `source` TEXT, `notes` TEXT, `completionDate` TEXT, `performedBy` TEXT, `dismissalDate` TEXT, `dismissalReason` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `created_by` TEXT, `updated_by` TEXT, `is_deleted` INTEGER NOT NULL DEFAULT 0, `deleted_at` TEXT, `deleted_by` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -467,18 +467,6 @@
             "fieldPath": "source",
             "columnName": "source",
             "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "lastReminderTime",
-            "columnName": "lastReminderTime",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "notificationSent",
-            "columnName": "notificationSent",
-            "affinity": "INTEGER",
-            "notNull": true
           },
           {
             "fieldPath": "notes",
@@ -3274,7 +3262,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '19ced092d4b9f066600a2b57f4295175')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cc6f04d53b60e80ad938f865e6b8b08e')"
     ]
   }
 }

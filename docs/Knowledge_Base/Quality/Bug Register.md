@@ -331,6 +331,32 @@ omits the column on update. The trigger function body is wrapped in an existence
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
 
+**NCC-033 fix.** Same shape as NCC-032. `notificationSent` and `lastReminderTime` were
+`@Transient` on the entity with no writer anywhere, so
+`reminders.count { it.notificationSent && it.lastReminderTime >= todayStart }` was structurally
+`0`. That fed `ReminderStats.notificationsSentToday`, which **nothing reads** — no screen, no
+consumer. So the statistic was a permanent, invisible zero.
+
+Deleted the count, the unused `ReminderStats` field, and both dead declarations. A dashboard
+number that is always 0 and never shown is not worth persisting two columns to fix; if the
+statistic is ever wanted, it needs a real writer and a real consumer at the same time.
+
+**NCC-034 reclassified — the register was wrong.** "Notifies on every run" is the stated
+behaviour, not a defect. `NotificationHelper.showPersonalReminderNotification` renders the undated
+branch as:
+
+> `undated -> "Daily follow-up reminder"`
+
+The worker is a 24-hour `PeriodicWorkRequest` (`ReminderScheduler.kt:81`), `getActiveReminders`
+selects only `PENDING`/`READY`, and the notification uses a stable id with `setAutoCancel(true)` —
+so it re-posts once a day until the reminder is completed or cancelled, which is exactly what the
+copy promises. The overdue branch behaves the same way, consistently.
+
+**No code changed.** Adding a "notify once" flag would have silently broken the documented
+behaviour, on the strength of a report that never checked the copy. If daily nagging is *not*
+wanted, that is a product decision, and the change is a `notified_at` column plus a guard in the
+worker.
+
 **NCC-032 fix.** The chain was dead at *every* layer, not just the repository:
 
 | Layer | State |
@@ -650,8 +676,8 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 | ID | Sev | Status | Summary | Location |
 |---|---|---|---|---|
 | NCC-032 | S3 | ✅ **Fixed** | `reschedule` accepted `reminderDate` and discarded it — deleted the dead chain | `ReminderDialogs.kt` (picker removed), `DueTab.kt`, `DueViewModel.kt`, `ReminderRepository.kt`, `ReminderRepositoryImpl.kt`, `ReminderEntity.kt`, `Reminder.kt` |
-| NCC-033 | S3 | Open | `notificationsSentToday` reads two `@Transient` fields with no writer ⇒ always 0 | `ReminderDueListProcessor.kt:115` |
-| NCC-034 | S3 | Open | Blank `reminderDate` personal reminder notifies on **every** run | `PersonalReminderNotificationWorker.kt:27-31` |
+| NCC-033 | S3 | ✅ **Fixed** | `notificationsSentToday` read two `@Transient` fields with no writer ⇒ always 0 — deleted the dead chain | `ReminderDueListProcessor.kt`, `ReminderStats.kt`, `ReminderEntity.kt`, `Reminder.kt` |
+| NCC-034 | S3 | ⚠️ **Not a bug** | Blank `reminderDate` notifies on every run — this is the stated design | `PersonalReminderNotificationWorker.kt:27-31`; intent quoted from `NotificationHelper.kt:171` |
 | NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |
 | NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **34** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
 | NCC-037 | S3 | Open | `readBytesFromUri` checks `OpenableColumns.SIZE` then calls `readBytes()` unbounded | `BackupRepositoryImpl.kt:435-441` |
