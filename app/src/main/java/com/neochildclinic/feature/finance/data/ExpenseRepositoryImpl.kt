@@ -119,8 +119,9 @@ syncRepository.enqueue(
     override suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
         val remoteExpenses = postgrest.from("expenses").select { filter { eq("is_deleted", false) } }.decodeList<ExpenseEntity>()
         transactionRunner.run {
+            val pendingExpenseIds = syncQueueDao.unsyncedIdSet("EXPENSE")
             for (remote in remoteExpenses) {
-                if (!syncQueueDao.isUnsynced("EXPENSE", remote.id)) {
+                if (remote.id !in pendingExpenseIds) {
                     expenseDao.insertExpense(remote.copy(isSynced = true))
                 }
             }

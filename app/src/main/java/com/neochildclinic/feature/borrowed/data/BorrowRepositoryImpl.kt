@@ -302,14 +302,16 @@ syncRepository.enqueue(
                 Log.d(TAG, "Fetched ${records.size} borrow records and ${returns.size} returns.")
 
                 transactionRunner.run {
+                    val pendingBorrowIds = syncQueueDao.unsyncedIdSet("BORROW")
+                    val pendingBorrowReturnIds = syncQueueDao.unsyncedIdSet("BORROW_RETURN")
                     for (r in records) {
-                        if (!syncQueueDao.isUnsynced("BORROW", r.id)) {
+                        if (r.id !in pendingBorrowIds) {
                             // Upsert: REPLACE deletes the record and cascades away its returns.
                             borrowDao.upsertRecord(r.copy(isSynced = true))
                         }
                     }
                     for (ret in returns) {
-                        if (!syncQueueDao.isUnsynced("BORROW_RETURN", ret.id)) {
+                        if (ret.id !in pendingBorrowReturnIds) {
                             borrowReturnDao.insert(ret.copy(isSynced = true))
                         }
                     }

@@ -149,8 +149,9 @@ class WasteRepositoryImpl @Inject constructor(
     override suspend fun refreshWaste() = cloudRefresh("WasteRepo", rethrow = true) {
         val wasteRecords = postgrest.from("waste_records").select { filter { eq("is_deleted", false) } }.decodeList<WasteRecord>()
         transactionRunner.run {
+            val pendingWasteIds = syncQueueDao.unsyncedIdSet("WASTE")
             for (remote in wasteRecords) {
-                if (!syncQueueDao.isUnsynced("WASTE", remote.id)) {
+                if (remote.id !in pendingWasteIds) {
                     wasteDao.insertWaste(remote.copy(
                         isSynced = true,
                         updatedAt = remote.updatedAt.ifEmpty { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }

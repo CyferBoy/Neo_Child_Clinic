@@ -92,14 +92,21 @@ class PatientRepositoryImpl @Inject constructor(
         val entities = remoteDataSource.fetchAllPatients()
         android.util.Log.d("PatientRepo", "Pulled ${entities.size} patients from Supabase")
 
-        // One query each instead of three per patient: 5,000 remote patients used to cost
-        // ~15,000 SQLite round-trips inside this loop.
+        // The queue guard and the local rows (looked up by id and by clinic id) are each
+        // built once, outside the loop. The deleted getPatientsByIds took one bind
+        // parameter per remote patient (SQLite allows 999 on API 29/30) and had no
+        // empty-pull guard; the parameterless snapshot has neither problem.
         val pendingPatientIds = syncQueueDao.unsyncedIdSet("PATIENT")
-        val localById = patientDao.getPatientsByIds(entities.map { it.id }).associateBy { it.id }
+        val localPatients = patientDao.getAllPatientsSnapshot()
+        val localById = localPatients.associateBy { it.id }
+        // patientClinicId has a unique index, so there is at most one owner per id.
+        val clinicIdOwner = localPatients
+            .mapNotNull { p -> p.patientClinicId?.takeIf { it.isNotBlank() }?.let { it to p.id } }
+            .toMap().toMutableMap()
 
         for (entity in entities) {
             try {
-                val existingLocal = localById[entity.id] ?: patientDao.getPatientById(entity.id)
+                val existingLocal = localById[entity.id]
                 val localClinicId = when {
                     entity.patientClinicId?.isNotBlank() == true && !entity.patientClinicId.startsWith("TEMP-") ->
                         entity.patientClinicId
@@ -109,8 +116,8 @@ class PatientRepositoryImpl @Inject constructor(
                 }
 
                 if (!localClinicId.startsWith("TEMP-")) {
-                    val existingByClinicId = patientDao.getPatientByClinicId(localClinicId)
-                    if (existingByClinicId != null && existingByClinicId.id != entity.id) {
+                    val existingOwnerId = clinicIdOwner[localClinicId]
+                    if (existingOwnerId != null && existingOwnerId != entity.id) {
                         val resolvedId = localClinicId + "-CONFLICT-" + entity.id.take(4)
                         // Upsert, not insertPatient: this row can already exist (same remote id
                         // pulled again) and a REPLACE would delete it and cascade its children.
@@ -119,6 +126,7 @@ class PatientRepositoryImpl @Inject constructor(
                             updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
                             isSynced = true
                         ))
+                        clinicIdOwner[resolvedId] = entity.id
                         continue
                     }
                 }
@@ -131,6 +139,9 @@ class PatientRepositoryImpl @Inject constructor(
                         updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
                         isSynced = true
                     ))
+                    // Keep the map in step with the writes this loop just made, the way the
+                    // old per-row query saw earlier iterations' rows.
+                    clinicIdOwner[localClinicId] = entity.id
                 }
             } catch (e: Exception) {
                 android.util.Log.e("PatientRepo", "Insert failed for patient ${entity.id}", e)

@@ -31,6 +31,7 @@ import java.util.Locale
 import com.neochildclinic.core.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -297,7 +298,8 @@ class DashboardViewModel @Inject constructor(
             slotSegments = slots.segments,
             selectedSlotKey = slots.effectiveKey
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 
     fun setSelectedDate(date: String) {
         _selectedDate.value = date
