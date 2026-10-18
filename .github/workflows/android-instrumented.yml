@@ -87,6 +87,30 @@ jobs:
           script: ./gradlew :app:connectedDebugAndroidTest --no-daemon
           disable-animations: true
 
+      # connectedDebugAndroidTest only prints "There were failing tests" and points at an
+      # HTML report, so a failure costs a round trip to the artifact to diagnose. Parse the
+      # JUnit XML that lands next to it and print the actual class, method and stack.
+      - name: Report failing instrumented tests
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, os, sys, xml.etree.ElementTree as ET
+          paths = glob.glob("app/build/outputs/androidTest-results/**/*.xml", recursive=True)
+          if not paths:
+              print("No instrumentation XML found - the Gradle build failed before running tests.")
+              sys.exit(0)
+          failed = False
+          for path in paths:
+              for case in ET.parse(path).getroot().iter("testcase"):
+                  for kind in ("failure", "error"):
+                      for node in case.iter(kind):
+                          failed = True
+                          print(f"::group::{case.get('classname')}.{case.get('name')} [{kind}]")
+                          print((node.get("message") or node.text or "").strip()[:4000])
+                          print("::endgroup::")
+          print("FAILED instrumented tests found." if failed else "No <failure>/<error> in XML.")
+          PY
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
