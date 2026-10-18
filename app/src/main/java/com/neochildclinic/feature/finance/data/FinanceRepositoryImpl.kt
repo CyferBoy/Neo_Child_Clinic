@@ -384,6 +384,7 @@ class FinanceRepositoryImpl @Inject constructor(
                     .select { filter { eq("is_deleted", false) } }
                     .decodeList<FinanceEntity>()
                 transactionRunner.run {
+                    val pendingFinanceIds = syncQueueDao.unsyncedIdSet("FINANCE")
                     val visitDao = vaccinationDao
                     for (remote in transactions) {
                         var normalizedRemote = remote
@@ -410,7 +411,7 @@ class FinanceRepositoryImpl @Inject constructor(
                         // alone let a concurrent pull overwrite the newer local edit - and the
                         // rolled-back version was then uploaded, losing the edit on every device.
                         var shouldUpdateLocal = local == null ||
-                                (local.isSynced && !syncQueueDao.isUnsynced("FINANCE", normalizedRemote.id))
+                                (local.isSynced && normalizedRemote.id !in pendingFinanceIds)
                         var finalEntity = normalizedRemote.copy(isSynced = true)
 
                         if (local != null && wasHealed) {

@@ -205,8 +205,9 @@ class ConsultationRepositoryImpl @Inject constructor(
     override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo", rethrow = true) {
         val entities = postgrest.from("consultations").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationEntity>()
         transactionRunner.run {
+            val pendingConsultationIds = syncQueueDao.unsyncedIdSet("CONSULTATION")
             for (remote in entities) {
-                if (!syncQueueDao.isUnsynced("CONSULTATION", remote.id)) {
+                if (remote.id !in pendingConsultationIds) {
                     consultationDao.insertConsultation(remote.copy(isSynced = true))
                 }
             }

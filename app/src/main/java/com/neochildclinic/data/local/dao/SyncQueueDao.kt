@@ -83,6 +83,14 @@ interface SyncQueueDao {
     @Query("SELECT entityId FROM sync_queue WHERE entityName = :name AND status != 'SYNCED'")
     suspend fun unsyncedIds(name: String): List<String>
 
-    /** [unsyncedIds] as a set, for membership tests inside reconciliation loops. */
+    /**
+     * [unsyncedIds] as a set, for membership tests inside reconciliation loops.
+     *
+     * Fetch it inside the same transaction as the loop it guards (the in-transaction pull
+     * loops do): the batch is only equivalent to the per-row [isUnsynced] it replaces when
+     * both read the same SQLite snapshot. Fetched before a transaction, or with no
+     * transaction around the loop, a queue row enqueued while the loop runs is invisible -
+     * the per-row read would have seen it - and the pull can overwrite that edit.
+     */
     suspend fun unsyncedIdSet(name: String): Set<String> = unsyncedIds(name).toHashSet()
 }

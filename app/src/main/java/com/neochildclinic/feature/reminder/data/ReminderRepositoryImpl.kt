@@ -456,6 +456,7 @@ class ReminderRepositoryImpl @Inject constructor(
     override suspend fun refreshReminders() = cloudRefresh("ReminderRepo", rethrow = true) {
                 val entities = postgrest.from("reminders").select { filter { eq("is_deleted", false) } }.decodeList<RemoteReminder>()
                 transactionRunner.run {
+                    val pendingReminderIds = syncQueueDao.unsyncedIdSet("REMINDERS")
                     for (remote in entities) {
                         // Guard against reminders whose parent visit no longer exists
                         // locally. A visit deletion that didn't (or hadn't yet) cleaned up
@@ -480,10 +481,10 @@ class ReminderRepositoryImpl @Inject constructor(
                         // Pending DELETE enqueues entityId = serverId ?: local id — check
                         // both identities so a queued hard-delete is never overwritten by a pull.
                         val remoteId = remote.id
-                        if (remoteId != null && syncQueueDao.isUnsynced("REMINDERS", remoteId)) {
+                        if (remoteId != null && remoteId in pendingReminderIds) {
                             continue
                         }
-                        if (local != null && syncQueueDao.isUnsynced("REMINDERS", local.id)) {
+                        if (local != null && local.id in pendingReminderIds) {
                             continue
                         }
 

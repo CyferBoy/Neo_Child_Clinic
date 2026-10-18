@@ -12,10 +12,11 @@ interface PatientDao {
     @Query("SELECT * FROM patients WHERE id = :id")
     suspend fun getPatientById(id: String): PatientEntity?
 
-    // Bulk form of [getPatientById] for pull loops: one query for the whole batch instead of
-    // one per remote patient.
-    @Query("SELECT * FROM patients WHERE id IN (:ids)")
-    suspend fun getPatientsByIds(ids: List<String>): List<PatientEntity>
+    // Pull loops read the whole table once and build both lookup maps from it (see
+    // PatientRepositoryImpl.refreshPatients). No bind parameters, so neither the empty-list
+    // edge case nor SQLite's 999-variable ceiling (API 29/30) applies.
+    @Query("SELECT * FROM patients")
+    suspend fun getAllPatientsSnapshot(): List<PatientEntity>
 
     @Query("SELECT * FROM patients WHERE patientClinicId = :clinicId LIMIT 1")
     suspend fun getPatientByClinicId(clinicId: String): PatientEntity?
