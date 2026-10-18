@@ -148,6 +148,32 @@ re-raised:
 | #39's third claim | **Wrong** — `SimpleGenderChart` renders labelled text rows, not a Canvas; only the two real canvases needed `contentDescription` |
 | #36's `InventoryUtils` half | Needed a testability fix, not just a timezone fix; `today` is now a defaulted parameter |
 
+## 2026-10-18 verification pass — audit §4.6 was wrong
+
+Re-verified against commit `e05f7c0`. The original finding is preserved above; this is the
+reconciliation, not a rewrite.
+
+**`Known Bugs` §4.6 ("17 of 21 migrations are untracked in git") is a false positive.**
+Commit `f8e5d8a` ("chore: track migrations and full project documentation") added the folder
+before the vault was generated, so the finding was already stale when it was written down.
+
+```bash
+git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 21
+git check-ignore supabase/migrations/*.sql             # → no output
+```
+
+The `.gitignore` comment at `supabase/.gitignore:5-8` describes a real *past* incident — it
+is the historical record of the gap that `f8e5d8a` closed, not a current defect.
+
+⚠️ **What survives** is the separate problem in `Known Bugs` §4.6's neighbourhood: these 21
+migrations never `CREATE` the ~12 legacy base tables, so **a clean clone still cannot
+reproduce the database** — that half of the claim stands, and the base schema artifact
+remains gitignored. Splitting the finding into "tracking ✅ fixed" and "baseline schema ⚠️
+still missing" is the correction; deleting the row entirely would lose a real defect.
+
+Also corrected in the same pass: `Database Schema.md` and `Supabase.md` both carried the
+false "only 4 tracked" claim, and `Release Notes.md` listed it as a shipping blocker.
+
 ## Net position
 
 | | Count |
@@ -156,6 +182,7 @@ re-raised:
 | Audit claims **partial fixes, still open** | **4** |
 | Audit findings **deliberately not done** | 5 |
 | Findings **not in the audit**, found later | 15 |
+| Audit findings **retracted as false positives** | **1** (§4.6, tracking half only) |
 | 🔍 Needs a live database to settle | 5 |
 
 **Lesson for the register**: "fixed" requires evidence against the *original reproduction*,

@@ -13,6 +13,7 @@
 | **Investigating** | Suspected, not yet proven | must say what is missing |
 | **Confirmed** | Proven by reading the cited code *and* stated reproduction | full card below |
 | **Fixed** | Change landed **and** the original reproduction no longer reproduces | ⚠️ requires verification evidence — never assume |
+| **In review** | A fix exists on a branch but is **not merged** into this branch | must cite the commit and the branch |
 | **Won't Fix** | Deliberately accepted | must record the reason |
 
 ⚠️ **A fix that changes the named mechanism is not a fix.** Audit entry #14, #15, #38 and #2
@@ -34,11 +35,11 @@ neighbouring path still producing the original symptom. See
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
 | [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
-| [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | 🔧 **PR #15** | Supabase |
-| [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | 🔧 **PR #15** | Supabase |
+| [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
+| [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
 | [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | Open | Vaccination |
 | [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
-| [[#ncc-006]] NCC-006 | Soft-delete filter missing on 9 reminder queries | S1 | ✅ **Fixed** | Room |
+| [[#ncc-006]] NCC-006 | Soft-delete filter missing on reminder queries | S1 | ✅ **Fixed** | Room |
 | [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | Open | Supabase |
 | [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
 | [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
@@ -120,8 +121,12 @@ reproductions, the shortfall path, and every carry-forward branch.
 
 **Verification evidence.** Reverting only the `stockMoved -> "COMPLETED"` branch makes
 `stock moved on this edit outranks a prior FAILED row` and `stock moved wins over multiple
-prior FAILED rows` fail; restoring it makes all 8 pass. Suite is
+prior FAILED rows` fail; restoring it makes all 8 pass. Suite was
 **260 tests, 0 failures, 0 errors, 0 skipped** (was 252).
+
+⚠️ **Dated figure.** That was the suite size when the fix was verified. The suite has since
+grown — the last recorded run is **270 tests, 0 failures (2026-10-17 07:48)**, see
+[[Testing]]. Do not use 252/260/273 as the current baseline.
 
 ⚠️ **Not covered:** the ledger write is asserted as a pure decision, not against a real
 Room database. A future change to how `applyInventoryDiff` reports `deducted` would not be
@@ -135,8 +140,8 @@ caught by these tests. The end-to-end path still needs an instrumented test.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
-| **Files** | `supabase/migrations/20261013140000_stock_trigger_negative_guard.sql:56-61`, installed at `20261016_rls_index_and_stock_trigger_hardening.sql:140` |
+| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
+| **Files** | `supabase/migrations/20261013140000_stock_trigger_negative_guard.sql:56-61`, installed at `20261016_rls_index_and_stock_trigger_hardening.sql:140`, corrected by `20261017_stock_trigger_duplicate_and_update_arithmetic.sql` |
 | **Impact** | A retried ledger upload invents or destroys doses server-side. |
 
 **Evidence.** The `ELSE` branch applies `- OLD.quantity` with no `+ NEW.quantity`, and only
@@ -151,6 +156,16 @@ the client uploads transaction rows with `upsert` (`core/sync/SyncUploader.kt:53
 **Regression test.** `pgTAP` or a psql script: insert a `PURCHASE` row, re-upsert the same
 id with a changed quantity, assert `remaining_quantity` reflects only the delta.
 
+**Verification.** ✅ Migration `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`
+lands on this branch: it `create or replace`s `public.update_batch_stock()` with the UPDATE
+branch computing `v_delta := new.quantity - old.quantity` (`:67`) and undoing `OLD.batch_id`
+when a row moves batch, instead of the old `- OLD.quantity`. 🔍 **Not verified against a
+live database** — confirm with the pgTAP/psql script in *Fix* above before shipping.
+
+⚠️ **Status history.** This card read **In review** from 2026-10-18 until `origin/main`
+fast-forwarded into this branch and brought the migration with it. Before that merge the fix
+existed only as commit `98f8172` on the now-deleted `fix/stock-trigger-double-apply`.
+
 **Links.** [[Supabase]] · [[Inventory Management]] · [[Database Schema]]
 
 ---
@@ -159,8 +174,8 @@ id with a changed quantity, assert `remaining_quantity` reflects only the delta.
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
-| **Files** | `20261016_rls_index_and_stock_trigger_hardening.sql:134-138` |
+| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
+| **Files** | `20261016_rls_index_and_stock_trigger_hardening.sql:134-138`, resolved by `20261017_stock_trigger_duplicate_and_update_arithmetic.sql:26` |
 | **Impact** | If the legacy trigger is live, **every stock movement is applied twice.** |
 
 **Evidence.** The install is gated on the absence of `inventory_transactions_update_batch_stock`.
@@ -238,7 +253,7 @@ throws `IllegalStateException`; assert the visit is **not** saved.
 
 ---
 
-## NCC-006 — Soft-delete filter missing on 5 live reminder queries
+## NCC-006 — Soft-delete filter missing on reminder queries
 
 | | |
 |---|---|
@@ -246,10 +261,17 @@ throws `IllegalStateException`; assert the visit is **not** saved.
 | **Files** | `data/local/dao/DueReminderDao.kt`; `data/local/dao/BackupDao.kt` |
 | **Impact** | Soft-deleted reminders appear on patient history, in backups, and in the conflict guard. |
 
-**Evidence.** 7 of 19 `DueReminderDao` queries filter `is_deleted = 0`; the rest do not.
-`migration31_32` (`AppDatabase.kt:390-415`) hard-deletes soft-deleted rows on 18 tables but
-**deliberately excludes `reminders`**, so an upgraded device carries live `is_deleted = 1`
-rows.
+**Evidence (as found, before the fix).** A subset of `DueReminderDao` queries omitted
+`is_deleted = 0`; the rest filtered. `migration31_32` (`AppDatabase.kt:390-415`) hard-deletes
+soft-deleted rows on 18 tables but **deliberately excludes `reminders`**, so an upgraded
+device carries live `is_deleted = 1` rows.
+
+⚠️ **Correction (2026-10-18).** This card previously gave three mutually inconsistent
+figures — index "9 queries", heading "5 live reminder queries", evidence "7 of 19", and fix
+"18 predicates in total". Measured against `DueReminderDao.kt` at `e05f7c0`: **21 `@Query`,
+16 `SELECT`, all 16 now filtered, 18 `is_deleted = 0` predicates in the file** (two queries
+filter in both a subquery and the outer `WHERE`). Repo-wide the DAO layer holds **19**
+(18 here + `BackupDao.kt:124`); `VaccineDetailViewModel.kt` adds a 20th outside the DAOs.
 
 **Live reachability:** `getRemindersByVisitId` feeds `@Relation`, and **`@Relation` cannot
 filter**. `getReminderById` has 13 call sites. `BackupDao.getAllRemindersForBackup` exports
@@ -258,16 +280,16 @@ them into the `.nccb` payload.
 **Note.** Nothing in `app/src/main` writes `is_deleted = 1` today — only a pre-v31 client
 could create the rows. The inconsistency is latent, not active.
 
-**Fix applied.** All 9 lookups now filter, plus the 3 paginated variants (dead code, but
-wiring them later unfiltered is the same trap) and `BackupDao.getAllRemindersForBackup` — 18
-`is_deleted = 0` predicates in total. The file's header comment asserted the rule while
-breaking it; it now states what the file does and why (migration 31→32 leaves `reminders`
-out of its hard delete).
+**Fix applied.** Every lookup now filters, plus the paginated variants (dead code, but
+wiring them later unfiltered is the same trap) and `BackupDao.getAllRemindersForBackup` —
+19 `is_deleted = 0` predicates across the DAO layer. The file's header comment asserted the
+rule while breaking it; it now states what the file does and why (migration 31→32 leaves
+`reminders` out of its hard delete).
 
-**Verification.** 🔍 **Instrumented only.** `UpcomingVaccinationDaoTest` lives in
-`androidTest`, which `./gradlew test` does not run, so this is compile-verified only. Run
-`./gradlew connectedDebugAndroidTest` on a device and extend
-`softDeletedRemindersAreExcluded` to the five lookup queries before shipping.
+**Verification.** 🔍 **Instrumented only.** `ReminderSoftDeleteFilterTest` (12 tests) and
+`UpcomingVaccinationDaoTest` (16 tests) live in `androidTest`, which `./gradlew test` does not
+run, so this is compile-verified only. ⚠️ **Not executed in this pass.** Run
+`./gradlew connectedDebugAndroidTest` on a device before shipping.
 
 **Links.** [[Room Database]] · [[Statistics Dashboard]] · [[Quality/Audit Reconciliation]]
 
@@ -330,7 +352,8 @@ resets `failure_count` and returns `Result.success()`.
 **Fix applied.** `return flight.run { processNextItemsInternal() }` — uses the shared result
 instead of a captured local.
 
-**Verification.** ✅ Compiles and the full suite passes (273 tests, 0 failures).
+**Verification.** ✅ Compiles and the full suite passed (273 tests, 0 failures — ⚠️ dated;
+the suite is **270** as of 2026-10-17, see [[Testing]]).
 **Regression test.** ⚠️ **Still missing.** `SingleFlightResultTest` exercises `run()`'s return
 value, not this wrapper — which is exactly why the bug survived the previous audit. The test
 to add: hold the flight with a failing run, call `processNextItems()` from a second

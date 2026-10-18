@@ -15,27 +15,31 @@
    in this checkout, so no prior migration files were available to inspect… Please
    reconcile this against your actual deployed schema before applying."*
 3. `inventory_transactions` — the stock ledger — was created by hand-patched scratch SQL at
-   `.artifacts/…/scratch/missing_tables.sql:19`, which is gitignored.
+   `.artifacts/…/scratch/missing_tables.sql:22`, which is gitignored.
 
 **A clean clone cannot reproduce the database.** The closest artifact is also gitignored:
 `.artifacts/f21d0dfd-…/full_project_schema.sql.artifact.md`.
 
-### Git tracking is worse than the `.gitignore` comment claims
+### Git tracking — resolved
 
-`supabase/.gitignore` states that `migrations/` is intentionally **not** ignored so
-migrations can be reviewed and replayed. ✅ **But only 4 of 21 are actually tracked:**
+`supabase/.gitignore:5-8` records the original incident: ignoring `migrations/` once left
+18 of 22 RLS/schema migrations untracked, so a fresh `supabase db reset` applied only 4 files
+against a hand-built schema.
+
+✅ **That gap is closed.** Commit `f8e5d8a` ("chore: track migrations and full project
+documentation") added the folder, and all 21 `.sql` migrations plus the CSV catalog are
+tracked today:
 
 ```
-git ls-files supabase/migrations/
-20261001_app_metadata_roles.sql
-20261013120000_role_policy_carveouts.sql
-20261013140000_stock_trigger_negative_guard.sql
-20261013_profiles_privileged_fields_guard.sql
+git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 21
+git check-ignore supabase/migrations/*.sql             # → no output (not ignored)
 ```
 
-The folder was un-ignored; nobody ever `git add`ed it. **17 migrations — including every
-`CREATE TABLE`, the entire RLS baseline, and the accountability triggers — exist only in one
-working tree.** See [[Known Bugs]].
+Every `CREATE TABLE`, the RLS baseline and the accountability triggers are reviewable and
+replayable from a clean checkout. ✅ Verified 2026-10-18 against commit `e05f7c0`.
+
+⚠️ The *unreproducible base schema* above is a separate, still-open problem: these 21 files
+do not create the ~12 legacy tables, so the missing baseline has not been recovered.
 
 ## Migration timeline (chronological)
 

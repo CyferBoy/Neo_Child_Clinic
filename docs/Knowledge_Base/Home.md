@@ -13,8 +13,8 @@
 | Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
 | Supabase | 26 tables, 21 migrations, 2 edge functions |
 | Kotlin | 351 main files · 43 test files |
-| Tests | **273 unit passing**, 0 failures · 5 instrumented, **no recorded result** |
-| Open bugs | **29 confirmed open** (4 × S1) · 11 fixed on 2026-10-16 · 13 security · 9 hypotheses |
+| Tests | **270 unit passing**, 0 failures (2026-10-17 07:48) · 48 instrumented in 6 files, **no recorded result** |
+| Open bugs | **22 confirmed open** · 18 fixed · 13 security · 7 hypotheses (2 refuted 2026-10-18) |
 | 🚨 Deadline | **`auto_expose_new_tables` removed 2026-10-30** — see NSC-005 |
 
 ## Start here
@@ -61,12 +61,12 @@
 
 ## Quality
 
-- [[Quality/Bug Register]] — 40 confirmed defects, canonical status
+- [[Quality/Bug Register]] — 40 tracked defects (18 fixed, 22 open), canonical status
 - [[Quality/Security Concerns]] — 13 items, 5 need a live database
-- [[Quality/Hypotheses]] — 9 unproven claims, kept separate
+- [[Quality/Hypotheses]] — 7 unproven claims kept separate; 2 refuted on 2026-10-18
 - [[Quality/Audit Reconciliation]] — ⚠️ **read before fixing anything**
 - [[Technical Debt]] — dead code, duplication, complexity
-- [[Testing]] — 252 tests and the 12 untested critical paths
+- [[Testing]] — 270 tests and the 12 untested critical paths
 
 ## Delivery
 
@@ -116,8 +116,8 @@ graph TB
 | Room version | 33 | `AppDatabase.kt:42` |
 | SQL migrations | 21, all git-tracked | `git ls-files supabase/migrations/` |
 | Supabase tables / edge functions | 26 / 2 | — |
-| Unit tests passing | 252, 0 failures (2026-10-16 14:33) | `app/build/test-results/` |
-| Instrumented tests | 5, **no recorded result** | `app/src/androidTest/` |
+| Unit tests passing | 270, 0 failures (2026-10-17 07:48) | `app/build/test-results/` |
+| Instrumented tests | 6 files, 48 `@Test`, **no recorded result** | `app/src/androidTest/` |
 
 ## Validate this vault
 
@@ -141,3 +141,25 @@ against the original reproduction — see [[Quality/Audit Reconciliation]] for w
 
 - [[Neo Child Clinic]] — the original project hub
 - [[Welcome]] — Obsidian's own start page
+
+## Development Dashboard
+
+Requires the **Dataview** and **Tasks** community plugins, both installed
+(`.obsidian/community-plugins.json`).
+
+### Open Tasks
+
+```dataview
+TASK
+FROM " "
+WHERE !completed
+```
+
+### Recently Updated Notes
+
+```dataview
+TABLE file.mtime AS "Last Updated"
+FROM ""
+SORT file.mtime DESC
+LIMIT 10
+```

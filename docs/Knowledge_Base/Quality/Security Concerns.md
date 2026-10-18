@@ -98,16 +98,30 @@ where pronamespace='public'::regnamespace and proname='get_my_role';
 
 ---
 
-## NSC-005 — No `GRANT` anywhere; `auto_expose_new_tables` removed 2026-10-30
+## NSC-005 — No table-level `GRANT`; `auto_expose_new_tables` removed 2026-10-30
 
 **Needs live DB · High · has a deadline.** `supabase/config.toml:19-24` leaves
 `auto_expose_new_tables` commented out, matching the new cloud default where new entities
 are **not** auto-exposed.
 
-✅ **No migration in this repository issues a single `GRANT`.** Every migration relies on
-the legacy default grants. Under the new default a perfect RLS policy is irrelevant if
-`anon`/`authenticated` hold no table privilege — **every app write fails with
+✅ **No migration in this repository issues a single table-level `GRANT`.** Every table
+privilege relies on the legacy default grants. Under the new default a perfect RLS policy is
+irrelevant if `anon`/`authenticated` hold no table privilege — **every app write fails with
 `permission denied for table …`.**
+
+⚠️ **Correction (2026-10-18).** This note previously read *"no migration issues a single
+`GRANT`"*. That was literally false: four **function-execution** grants exist, and only
+those — they do not grant table access, so the security argument above is unaffected.
+
+```
+20260816_security_hardening.sql:93              grant execute on function public.is_admin() to authenticated;
+20260825_clinic_rls_and_accountability.sql:49  grant execute on function public.is_active_staff() to authenticated;
+20260929000000_security_baseline.sql:32         grant execute on function public.is_active_staff() to authenticated;
+20261001_app_metadata_roles.sql:45             grant execute on function public.is_admin() to authenticated;
+```
+
+Verify with `grep -rin "grant " supabase/migrations/*.sql`. Anyone acting on the
+over-broad wording would add a redundant table `GRANT` sweep.
 
 `20260929:35` claims *"keep this list explicit so adding a new remote table cannot silently
 inherit access"* — that list governs **policies**, not **grants**.

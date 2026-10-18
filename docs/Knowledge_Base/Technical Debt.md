@@ -160,7 +160,7 @@ transactions) are used interchangeably at **20 call sites**; 5 of the `log()` ca
 | `ExpenseDaoTest.kt:21-22` — coverage includes "soft-deleting an expense" | `expenses` has no soft-delete; dropped in 27→28 |
 | `ExpenseMigrationTest.kt:18-23` — migrations are local vals in `getInstance()`; `MigrationTest.kt` references a non-existent constant | **Both stale** — migrations are companion `internal val`s; no `MigrationTest.kt` exists |
 | `DatabaseModule.kt:139-142` — "SyncRepositoryImpl takes AppDatabase" | it takes `SyncQueueDao` |
-| `20260929000000_security_baseline.sql:35` — "keep this list explicit so adding a new remote table cannot silently inherit access" | That list governs **policies**, not **grants** — and no migration issues a `GRANT` |
+| `20260929000000_security_baseline.sql:35` — "keep this list explicit so adding a new remote table cannot silently inherit access" | That list governs **policies**, not **grants** — and no migration issues a **table** `GRANT` (four `grant execute on function` statements do exist) |
 | `StatisticsDateUtils.kt:25-30` — "time zeroed" | Nothing is zeroed |
 
 ## ⚠️ A comment-density problem

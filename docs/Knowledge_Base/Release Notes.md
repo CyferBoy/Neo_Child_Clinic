@@ -89,7 +89,10 @@ Before shipping, these are the things that will bite:
    environment — `Known Bugs` §1.6 and §2.1 both depend on it.
 4. **`auto_expose_new_tables` is removed on 2026-10-30.** 🔍 `Known Bugs` §4.5 — if no
    migration issues a `GRANT`, every write fails. This has a hard deadline.
-5. **17 migrations are untracked in git.** 🔍 §4.6 — a clean clone cannot replay the schema.
+5. ~~**17 migrations are untracked in git.**~~ ✅ **Resolved** — `f8e5d8a` tracked all 21
+   `.sql` files. A clean clone can replay every migration in this repository, but still
+   **cannot** recreate the ~12 legacy base tables (no initial migration exists for them) —
+   see `Known Bugs` §4.6 and [[Quality/Audit Reconciliation]].
 
 ## Related
 
