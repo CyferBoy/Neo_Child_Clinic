@@ -69,7 +69,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
 | [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | ✅ Fixed | Inventory |
 | [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
-| [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | Open | Sync |
+| [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | ⚠️ Needs decision — systemic, see note | Sync |
 | [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
 | [[#ncc-025]] NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
 | [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | Open | Inventory |
@@ -330,6 +330,27 @@ run, so this is compile-verified only. ⚠️ **Not executed in this pass.** Run
 omits the column on update. The trigger function body is wrapped in an existence check, and
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
+
+**NCC-023 — re-scoped, not fixed.** The card describes this as "pull paths never apply
+tombstones", which implies a tombstone exists to apply. **It does not.**
+
+A reminder delete is a hard `postgrest.from(table).delete()` (`SyncUploader.kt:460`). There is no
+soft-delete and no tombstone row. The `eq("is_deleted", false)` filter on the pull is a leftover
+from `20260816_security_hardening.sql`, which added `is_deleted` to `profiles` explicitly and to
+other tables opportunistically — the app never sets it for reminders. So the filter is inert, and
+a row deleted on device B is simply *absent* from the remote set.
+
+The only way to propagate that is **absence reconciliation**: fetch the full remote set, then
+delete local rows that are `isSynced`, absent remotely, and have no pending queue entry. Nothing
+in the codebase does this — checked all 15 refresh/pull sites, and the 21 `eq("is_deleted", ...)`
+filters are all row-level, never set-level.
+
+⚠️ **Not implemented here, deliberately.** That reconciliation deletes rows, and a partial or
+failed remote fetch would then delete healthy local records — for a clinical app that is
+catastrophic and not a bug's worth of blast radius. Doing it safely means deciding the policy once
+and applying it consistently across every pull path, not patching the reminders query and calling
+it fixed. It needs review and a staged rollout, and no pull path can be trusted to be complete
+until the reconciliation exists.
 
 **NCC-021 fix.** `getBatchById` → `updateBatch` is a read-modify-write, `VaccineBatchEntity`
 carries no `@Version`, and the surrounding code held no transaction. Two concurrent deductions
@@ -753,7 +774,7 @@ movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 | NCC-020 | S3 | ✅ **Fixed** | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt`; new `SyncQueueDao.isUnsyncedExcluding` |
 | NCC-021 | S3 | ✅ **Fixed** | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt` — `deductStockFromBatch` and `reverseDeduction` now transactional |
 | NCC-022 | S3 | ✅ **Fixed** | `AuditLogger.log()` fired on a separate coroutine inside 5 live transactions | `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:185,287` — all now call `recordLog` |
-| NCC-023 | S3 | Open | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
+| NCC-023 | S3 | ⚠️ **Needs decision** | No pull path reconciles remote *absence* — and there are no tombstones to apply | all pull paths; deletes are a hard PostgREST `delete()` (`SyncUploader.kt:460`) |
 | NCC-024 | S3 | ✅ **Fixed** | `.catch {}` on each realtime table flow killed the subscription permanently | `RealtimeChangeSubscriptions.kt` — retry loop with backoff |
 
 **Fixes.** NCC-019 `ExistingWorkPolicy.REPLACE`. NCC-020 either delete the branch or
