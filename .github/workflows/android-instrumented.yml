@@ -94,10 +94,16 @@ jobs:
         if: failure()
         run: |
           python3 - <<'PY'
-          import glob, os, sys, xml.etree.ElementTree as ET
-          paths = glob.glob("app/build/outputs/androidTest-results/**/*.xml", recursive=True)
+          import glob, sys, xml.etree.ElementTree as ET
+          # Do not pin one AGP output path - the connected-test XML has moved between AGP
+          # versions. Sweep app/build for any JUnit file and say what was found either way,
+          # so "found nothing" is distinguishable from "found nothing failing".
+          paths = sorted(glob.glob("app/build/**/TEST-*.xml", recursive=True))
+          print(f"JUnit XML files found: {len(paths)}")
+          for path in paths:
+              print(f"  {path}")
           if not paths:
-              print("No instrumentation XML found - the Gradle build failed before running tests.")
+              print("No instrumentation XML - Gradle failed before or during the test run.")
               sys.exit(0)
           failed = False
           for path in paths:
@@ -108,7 +114,7 @@ jobs:
                           print(f"::group::{case.get('classname')}.{case.get('name')} [{kind}]")
                           print((node.get("message") or node.text or "").strip()[:4000])
                           print("::endgroup::")
-          print("FAILED instrumented tests found." if failed else "No <failure>/<error> in XML.")
+          print("FAILED instrumented tests found." if failed else "XML parsed, zero failures in it.")
           PY
 
       - name: Upload test reports
