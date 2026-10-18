@@ -65,7 +65,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-016]] NCC-016 | `isLoading` can never clear | S2 | ✅ **Fixed** | UI |
 | [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
 | [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
-| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ **Fixed** | Sync |
+| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ Fixed | Sync |
 | [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
 | [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | ✅ Fixed | Inventory |
 | [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
@@ -78,15 +78,15 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-029]] NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | Open | Room |
 | [[#ncc-030]] NCC-030 | `VaccineDao` audit-count guards query the wrong column | S4 | Open | Inventory |
 | [[#ncc-031]] NCC-031 | `FinanceDao` sorts on an expression no index can serve | S4 | Open | Room |
-| [[#ncc-032]] NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | Open | Reminders |
-| [[#ncc-033]] NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | Open | Reminders |
-| [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | Open | Reminders |
-| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ **Fixed** | Reminders |
+| [[#ncc-032]] NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | ✅ Fixed | Reminders |
+| [[#ncc-033]] NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | ✅ Fixed | Reminders |
+| [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | ⚠️ Not a bug | Reminders |
+| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ Fixed | Reminders |
 | [[#ncc-036]] NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
 | [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | ✅ Fixed | Backup |
-| [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | Open | Sync |
+| [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | ⚠️ Needs decision | Sync |
 | [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
-| [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ **Fixed** | Inventory |
+| [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
