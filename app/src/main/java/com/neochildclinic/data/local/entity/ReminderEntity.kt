@@ -59,7 +59,6 @@ data class ReminderEntity(
     
     // Local-only or derived fields
     @Transient val vaccinationSource: String? = null,
-    @Transient val reminderDate: String? = null,
     @Transient val source: String? = null,
     @Transient val lastReminderTime: Long = 0,
     @Transient val notificationSent: Boolean = false,
@@ -107,7 +106,6 @@ fun ReminderEntity.toDomain() = Reminder(
     deletedAt = deletedAt,
     deletedBy = deletedBy,
     vaccinationSource = vaccinationSource,
-    reminderDate = reminderDate,
     source = source,
     lastReminderTime = lastReminderTime,
     notificationSent = notificationSent

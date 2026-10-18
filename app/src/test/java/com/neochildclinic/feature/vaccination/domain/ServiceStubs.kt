@@ -87,7 +87,7 @@ class FakeReminderRepository(private val runner: RecordingTransactionRunner) : R
     override fun getUpcomingVaccinations(): Flow<List<Reminder>> = TODO()
     override fun getUpcomingVaccinationsByType(type: String): Flow<List<Reminder>> = TODO()
     override fun getUpcomingVaccinationsByVaccineId(vaccineId: String): Flow<List<Reminder>> = TODO()
-    override suspend fun reschedule( reminder: Reminder, newDate: String, reminderDate: String, reason: String, performedBy: String ) = TODO()
+    override suspend fun reschedule( reminder: Reminder, newDate: String, reason: String, performedBy: String ) = TODO()
     override suspend fun dismissReminder(reminder: Reminder, reason: String, performedBy: String) = TODO()
     override suspend fun restoreReminder(reminder: Reminder, performedBy: String) = TODO()
     override suspend fun cancelNextVaccinationVaccine( reminder: Reminder, vaccineId: String, reason: String, performedBy: String ) = TODO()

@@ -16,15 +16,12 @@ import java.util.*
 @Composable
 fun RescheduleDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String) -> Unit
+    onConfirm: (newDate: String, reason: String) -> Unit
 ) {
     val fmt = remember { DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH) }
     val today = remember { LocalDate.now().format(fmt) }
 
-    fun parse(s: String): LocalDate? = try { LocalDate.parse(s, fmt) } catch (_: Exception) { null }
-
     var newDueDate by remember { mutableStateOf(today) }
-    var reminderDate by remember { mutableStateOf(today) }
     var reason by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -38,33 +35,8 @@ fun RescheduleDialog(
                 DateDropdownPicker(
                     label = "New Due Date",
                     currentDate = newDueDate,
-                    onDateSelected = { 
-                        newDueDate = it
-                        // If reminder date is now after due date, pull it back
-                        val due = parse(it)
-                        val rem = parse(reminderDate)
-                        if (due != null && rem != null && rem.isAfter(due)) {
-                            reminderDate = it
-                        }
-                    }
+                    onDateSelected = { newDueDate = it }
                 )
-                
-                DateDropdownPicker(
-                    label = "Reminder Date",
-                    currentDate = reminderDate,
-                    onDateSelected = { 
-                        // Validation: Reminder date cannot be after due date
-                        val due = parse(newDueDate)
-                        val rem = parse(it)
-                        if (due != null && rem != null && !rem.isAfter(due)) {
-                            reminderDate = it
-                        } else {
-                            // Show error or snap to due date
-                            reminderDate = newDueDate
-                        }
-                    }
-                )
-
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it },
@@ -76,7 +48,7 @@ fun RescheduleDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(newDueDate, reminderDate, reason)
+                    onConfirm(newDueDate, reason)
                 }
             ) {
                 Text("Save")

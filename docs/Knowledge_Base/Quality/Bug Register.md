@@ -331,7 +331,25 @@ omits the column on update. The trigger function body is wrapped in an existence
 the install is gated the same way. `20261013140000:9-10` claims the client sync "clamps at 0"
 — that fallback no longer exists.
 
-**Fix.** `20261018_ensure_stock_trigger_installed.sql`. The client cannot know whether the
+**NCC-032 fix.** The chain was dead at *every* layer, not just the repository:
+
+| Layer | State |
+|---|---|
+| `RescheduleDialog` | collected a "Reminder Date" |
+| `DueTab` → `DueViewModel` → interface → impl | passed it along |
+| `ReminderRepositoryImpl.reschedule` | discarded it |
+| `ReminderEntity.reminderDate` | `@Transient` — never stored, no column exists |
+| `Reminder.reminderDate` (domain) | never read or written by anything |
+
+`reminder_date` exists only on `PersonalReminderEntity`, a different table with its own worker.
+So the user picked a date, the app accepted it, and nothing happened — with no error anywhere.
+
+Deleted rather than implemented. Persisting it would mean a new column, a Room migration, a
+sync field and a server-side counterpart, for a feature nobody asked for, against a field that
+had been inert since it was written. Removing it makes the dialog tell the truth. Verified with
+`grep`: no `reminderDate` reference remains outside the personal-reminder path.
+
+**NCC-007 fix.** `20261018_ensure_stock_trigger_installed.sql`. The client cannot know whether the
 server trigger exists, so the fix belongs server-side, and the server must refuse to continue
 rather than silently zero all stock:
 1. installs `inventory_transactions_update_batch_stock` if it is missing but installable —
@@ -631,7 +649,7 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 
 | ID | Sev | Status | Summary | Location |
 |---|---|---|---|---|
-| NCC-032 | S3 | Open | `reschedule` accepts `reminderDate` and silently discards it | `ReminderRepositoryImpl.kt:296-314` |
+| NCC-032 | S3 | ✅ **Fixed** | `reschedule` accepted `reminderDate` and discarded it — deleted the dead chain | `ReminderDialogs.kt` (picker removed), `DueTab.kt`, `DueViewModel.kt`, `ReminderRepository.kt`, `ReminderRepositoryImpl.kt`, `ReminderEntity.kt`, `Reminder.kt` |
 | NCC-033 | S3 | Open | `notificationsSentToday` reads two `@Transient` fields with no writer ⇒ always 0 | `ReminderDueListProcessor.kt:115` |
 | NCC-034 | S3 | Open | Blank `reminderDate` personal reminder notifies on **every** run | `PersonalReminderNotificationWorker.kt:27-31` |
 | NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |

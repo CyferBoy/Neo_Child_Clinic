@@ -28,7 +28,6 @@ data class Reminder(
     val deletedAt: String? = null,
     val deletedBy: String? = null,
     val vaccinationSource: String? = null,
-    val reminderDate: String? = null,
     val source: String? = null,
     val lastReminderTime: Long = 0,
     val notificationSent: Boolean = false

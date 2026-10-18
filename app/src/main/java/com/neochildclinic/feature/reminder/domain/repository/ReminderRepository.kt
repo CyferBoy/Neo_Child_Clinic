@@ -50,7 +50,6 @@ interface ReminderRepository {
     suspend fun reschedule(
         reminder: Reminder,
         newDate: String,
-        reminderDate: String,
         reason: String,
         performedBy: String
     )
