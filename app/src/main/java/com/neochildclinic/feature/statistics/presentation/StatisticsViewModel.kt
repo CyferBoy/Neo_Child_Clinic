@@ -17,6 +17,8 @@ import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.domain.model.Expense
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -92,6 +94,14 @@ class StatisticsViewModel @Inject constructor(
             isLoading = false
         )
     }.flowOn(Dispatchers.Default)
+        // stateIn cannot fail, so without an upstream .catch an exception in any Room
+        // source killed the flow and left the initial `isLoading = true` on screen
+        // forever, with no message. Emit the empty-but-not-loading state instead (NCC-016).
+        .catch { e ->
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Statistics combine failed", e)
+            emit(StatisticsUiState(isLoading = false, refreshError = e.message ?: "Could not load statistics."))
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(isLoading = true))
 
     fun updateTab(tab: Int) {
@@ -110,5 +120,9 @@ class StatisticsViewModel @Inject constructor(
                 _isRefreshing.value = false
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "StatisticsViewModel"
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import com.neochildclinic.core.ui.EmptyState
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Add
+import com.neochildclinic.core.ui.ShowSnackbar
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -40,6 +41,13 @@ fun BorrowedScreen(
     viewModel: BorrowedViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // BorrowedScreen had no error surface at all: zero references to error, Snackbar or
+    // Toast, while the ViewModel declared an actionError that could never be set. A failed
+    // save, return or delete looked exactly like a successful one (NCC-014).
+    val snackbarHostState = remember { SnackbarHostState() }
+    ShowSnackbar(uiState.actionError, snackbarHostState, duration = SnackbarDuration.Short) {
+        viewModel.clearActionError()
+    }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
     var historyItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
@@ -85,7 +93,8 @@ fun BorrowedScreen(
             showAddDialog = true
         },
         onReturnRequest = { returningItem = it },
-        onDeleteRequest = { itemToDelete = it }
+        onDeleteRequest = { itemToDelete = it },
+        snackbarHostState = snackbarHostState
     )
 
     if (showAddDialog) {
@@ -152,12 +161,14 @@ private fun BorrowedContent(
     onItemClick: (BorrowedDisplayItem) -> Unit,
     onEditRequest: (BorrowedDisplayItem) -> Unit,
     onReturnRequest: (BorrowedDisplayItem) -> Unit,
-    onDeleteRequest: (BorrowedDisplayItem) -> Unit
+    onDeleteRequest: (BorrowedDisplayItem) -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
     val mainTabs = remember { listOf(BorrowMainTab.BORROWED to "Borrowed", BorrowMainTab.RETURNED to "Returned") }
     val mainTabIndex = mainTabs.indexOfFirst { it.first == uiState.mainTab }.coerceAtLeast(0)
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 BackTopAppBar(

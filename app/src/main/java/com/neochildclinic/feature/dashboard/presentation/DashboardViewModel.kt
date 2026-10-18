@@ -30,6 +30,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.neochildclinic.core.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -107,6 +108,12 @@ class DashboardViewModel @Inject constructor(
     private val _allDoctors = MutableStateFlow<List<Profile>>(emptyList())
     private val _todoSlotsState = MutableStateFlow<SlotsUiState>(SlotsUiState.Idle)
     private val _selectedSlotKey = MutableStateFlow<String?>(null)
+
+    // DashboardUiState.errorMessage was a field on a state derived from combine(), so it
+    // had no writer: refresh() below caught and only logged, and DashboardScreen's
+    // errorMessage snackbar could never fire. A failed dashboard refresh was invisible
+    // (NCC-013).
+    private val _refreshError = MutableStateFlow<String?>(null)
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -262,12 +269,14 @@ class DashboardViewModel @Inject constructor(
             _todoSlotsState
         ) { dates, patients, doctors, slots ->
             DashboardExtras(dates, patients, doctors, slots)
-        }
-    ) { stats, sync, bundle, extra ->
+        },
+        _refreshError
+    ) { stats, sync, bundle, extra, refreshError ->
         val slots = bundle.slots
         fun pass(slotId: String?): Boolean =
             TodaySlotFilter.passes(slots.effectiveKey, slots.ranges, slotId)
         DashboardUiState(
+            errorMessage = refreshError,
             patientCount = stats.patientCount,
             lowStockCount = stats.stockCounts.first,
             borrowedCount = stats.borrowedCount,
@@ -419,6 +428,11 @@ class DashboardViewModel @Inject constructor(
 
     private fun wasteCount(): Flow<Int> = wasteRepository.getWasteCount()
 
+    /** Clears [DashboardUiState.errorMessage] once the snackbar has been shown. */
+    fun clearError() {
+        _refreshError.value = null
+    }
+
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
@@ -430,10 +444,15 @@ class DashboardViewModel @Inject constructor(
                 // user concluded the entry was lost. Matches PatientListViewModel and
                 // StatisticsViewModel, which both call refreshDataUseCase().
                 refreshDataUseCase()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("DashboardVM", "Sync refresh failed", e)
+                _refreshError.value = e.message
+                    ?: "Could not sync. Your data is saved on this device and will upload when the connection returns."
+            } finally {
+                _isRefreshing.value = false
             }
-            _isRefreshing.value = false
         }
     }
 }

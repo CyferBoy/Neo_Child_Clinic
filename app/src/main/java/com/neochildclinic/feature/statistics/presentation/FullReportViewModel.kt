@@ -16,6 +16,8 @@ import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -43,7 +45,8 @@ data class FullReportUiState(
     val isDaily: Boolean = false,
     val periodLabel: String = "",
     val chartMode: ChartMode = ChartMode.BAR,
-    val availableFinancialYears: List<String> = emptyList()
+    val availableFinancialYears: List<String> = emptyList(),
+    val errorMessage: String? = null
 )
 
 @HiltViewModel
@@ -90,6 +93,17 @@ class FullReportViewModel @Inject constructor(
 
                 computeReport(patients, vaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode)
             }.flowOn(Dispatchers.Default)
+                // No .catch: an upstream Room failure escaped this launch and left
+                // _uiState.isLoading stuck at its initial `true`, so the screen spun forever
+                // with no error. Matches VaccineDetailViewModel's handling (NCC-016).
+                .catch { e ->
+                    if (e is CancellationException) throw e
+                    Log.e(TAG, "Full report combine failed", e)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Could not load the report."
+                    )
+                }
                 .collect { _uiState.value = it }
         }
     }
@@ -322,5 +336,9 @@ class FullReportViewModel @Inject constructor(
         }
 
         return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = true, periodLabel = "$monthName $targetYear (Daily)", chartMode = chartMode, availableFinancialYears = availableYears)
+    }
+
+    private companion object {
+        const val TAG = "FullReportViewModel"
     }
 }
