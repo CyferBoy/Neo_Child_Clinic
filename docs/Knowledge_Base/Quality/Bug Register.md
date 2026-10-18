@@ -50,7 +50,7 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 | [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
 | [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
-| [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | Open | Vaccination |
+| [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
 | [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
 | [[#ncc-006]] NCC-006 | Soft-delete filter missing on reminder queries | S1 | ✅ **Fixed** | Room |
 | [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | Open | Supabase |
@@ -214,7 +214,7 @@ where tgrelid = 'public.inventory_transactions'::regclass and not tgisinternal;
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S1 Critical |
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S1 Critical |
 | **Files** | `feature/vaccination/presentation/AddVaccinationViewModel.kt:685-698`, `:554`; `feature/vaccination/domain/EditReconciler.kt:50-53`; `data/local/dao/VaccinationItemDao.kt:12-13` |
 | **Impact** | Retry produces a second visit, re-points the first's item row, and deducts stock twice. |
 
@@ -228,9 +228,19 @@ regenerated (`:554`) but item ids come from stable UI row ids, so `EditReconcile
 **Reproduction.** Save a visit with a next-vaccination reminder; force `saveNextVaccination`
 to throw (e.g. empty DB constraint); tap Save again.
 
-**Fix.** Move the reminder loop inside `recordVaccination`'s transaction.
-**Regression test.** Inject a repository whose `saveNextVaccination` throws; assert no
-`patient_visits` row exists afterwards.
+**Fix.** `ClinicalVaccinationService.recordVaccination` now takes `reminderSpecs` and writes
+them inside its own `transactionRunner.run` block. `AddVaccinationViewModel` passes the specs
+instead of looping. `vaccination.patientId` / `vaccination.id` replace `patient.id` /
+`vaccinationId` at the call site — verified value-identical (`Vaccination` is built from both).
+The edit path already did this via `VaccinationEditEngine`, so create is now symmetric.
+
+**Regression test.** `RecordVaccinationTransactionTest` (3 cases). Asserts the reminder write
+happens *inside* `TransactionRunner.run` — `RecordingTransactionRunner.inTransaction` is true
+only while its block executes. Verified to fail when the loop is moved back out. Service-level
+doubles are generated from the interfaces (`ServiceStubs.kt`) so they cannot drift.
+
+⚠️ The test asserts ordering, not rollback. Room's `withTransaction` owns the rollback; proving
+that needs a real instrumented DB test, which needs an emulator this environment lacks.
 
 **Status note.** ⚠️ **Deliberately not applied on 2026-10-16.** Moving the reminders into the
 clinical transaction also pulls `ReminderRepository`'s WorkManager scheduling inside it —
