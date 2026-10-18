@@ -682,12 +682,14 @@ action = "DELETED",
         transactionRunner.run {
             for (v in vaccines) {
                 if (v.id !in pendingVaccineIds) {
-                    vaccineDao.insertVaccine(v)
+                    // Upsert: REPLACE deletes the row and cascades away the vaccine's batches,
+                    // items and borrow records.
+                    vaccineDao.upsertVaccine(v)
                 }
             }
             for (b in batches) {
                 if (b.batchId !in pendingBatchIds) {
-                    vaccineDao.insertBatch(b)
+                    vaccineDao.upsertBatch(b)
                 }
             }
         }

@@ -304,7 +304,8 @@ syncRepository.enqueue(
                 transactionRunner.run {
                     for (r in records) {
                         if (!syncQueueDao.isUnsynced("BORROW", r.id)) {
-                            borrowDao.insertRecord(r.copy(isSynced = true))
+                            // Upsert: REPLACE deletes the record and cascades away its returns.
+                            borrowDao.upsertRecord(r.copy(isSynced = true))
                         }
                     }
                     for (ret in returns) {

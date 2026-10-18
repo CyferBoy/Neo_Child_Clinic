@@ -22,6 +22,11 @@ interface VaccineDao {
     @Update
     suspend fun updateVaccine(vaccine: VaccineEntity)
 
+    // Pull/conflict-download path. REPLACE would delete the vaccine and cascade away its
+    // batches, items and borrow records. See PullUpsertPreservesChildrenTest.
+    @Upsert
+    suspend fun upsertVaccine(vaccine: VaccineEntity)
+
     @Query("DELETE FROM vaccines WHERE id = :id")
     suspend fun deleteVaccine(id: String)
 
@@ -56,6 +61,11 @@ interface VaccineDao {
 
     @Update
     suspend fun updateBatch(batch: VaccineBatchEntity)
+
+    // Pull/conflict-download path. REPLACE would delete the batch and cascade away its items
+    // and borrow records/returns. See PullUpsertPreservesChildrenTest.
+    @Upsert
+    suspend fun upsertBatch(batch: VaccineBatchEntity)
 
     @Query("DELETE FROM vaccine_batches WHERE batchId = :batchId")
     suspend fun deleteBatch(batchId: String)

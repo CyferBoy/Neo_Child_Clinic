@@ -71,7 +71,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         updatedAt = { (it as? PatientEntity)?.updatedAt ?: "" },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<PatientEntity>(JsonObject(m))
-            db.patientDao().insertPatient(entity.copy(isSynced = true))
+            db.patientDao().upsertPatient(entity.copy(isSynced = true))
         }
     ),
 
@@ -82,7 +82,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
-            db.vaccinationDao().insertVaccination(entity.copy(isSynced = true))
+            db.vaccinationDao().upsertVaccination(entity.copy(isSynced = true))
         }
     ),
 
@@ -93,7 +93,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
-            db.vaccinationDao().insertVaccination(entity.copy(isSynced = true))
+            db.vaccinationDao().upsertVaccination(entity.copy(isSynced = true))
         }
     ),
 
@@ -148,7 +148,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         updatedAt = { (it as? VaccineEntity)?.lastUpdated ?: "" },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<VaccineEntity>(JsonObject(m))
-            db.vaccineDao().insertVaccine(entity)
+            db.vaccineDao().upsertVaccine(entity)
         },
         syncedSqlColumn = null
     ),
@@ -160,7 +160,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         updatedAt = { (it as? VaccineBatchEntity)?.updatedAt ?: "" },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<VaccineBatchEntity>(JsonObject(m))
-            db.vaccineDao().insertBatch(entity)
+            db.vaccineDao().upsertBatch(entity)
         },
         syncedSqlColumn = null
     ),
@@ -258,7 +258,7 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<BorrowEntity>(JsonObject(m))
-            db.borrowDao().insertRecord(entity.copy(isSynced = true))
+            db.borrowDao().upsertRecord(entity.copy(isSynced = true))
         }
     ),
 

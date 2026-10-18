@@ -29,6 +29,13 @@ interface PatientDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertPatientStrict(patient: PatientEntity)
 
+    // Pull/update path. @Upsert never deletes the row it writes, so the CASCADEs onto
+    // patient_visits/consultations/reminders/patient_notes/personal_vaccine_reminders do not
+    // fire. insertPatient() above is REPLACE (= DELETE + INSERT) and does delete them - it is
+    // kept only for rows with no local children. See PullUpsertPreservesChildrenTest.
+    @Upsert
+    suspend fun upsertPatient(patient: PatientEntity)
+
 
     @Query("DELETE FROM patients WHERE id = :id")
     suspend fun deletePatient(id: String)
