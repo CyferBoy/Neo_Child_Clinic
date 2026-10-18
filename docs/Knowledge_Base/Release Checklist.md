@@ -71,7 +71,7 @@ before dropping columns. Anything similar needs a release note, not just a code 
 - [ ] New migration added to `supabase/migrations/` with a **lexically sortable** timestamp
 - [ ] ⚠️ Timestamp prefix sorts correctly — `20261013120000` sorts **after** `20261013_profiles`
       because `_` > digits. Rename to `20261013000000_profiles…` style
-- [ ] Migration wrapped in `begin; … commit;` — ⚠️ 17 of 21 are currently bare DDL
+- [ ] Migration wrapped in `begin; … commit;` — ⚠️ 7 of 22 are currently bare DDL
 - [ ] Migration is **idempotent** (`if exists`, `if not exists`, `to_regclass` guards)
 - [ ] Any `SECURITY DEFINER` function sets `search_path`
 - [ ] Existing triggers dropped before a replacement is installed — ⚠️ see [[#ncc-003]] NCC-003

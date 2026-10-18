@@ -53,6 +53,11 @@ tests logic well and does not test wiring at all. That is a decision note earnin
 
 ## Recording and verifying a bug
 
+Start from a template — [[Templates/Bug Report Template]] for a general defect, or
+[[Templates/Inventory Deduction Bug]] for a stock/deduction-ledger issue, where the
+reproduction has to pin down which batch, which direction the quantity moved, and what the
+ledger claimed afterwards.
+
 1. **Reproduce it, or prove it by reading the cited code.** If neither, it is a hypothesis
    → [[Quality/Hypotheses]].
 2. Take the next free ID in [[Quality/Bug Register]] — `NCC-nnn`, `NSC-nnn`, `HYP-nnn`.

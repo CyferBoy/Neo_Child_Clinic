@@ -11,7 +11,7 @@
 |---|---|
 | Version | **0.5.1** (`versionCode 3`) |
 | Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
-| Supabase | 26 tables, 21 migrations, 2 edge functions |
+| Supabase | 26 tables, 22 migrations, 2 edge functions |
 | Kotlin | 351 main files · 43 test files |
 | Tests | **270 unit passing**, 0 failures (2026-10-17 07:48) · 48 instrumented in 6 files, **no recorded result** |
 | Open bugs | **22 confirmed open** · 18 fixed · 13 security · 7 hypotheses (2 refuted 2026-10-18) |

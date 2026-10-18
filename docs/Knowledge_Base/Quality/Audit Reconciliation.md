@@ -154,6 +154,7 @@ Re-verified against commit `e05f7c0`. The original finding is preserved above; t
 reconciliation, not a rewrite.
 
 **`Known Bugs` §4.6 ("17 of 21 migrations are untracked in git") is a false positive.**
+(The denominator is now 22 — `20261017_…` landed after this was written.)
 Commit `f8e5d8a` ("chore: track migrations and full project documentation") added the folder
 before the vault was generated, so the finding was already stale when it was written down.
 

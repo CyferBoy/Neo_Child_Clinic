@@ -1,6 +1,6 @@
 # Row Level Security
 
-> The complete policy matrix after all 21 migrations, plus the gaps. Companion:
+> The complete policy matrix after all 22 migrations, plus the gaps. Companion:
 > [[Supabase]] · [[Database Schema]]
 
 ## Roles

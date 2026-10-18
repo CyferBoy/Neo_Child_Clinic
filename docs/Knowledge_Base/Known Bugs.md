@@ -6,6 +6,11 @@
 
 Nothing here is fixed. This page is the backlog.
 
+⚠️ **Superseded in part (2026-10-18).** That sentence described the state when this audit was
+written. Seven items in *Suggested order of work* below have since been fixed in source, and
+one (4.6) was retracted outright. This page is preserved as the audit record — do not treat
+it as the current backlog. Read [[Quality/Bug Register]] for status.
+
 ## Confirmed — data loss or wrong clinical data
 
 ### 1.1 ✅ Stock ledger says `FAILED` while a dose actually left the shelf
@@ -94,6 +99,10 @@ deduction for visit #2.
 **Fix:** move the reminder loop inside the same transaction.
 
 ### 1.4 ✅ Soft-delete filtering applied to 7 of 16 reminder queries
+
+⚠️ **Resolved 2026-10-18 — see [[#ncc-006]].** All 16 `SELECT`s now filter; the "7 of 16" /
+"9 queries" figures here were never mutually consistent. 🔍 Verification is **instrumented
+only** (`ReminderSoftDeleteFilterTest`, 12 tests — not executed in this pass).
 
 `data/local/dao/DueReminderDao.kt`. The file's own comment at `:10-13` states the rule and
 then breaks it.
@@ -347,7 +356,7 @@ ViewModel with a dead channel.
 | 4.2 | ⚠️ **Legacy policies from unversioned scratch SQL may still exist.** `WITH CHECK (true)` on `audit_logs` → any authenticated user including a deactivated one can forge audit entries. `FOR ALL` on `profiles` gated by `get_my_role()` (which reads `profiles.role`) **defeats the whole `20261001_app_metadata_roles.sql` migration**. | `.artifacts/…/scratch/missing_tables.sql:95-100`, `full_project_schema.sql.artifact.md:329-345` |
 | 4.3 | ⚠️ `todo_notification_events` had **no RLS and no revocation** from its creation until `20261016`, and receives `patient_id`, patient `name`, `doctor_id`. | `20261016:13-14` says so explicitly |
 | 4.4 | ⚠️ `FORCE ROW LEVEL SECURITY` on `todo_notification_events` with zero policies **breaks the documented writer** — `FORCE` applies RLS to the table owner, and a `SECURITY DEFINER` trigger runs as owner. | `20261016:53-60` vs `:16-17` |
-| 4.5 | ⚠️ **No migration issues a single `GRANT`.** Under the new `auto_expose_new_tables = false` default, a perfect RLS policy is irrelevant and **every app write fails with `permission denied for table …`**. The field is removed **2026-10-30**. | `supabase/config.toml:19-24` |
+| 4.5 | ⚠️ **No migration issues a table-level `GRANT`.** Under the new `auto_expose_new_tables = false` default, a perfect RLS policy is irrelevant and **every app write fails with `permission denied for table …`**. The field is removed **2026-10-30**. ⚠️ *Corrected 2026-10-18: the original wording said "a single GRANT", which was literally false — four `grant execute on function` statements exist (`20260816:93`, `20260825:49`, `20260929000000:32`, `20261001:45`). No table GRANT does, which is the claim that matters.* | `supabase/config.toml:19-24` |
 | 4.6 | ⚠️ **17 of 21 migrations are untracked in git** — every `CREATE TABLE`, the entire RLS baseline and the accountability triggers exist in one working tree only. The `.gitignore` comment claims the opposite. | `git ls-files supabase/migrations/` |
 | 4.7 | ⚠️ `get_my_role()` is `SECURITY DEFINER` with **no `set search_path`** and is referenced by 10 legacy policies — but it is not in this repository. | `.artifacts/…/full_project_schema.sql.artifact.md:13-21` |
 | 4.8 | ⚠️ `expenses` has **no** `neo_stamp_accountability` trigger — its `created_by`/`updated_by` are client-supplied and unverified, contradicting the migration that exists to prevent exactly that. | `20260909_expenses.sql` |
@@ -376,16 +385,34 @@ ViewModel with a dead channel.
 
 ## Suggested order of work
 
-1. **1.4** — add `is_deleted = 0` to the 9 reminder queries (and extend
-   `UpcomingVaccinationDaoTest`). Cheapest, and it is already a stated rule.
-2. **1.5 + 1.6** — fix the trigger: `-OLD.quantity + NEW.quantity`, and drop the legacy
-   trigger before installing. Both are one-line SQL.
-3. **1.1** — add the ledger cap to `applyInventoryDiff` and one test.
-4. **1.2** — move the two `IllegalStateException`s behind the recovery branch.
-5. **1.3** — move the reminder loop into `recordVaccination`'s transaction.
-6. **2.3, 2.7, 2.8** — error surfacing. Small diffs, large user-visible win.
-7. **4.5, 4.6** — verify grants against the live DB, and `git add` the migrations.
-   4.5 has a **2026-10-30** deadline.
+> ⚠️ **This page is the 2026-10-16 audit's backlog and is preserved as written.** It says
+> *"Nothing here is fixed"*, which was true when written and **is no longer**. For current
+> status read [[Quality/Bug Register]] — the authoritative record — and
+> [[Quality/Audit Reconciliation]] for what was retracted or re-verified.
+> Items below marked ✅ were later fixed in source; the finding text is kept for provenance.
+
+1. **1.4** — ✅ **done.** `is_deleted = 0` now filters all 16 `SELECT`s in `DueReminderDao`
+   (18 predicates in the file, 19 across the DAO layer). The "9 reminder queries" figure in
+   the finding below was never consistent — see [[#ncc-006]] for the corrected count.
+2. **1.5 + 1.6** — ✅ **done.** `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`
+   corrects the `UPDATE` branch to `-OLD.quantity + NEW.quantity` and drops
+   `tr_update_batch_stock`. 🔍 Still needs a live-DB check.
+3. **1.1** — ✅ **done.** `deductedThisEdit` branch added at `VaccinationEditEngine.kt:52-64`.
+   Ledger status test-pinned (`VaccinationEditEngineTest`, 8 tests).
+4. **1.2** — ✅ **done.** `deductStockFromBatch` now throws `StockDeductionBlockedException`
+   (`InventoryRepositoryImpl.kt:452`, `:462`), caught at `ClinicalVaccinationService.kt:121`.
+5. **1.3** — ✅ **done.** The reminder loop moved inside `recordVaccination`'s transaction.
+6. **2.3, 2.7, 2.8** — ✅ **done** (`DashboardViewModel.errorMessage`, `BorrowedViewModel.
+   actionError`, `savePatient` `onError`). ⚠️ **Source-verified only — no regression test
+   exists** for any of the three.
+7. **4.5** — 🔍 **still open, and the deadline stands.** ⚠️ The finding below says *"No
+   migration issues a single `GRANT`"*; that was literally false — four
+   `grant execute on function` statements exist. The claim that matters survives: **no
+   table-level `GRANT` exists**, so with `auto_expose_new_tables` removed on **2026-10-30**
+   every app write can fail. Verify against the live DB.
+8. **4.6** — ✅ **retracted.** Migrations were never untracked; `f8e5d8a` tracked them all
+   before this audit was written (22 `.sql` as of `20261017_…`). See
+   [[Quality/Audit Reconciliation]].
 
 ## Related
 

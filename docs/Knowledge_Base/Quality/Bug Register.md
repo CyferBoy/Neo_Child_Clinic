@@ -21,6 +21,19 @@ were each marked fixed in `docs/AUDIT_REPORT_2026-10-16.md`; re-verification fou
 neighbouring path still producing the original symptom. See
 [[Quality/Audit Reconciliation]].
 
+⚠️ **What "Fixed" means here, and where it is weakest.** The vocabulary above requires
+verification evidence. This register does not carry that evidence uniformly, and the
+difference matters when deciding what is safe to regress:
+
+| Evidence class | Meaning | Items |
+|---|---|---|
+| **Test-pinned** | a named test fails without the fix and passes with it | [[#ncc-001]], [[#ncc-006]] (🔍 instrumented only), [[#ncc-009]] ⚠️ test still missing, [[#ncc-017]], [[#ncc-019]] |
+| **Source-verified** | re-read at `e05f7c0` and confirmed fixed, **no regression test** | [[#ncc-002]], [[#ncc-003]], [[#ncc-005]], [[#ncc-008]], [[#ncc-013]], [[#ncc-014]], [[#ncc-015]], [[#ncc-016]], [[#ncc-018]], [[#ncc-035]], [[#ncc-040]] |
+| **Needs a live DB** | cannot be settled by reading source | [[#ncc-002]], [[#ncc-003]] |
+
+⚠️ The repository contains **zero** `*ViewModelTest.kt` files, which is why everything in the
+UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
+
 ## Severity scale
 
 | Level | Definition |
@@ -368,10 +381,23 @@ coroutine, assert it returns `true`.
 | | NCC-010 | NCC-011 |
 |---|---|---|
 | **Severity** | S2 | S2 |
+| **Status** | ✅ **Fixed** | ✅ **Fixed** |
 | **Files** | `core/notification/ReminderScheduler.kt` | `data/backup/BackupAutoScheduler.kt` |
-| **Call sites** | 2, both `NeoChildApp.kt:111-112` | **0** for `schedule()` |
-| **Effect** | reminder time change waits for a restart | auto-backup enable/disable waits for a restart |
-| **Fix** | call the scheduler from `NotificationSettingsViewModel.updateSettings` | call `schedule()`/`cancel()` from `BackupViewModel:202-215` |
+| **Call sites (as found)** | 2, both `NeoChildApp.kt:111-112` | **0** for `schedule()` |
+| **Effect (as found)** | reminder time change waits for a restart | auto-backup enable/disable waits for a restart |
+| **Fix** | call the scheduler from `NotificationSettingsViewModel.updateSettings` | call `schedule()`/`cancel()` from `BackupViewModel` |
+
+⚠️ **Corrected 2026-10-18.** Both are **fixed in source**; the "as found" rows are kept for
+provenance. Re-verified:
+
+- **NCC-010** — `NotificationSettingsViewModel.updateSettings` now calls
+  `reminderScheduler.scheduleDailySummary()` (`:37`) and
+  `schedulePersonalReminderNotifications()` (`:38`). The inline comment records
+  `ExistingPeriodicWorkPolicy.UPDATE` recomputing the delay. Note the card's fix text said
+  one call; there are **two**.
+- **NCC-011** — `BackupViewModel` now calls `backupAutoScheduler.schedule(...)` at `:209`
+  and `:215`, and `cancel()` at `:221`. The card's fix text cited `:202-215`; the scheduler
+  calls are at **`:209`/`:215`**, outside that range.
 
 **Links.** [[Due Vaccination]] · [[Backup and Restore]]
 
@@ -403,12 +429,32 @@ drawn above it.
 | | NCC-013 | NCC-014 | NCC-015 |
 |---|---|---|---|
 | **Severity** | S2 | S2 | S2 |
-| **Location** | `DashboardViewModel.kt:47` | `BorrowedViewModel.kt:59` | `PatientViewModel.kt:194-206` |
-| **Defect** | `errorMessage` declared, **0 writers** | `actionError` declared, **0 writers** | throws its own validation error, catches and discards it |
-| **User sees** | nothing | nothing — and `BorrowedScreen.kt` has 0 error references | nothing, and the screen never advances |
-| **Evidence** | the only `DashboardUiState(...)` construction (`:270-290`) never passes it | 1 grep hit — the declaration | caller passes only `onComplete` (`AddPatientScreen.kt:136`) |
+| **Status** | ✅ **Fixed** | ✅ **Fixed** | ✅ **Fixed** |
+| **Location** | `DashboardViewModel.kt:48` | `BorrowedViewModel.kt:61` | `PatientViewModel.kt:200-215` |
+| **Defect (as found)** | `errorMessage` declared, **0 writers** | `actionError` declared, **0 writers** | throws its own validation error, catches and discards it |
+| **User saw** | nothing | nothing | nothing, and the screen never advanced |
+| **Evidence (as found)** | the only `DashboardUiState(...)` construction never passed it | 1 grep hit — the declaration | caller passed only `onComplete` |
 
 **Fix.** Wire the field or delete it; give `savePatient` an `onError` callback.
+
+⚠️ **Corrected 2026-10-18 (commit `e05f7c0`, "fix(ui): five silent-failure paths").** All
+three are **fixed in source**; the "as found" rows are preserved for provenance.
+Line numbers were previously off by 1–5:
+
+| | Was cited | Actual | Fix in source |
+|---|---|---|---|
+| NCC-013 | `:47` | `:48` | written at `:279` from `_refreshError`; cleared at `:431-432` |
+| NCC-014 | `:59` | `:61` | written at `:195, :200, :207, :238, :251`; note at `:74-77` records why it was dead |
+| NCC-015 | `:194-206` | `:200-215` | `savePatient(onComplete, onError)`; `onError` at `:203`, rethrows `CancellationException` at `:212`, invokes at `:215` |
+
+⚠️ "**`BorrowedScreen.kt` has 0 error references**" is **wrong** — the file has 9
+case-insensitive matches. The defect was in the ViewModel, not the screen.
+
+⚠️ **Regression tests are missing for all three.** Verified 2026-10-18: `grep -rl
+savePatient app/src/test app/src/androidTest` returns nothing, and the repository contains
+**zero** `*ViewModelTest.kt` files. These are ✅ Fixed on **source inspection** plus compile,
+not on a test that fails without the fix — narrower evidence than [[#ncc-001]] and
+[[#ncc-009]] carry. Do not read "Fixed" here as "regression-protected".
 
 **Links.** [[MVVM]] · [[Error Handling]]
 
@@ -422,11 +468,24 @@ drawn above it.
 | **Files** | all five: `FinanceDetailsViewModel`, `ProfileViewModel`, `FullReportViewModel`, `StatisticsViewModel`, `VaccineDetailViewModel` |
 | **Impact** | Save/refresh buttons stay disabled forever with no error shown. |
 
-**Evidence.** `.first()` on Room flows inside `viewModelScope.launch` with no `try`/`finally`;
-or `?: return@launch` after `isLoading = true`.
-✅ The correct pattern exists at `VaccineDetailViewModel.kt:99-104` — but it discards `e.message`.
+**Evidence (as found).** `.first()` on Room flows inside `viewModelScope.launch` with no
+`try`/`finally`; or `?: return@launch` after `isLoading = true`.
 
 **Fix.** Add `.catch {}` or `finally { isLoading = false }`.
+
+⚠️ **Corrected 2026-10-18 (commit `e05f7c0`).** All five are fixed, but **by two different
+mechanisms** — the card implies one. Re-verified:
+
+| ViewModel | Mechanism |
+|---|---|
+| `FinanceDetailsViewModel` | `try`/`finally` at `:50-60`, comment citing NCC-016 at `:57` |
+| `ProfileViewModel` | sets `isLoading = false` **and** an `error` message before `return@launch` (`:86-93`) — no `.catch`, no `finally` |
+| `FullReportViewModel` | `.catch` at `:99` |
+| `StatisticsViewModel` | `.catch` at `:100` |
+| `VaccineDetailViewModel` | `.catch` — the reference pattern |
+
+⚠️ The card called `VaccineDetailViewModel.kt:99-104` correct "but it discards `e.message`".
+That remains true and is not part of this bug.
 
 **Links.** [[MVVM]] · [[Statistics Dashboard]]
 
@@ -440,13 +499,24 @@ or `?: return@launch` after `isLoading = true`.
 | **Files** | `InventoryStockMovement.kt` (new helpers); `InventoryRepositoryImpl.kt`; `AddBatchViewModel.kt` |
 | **Impact** | `InventorySort.EXPIRY` is wrong for most of the year; the "latest" batch picked for the MRP fallback is the oldest. |
 
-**Evidence.** `Constants.DATE_FORMAT = "d MMM yyyy"` is not zero-padded, so
+**Evidence (as found).** `Constants.DATE_FORMAT = "d MMM yyyy"` is not zero-padded, so
 `"16 Oct 2026".compareTo("9 Oct 2026") < 0`. ✅ The app documents this hazard and fixes it
 in `domain/model/Vaccination.kt:60-61`; these four sites were missed.
 
 **Fix.** `PatientUtils.parseDate(...)?.time`, as `Vaccination.kt` does.
 **Regression test.** `InventoryUtilsExpiryTest` style — two batches whose string order and
 date order differ.
+
+✅ **Fixed in source**, re-verified 2026-10-18 at `InventoryRepositoryImpl.kt:127-130`:
+`EXPIRY` → `batchExpiryMillis()`, `NEWEST` → `latestPurchaseMillis()`, `OLDEST` →
+`earliestPurchaseMillis()`. The MRP fallback at `:84` parses rather than string-maxing, with
+an inline comment citing NCC-017. ⚠️ The card cites `:121`, `:123-124` and `:81`; those were
+the pre-fix lines.
+
+✅ **Regression test present:** `InventorySortKeysTest` (13 `@Test`) pins both halves — the
+stored format genuinely misorders (`the stored format really does misorder across a month
+boundary`) and the sort keys do not (`expiry key orders 2 Jan after 28 Dec`, plus day/month
+and year boundaries and blank-expiry handling).
 
 **Links.** [[Inventory Management]] · [[Statistics Dashboard]]
 
@@ -460,12 +530,18 @@ date order differ.
 | **Files** | `feature/inventory/data/InventoryRepositoryImpl.kt` |
 | **Impact** | Partial stock committed while the UI reports total failure; a retry duplicates stock under fresh UUIDs. |
 
-**Evidence.** ~10 validation branches interleaved with writes in one loop, **no
+**Evidence (as found).** ~10 validation branches interleaved with writes in one loop, **no
 `transactionRunner.run`**. Contrast `BorrowRepositoryImpl.saveBorrowedItem:64` and
 `WasteRepositoryImpl.recordWaste:38`, which are wrapped.
 
 **Fix.** Wrap the loop.
 **Regression test.** Fail on the 3rd of 5 batches; assert zero batches committed.
+
+✅ **Fixed in source** — `InventoryRepositoryImpl.addStockBatch` (`:239`) now opens
+`transactionRunner.run {` at `:250`, with an inline comment citing NCC-018 and describing
+the partial-commit failure mode. ⚠️ The regression test named above was **not** located in
+`app/src/test` during the 2026-10-18 pass; `InventoryStockMovementTest` covers stock
+movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 
 **Links.** [[Inventory Management]] · [[Database Relationships]]
 
@@ -473,14 +549,14 @@ date order differ.
 
 ## NCC-019 to NCC-024 — Sync and integrity
 
-| ID | Sev | Summary | Location |
-|---|---|---|---|
-| NCC-019 | S3 | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:32-36`, `SyncRepositoryImpl.kt:84` |
-| NCC-020 | S3 | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt:486-521` |
-| NCC-021 | S3 | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt:435` + `:452` |
-| NCC-022 | S3 | `AuditLogger.log()` fires on a separate coroutine; called inside 5 live transactions | `AuditLogger.kt:40-42`; `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:150,185,287` |
-| NCC-023 | S3 | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
-| NCC-024 | S3 | `.catch {}` on each realtime table flow kills the subscription permanently | `RealtimeChangeSubscriptions.kt:52-54` |
+| ID | Sev | Status | Summary | Location |
+|---|---|---|---|---|
+| NCC-019 | S3 | ✅ **Fixed** | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:39`, `:61` — now `ExistingWorkPolicy.REPLACE`; `:32-36` is the comment recording the switch. This is what refuted [[#hyp-002]]. |
+| NCC-020 | S3 | Open | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt:486-521` — ✅ re-verified 2026-10-18: the row is committed `SYNCING` at `SyncRepositoryImpl.kt:281-285` before the check runs, so the branch still cannot be reached |
+| NCC-021 | S3 | Open | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt:451`, `:471` (was `:435`, `:452`) |
+| NCC-022 | S3 | Open | `AuditLogger.log()` fires on a separate coroutine; called inside 5 live transactions | `AuditLogger.kt:40-42`; `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:150,185,287` — ✅ all five re-verified exact 2026-10-18 |
+| NCC-023 | S3 | Open | Pull never tombstones; a row deleted on device B survives on A | `ReminderRepositoryImpl.kt:459-504`; `PersonalReminderRepositoryImpl.kt:176-183` |
+| NCC-024 | S3 | Open | `.catch {}` on each realtime table flow kills the subscription permanently | `RealtimeChangeSubscriptions.kt:52-54` |
 
 **Fixes.** NCC-019 `ExistingWorkPolicy.REPLACE`. NCC-020 either delete the branch or
 evaluate the guard before committing `SYNCING`. NCC-021 add `@Version` to
@@ -493,15 +569,15 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 
 ## NCC-025 to NCC-031 — S4 items
 
-| ID | Summary | Location |
-|---|---|---|
-| NCC-025 | `ORDER BY priority DESC` on TEXT sorts `HIGH` last | `SyncQueueDao.kt:12` |
-| NCC-026 | `isExpired` returns false on an unparseable date | `InventoryUtils.kt:24` |
-| NCC-027 | `isLowStock = totalStock <= globalThreshold` flags at-threshold stock | `InventoryRepositoryImpl.kt:77` |
-| NCC-028 | `consultations.visitId` defaults to `""` against a NOT NULL CASCADE FK | `ConsultationEntity.kt:33` |
-| NCC-029 | `AuditLogDao` comment claims a composite index that does not exist | `AuditLogDao.kt:30-33` |
-| NCC-030 | Audit-count guards query `audit_logs.remarks`; the brand is in `old_value`/`new_value` — and both have **0 call sites** | `VaccineDao.kt:137-141` |
-| NCC-031 | `FinanceDao` orders by `COALESCE(...)` — unindexable, so its indices are dead | `FinanceDao.kt:15,18,36,…` |
+| ID | Sev | Status | Summary | Location |
+|---|---|---|---|---|
+| NCC-025 | S4 | Open | `ORDER BY priority DESC` on TEXT sorts `HIGH` last | `SyncQueueDao.kt:12` — ✅ re-verified 2026-10-18 |
+| NCC-026 | S4 | Open | `isExpired` returns false on an unparseable date | `InventoryUtils.kt:24` — ✅ re-verified 2026-10-18 |
+| NCC-027 | S4 | Open | `isLowStock = totalStock <= globalThreshold` flags at-threshold stock | `InventoryRepositoryImpl.kt:78` (was `:77`) |
+| NCC-028 | S4 | Open | `consultations.visitId` defaults to `""` against a NOT NULL CASCADE FK | `ConsultationEntity.kt:33` — ✅ re-verified 2026-10-18 |
+| NCC-029 | S4 | Open | `AuditLogDao` comment claims a composite index that does not exist | `AuditLogDao.kt:29-33` — ✅ re-verified 2026-10-18: the comment spans `:29-33` and the DAO contains **zero** `Index(` declarations |
+| NCC-030 | S4 | Open | Audit-count guards query `audit_logs.remarks`; the brand is in `old_value`/`new_value` — and both have **0 call sites** | `VaccineDao.kt:137-141` — ✅ re-verified 2026-10-18 |
+| NCC-031 | S4 | Open | `FinanceDao` orders by `COALESCE(...)` — unindexable, so its indices are dead | `FinanceDao.kt:15,18,36` — ✅ re-verified 2026-10-18 |
 
 **Links.** [[Room Database]] · [[Inventory Management]]
 
@@ -509,17 +585,17 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 
 ## NCC-032 to NCC-040 — remaining
 
-| ID | Sev | Summary | Location |
-|---|---|---|---|
-| NCC-032 | S3 | `reschedule` accepts `reminderDate` and silently discards it | `ReminderRepositoryImpl.kt:296-314` |
-| NCC-033 | S3 | `notificationsSentToday` reads two `@Transient` fields with no writer ⇒ always 0 | `ReminderDueListProcessor.kt:115` |
-| NCC-034 | S3 | Blank `reminderDate` personal reminder notifies on **every** run | `PersonalReminderNotificationWorker.kt:26-28` |
-| NCC-035 | S4 | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:180` |
-| NCC-036 | S3 | 60 `viewModelScope.launch` bodies with no `try`/`catch`; 24 are writes | 27 ViewModels |
-| NCC-037 | S3 | `readBytesFromUri` checks `OpenableColumns.SIZE` then calls `readBytes()` unbounded | `BackupRepositoryImpl.kt:435-441` |
-| NCC-038 | S3 | `inventory_deductions` has no `SyncEntityDescriptor` — the per-dose ledger never reaches the server | `SyncUploader.kt` registry |
-| NCC-039 | S4 | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
-| NCC-040 | S2 | `AddBatchViewModel.kt:56` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:56` |
+| ID | Sev | Status | Summary | Location |
+|---|---|---|---|---|
+| NCC-032 | S3 | Open | `reschedule` accepts `reminderDate` and silently discards it | `ReminderRepositoryImpl.kt:296-314` |
+| NCC-033 | S3 | Open | `notificationsSentToday` reads two `@Transient` fields with no writer ⇒ always 0 | `ReminderDueListProcessor.kt:115` |
+| NCC-034 | S3 | Open | Blank `reminderDate` personal reminder notifies on **every** run | `PersonalReminderNotificationWorker.kt:27-31` |
+| NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |
+| NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **34** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
+| NCC-037 | S3 | Open | `readBytesFromUri` checks `OpenableColumns.SIZE` then calls `readBytes()` unbounded | `BackupRepositoryImpl.kt:435-441` |
+| NCC-038 | S3 | Open | `inventory_deductions` has no `SyncEntityDescriptor` — the per-dose ledger never reaches the server | `SyncUploader.kt` registry — ✅ re-verified 2026-10-18: **24** descriptors (`grep -c "to SyncEntityDescriptor("`), **0** matching `INVENTORY_DEDUCTION`. ⚠️ Several notes cite "22" or "23" for this registry; **24** is current. |
+| NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
+| NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
 
 ---
 
