@@ -1,0 +1,63 @@
+--- a/graphify/exporters/html.py	2026-10-19 08:28:13.618295109 +0530
++++ b/graphify/exporters/html.py	2026-10-19 08:28:13.623053854 +0530
+@@ -191,7 +191,10 @@
+     hover: true,
+     tooltipDelay: 100,
+     hideEdgesOnDrag: true,
+-    navigationButtons: false,
++    // Zoom in/out (plus pan arrows) as on-canvas buttons — wheel/pinch alone
++    // is undiscoverable, and a static report is often opened on a trackpad-less
++    // machine. Drawn by vis-network itself, so no custom UI to keep in sync.
++    navigationButtons: true,
+     keyboard: false,
+   }},
+   nodes: {{ shape: 'dot', borderWidth: 1.5 }},
+@@ -202,6 +205,48 @@
+   network.setOptions({{ physics: {{ enabled: false }} }});
+ }});
+ 
++// Dim everything except the selected node and its direct neighbors so one pick
++// reads at a glance without losing what it connects to.
++// Originals are snapshotted from RAW_NODES/RAW_EDGES up front, so undimming is
++// just "write the original back" — no diff bookkeeping to drift out of sync.
++// selectNode/deselectNode fire for user clicks AND network.selectNodes() (both
++// go through vis' single selection-change path), so search and neighbor links
++// dim too. Cost is one DataSet.update pass per selection: fine at community
++// level, ~5.6k node updates on the un-aggregated view (still sub-100ms).
++const NODE_COLOR0 = new Map(RAW_NODES.map(n => [n.id, n.color]));
++const NODE_FONT0 = new Map(RAW_NODES.map(n => [n.id, n.font]));
++const EDGE_OPACITY0 = new Map(RAW_EDGES.map((e, i) => [i, e.color && e.color.opacity !== undefined ? e.color.opacity : 1]));
++const DIM_ALPHA = 0.12;
++function faded(c) {{
++  if (typeof c !== 'string') return c;
++  const h = c.charAt(0) === '#' ? c.slice(1) : c;
++  if ((h.length !== 3 && h.length !== 6) || !/^[0-9a-f]+$/i.test(h)) return c;
++  const x = h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h;
++  const v = parseInt(x, 16);
++  return 'rgba(' + ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + DIM_ALPHA + ')';
++}}
++function applyDim(keepId) {{
++  // Selection plus direct neighbors stay lit; everything else fades. Edges stay
++  // lit only when BOTH ends are lit, so no bright line lands on a faded dot.
++  const lit = keepId === null ? null : new Set([keepId].concat(network.getConnectedNodes(keepId)));
++  nodesDS.update(RAW_NODES.map(n => {{
++    const orig = NODE_COLOR0.get(n.id);
++    const font = NODE_FONT0.get(n.id);
++    if (lit === null || lit.has(n.id)) return {{ id: n.id, color: orig, font: font }};
++    return {{
++      id: n.id,
++      color: {{ background: faded(orig.background), border: faded(orig.border) }},
++      font: Object.assign({{}}, font, {{ color: faded(font && font.color) }}),
++    }};
++  }}));
++  edgesDS.update(RAW_EDGES.map((e, i) => {{
++    const base = EDGE_OPACITY0.get(i);
++    return {{ id: i, color: {{ opacity: (lit === null || (lit.has(e.from) && lit.has(e.to))) ? base : DIM_ALPHA }} }};
++  }}));
++}}
++network.on('selectNode', params => applyDim(params.nodes[0]));
++network.on('deselectNode', () => applyDim(null));
++
+ function showInfo(nodeId) {{
+   const n = nodesDS.get(nodeId);
+   if (!n) return;
