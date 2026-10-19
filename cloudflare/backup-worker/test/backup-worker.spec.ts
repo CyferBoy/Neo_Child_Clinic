@@ -3,7 +3,7 @@ import { env, SELF } from "cloudflare:test";
 
 // These tests need SUPABASE_JWT_SECRET available in the test environment (put it in a
 // .dev.vars file next to wrangler.toml, e.g. `SUPABASE_JWT_SECRET=test-secret-value`) and
-// require `npm install` to fetch @cloudflare/vitest-pool-workers etc. - not runnable in an
+// require `npm install` to fetch @cloudflare/vitest-plugin etc. - not runnable in an
 // offline sandbox, included here as the intended verification for CI.
 
 async function signHs256(payload: Record<string, unknown>, secret: string): Promise<string> {

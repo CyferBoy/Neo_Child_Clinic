@@ -40,10 +40,14 @@ jobs:
         run: npm ci
 
       # The spec signs HS256 tokens with this secret and the Worker verifies them
-      # from env.SUPABASE_JWT_SECRET, which vitest-pool-workers loads out of
+      # from env.SUPABASE_JWT_SECRET, which the Cloudflare vitest plugin loads out of
       # .dev.vars. Throwaway value, scoped to this runner only.
       - name: Provide test secret
         run: echo "SUPABASE_JWT_SECRET=ci-test-secret-value" > .dev.vars
+
+      # tsc was never gated, so it sat at 5 errors. It is clean now - keep it that way.
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       # The cross-account confirm guard (audit M3) was recorded as "verified by CI"
       # while android-ci.yml was failing validation and never ran a job. This is
@@ -57,14 +61,14 @@ jobs:
       # only ./jwt, so the Worker has zero runtime npm dependencies - node_modules here is
       # wrangler/miniflare/vitest, none of which is deployed.
       #
-      # The unscoped audit still reports high-severity advisories, every one of them
-      # inside miniflare as pinned by @cloudflare/vitest-pool-workers 0.23 (sharp/libvips,
-      # undici). That unscoped gate could never go green: no published pool version
-      # accepts a fixed miniflare, and the only offered remedy is a downgrade to pool
-      # 0.8.30. The wrangler 3 -> 4 bump cleared the rest of the tree (esbuild 0.17,
-      # ws 8.18, undici 5.x, sharp 0.33, @fastify/busboy) for local `wrangler dev`.
+      # The unscoped audit is clean today. It went red for months on pins inside
+      # @cloudflare/vitest-pool-workers (esbuild 0.17, undici 5.x/7.29.0, sharp 0.33/0.35.2);
+      # those cleared with the wrangler 3 -> 4 bump and the pool's rename to
+      # @cloudflare/vitest-plugin, which shares wrangler's miniflare instead of pinning an
+      # older one.
       #
-      # Re-check whether --omit=dev is still right the day this gains a real runtime
-      # dependency, and re-check this residue when the pool ships a fixed miniflare.
+      # ponytail: miniflare advisories land upstream before any dependency of ours moves, so
+      # a red unscoped audit is not automatically our bug. Re-check --omit=dev the day this
+      # gains a real runtime dependency.
       - name: Audit dependencies
         run: npm audit --audit-level=high --omit=dev
