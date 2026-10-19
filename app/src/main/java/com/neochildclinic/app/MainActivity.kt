@@ -330,4 +330,3 @@ class MainActivity : FragmentActivity() {
         }
     }
 }
-
