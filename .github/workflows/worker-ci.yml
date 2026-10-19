@@ -33,13 +33,11 @@ jobs:
           cache: npm
           cache-dependency-path: cloudflare/backup-worker/package-lock.json
 
-      # The committed package-lock.json is malformed: 102 of its 292 entries carry no
-      # `resolved` and no `integrity`, so `npm ci` dies inside npm's dependency-tree
-      # builder. That breaks every `npm ci` in this repo, not just CI. Work around it
-      # here so the M3 fix actually gets tested; regenerate the lockfile on a machine
-      # with Node and switch this back to `npm ci`.
+      # The committed lockfile was regenerated in the wrangler 3 -> 4 toolchain bump,
+      # which also rewrote the entries that carried no `resolved`/`integrity` and made
+      # `npm ci` die inside npm's dependency-tree builder. Plain `npm ci` works again.
       - name: Install dependencies
-        run: rm -f package-lock.json && npm install
+        run: npm ci
 
       # The spec signs HS256 tokens with this secret and the Worker verifies them
       # from env.SUPABASE_JWT_SECRET, which vitest-pool-workers loads out of
@@ -59,14 +57,14 @@ jobs:
       # only ./jwt, so the Worker has zero runtime npm dependencies - node_modules here is
       # wrangler/miniflare/vitest, none of which is deployed.
       #
-      # It cannot be run unscoped. All 8 advisories are dev-tree only (@fastify/busboy,
-      # undici, sharp+libvips, ws, esbuild) and all trace to miniflare via
-      # @cloudflare/vitest-pool-workers. There is no fixed miniflare that pool 0.23 accepts,
-      # and the only offered remedy is `npm audit fix --force` -> wrangler 4, a breaking
-      # major bump for a binary CI never executes. So the unscoped gate could never go green.
+      # The unscoped audit still reports high-severity advisories, every one of them
+      # inside miniflare as pinned by @cloudflare/vitest-pool-workers 0.23 (sharp/libvips,
+      # undici). That unscoped gate could never go green: no published pool version
+      # accepts a fixed miniflare, and the only offered remedy is a downgrade to pool
+      # 0.8.30. The wrangler 3 -> 4 bump cleared the rest of the tree (esbuild 0.17,
+      # ws 8.18, undici 5.x, sharp 0.33, @fastify/busboy) for local `wrangler dev`.
       #
-      # ponytail: bumping wrangler 3 -> 4 would clear most of these for local `wrangler dev`
-      # users; the ceiling is that miniflare's advisories stay until the pool is upgraded.
-      # Re-check whether --omit=dev is still right the day this gains a real dependency.
+      # Re-check whether --omit=dev is still right the day this gains a real runtime
+      # dependency, and re-check this residue when the pool ships a fixed miniflare.
       - name: Audit dependencies
         run: npm audit --audit-level=high --omit=dev
