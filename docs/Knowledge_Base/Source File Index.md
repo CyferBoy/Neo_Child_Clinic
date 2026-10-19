@@ -1,22 +1,22 @@
 # Source File Index
 
 > Every source root, what it contains, and which files are load-bearing.
-> Counts generated from the tree at commit `f8e5d8a`.
+> Counts generated from the tree at commit `4d11a32`.
 > Companion: [[Architecture Map]] · [[Testing]]
 
 ## Source roots
 
 | Root | Files | Role |
 |---|---|---|
-| `app/src/main/java/com/neochildclinic/` | 351 | production Kotlin |
-| `app/src/test/java/com/neochildclinic/` | 38 | JVM unit tests |
-| `app/src/androidTest/java/com/neochildclinic/` | 5 | instrumented tests |
+| `app/src/main/java/com/neochildclinic/` | 352 | production Kotlin |
+| `app/src/test/java/com/neochildclinic/` | 41 | JVM unit tests |
+| `app/src/androidTest/java/com/neochildclinic/` | 6 | instrumented tests |
 | `app/src/main/res/` | — | resources; `res/xml/` holds only `vaccine_widget_info.xml` |
 | `app/schemas/` | 1 | `…/AppDatabase/33.json` — the only exported Room schema |
-| `supabase/migrations/` | 21 | SQL migrations, now git-tracked |
+| `supabase/migrations/` | 23 | SQL migrations, now git-tracked |
 | `supabase/functions/` | 2 | `manage-staff`, `notify-update` (Deno/TS) |
 | `cloudflare/` | — | backup Worker + R2 binding |
-| `scripts/` | 1 | `validate_docs.py` — documentation integrity |
+| `scripts/` | 2 | `validate_docs.py` — documentation integrity; `test_validate_docs.py` — its tests (both 2026-10-18) |
 
 ## Entry points
 

@@ -152,11 +152,13 @@ matches the `@Database(version =)` annotation, nor that entity↔schema identity
 - `supabase/tests/rls_role_test.sql` and `verify_security.sql` exist but were not executed —
   they need a live database.
 - No coverage measurement (JaCoCo) is configured, so every percentage here is lines, not branches.
-- One open question from the 2026-10-18 CI run: the instrumented job was **green** (`BUILD SUCCESSFUL`,
-  Gradle exited 0) while the JUnit XML still carried a `<failure>` node for the `@Ignore`d
-  `ExpenseMigrationTest` case. `XmlTestRunListener` in ddmlib writes `<failure>` only for
-  `TestStatus.FAILURE`, so the two disagree and the cause is not established. The reporter now
-  prints each suite's own counters, which will settle it on the next run.
+- The 2026-10-18 instrumented run was **green** (`BUILD SUCCESSFUL`, Gradle exited 0) while its
+  JUnit XML reported `tests=48 failures=1 errors=0 skipped=0`. The single failure is the
+  `@Ignore`d `ExpenseMigrationTest` case, whose body cannot execute, so no assertion is being
+  masked. The runner counted an ignored test as a failure rather than a skip, and that node
+  carries an empty stack trace; the mechanism is not established, because the raw `am instrument`
+  output is not captured. **Treat Gradle's exit code as the gate, not the XML's `failures`
+  counter.**
 
 ## Related
 

@@ -15,6 +15,8 @@
 | **Fixed** | Change landed **and** the original reproduction no longer reproduces | ⚠️ requires verification evidence — never assume |
 | **In review** | A fix exists on a branch but is **not merged** into this branch | must cite the commit and the branch |
 | **Won't Fix** | Deliberately accepted | must record the reason |
+| **Not a bug** | The card's premise is contradicted by the code — the behaviour is deliberate, or the stated impact does not occur | must quote the evidence that refutes the card |
+| **Needs decision** | A real gap, but closing it needs a policy or product decision nobody has made; landing a fix unilaterally would be a guess | must name the decision and the options |
 
 ⚠️ **A fix that changes the named mechanism is not a fix.** Audit entry #14, #15, #38 and #2
 were each marked fixed in `docs/AUDIT_REPORT_2026-10-16.md`; re-verification found a
@@ -27,9 +29,9 @@ difference matters when deciding what is safe to regress:
 
 | Evidence class | Meaning | Items |
 |---|---|---|
-| **Test-pinned** | a named test fails without the fix and passes with it | [[#ncc-001]], [[#ncc-006]] (🔍 instrumented only), [[#ncc-009]] ⚠️ test still missing, [[#ncc-017]], [[#ncc-019]] |
-| **Source-verified** | re-read at `e05f7c0` and confirmed fixed, **no regression test** | [[#ncc-002]], [[#ncc-003]], [[#ncc-005]], [[#ncc-008]], [[#ncc-013]], [[#ncc-014]], [[#ncc-015]], [[#ncc-016]], [[#ncc-018]], [[#ncc-035]], [[#ncc-040]] |
-| **Needs a live DB** | cannot be settled by reading source | [[#ncc-002]], [[#ncc-003]] |
+| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-009 ⚠️ test still missing, NCC-017, NCC-019 |
+| **Source-verified** | re-read at `e05f7c0` and confirmed fixed, **no regression test** | NCC-002, NCC-003, NCC-005, NCC-008, NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-035, NCC-040 |
+| **Needs a live DB** | cannot be settled by reading source | NCC-002, NCC-003 |
 
 ⚠️ The repository contains **zero** `*ViewModelTest.kt` files, which is why everything in the
 UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
@@ -45,50 +47,53 @@ UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
 
 ## Index
 
+IDs are section headings below — jump to them with the outline pane (`Ctrl/Cmd+Shift+O`).
+They stay plain text here because a wikilink alias needs a `|`, which would end the table cell.
+
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
-| [[#ncc-001]] NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
-| [[#ncc-002]] NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
-| [[#ncc-003]] NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
-| [[#ncc-004]] NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
-| [[#ncc-005]] NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
-| [[#ncc-006]] NCC-006 | Soft-delete filter missing on reminder queries | S1 | ✅ **Fixed** | Room |
-| [[#ncc-007]] NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | ✅ Fixed | Supabase |
-| [[#ncc-008]] NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
-| [[#ncc-009]] NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
-| [[#ncc-010]] NCC-010 | Notification-time change needs a process restart | S2 | ✅ **Fixed** | Reminders |
-| [[#ncc-011]] NCC-011 | Auto-backup enable/disable needs a process restart | S2 | ✅ **Fixed** | Backup |
-| [[#ncc-012]] NCC-012 | Lock screen is an overlay, not a gate | S2 | ✅ Fixed | Security UX |
-| [[#ncc-013]] NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | ✅ **Fixed** | UI |
-| [[#ncc-014]] NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | ✅ **Fixed** | UI |
-| [[#ncc-015]] NCC-015 | `savePatient` swallows its own validation exception | S2 | ✅ **Fixed** | UI |
-| [[#ncc-016]] NCC-016 | `isLoading` can never clear | S2 | ✅ **Fixed** | UI |
-| [[#ncc-017]] NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
-| [[#ncc-018]] NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
-| [[#ncc-019]] NCC-019 | WorkManager chain grows without bound | S3 | ✅ Fixed | Sync |
-| [[#ncc-020]] NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
-| [[#ncc-021]] NCC-021 | Lost-update race on every batch mutation | S3 | ✅ Fixed | Inventory |
-| [[#ncc-022]] NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
-| [[#ncc-023]] NCC-023 | Pull paths never apply tombstones | S3 | ⚠️ Needs decision — systemic, see note | Sync |
-| [[#ncc-024]] NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
-| [[#ncc-025]] NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
-| [[#ncc-026]] NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
-| [[#ncc-027]] NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
-| [[#ncc-028]] NCC-028 | `consultations.visitId` defaults to `""` — an FK-violating value | S4 | Open | Room |
-| [[#ncc-029]] NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | Open | Room |
-| [[#ncc-030]] NCC-030 | `VaccineDao` audit-count guards query the wrong column | S4 | Open | Inventory |
-| [[#ncc-031]] NCC-031 | `FinanceDao` sorts on an expression no index can serve | S4 | Open | Room |
-| [[#ncc-032]] NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | ✅ Fixed | Reminders |
-| [[#ncc-033]] NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | ✅ Fixed | Reminders |
-| [[#ncc-034]] NCC-034 | Personal reminder with a blank date notifies every run | S3 | ⚠️ Not a bug | Reminders |
-| [[#ncc-035]] NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ Fixed | Reminders |
-| [[#ncc-036]] NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
-| [[#ncc-037]] NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | ✅ Fixed | Backup |
-| [[#ncc-038]] NCC-038 | `inventory_deductions` is never synced to the server | S3 | ⚠️ Needs decision | Sync |
-| [[#ncc-039]] NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
-| [[#ncc-040]] NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
-| [[#ncc-041]] NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
-| [[#ncc-042]] NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
+| NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
+| NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
+| NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
+| NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
+| NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
+| NCC-006 | Soft-delete filter missing on reminder queries | S1 | ✅ **Fixed** | Room |
+| NCC-007 | Trigger absent ⇒ every batch created at zero stock | S2 | ✅ Fixed | Supabase |
+| NCC-008 | `computeDaily` re-sums income, disagreeing with `computeMonthly` | S2 | ✅ **Fixed** | Statistics |
+| NCC-009 | `SingleFlight` waiter always reports "nothing failed" | S2 | ✅ **Fixed** | Sync |
+| NCC-010 | Notification-time change needs a process restart | S2 | ✅ **Fixed** | Reminders |
+| NCC-011 | Auto-backup enable/disable needs a process restart | S2 | ✅ **Fixed** | Backup |
+| NCC-012 | Lock screen is an overlay, not a gate | S2 | ✅ Fixed | Security UX |
+| NCC-013 | `DashboardViewModel.errorMessage` can never be set | S2 | ✅ **Fixed** | UI |
+| NCC-014 | `BorrowedViewModel.actionError` can never be set | S2 | ✅ **Fixed** | UI |
+| NCC-015 | `savePatient` swallows its own validation exception | S2 | ✅ **Fixed** | UI |
+| NCC-016 | `isLoading` can never clear | S2 | ✅ **Fixed** | UI |
+| NCC-017 | Inventory sorts compare `"d MMM yyyy"` lexicographically | S2 | ✅ **Fixed** | Inventory |
+| NCC-018 | `addStockBatch` is not atomic | S2 | ✅ **Fixed** | Inventory |
+| NCC-019 | WorkManager chain grows without bound | S3 | ✅ Fixed | Sync |
+| NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
+| NCC-021 | Lost-update race on every batch mutation | S3 | ✅ Fixed | Inventory |
+| NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
+| NCC-023 | Pull paths never apply tombstones | S3 | ⚠️ Needs decision — systemic, see note | Sync |
+| NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
+| NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
+| NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
+| NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
+| NCC-028 | `consultations.visitId` defaults to `""` — an FK-violating value | S4 | Open | Room |
+| NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | Open | Room |
+| NCC-030 | `VaccineDao` audit-count guards query the wrong column | S4 | Open | Inventory |
+| NCC-031 | `FinanceDao` sorts on an expression no index can serve | S4 | Open | Room |
+| NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | ✅ Fixed | Reminders |
+| NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | ✅ Fixed | Reminders |
+| NCC-034 | Personal reminder with a blank date notifies every run | S3 | ⚠️ Not a bug | Reminders |
+| NCC-035 | Personal-reminder notification ID has a precedence bug | S4 | ✅ Fixed | Reminders |
+| NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
+| NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | ✅ Fixed | Backup |
+| NCC-038 | `inventory_deductions` is never synced to the server | S3 | ⚠️ Needs decision | Sync |
+| NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
+| NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
+| NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
+| NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -674,8 +679,8 @@ case-insensitive matches. The defect was in the ViewModel, not the screen.
 ⚠️ **Regression tests are missing for all three.** Verified 2026-10-18: `grep -rl
 savePatient app/src/test app/src/androidTest` returns nothing, and the repository contains
 **zero** `*ViewModelTest.kt` files. These are ✅ Fixed on **source inspection** plus compile,
-not on a test that fails without the fix — narrower evidence than [[#ncc-001]] and
-[[#ncc-009]] carry. Do not read "Fixed" here as "regression-protected".
+not on a test that fails without the fix — narrower evidence than [[#NCC-001 — Edit raising quantity on a failed batch moves stock but records `FAILED`|NCC-001]] and
+[[#NCC-009 — `SingleFlight` waiter always reports "nothing failed"|NCC-009]] carry. Do not read "Fixed" here as "regression-protected".
 
 **Links.** [[MVVM]] · [[Error Handling]]
 
@@ -772,7 +777,7 @@ movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 
 | ID | Sev | Status | Summary | Location |
 |---|---|---|---|---|
-| NCC-019 | S3 | ✅ **Fixed** | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:39`, `:61` — now `ExistingWorkPolicy.REPLACE`; `:32-36` is the comment recording the switch. This is what refuted [[#hyp-002]]. |
+| NCC-019 | S3 | ✅ **Fixed** | `APPEND_OR_REPLACE` + per-row scheduling ⇒ unbounded work chain | `SyncManagerImpl.kt:39`, `:61` — now `ExistingWorkPolicy.REPLACE`; `:32-36` is the comment recording the switch. This is what refuted [[Quality/Hypotheses]] HYP-002. |
 | NCC-020 | S3 | ✅ **Fixed** | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt`; new `SyncQueueDao.isUnsyncedExcluding` |
 | NCC-021 | S3 | ✅ **Fixed** | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt` — `deductStockFromBatch` and `reverseDeduction` now transactional |
 | NCC-022 | S3 | ✅ **Fixed** | `AuditLogger.log()` fired on a separate coroutine inside 5 live transactions | `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:185,287` — all now call `recordLog` |

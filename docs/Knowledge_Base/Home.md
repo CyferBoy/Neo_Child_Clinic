@@ -106,15 +106,15 @@ graph TB
 
 | Fact | Value | Source |
 |---|---|---|
-| Kotlin files (main) | 351 | `app/src/main/**/*.kt` |
-| Kotlin files (test) | 43 | 38 unit + 5 instrumented |
-| Lines of Kotlin | ~47,230 main · ~4,470 test | `wc -l` |
+| Kotlin files (main) | 352 | `app/src/main/**/*.kt` |
+| Kotlin files (test) | 47 | 41 unit + 6 instrumented |
+| Lines of Kotlin | ~47,680 main · ~5,320 test | `wc -l` |
 | ViewModels | 34, **all** `@HiltViewModel` | `grep -rl @HiltViewModel` |
 | `@Singleton` bindings | 46 | `grep -rl @Singleton` |
 | Navigation destinations | 51, flat, **no nested graphs** | `app/Navigation.kt:83-92` |
 | Room entities / DAOs / migrations | 25 / 21 / 16 | `AppDatabase.kt:16-40` |
 | Room version | 33 | `AppDatabase.kt:42` |
-| SQL migrations | 21, all git-tracked | `git ls-files supabase/migrations/` |
+| SQL migrations | 23, all git-tracked | `git ls-files supabase/migrations/` |
 | Supabase tables / edge functions | 26 / 2 | — |
 | Unit tests passing | 277, 0 failures (2026-10-18) | `app/build/test-results/` |
 | Instrumented tests | 6 files, 48 `@Test` (1 `@Ignore`d), **green in CI 2026-10-18** | `app/src/androidTest/` |
@@ -125,8 +125,11 @@ graph TB
 python3 scripts/validate_docs.py --strict
 ```
 
-Checks links, orphans, Mermaid blocks, required sections, stubs and secret patterns.
-Runs in CI as a **separate, advisory** job — see [[Documentation Maintenance]].
+Checks links, heading and block anchors, Dataview blocks, orphans, Mermaid blocks, required
+sections, stubs, secret patterns and the bug register's status vocabulary. Its own tests:
+`python3 scripts/test_validate_docs.py`.
+Runs in CI as a **separate job** — the plain run blocks, `--strict` is advisory. See
+[[Documentation Maintenance]].
 
 ## Ground rules
 
@@ -151,7 +154,7 @@ Requires the **Dataview** and **Tasks** community plugins, both installed
 
 ```dataview
 TASK
-FROM " "
+FROM ""
 WHERE !completed
 ```
 

@@ -94,6 +94,7 @@ python3 scripts/validate_docs.py              # whole vault
 python3 scripts/validate_docs.py --strict     # warnings also fail
 python3 scripts/validate_docs.py --changed    # only notes git sees as changed
 python3 scripts/validate_docs.py --quiet      # summary only
+python3 scripts/test_validate_docs.py         # 28 regression tests for the validator
 ```
 
 What it checks:
@@ -107,6 +108,9 @@ What it checks:
 | Markdown links | a relative `.md` target or external URL is malformed |
 | Secret patterns | a credential or token was pasted into the vault |
 | Stub notes | a note exists but is effectively empty |
+| Heading and block anchors | `[[#Heading]]` / `[[Note#Heading]]` / `[[Note#^id]]` goes nowhere |
+| Dataview blocks | unclosed or empty fence, unknown query type, typo'd clause, `FROM` target that matches no note |
+| Bug register | a status in the index is not in the Status vocabulary, or a card has no Status/Severity |
 
 ⚠️ The Mermaid check is **heuristic, not a parser**. It catches the common slips (unclosed
 fence, wrong diagram keyword, unbalanced label brackets) and will not catch a semantically
@@ -116,27 +120,38 @@ invalid graph. Render the note in Obsidian to be sure.
 scanning, because Obsidian does not render them as links. Do not rely on that to hide a
 real broken link.
 
-### ⚠️ Not checked: heading anchors
+### Heading and block anchors
 
-The validator resolves **note names only**. It does not resolve the fragment in
-`[[Note#Heading]]` or `[[#Heading]]`, so a link can name the right note and still go nowhere.
+The validator resolves the fragment in `[[Note#Heading]]` and `[[#Heading]]` against two things:
+a heading whose *text* matches, or a `^block-id` marker. Inline markdown is normalised on both
+sides, so a heading containing backticks resolves whether or not the link carries them.
 
-This is not hypothetical. `Quality/Bug Register.md` links its 40-odd index and detail rows to
-short anchors — `[[#ncc-026]]`, `[[#ncc-041]]` — while every card is headed `## NCC-026 — …`,
-i.e. with its full title. Obsidian's rule is that the fragment is *the heading text*
-([Internal links](https://obsidian.md/help/links)) and it does not prefix-match, so none of those
-anchors resolve. They read as navigation and are inert.
+This check was added because the vault had **100 dead anchors**. The tracker notes linked ids as
+`[[#ncc-026]]` while every card is headed `## NCC-026 — …`; Obsidian's rule is that the fragment
+is *the heading text* ([Internal links](https://obsidian.md/help/links)) and it does not
+prefix-match, so none of them resolved. They read as navigation and were inert.
 
-Two ways out, neither taken yet:
+They were repaired on 2026-10-18, by context:
 
-- **Block references.** Put `^ncc-026` on its own line under each card and link `[[#^ncc-026]]`.
-  Stable under retitling, which is the usual reason heading links rot. Requires touching every
-  card plus the index — worth doing in one pass, not piecemeal.
-- **Full heading text.** `[[#NCC-026 — isExpired fails open on an unparseable date]]`. No card
-  edits, but the link breaks whenever a heading is reworded.
+- **In a table row — the id is plain text.** A wikilink alias needs a `|`, and a `|` inside a
+  markdown table cell ends the cell. Obsidian's escape (`\|`) is documented for *displaying* a
+  pipe, not for aliases inside links, so this vault does not rely on it. Jump within a note with
+  the outline pane (`Ctrl/Cmd+Shift+O`): the ids are section headings.
+- **Anywhere else — the full heading text with the id as the alias**, e.g.
+  `[[#NCC-026 — reclassified, not fixed|NCC-026]]`, or
+  `[[Quality/Bug Register#NCC-001 — …|NCC-001]]` across notes.
+- **A cross-note reference inside a table row** links the note itself and keeps the id as text
+  (`[[Quality/Hypotheses]] HYP-002`) — no alias, so no pipe.
 
-Until then, prefer a plain `[[Note Name]]` link plus the bug id in prose — that always resolves.
-New links added in this vault should not use short anchors.
+Follow the same rule for new links. A retitled heading that a link points at is now a build
+failure rather than a silent dead link.
+
+### What the validator cannot check
+
+It reads the vault; it does not run Obsidian. A Dataview query is checked for shape and for a
+`FROM` target that exists — never for the rows it returns, so a query naming a field that does
+not exist still passes. The Mermaid check is heuristic, not a parser. Anchor matching is looser
+than Obsidian's exact-text rule, so it errs towards silence. Render the vault to be certain.
 
 ## Mermaid conventions used here
 

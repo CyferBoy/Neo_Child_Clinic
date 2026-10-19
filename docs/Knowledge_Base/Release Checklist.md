@@ -74,7 +74,7 @@ before dropping columns. Anything similar needs a release note, not just a code 
 - [ ] Migration wrapped in `begin; … commit;` — ⚠️ 7 of 22 are currently bare DDL
 - [ ] Migration is **idempotent** (`if exists`, `if not exists`, `to_regclass` guards)
 - [ ] Any `SECURITY DEFINER` function sets `search_path`
-- [ ] Existing triggers dropped before a replacement is installed — ⚠️ see [[#ncc-003]] NCC-003
+- [ ] Existing triggers dropped before a replacement is installed — ⚠️ see [[Quality/Bug Register#NCC-003 — Legacy stock trigger never dropped; possible double-application|NCC-003]]
 - [ ] Migration applied to **every** environment, not just one
 
 ```bash
@@ -112,7 +112,7 @@ from information_schema.tables
 where table_schema='public' order by table_name;
 ```
 
-- [ ] **No table the app writes to has all three `false`** — ⚠️ [[#nsc-005]] NSC-005.
+- [ ] **No table the app writes to has all three `false`** — ⚠️ [[Quality/Security Concerns#NSC-005 — No table-level `GRANT`; `auto_expose_new_tables` removed 2026-10-30|NSC-005]].
       `auto_expose_new_tables` is removed **2026-10-30**; after that, missing GRANTs break
       every write.
 
@@ -124,9 +124,9 @@ where schemaname='public' and tablename in ('profiles','audit_logs')
 order by tablename, policyname;
 ```
 
-- [ ] No `WITH CHECK (true)` on `audit_logs` — ⚠️ [[#nsc-002]] NSC-002
+- [ ] No `WITH CHECK (true)` on `audit_logs` — ⚠️ [[Quality/Security Concerns#NSC-002 — Legacy `get_my_role()` policies may defeat the role migration|NSC-002]]
 - [ ] No `FOR ALL` on `profiles` gated on `get_my_role()` — the same NSC-002
-- [ ] `profiles` SELECT is not readable by a non-admin — ⚠️ [[#nsc-001]] NSC-001
+- [ ] `profiles` SELECT is not readable by a non-admin — ⚠️ [[Quality/Security Concerns#NSC-001 — `profiles` is readable by every active staff member|NSC-001]]
 
 ```sql
 select proname, prosecdef, proconfig from pg_proc
@@ -134,7 +134,7 @@ where pronamespace='public'::regnamespace and prosecdef;
 ```
 
 - [ ] Every `SECURITY DEFINER` function has a non-empty `proconfig` (`search_path` set) —
-      ⚠️ [[#nsc-013]] NSC-013
+      ⚠️ [[Quality/Security Concerns#NSC-013 — `get_my_role()` is `SECURITY DEFINER` with no `search_path`|NSC-013]]
 
 ### Triggers
 
@@ -143,17 +143,17 @@ select tgname, tgenabled from pg_trigger
 where tgrelid='public.inventory_transactions'::regclass and not tgisinternal;
 ```
 
-- [ ] **Exactly one** stock trigger — ⚠️ [[#ncc-003]] NCC-003; two means every movement is
+- [ ] **Exactly one** stock trigger — ⚠️ [[Quality/Bug Register#NCC-003 — Legacy stock trigger never dropped; possible double-application|NCC-003]]; two means every movement is
       applied twice
 - [ ] Stock trigger's `UPDATE` branch uses `- OLD.quantity + NEW.quantity` —
-      ⚠️ [[#ncc-002]] NCC-002
+      ⚠️ [[Quality/Bug Register#NCC-002 — Postgres stock trigger corrupts stock on any retried upsert|NCC-002]]
 
 ```sql
 select relname, relrowsecurity, relforcerowsecurity
 from pg_class where relname='todo_notification_events';
 ```
 
-- [ ] RLS enabled, `relforcerowsecurity` handled per [[#nsc-003]] NSC-003
+- [ ] RLS enabled, `relforcerowsecurity` handled per [[Quality/Security Concerns#NSC-003 — `FORCE ROW LEVEL SECURITY` breaks its own writer|NSC-003]]
 
 ### Rate limits
 
@@ -162,7 +162,7 @@ select count(*) from public.api_write_rate_limits;
 ```
 
 - [ ] Row count is bounded, not growing one row per user per minute forever — ⚠️
-      [[#nsc-012]] NSC-012
+      [[Quality/Security Concerns#NSC-012 — Write rate limiter counts rows, not requests|NSC-012]]
 
 ### Column types the app writes strings into
 
@@ -171,7 +171,7 @@ select column_name, data_type from information_schema.columns
 where table_name='vaccine_batches' and column_name='expiry_date';
 ```
 
-- [ ] `expiry_date` is `text`, not `date` — ⚠️ [[#ncc-026]] NCC-026. The app stores the
+- [ ] `expiry_date` is `text`, not `date` — ⚠️ [[Quality/Bug Register#NCC-026 — reclassified, not fixed|NCC-026]]. The app stores the
       date picker's display format (`d MMM yyyy`, e.g. `5 Jan 2026`) and uploads it as-is,
       with no ISO conversion. `vaccine_batches` has no DDL in the migrations, so this cannot
       be settled from the repository. A `date` here means every batch insert is rejected.

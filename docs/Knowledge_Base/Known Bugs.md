@@ -100,7 +100,7 @@ deduction for visit #2.
 
 ### 1.4 ✅ Soft-delete filtering applied to 7 of 16 reminder queries
 
-⚠️ **Resolved 2026-10-18 — see [[#ncc-006]].** All 16 `SELECT`s now filter; the "7 of 16" /
+⚠️ **Resolved 2026-10-18 — see [[Quality/Bug Register#NCC-006 — Soft-delete filter missing on reminder queries|NCC-006]].** All 16 `SELECT`s now filter; the "7 of 16" /
 "9 queries" figures here were never mutually consistent. 🔍 Verification is **instrumented
 only** (`ReminderSoftDeleteFilterTest`, 12 tests — not executed in this pass).
 
@@ -393,7 +393,7 @@ ViewModel with a dead channel.
 
 1. **1.4** — ✅ **done.** `is_deleted = 0` now filters all 16 `SELECT`s in `DueReminderDao`
    (18 predicates in the file, 19 across the DAO layer). The "9 reminder queries" figure in
-   the finding below was never consistent — see [[#ncc-006]] for the corrected count.
+   the finding below was never consistent — see [[Quality/Bug Register#NCC-006 — Soft-delete filter missing on reminder queries|NCC-006]] for the corrected count.
 2. **1.5 + 1.6** — ✅ **done.** `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`
    corrects the `UPDATE` branch to `-OLD.quantity + NEW.quantity` and drops
    `tr_update_batch_stock`. 🔍 Still needs a live-DB check.

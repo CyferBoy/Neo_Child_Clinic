@@ -17,21 +17,24 @@ NSC-013 is inferred from migration SQL. The verification queries are given per i
 
 ## Index
 
+IDs are section headings below — jump to them with the outline pane (`Ctrl/Cmd+Shift+O`).
+They stay plain text here because a wikilink alias needs a `|`, which would end the table cell.
+
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
-| [[#nsc-001]] NSC-001 | Every active staff member can `select *` from `profiles` | High | Confirmed | RLS |
-| [[#nsc-002]] NSC-002 | Legacy `get_my_role()` policies may defeat the role migration | Critical | Needs live DB | RLS |
-| [[#nsc-003]] NSC-003 | `FORCE ROW LEVEL SECURITY` breaks its own documented writer | Medium | Confirmed | RLS |
-| [[#nsc-004]] NSC-004 | `todo_notification_events` had no RLS for a window | High | Needs live DB | RLS |
-| [[#nsc-005]] NSC-005 | No migration issues a `GRANT`; `auto_expose_new_tables` removed 2026-10-30 | High | Needs live DB | Grants |
-| [[#nsc-006]] NSC-006 | `user_devices(user_id)` unindexed despite every policy filtering on it | Low | Confirmed | Performance |
-| [[#nsc-007]] NSC-007 | `expenses` has no accountability trigger | Medium | Confirmed | Accountability |
-| [[#nsc-008]] NSC-008 | 4 routes have no navigation guard | Low | Confirmed | UI gate |
-| [[#nsc-009]] NSC-009 | `manage-staff`: `UPDATE_PROFILE` missing from the self-guard | Low | Confirmed | Edge function |
-| [[#nsc-010]] NSC-010 | `notify-update`: serial FCM fan-out | Low | Confirmed | Availability |
-| [[#nsc-011]] NSC-011 | `notify-update` does not join `profiles.is_active` | Low | Needs live DB | Authz |
-| [[#nsc-012]] NSC-012 | Write rate limiter counts rows, not requests | Medium | Confirmed | DoS |
-| [[#nsc-013]] NSC-013 | `get_my_role()` is `SECURITY DEFINER` with no `search_path` | High | Needs live DB | SQLi surface |
+| NSC-001 | Every active staff member can `select *` from `profiles` | High | Confirmed | RLS |
+| NSC-002 | Legacy `get_my_role()` policies may defeat the role migration | Critical | Needs live DB | RLS |
+| NSC-003 | `FORCE ROW LEVEL SECURITY` breaks its own documented writer | Medium | Confirmed | RLS |
+| NSC-004 | `todo_notification_events` had no RLS for a window | High | Needs live DB | RLS |
+| NSC-005 | No migration issues a `GRANT`; `auto_expose_new_tables` removed 2026-10-30 | High | Needs live DB | Grants |
+| NSC-006 | `user_devices(user_id)` unindexed despite every policy filtering on it | Low | Confirmed | Performance |
+| NSC-007 | `expenses` has no accountability trigger | Medium | Confirmed | Accountability |
+| NSC-008 | 4 routes have no navigation guard | Low | Confirmed | UI gate |
+| NSC-009 | `manage-staff`: `UPDATE_PROFILE` missing from the self-guard | Low | Confirmed | Edge function |
+| NSC-010 | `notify-update`: serial FCM fan-out | Low | Confirmed | Availability |
+| NSC-011 | `notify-update` does not join `profiles.is_active` | Low | Needs live DB | Authz |
+| NSC-012 | Write rate limiter counts rows, not requests | Medium | Confirmed | DoS |
+| NSC-013 | `get_my_role()` is `SECURITY DEFINER` with no `search_path` | High | Needs live DB | SQLi surface |
 
 ---
 
