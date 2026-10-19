@@ -29,11 +29,16 @@ interface JwtPayload extends VerifiedUser {
   iss?: string;
 }
 
-interface JwkSet {
-  keys: JsonWebKey[];
+// The DOM lib's JsonWebKey omits `kid`, but RFC 7517 JWKs carry it.
+interface JwksKey extends JsonWebKey {
+  kid?: string;
 }
 
-const jwksCache = new Map<string, { keys: JsonWebKey[]; expiresAt: number }>();
+interface JwkSet {
+  keys: JwksKey[];
+}
+
+const jwksCache = new Map<string, { keys: JwksKey[]; expiresAt: number }>();
 const JWKS_CACHE_MS = 10 * 60 * 1000;
 
 function base64UrlToUint8Array(base64Url: string): Uint8Array {
@@ -51,7 +56,7 @@ function base64UrlDecodeJson<T>(base64Url: string): T {
   return JSON.parse(text) as T;
 }
 
-async function getJwks(jwksUrl: string): Promise<JsonWebKey[]> {
+async function getJwks(jwksUrl: string): Promise<JwksKey[]> {
   const cached = jwksCache.get(jwksUrl);
   if (cached && cached.expiresAt > Date.now()) return cached.keys;
 

@@ -33,19 +33,21 @@ jobs:
           cache: npm
           cache-dependency-path: cloudflare/backup-worker/package-lock.json
 
-      # The committed package-lock.json is malformed: 102 of its 292 entries carry no
-      # `resolved` and no `integrity`, so `npm ci` dies inside npm's dependency-tree
-      # builder. That breaks every `npm ci` in this repo, not just CI. Work around it
-      # here so the M3 fix actually gets tested; regenerate the lockfile on a machine
-      # with Node and switch this back to `npm ci`.
+      # The committed lockfile was regenerated in the wrangler 3 -> 4 toolchain bump,
+      # which also rewrote the entries that carried no `resolved`/`integrity` and made
+      # `npm ci` die inside npm's dependency-tree builder. Plain `npm ci` works again.
       - name: Install dependencies
-        run: rm -f package-lock.json && npm install
+        run: npm ci
 
       # The spec signs HS256 tokens with this secret and the Worker verifies them
-      # from env.SUPABASE_JWT_SECRET, which vitest-pool-workers loads out of
+      # from env.SUPABASE_JWT_SECRET, which the Cloudflare vitest plugin loads out of
       # .dev.vars. Throwaway value, scoped to this runner only.
       - name: Provide test secret
         run: echo "SUPABASE_JWT_SECRET=ci-test-secret-value" > .dev.vars
+
+      # tsc was never gated, so it sat at 5 errors. It is clean now - keep it that way.
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       # The cross-account confirm guard (audit M3) was recorded as "verified by CI"
       # while android-ci.yml was failing validation and never ran a job. This is
@@ -59,14 +61,14 @@ jobs:
       # only ./jwt, so the Worker has zero runtime npm dependencies - node_modules here is
       # wrangler/miniflare/vitest, none of which is deployed.
       #
-      # It cannot be run unscoped. All 8 advisories are dev-tree only (@fastify/busboy,
-      # undici, sharp+libvips, ws, esbuild) and all trace to miniflare via
-      # @cloudflare/vitest-pool-workers. There is no fixed miniflare that pool 0.23 accepts,
-      # and the only offered remedy is `npm audit fix --force` -> wrangler 4, a breaking
-      # major bump for a binary CI never executes. So the unscoped gate could never go green.
+      # The unscoped audit is clean today. It went red for months on pins inside
+      # @cloudflare/vitest-pool-workers (esbuild 0.17, undici 5.x/7.29.0, sharp 0.33/0.35.2);
+      # those cleared with the wrangler 3 -> 4 bump and the pool's rename to
+      # @cloudflare/vitest-plugin, which shares wrangler's miniflare instead of pinning an
+      # older one.
       #
-      # ponytail: bumping wrangler 3 -> 4 would clear most of these for local `wrangler dev`
-      # users; the ceiling is that miniflare's advisories stay until the pool is upgraded.
-      # Re-check whether --omit=dev is still right the day this gains a real dependency.
+      # ponytail: miniflare advisories land upstream before any dependency of ours moves, so
+      # a red unscoped audit is not automatically our bug. Re-check --omit=dev the day this
+      # gains a real runtime dependency.
       - name: Audit dependencies
         run: npm audit --audit-level=high --omit=dev

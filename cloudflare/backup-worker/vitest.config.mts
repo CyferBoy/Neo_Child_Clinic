@@ -1,10 +1,11 @@
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
-// vitest-pool-workers 0.23 (the vitest 4 line) replaced the old
-// `defineWorkersConfig` + `test.poolOptions.workers` shape with a Vite plugin. The previous
-// config imported "@cloudflare/vitest-pool-workers/config", a subpath that only exists up to
-// 0.8.x, so every CI run died with ERR_PACKAGE_PATH_NOT_EXPORTED before a single test ran.
+// The vitest 4 line replaced the old `defineWorkersConfig` + `test.poolOptions.workers`
+// shape with a Vite plugin exported from the package root. The previous config imported
+// the "/config" subpath, which only exists up to 0.8.x, so every CI run died with
+// ERR_PACKAGE_PATH_NOT_EXPORTED before a single test ran. The package has since been
+// renamed from @cloudflare/vitest-pool-workers to @cloudflare/vitest-plugin.
 export default defineConfig({
   plugins: [
     cloudflareTest({
