@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class DoctorAvailabilityRepositoryImpl @Inject constructor(
@@ -145,21 +146,42 @@ syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPr
 
     override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo", rethrow = true) {
         val remoteSlots = postgrest.from("doctor_weekly_slots").select { filter { eq("is_deleted", false) } }.decodeList<DoctorWeeklySlotEntity>()
+        val remoteExceptions = postgrest.from("doctor_slot_exceptions").select { filter { eq("is_deleted", false) } }.decodeList<DoctorSlotExceptionEntity>()
+
+        // One bulk queue read per entity name instead of one per remote row
+        // (SyncQueueDao.unsyncedIdSet callers) - same semantics as the per-row isUnsynced
+        // calls this replaces. Queue rule unchanged: a row edited during its own upload
+        // still reports isSynced=true, and the edit is authoritative until pushed.
+        val pendingSlotIds = syncQueueDao.unsyncedIdSet("DOCTOR_WEEKLY_SLOT")
         remoteSlots.forEach { remote ->
             val local = dao.getWeeklySlotById(remote.id)
-            // Queue-aware guard: a row edited during its own upload still reports isSynced=true,
-            // so trusting that flag alone let a concurrent pull roll the newer edit back.
-            if (local == null || (local.isSynced && !syncQueueDao.isUnsynced("DOCTOR_WEEKLY_SLOT", remote.id))) {
+            if (local == null || (local.isSynced && remote.id !in pendingSlotIds)) {
                 dao.upsertWeeklySlot(remote.copy(isSynced = true))
             }
         }
 
-        val remoteExceptions = postgrest.from("doctor_slot_exceptions").select { filter { eq("is_deleted", false) } }.decodeList<DoctorSlotExceptionEntity>()
+        val pendingExceptionIds = syncQueueDao.unsyncedIdSet("DOCTOR_SLOT_EXCEPTION")
         remoteExceptions.forEach { remote ->
             val local = dao.getExceptionById(remote.id)
-            if (local == null || (local.isSynced && !syncQueueDao.isUnsynced("DOCTOR_SLOT_EXCEPTION", remote.id))) {
+            if (local == null || (local.isSynced && remote.id !in pendingExceptionIds)) {
                 dao.upsertException(remote.copy(isSynced = true))
             }
         }
+
+        // Remote-deletion propagation (NCC-023 / DA-01): synced slot/exception rows the remote
+        // set no longer lists and no queue entry claims leave this device. Exceptions first
+        // (children), then slots; the tables have no FK link, the order is just tidier.
+        RemotePrune.computeBatches(
+            localIds = dao.getExceptionIds(),
+            syncedIds = dao.getSyncedExceptionIds().toSet(),
+            remoteIds = remoteExceptions.mapTo(HashSet()) { it.id },
+            pendingIds = pendingExceptionIds
+        ).flatten().forEach { dao.deleteException(it) }
+        RemotePrune.computeBatches(
+            localIds = dao.getWeeklySlotIds(),
+            syncedIds = dao.getSyncedWeeklySlotIds().toSet(),
+            remoteIds = remoteSlots.mapTo(HashSet()) { it.id },
+            pendingIds = pendingSlotIds
+        ).flatten().forEach { dao.deleteWeeklySlot(it) }
     }
 }

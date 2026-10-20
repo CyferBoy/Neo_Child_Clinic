@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class WasteRepositoryImpl @Inject constructor(
@@ -158,6 +159,14 @@ class WasteRepositoryImpl @Inject constructor(
                     ))
                 }
             }
+            // Remote-deletion propagation (NCC-023 / DA-01): synced waste rows the remote set
+            // no longer lists and no queue entry claims are drift (waste rows are leaves).
+            RemotePrune.computeBatches(
+                localIds = wasteDao.getWasteIds(),
+                syncedIds = wasteDao.getSyncedWasteIds().toSet(),
+                remoteIds = wasteRecords.mapTo(HashSet()) { it.id },
+                pendingIds = pendingWasteIds
+            ).flatten().forEach { wasteDao.deleteWaste(it) }
         }
     }
 

@@ -50,4 +50,18 @@ interface PatientTodoDao {
 
     @Query("DELETE FROM vaccination_todos WHERE id = :id")
     suspend fun deleteVaccination(id: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM consultation_todos")
+    suspend fun getConsultationTodoIds(): List<String>
+
+    @Query("SELECT id FROM consultation_todos WHERE is_synced = 1")
+    suspend fun getSyncedConsultationTodoIds(): List<String>
+
+    @Query("SELECT id FROM vaccination_todos")
+    suspend fun getVaccinationTodoIds(): List<String>
+
+    @Query("SELECT id FROM vaccination_todos WHERE is_synced = 1")
+    suspend fun getSyncedVaccinationTodoIds(): List<String>
+
 }

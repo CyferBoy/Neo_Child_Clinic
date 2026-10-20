@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class PatientRepositoryImpl @Inject constructor(
@@ -147,6 +148,20 @@ class PatientRepositoryImpl @Inject constructor(
                 android.util.Log.e("PatientRepo", "Insert failed for patient ${entity.id}", e)
             }
         }
+
+        // Remote-deletion propagation (NCC-023 / DA-01): this pull is insert+update only, so a
+        // patient deleted on another device never left this one - it stayed searchable, kept
+        // counting, and a queued edit against it uploaded as a silent no-op. A synced row the
+        // remote set no longer lists (deleteFilterColumn hard-deletes it) and that no queue
+        // entry claims is drift: delete it. Room FKs CASCADE the visit/item/consultation/
+        // todo/reminder/note rows under it, so the whole cluster goes in one statement.
+        RemotePrune.computeBatches(
+            localIds = localById.keys.toList(),
+            syncedIds = localById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
+            remoteIds = entities.mapTo(HashSet()) { it.id },
+            pendingIds = pendingPatientIds
+        ).flatten().forEach { patientDao.deletePatient(it) }
+
         val countFlow = patientDao.getPatientCount()
         val totalCount = countFlow.first()
         android.util.Log.d("PatientRepo", "Refresh complete. Total local: $totalCount")

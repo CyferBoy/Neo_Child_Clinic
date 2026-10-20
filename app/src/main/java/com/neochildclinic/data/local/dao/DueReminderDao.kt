@@ -4,6 +4,10 @@ import androidx.room.*
 import com.neochildclinic.data.local.entity.*
 import kotlinx.coroutines.flow.Flow
 
+// Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+// reminders keeps its own PK; the remote PK lives in serverId — see RemotePrune.ReminderRef.
+data class ReminderSyncRef(val localId: String, val serverId: String?, val synced: Boolean)
+
 @Dao
 interface DueReminderDao {
 
@@ -177,5 +181,10 @@ interface DueReminderDao {
         )
         insertReminder(updated)
     }
+
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id AS localId, serverId AS serverId, isSynced AS synced FROM reminders")
+    suspend fun getReminderSyncRefs(): List<ReminderSyncRef>
 
 }

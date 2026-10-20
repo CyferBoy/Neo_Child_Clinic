@@ -26,4 +26,12 @@ interface PersonalReminderDao {
 
     @Query("DELETE FROM personal_vaccine_reminders WHERE id = :id")
     suspend fun delete(id: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM personal_vaccine_reminders")
+    suspend fun getPersonalReminderIds(): List<String>
+
+    @Query("SELECT id FROM personal_vaccine_reminders WHERE is_synced = 1")
+    suspend fun getSyncedPersonalReminderIds(): List<String>
+
 }

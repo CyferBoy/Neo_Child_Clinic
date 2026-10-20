@@ -41,14 +41,6 @@ interface InventoryRepository {
         offset: Int = 0,
         remoteOnly: Boolean = true
     ): List<InventoryTransaction>
-    suspend fun deductStock(
-        vaccineId: String,
-        quantity: Int,
-        user: String,
-        transactionType: InventoryTransactionType,
-        visitId: String? = null,
-        patientId: String? = null
-    )
     suspend fun addStockToBatch(
         batchId: String,
         quantity: Int,

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class ConsultationRepositoryImpl @Inject constructor(
@@ -211,6 +212,15 @@ class ConsultationRepositoryImpl @Inject constructor(
                     consultationDao.insertConsultation(remote.copy(isSynced = true))
                 }
             }
+            // Remote-deletion propagation (NCC-023 / DA-01): synced consultations the remote
+            // set no longer lists and no queue entry claims are drift - delete (cascade-safe:
+            // consultations are leaf children of patients/visits).
+            RemotePrune.computeBatches(
+                localIds = consultationDao.getConsultationIds(),
+                syncedIds = consultationDao.getSyncedConsultationIds().toSet(),
+                remoteIds = entities.mapTo(HashSet()) { it.id },
+                pendingIds = pendingConsultationIds
+            ).flatten().forEach { consultationDao.deleteConsultation(it) }
         }
     }
 }

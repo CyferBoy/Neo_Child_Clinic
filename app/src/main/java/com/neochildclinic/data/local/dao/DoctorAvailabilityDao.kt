@@ -55,4 +55,21 @@ interface DoctorAvailabilityDao {
 
     @Query("DELETE FROM doctor_slot_exceptions WHERE id = :id")
     suspend fun deleteException(id: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM doctor_weekly_slots")
+    suspend fun getWeeklySlotIds(): List<String>
+
+    @Query("SELECT id FROM doctor_weekly_slots WHERE is_synced = 1")
+    suspend fun getSyncedWeeklySlotIds(): List<String>
+
+    @Query("SELECT id FROM doctor_slot_exceptions")
+    suspend fun getExceptionIds(): List<String>
+
+    @Query("SELECT id FROM doctor_slot_exceptions WHERE is_synced = 1")
+    suspend fun getSyncedExceptionIds(): List<String>
+
+    @Query("DELETE FROM doctor_weekly_slots WHERE id = :id")
+    suspend fun deleteWeeklySlot(id: String)
+
 }

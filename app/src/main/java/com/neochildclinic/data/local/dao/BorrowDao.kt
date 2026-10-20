@@ -46,4 +46,12 @@ interface BorrowDao {
 
     @Query("DELETE FROM borrow_records WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM borrow_records")
+    suspend fun getBorrowIds(): List<String>
+
+    @Query("SELECT id FROM borrow_records WHERE isSynced = 1")
+    suspend fun getSyncedBorrowIds(): List<String>
+
 }

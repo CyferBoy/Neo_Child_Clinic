@@ -20,4 +20,12 @@ interface ProfileDao {
 
     @Query("SELECT * FROM profiles WHERE email = :email LIMIT 1")
     suspend fun getProfileByEmail(email: String): ProfileEntity?
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM profiles")
+    suspend fun getProfileIds(): List<String>
+
+    @Query("DELETE FROM profiles WHERE id = :id")
+    suspend fun deleteProfileById(id: String)
+
 }

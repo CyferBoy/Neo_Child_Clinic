@@ -34,6 +34,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class InventoryRepositoryImpl @Inject constructor(
@@ -396,57 +397,6 @@ action = "DELETED",
         }
     }
 
-    override suspend fun deductStock(
-        vaccineId: String,
-        quantity: Int,
-        user: String,
-        transactionType: InventoryTransactionType,
-        visitId: String?,
-        patientId: String?
-    ) {
-        val transactionGroupId = UUID.randomUUID().toString()
-        // Usable stock = non-expired batches only (same InventoryUtils rule the loop
-        // below applies). Summing expired batches here used to pass this check and then
-        // die halfway through the loop with a bare "Insufficient stock".
-        val batches = vaccineDao.getActiveBatchesByExpiry(vaccineId)
-            .filter { !InventoryUtils.isExpired(it.expiryDate) }
-        val totalAvailable = batches.sumOf { it.remainingQuantity }
-        if (totalAvailable < quantity) {
-            throw InsufficientStockException("Insufficient stock for this vaccine. Available: $totalAvailable, Required: $quantity")
-        }
-
-        var remaining = quantity
-
-        for (batch in batches) {
-            if (remaining <= 0) break
-            val deduct = minOf(batch.remainingQuantity, remaining)
-            deductStockFromBatch(
-                batchId = batch.batchId,
-                quantity = deduct,
-                user = user,
-                transactionType = transactionType,
-                visitId = visitId,
-                patientId = patientId,
-                notes = null,
-                allowExpired = false,
-                givenDate = null,
-                transactionGroupId = transactionGroupId
-            )
-            remaining -= deduct
-        }
-
-        if (remaining > 0) throw IllegalStateException("Insufficient stock")
-        auditLogger.recordLog(
-            module = "INVENTORY",
-            entityType = "VACCINE",
-            entityId = vaccineId,
-            action = "STOCK_DEDUCTED",
-            patientId = patientId,
-            remarks = "Qty: $quantity",
-            transactionGroupId = transactionGroupId
-        )
-    }
-
     override suspend fun deductStockFromBatch(
         batchId: String,
         quantity: Int,
@@ -707,6 +657,23 @@ action = "DELETED",
                     vaccineDao.upsertBatch(b)
                 }
             }
+            // Remote-deletion propagation (NCC-023 / DA-01): batches first (children of
+            // vaccines), then vaccines. Pulled vaccines/batches decode with isSynced=false,
+            // so no synced-guard exists here - the queue guard alone protects rows a local
+            // write is still about to push. Deleting a vaccine cascades its remaining local
+            // batches/items/borrow rows (Room FKs).
+            RemotePrune.computeBatches(
+                localIds = vaccineDao.getBatchIds(),
+                syncedIds = null,
+                remoteIds = batches.mapTo(HashSet()) { it.batchId },
+                pendingIds = pendingBatchIds
+            ).flatten().forEach { vaccineDao.deleteBatch(it) }
+            RemotePrune.computeBatches(
+                localIds = vaccineDao.getVaccineIds(),
+                syncedIds = null,
+                remoteIds = vaccines.mapTo(HashSet()) { it.id },
+                pendingIds = pendingVaccineIds
+            ).flatten().forEach { vaccineDao.deleteVaccine(it) }
         }
     }
 }

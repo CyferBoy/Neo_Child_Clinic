@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 fun completedQuantityByBatch(rows: List<InventoryDeductionEntity>): Map<String, Int> =
     rows.asSequence()
@@ -108,7 +109,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     for (remote in entities) {
                         // Basic Validation before Room insert
                         if (remote.id.isBlank() || remote.patientId.isBlank()) {
-                            android.util.Log.e("VaccinationRepo", "Validation failed for ${remote.id}: patientId=${remote.patientId}")
+                            android.util.Log.e("VaccinationRepo", "Validation failed for one remote vaccination (id/patient id blank): skipped")
                             failedValidation++
                             continue
                         }
@@ -116,7 +117,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                         // FOREIGN KEY CHECK: Ensure patient exists locally before inserting visit
                         val patientExists = patientDao.getPatientById(remote.patientId) != null
                         if (!patientExists) {
-                            android.util.Log.e("VaccinationRepo", "FK Violation Avoided: Skipping Vaccination ${remote.id} because Patient ${remote.patientId} is missing locally.")
+                            android.util.Log.e("VaccinationRepo", "Skipped one remote vaccination: its patient is not local yet (retried on next refresh)")
                             skippedMissingPatient++
                             continue
                         }
@@ -130,13 +131,26 @@ override val allVaccinations: Flow<List<Vaccination>> =
                         }
                     }
                 }
-                
+
+                // Remote-deletion propagation (NCC-023 / DA-01): synced visits the remote set
+                // no longer lists and no queue entry claims leave this device - their items
+                // cascade away with them (Room FKs), and remaining remote offspring of a
+                // remote-orphaned visit are FK-skipped on the next pull, exactly like today.
+                val prunedVisits = RemotePrune.computeBatches(
+                    localIds = vaccinationDao.getVisitIds(),
+                    syncedIds = vaccinationDao.getSyncedVisitIds().toSet(),
+                    remoteIds = entities.mapTo(HashSet()) { it.id },
+                    pendingIds = pendingVaccinationIds
+                ).flatten()
+                prunedVisits.forEach { vaccinationDao.deleteVaccination(it) }
+
                 android.util.Log.i("VaccinationRepo", """
                     Sync Complete:
                     - Total Downloaded: $totalDownloaded
                     - Successfully Imported: $imported
                     - Failed Validation (Missing Data): $failedValidation
                     - Skipped (Missing Patients): $skippedMissingPatient
+                    - Pruned (Deleted Elsewhere): ${prunedVisits.size}
                 """.trimIndent())
 
     }

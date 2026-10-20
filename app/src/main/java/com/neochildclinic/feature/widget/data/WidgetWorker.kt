@@ -8,8 +8,7 @@ import androidx.work.WorkerParameters
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.feature.widget.presentation.VaccineWidget
 import com.neochildclinic.data.local.entity.WidgetDueEntity
-import com.neochildclinic.feature.reminder.data.ReminderRepositoryImpl
-import com.neochildclinic.feature.patient.data.PatientRepositoryImpl
+import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
@@ -28,8 +27,7 @@ import kotlin.text.get
 class WidgetWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val reminderRepository: ReminderRepositoryImpl,
-    private val patientRepository: PatientRepositoryImpl,
+    private val reminderRepository: ReminderRepository,
     private val database: AppDatabase
 ) : CoroutineWorker(context, params) {
 
@@ -37,19 +35,22 @@ class WidgetWorker @AssistedInject constructor(
         return try {
             val dueList = reminderRepository.getDueList().first()
                 .sortedWith(compareBy(DateClassifier.dueDateComparator()) { it.nextDueDate })
-                
-            
-            val patients = patientRepository.allPatients.first().associateBy { it.id }
-            
+
+            // Names come from one projection query over just the due row's patient ids
+            // (PatientDao.getNamesByIds), not from the whole patients table.
+            val names = database.patientDao()
+                .getNamesByIds(dueList.map { it.patientId }.distinct())
+                .associate { it.id to it.name }
+
             val widgetItems = dueList.map { vacc ->
-                val patient = patients[vacc.patientId]
+                val name = names[vacc.patientId] ?: "Unknown"
                 val category = DateClassifier.classify(vacc.nextDueDate)
                 
                 // Show only day/month for the current running year; include the year for other years.
                 val displayDate = formatWidgetDate(vacc.nextDueDate)
 
                 WidgetDueEntity(
-                    patientName = patient?.name ?: "Unknown",
+                    patientName = name,
                     vaccineName = vacc.nxtVaccineNames.joinToString(", "),
                     dueDate = displayDate,
                     isOverdue = category is DateCategory.Overdue

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 import com.neochildclinic.core.database.TransactionRunner
 
 @Singleton
@@ -41,26 +42,42 @@ class PatientTodoRepositoryImpl @Inject constructor(
         // that watches it. Guard + snapshot + writes share one transaction so a local
         // edit racing the pull keeps its row (the SyncQueueDao.unsyncedIdSet rule).
         transactionRunner.run {
+            val consultLocalById = dao.getAllConsultationTodos().associateBy { it.id }
             val upserted = todoUpsertsForRefresh(
                 remote = consultations,
-                localById = dao.getAllConsultationTodos().associateBy { it.id },
+                localById = consultLocalById,
                 unsyncedIdSet = syncQueueDao.unsyncedIdSet("CONSULTATION_TODO"),
                 id = { it.id },
                 isSynced = { it.isSynced },
                 markedSynced = { it.copy(isSynced = true) }
             )
             upserted.forEach { dao.insertConsultation(it) }
+            // Remote-deletion propagation (NCC-023 / DA-01): synced todo rows the remote set
+            // no longer lists and no queue entry claims are drift (todos are leaf rows).
+            RemotePrune.computeBatches(
+                localIds = consultLocalById.keys.toList(),
+                syncedIds = consultLocalById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
+                remoteIds = consultations.mapTo(HashSet()) { it.id },
+                pendingIds = syncQueueDao.unsyncedIdSet("CONSULTATION_TODO")
+            ).flatten().forEach { dao.deleteConsultation(it) }
         }
         transactionRunner.run {
+            val vaccLocalById = dao.getAllVaccinationTodos().associateBy { it.id }
             val upserted = todoUpsertsForRefresh(
                 remote = vaccinations,
-                localById = dao.getAllVaccinationTodos().associateBy { it.id },
+                localById = vaccLocalById,
                 unsyncedIdSet = syncQueueDao.unsyncedIdSet("VACCINATION_TODO"),
                 id = { it.id },
                 isSynced = { it.isSynced },
                 markedSynced = { it.copy(isSynced = true) }
             )
             upserted.forEach { dao.insertVaccination(it) }
+            RemotePrune.computeBatches(
+                localIds = vaccLocalById.keys.toList(),
+                syncedIds = vaccLocalById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
+                remoteIds = vaccinations.mapTo(HashSet()) { it.id },
+                pendingIds = syncQueueDao.unsyncedIdSet("VACCINATION_TODO")
+            ).flatten().forEach { dao.deleteVaccination(it) }
         }
     }
 

@@ -116,7 +116,6 @@ class FakeInventoryRepository(private val runner: RecordingTransactionRunner) : 
     override suspend fun deleteBatch(batchId: String, user: String) = TODO()
     override suspend fun deleteVaccine(vaccineId: String, user: String) = TODO()
     override suspend fun getStockHistoryPage( vaccineId: String? , batchId: String? , types: List<InventoryTransactionType> , fromDateIso: String? , toDateIso: String? , limit: Int , offset: Int , remoteOnly: Boolean ): List<InventoryTransaction> = TODO()
-    override suspend fun deductStock( vaccineId: String, quantity: Int, user: String, transactionType: InventoryTransactionType, visitId: String? , patientId: String? ) = TODO()
     override suspend fun addStockToBatch( batchId: String, quantity: Int, user: String, transactionType: InventoryTransactionType, notes: String? ) = TODO()
     override suspend fun returnBorrowedStock( originalBatchId: String, returnToBatchId: String, quantity: Int, user: String, notes: String? , transactionGroupId: String? ) = TODO()
     override suspend fun deductStockFromBatch( batchId: String, quantity: Int, user: String, transactionType: InventoryTransactionType, visitId: String? , patientId: String? , notes: String? , allowExpired: Boolean , givenDate: String? , transactionGroupId: String? ) = TODO()

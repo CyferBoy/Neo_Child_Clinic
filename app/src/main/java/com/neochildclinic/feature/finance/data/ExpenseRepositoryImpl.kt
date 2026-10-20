@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class ExpenseRepositoryImpl @Inject constructor(
@@ -125,6 +126,14 @@ syncRepository.enqueue(
                     expenseDao.insertExpense(remote.copy(isSynced = true))
                 }
             }
+            // Remote-deletion propagation (NCC-023 / DA-01): synced expense rows the remote
+            // set no longer lists and no queue entry claims are drift (expense rows are leaves).
+            RemotePrune.computeBatches(
+                localIds = expenseDao.getExpenseIds(),
+                syncedIds = expenseDao.getSyncedExpenseIds().toSet(),
+                remoteIds = remoteExpenses.mapTo(HashSet()) { it.id },
+                pendingIds = pendingExpenseIds
+            ).flatten().forEach { expenseDao.deleteExpense(it) }
         }
     }
 

@@ -29,4 +29,15 @@ interface BorrowReturnDao {
 
     @Query("SELECT COALESCE(SUM(quantity), 0) FROM borrow_returns WHERE borrow_record_id = :borrowRecordId")
     suspend fun getTotalReturnedQuantity(borrowRecordId: String): Int
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM borrow_returns")
+    suspend fun getBorrowReturnIds(): List<String>
+
+    @Query("SELECT id FROM borrow_returns WHERE is_synced = 1")
+    suspend fun getSyncedBorrowReturnIds(): List<String>
+
+    @Query("DELETE FROM borrow_returns WHERE id = :id")
+    suspend fun deleteReturnById(id: String)
+
 }

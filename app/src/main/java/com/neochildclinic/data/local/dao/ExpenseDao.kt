@@ -53,4 +53,12 @@ interface ExpenseDao {
 
     @Query("SELECT COUNT(*) FROM expenses")
     fun getExpenseCount(): Flow<Int>
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM expenses")
+    suspend fun getExpenseIds(): List<String>
+
+    @Query("SELECT id FROM expenses WHERE isSynced = 1")
+    suspend fun getSyncedExpenseIds(): List<String>
+
 }

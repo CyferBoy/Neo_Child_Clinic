@@ -19,6 +19,7 @@ import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class ProfileRepositoryImpl @Inject constructor(
@@ -42,7 +43,7 @@ class ProfileRepositoryImpl @Inject constructor(
                 .select { filter { eq("email", email); eq("is_deleted", false) } }
                 .decodeSingleOrNull<Profile>()
         } catch (e: Exception) {
-            android.util.Log.e("ProfileRepo", "Failed to fetch profile by email $email", e)
+            android.util.Log.e("ProfileRepo", "Failed to fetch profile by email (lookup failed)", e)
             null
         }
     }
@@ -60,18 +61,30 @@ class ProfileRepositoryImpl @Inject constructor(
                     }
                 }
         } catch (e: Exception) {
-            android.util.Log.e("ProfileRepo", "Failed to fetch profile $id from remote", e)
+            android.util.Log.e("ProfileRepo", "Failed to fetch profile from remote", e)
             null
         }
     }
 
     override suspend fun refreshProfiles() = cloudRefresh("ProfileRepo", rethrow = true) {
         val profiles = postgrest.from("profiles").select { filter { eq("is_deleted", false) } }.decodeList<Profile>()
+        // One bulk queue read per refresh instead of one per row (same semantics as the
+        // per-row isUnsynced this replaces).
+        val pendingProfileIds = syncQueueDao.unsyncedIdSet("PROFILE")
         profiles.forEach { profile ->
-            if (!syncQueueDao.isUnsynced("PROFILE", profile.id)) {
+            if (profile.id !in pendingProfileIds) {
                 profileDao.insertProfile(profile.toEntity())
             }
         }
+        // Remote-deletion propagation (NCC-023 / DA-01): profiles has no isSynced column, so
+        // the queue guard alone protects rows whose edit is still local; any other row absent
+        // from the remote set is a staff profile deleted elsewhere.
+        RemotePrune.computeBatches(
+            localIds = profileDao.getProfileIds(),
+            syncedIds = null,
+            remoteIds = profiles.mapTo(HashSet()) { it.id },
+            pendingIds = pendingProfileIds
+        ).flatten().forEach { profileDao.deleteProfileById(it) }
     }
 
     override suspend fun updateProfile(profile: Profile) {

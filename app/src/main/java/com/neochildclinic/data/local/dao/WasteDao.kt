@@ -25,4 +25,12 @@ interface WasteDao {
 
     @Query("SELECT COUNT(*) FROM waste_records")
     fun getWasteCount(): Flow<Int>
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM waste_records")
+    suspend fun getWasteIds(): List<String>
+
+    @Query("SELECT id FROM waste_records WHERE isSynced = 1")
+    suspend fun getSyncedWasteIds(): List<String>
+
 }

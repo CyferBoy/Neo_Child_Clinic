@@ -26,6 +26,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 /**
  * Production-ready implementation of [ReminderRepositoryImpl].
@@ -511,6 +512,18 @@ class ReminderRepositoryImpl @Inject constructor(
                             // The sync engine will eventually push local changes to Supabase
                         }
                     }
+
+                    // Remote-deletion propagation (NCC-023 / DA-01). Identity: the local PK
+                    // is device-local; the remote PK sits in serverId once the row has been
+                    // on the server, so prune on that identity (RemotePrune reminders
+                    // variant). serverId == null = never acknowledged - always kept.
+                    RemotePrune.computeRemindersBatches(
+                        localReminders = dueReminderDao.getReminderSyncRefs().map {
+                            RemotePrune.ReminderRef(it.localId, it.serverId, it.synced)
+                        },
+                        remoteIds = entities.mapNotNull { it.id }.toSet(),
+                        pendingIds = pendingReminderIds
+                    ).flatten().forEach { dueReminderDao.deleteReminderById(it) }
                 }
                 android.util.Log.d("ReminderRepo", "Refreshed ${entities.size} reminders")
     }

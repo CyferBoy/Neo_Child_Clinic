@@ -68,4 +68,21 @@ interface PatientDao {
 
     @Query("SELECT patientClinicId FROM patients WHERE patientClinicId LIKE 'NEO-%' AND patientClinicId NOT LIKE '%-DUP-%' AND patientClinicId NOT LIKE '%-CONFLICT-%' ORDER BY CAST(SUBSTR(patientClinicId, 5) AS INTEGER) DESC LIMIT 1")
     suspend fun getMaxClinicId(): String?
+
+    // Widget-facing projection (WidgetWorker): id + name only, for the handful of due-list
+    // patient ids. The worker used to evaluate the entire allPatients Flow and build a map
+    // from the full table on every widget refresh; two handfuls of rows beat that.
+    data class PatientNameRef(val id: String, val name: String)
+
+    @Query("SELECT id, name FROM patients WHERE id IN (:ids)")
+    suspend fun getNamesByIds(ids: List<String>): List<PatientNameRef>
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023):
+    // synced ids are prune-eligible when the pull no longer returns them.
+    @Query("SELECT id FROM patients")
+    suspend fun getPatientIds(): List<String>
+
+    @Query("SELECT id FROM patients WHERE isSynced = 1")
+    suspend fun getSyncedPatientIds(): List<String>
+
 }

@@ -32,6 +32,7 @@ import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class BorrowRepositoryImpl @Inject constructor(
@@ -317,6 +318,20 @@ syncRepository.enqueue(
                             borrowReturnDao.insert(ret.copy(isSynced = true))
                         }
                     }
+                    // Remote-deletion propagation (NCC-023 / DA-01): returns first (children),
+                    // then records; a record deletion cascades any remaining local returns.
+                    RemotePrune.computeBatches(
+                        localIds = borrowReturnDao.getBorrowReturnIds(),
+                        syncedIds = borrowReturnDao.getSyncedBorrowReturnIds().toSet(),
+                        remoteIds = returns.mapTo(HashSet()) { it.id },
+                        pendingIds = pendingBorrowReturnIds
+                    ).flatten().forEach { borrowReturnDao.deleteReturnById(it) }
+                    RemotePrune.computeBatches(
+                        localIds = borrowDao.getBorrowIds(),
+                        syncedIds = borrowDao.getSyncedBorrowIds().toSet(),
+                        remoteIds = records.mapTo(HashSet()) { it.id },
+                        pendingIds = pendingBorrowIds
+                    ).flatten().forEach { borrowDao.deleteById(it) }
                 }
                 Log.d(TAG, "Borrow records refresh complete.")
     }

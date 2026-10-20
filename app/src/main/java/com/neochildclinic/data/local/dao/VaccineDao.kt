@@ -144,9 +144,13 @@ interface VaccineDao {
     @Query("SELECT COUNT(*) FROM inventory_transactions WHERE batchId = :batchId")
     suspend fun getTransactionCountForBatch(batchId: String): Int
 
-    @Query("SELECT COUNT(*) FROM audit_logs WHERE remarks LIKE '%' || :brandName || '%'")
-    suspend fun getAuditCountForVaccine(brandName: String): Int
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    // Pulled vaccines/batches land with isSynced=false (decoding defaults), so the
+    // synced-guard is unusable here — prune relies on the queue guard alone.
+    @Query("SELECT id FROM vaccines")
+    suspend fun getVaccineIds(): List<String>
 
-    @Query("SELECT COUNT(*) FROM audit_logs WHERE remarks LIKE '%' || :brandName || '%' AND `action` NOT IN ('CREATED', 'VACCINE_CREATED')")
-    suspend fun getAuditCountExcludingCreation(brandName: String): Int
+    @Query("SELECT batchId FROM vaccine_batches")
+    suspend fun getBatchIds(): List<String>
+
 }

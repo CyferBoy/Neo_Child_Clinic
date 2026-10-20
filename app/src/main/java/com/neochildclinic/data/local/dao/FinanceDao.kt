@@ -77,4 +77,12 @@ interface FinanceDao {
 
     @Query("DELETE FROM finance_transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM finance_transactions")
+    suspend fun getFinanceIds(): List<String>
+
+    @Query("SELECT id FROM finance_transactions WHERE isSynced = 1")
+    suspend fun getSyncedFinanceIds(): List<String>
+
 }

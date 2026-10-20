@@ -81,4 +81,12 @@ interface VaccinationDao {
 
     @Query("UPDATE patient_visits SET inventoryStatus = :status WHERE id = :id")
     suspend fun updateInventoryStatus(id: String, status: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM patient_visits")
+    suspend fun getVisitIds(): List<String>
+
+    @Query("SELECT id FROM patient_visits WHERE isSynced = 1")
+    suspend fun getSyncedVisitIds(): List<String>
+
 }

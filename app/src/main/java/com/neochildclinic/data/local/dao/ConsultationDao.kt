@@ -28,4 +28,12 @@ interface ConsultationDao {
 
     @Query("DELETE FROM consultations WHERE id = :id")
     suspend fun deleteConsultation(id: String)
+
+    // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
+    @Query("SELECT id FROM consultations")
+    suspend fun getConsultationIds(): List<String>
+
+    @Query("SELECT id FROM consultations WHERE isSynced = 1")
+    suspend fun getSyncedConsultationIds(): List<String>
+
 }

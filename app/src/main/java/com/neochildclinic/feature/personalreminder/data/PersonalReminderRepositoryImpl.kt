@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class PersonalReminderRepositoryImpl @Inject constructor(
@@ -173,13 +174,26 @@ syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIU
         val remote = postgrest.from("personal_vaccine_reminders").select { filter { eq("is_deleted", false) } }
             .decodeList<PersonalReminderEntity>()
         Log.d("PersonalReminder", "Remote refresh: fetched " + remote.size + " reminders")
+        // One bulk queue read per refresh instead of one per row (SyncQueueDao.unsyncedIdSet
+        // callers) - same semantics as the per-row isUnsynced call this replaces.
+        val pendingReminderIds = syncQueueDao.unsyncedIdSet("PERSONAL_REMINDER")
         remote.forEach { r ->
             val local = dao.getById(r.id)
             // Queue-aware guard: see FinanceRepositoryImpl - isSynced alone is not enough,
             // a row edited during its own upload would be rolled back by this pull.
-            if (local == null || (local.isSynced && !syncQueueDao.isUnsynced("PERSONAL_REMINDER", r.id))) {
+            if (local == null || (local.isSynced && r.id !in pendingReminderIds)) {
                 dao.insert(r.copy(isSynced = true))
             }
         }
+
+        // Remote-deletion propagation (NCC-023 / DA-01): synced reminders the remote set no
+        // longer lists and no queue entry claims leave this device (patient link cascades,
+        // vaccine reference is SET NULL).
+        RemotePrune.computeBatches(
+            localIds = dao.getPersonalReminderIds(),
+            syncedIds = dao.getSyncedPersonalReminderIds().toSet(),
+            remoteIds = remote.mapTo(HashSet()) { it.id },
+            pendingIds = pendingReminderIds
+        ).flatten().forEach { dao.delete(it) }
     }
 }

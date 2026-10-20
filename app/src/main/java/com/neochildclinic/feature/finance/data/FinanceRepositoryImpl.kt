@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class FinanceRepositoryImpl @Inject constructor(
@@ -431,6 +432,14 @@ class FinanceRepositoryImpl @Inject constructor(
                             }
                         }
                     }
+                    // Remote-deletion propagation (NCC-023 / DA-01): synced transactions the
+                    // remote set no longer lists and no queue entry claims are drift.
+                    RemotePrune.computeBatches(
+                        localIds = financeDao.getFinanceIds(),
+                        syncedIds = financeDao.getSyncedFinanceIds().toSet(),
+                        remoteIds = transactions.mapTo(HashSet()) { it.id },
+                        pendingIds = pendingFinanceIds
+                    ).flatten().forEach { financeDao.deleteTransactionById(it) }
                 }
     }
 }
