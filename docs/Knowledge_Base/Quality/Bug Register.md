@@ -74,7 +74,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | NCC-020 | Uploader conflict branch is unreachable | S3 | ✅ Fixed | Sync |
 | NCC-021 | Lost-update race on every batch mutation | S3 | ✅ Fixed | Inventory |
 | NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
-| NCC-023 | Pull paths never apply tombstones | S3 | ⚠️ Needs decision — systemic, see note | Sync |
+| NCC-023 | Pull paths never apply tombstones | S3 | ✅ Fixed (absence reconciliation shipped instead) — see note | Sync |
 | NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
 | NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
 | NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
@@ -392,6 +392,17 @@ catastrophic and not a bug's worth of blast radius. Doing it safely means decidi
 and applying it consistently across every pull path, not patching the reminders query and calling
 it fixed. It needs review and a staged rollout, and no pull path can be trusted to be complete
 until the reconciliation exists.
+
+**NCC-023 fix — 2026-10-20.** The reconciliation this note demanded was implemented, once, in a
+shared helper and applied to every pull path: `core/sync/RemotePrune.kt:29-41` deletes local rows
+that are synced, absent from the freshly-pulled remote id set, and unclaimed by the queue
+(`:45-59` does the same for reminders whose local PK is device-local and whose remote PK lives in
+`serverId`). Safety against the "partial or failed remote fetch" blast radius: the prune runs only
+after the pull's `decodeList` has completed without exception, so a failed fetch never reaches it;
+the queue guard keeps every row a local write is about to push. Unit-pinned (`RemotePruneTest`, 12
+tests) and instrument-pinned in CI (`RemotePruneDaoTest` — projection semantics, patient-cascade
+delete, reminder identity mapping). 🔍 Live two-device divergence drill still open as a staged
+rollout step.
 
 **NCC-021 fix.** `getBatchById` → `updateBatch` is a read-modify-write, `VaccineBatchEntity`
 carries no `@Version`, and the surrounding code held no transaction. Two concurrent deductions
@@ -831,7 +842,7 @@ movement but no test was confirmed to fail a 3rd-of-5-batch submission.
 | NCC-020 | S3 | ✅ **Fixed** | Uploader conflict branch unreachable; `fetchRemoteConflictData` read then ignored | `SyncUploader.kt`; new `SyncQueueDao.isUnsyncedExcluding` |
 | NCC-021 | S3 | ✅ **Fixed** | Lost-update race: read-then-write `@Update`, no `@Version`, no transaction | `InventoryRepositoryImpl.kt` — `deductStockFromBatch` and `reverseDeduction` now transactional |
 | NCC-022 | S3 | ✅ **Fixed** | `AuditLogger.log()` fired on a separate coroutine inside 5 live transactions | `WasteRepositoryImpl.kt:64,102`; `MergePatientsUseCase.kt:47`; `BorrowRepositoryImpl.kt:185,287` — all now call `recordLog` |
-| NCC-023 | S3 | ⚠️ **Needs decision** | No pull path reconciles remote *absence* — and there are no tombstones to apply | all pull paths; deletes are a hard PostgREST `delete()` (`SyncUploader.kt:460`) |
+| NCC-023 | S3 | ✅ **Fixed** | Absence reconciliation shipped for every pull path (no tombstones exist; the remote id set is the authoritative absence signal) | shared helper `core/sync/RemotePrune.kt:25-59` (`computeBatches`, `computeRemindersBatches` for the reminders `serverId` identity), wired at `PatientRepositoryImpl.kt:152-170` and all 13 refresh sites; unit-pinned by `RemotePruneTest` (12) and CI instrumented by `RemotePruneDaoTest`; commit `f28ce21` |
 | NCC-024 | S3 | ✅ **Fixed** | `.catch {}` on each realtime table flow killed the subscription permanently | `RealtimeChangeSubscriptions.kt` — retry loop with backoff |
 
 **Fixes.** NCC-019 `ExistingWorkPolicy.REPLACE`. NCC-020 either delete the branch or

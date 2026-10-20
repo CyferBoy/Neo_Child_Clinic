@@ -32,6 +32,15 @@
 
 ## DA-01 — Cross-device deletion divergence (the one systemic correctness gap)
 
+- **Resolution (2026-10-20, shipped)**: implemented as absence reconciliation against a
+  one-shot full pull — `RemotePrune.kt:29-41` (general tables), `:45-59` (reminders'
+  `serverId` identity), wired into all 13 refresh paths starting
+  `PatientRepositoryImpl.kt:152-170`; queue-guarded, unit-pinned (`RemotePruneTest`, 12),
+  CI-instrumented (`RemotePruneDaoTest`); commit `f28ce21`. Consequence 2 below now
+  self-resolves for future uploads (a phantom edit on a device whose upstream deletion
+  arrived while queued is pruned on the next successful pull) — 🔍 live two-device drill
+  still open as the staged-rollout step.
+
 - **Category**: offline-first correctness; **Severity**: High *for multi-device use*, n/a single-device.
 - **Where (root cause = representation diff, one pattern, 14 sites)**: every `refresh*()` upserts
   remote rows and never deletes locals absent from the remote set. Verified at:
@@ -124,6 +133,10 @@
 - **Confidence**: Confirmed (code); magnitude 🔍.
 - **Remediation**: one SQL join/IN query returning `(dueRow, patientName)` pairs — WidgetDueDao
   already exists as the widget’s private table; extend its query.
+- **Resolution (2026-10-20, shipped — minimal form)**: the worker no longer evaluates the
+  whole patients Flow; it reads `PatientDao.getNamesByIds` (`PatientDao.kt:74-78`) for just the
+  due rows' patient ids (`WidgetWorker.kt:38-44`). The two-query form beat a single SQL join on
+  simplicity (one projection, no join SQL); regression risk nil — commit `f28ce21`.
 
 ## DA-07 — Supabase client has no explicit timeout/retry policy (unverified defaults)
 
@@ -132,12 +145,22 @@
 - **Why it matters**: queue uploads dedup and classify errors, but a hung connection (rare; e.g.
   captive portal that accepts TCP) would stall a `SingleFlight`-gated batch and, with strict
   backoff, reschedule repeatedly. supabase-kt ships a default `requestTimeout` (library-set);
-  verification of the effective default against the pinned SDK version is 🔍.
+  verification of the effective default against the pinned SDK version is 🔍. **resolved**:
+  verified locally without any network contact — decompiled `SupabaseClientBuilder` from the
+  cached 3.8.0 artifact shows a 10 s default.
 - **Remediation**: set explicit `requestTimeout` (aligned with `SESSION_RESOLVE_TIMEOUT_MS`
-  budgets) + document the choice. **needs-validation**: confirm effective default first, in
-  Phase 2 (one command against a test harness, no production contact).
+  budgets) + document the choice. **needs-validation** ✅ applied (2026-10-20): default was
+  10 s — too tight for slow-clinic heavy pulls — pinned to 60 s (`SupabaseModule.kt:53`),
+  commit `511739a`.
 
 ## DA-08 — `sync_queue` lacks a unique key on (entityName, entityId, operation)
+
+- **Decision (2026-10-20)**: deferred — the unique index needs a Room v33→34 migration whose
+  dedup-and-requeue semantics (FAILED rows + twin PENDING rows after a stale `SYNCING`
+  requeue) must be designed against the retry flows, not rushed inside the same batch. The
+  enqueue-side `deletePendingDuplicates` guard already closes the common case; the residual
+  window is the two-coroutine race this shortcut comment names
+  (`SyncRepositoryImpl.kt:68-74`).
 
 - **Where**: `app/src/main/java/com/neochildclinic/data/local/entity/SyncQueueEntity.kt:13`
   (indexes only `status`, `priority`) + documented `shortcut:` at
@@ -174,6 +197,11 @@
   it from the risk list. User decision required.
 
 ## DA-11 — Patient identifiers / email written to Logcat on pull failure
+
+- **Resolution (2026-10-20, shipped)**: all four log sites cleaned — the two vaccination
+  pull-failure sites no longer print remote ids or patient ids
+  (`VaccinationRepositoryImpl.kt:113,120`) and the two profile sites no longer print the
+  email/id (`ProfileRepositoryImpl.kt:45,63`); commit `f28ce21`.
 
 - **Where**: `VaccinationRepositoryImpl.kt:111,119` (logs `remote.id` + `patientId`),
   `ProfileRepositoryImpl.kt:45,63` (logs email).
@@ -217,6 +245,10 @@
   breaking the freshness contract — flagged for a user decision, **not** a defect change by default.
 
 ## DA-15 — Widget worker injects concrete repository classes
+
+- **Resolution (2026-10-20, shipped)**: `WidgetWorker` injects `ReminderRepository` and drops
+  the concrete-patient dependency entirely (the name lookup moved into the DAO query,
+  `WidgetWorker.kt:28-31`); commit `f28ce21`.
 
 - `app/src/main/java/com/neochildclinic/feature/widget/data/WidgetWorker.kt:31-32`.
 - Harmless at runtime (single implementation exists), but breaks the substitute-the-interface

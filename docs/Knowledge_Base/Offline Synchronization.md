@@ -201,7 +201,7 @@ See [[Caching]].
 | 3.1 | ✅ unbounded work chain | fixed: `APPEND_OR_REPLACE` + per-row scheduling replaced with `ExistingWorkPolicy.REPLACE` (`SyncManagerImpl.kt:37-41`, `:59-63`) — register `NCC-019` |
 | 3.2 | ✅ conflict branch unreachable | fixed: the guard now excludes the in-flight row (`SyncUploader.kt:517-520`) — register `NCC-020` |
 | 3.5 | `priority DESC` on TEXT sorts HIGH last | cosmetic, re-sorted downstream |
-| 3.6 | pull never tombstones | deleted rows resurrect from the queue |
+| 3.6 | ✅ absence reconciliation | fixed: synced rows the remote set no longer lists and no queue entry claims are pruned on every pull (`core/sync/RemotePrune.kt:29-59`; register `NCC-023`) — see `docs/SYNC.md` merge rules |
 | 3.7 | ✅ realtime died permanently | fixed: `.catch {}` replaced by a retry loop with backoff (`RealtimeChangeSubscriptions.kt:59-82`) — register `NCC-024` |
 | — | items stuck `SYNCING` invisible to the counter | `getPendingCount()` counts only `PENDING` (`SyncQueueDao.kt:42-43`) |
 | — | ~~`Result.failure()` cancels appended dependents~~ | **refuted** — `REPLACE` leaves no appended chain ([[Quality/Hypotheses]] HYP-002) |

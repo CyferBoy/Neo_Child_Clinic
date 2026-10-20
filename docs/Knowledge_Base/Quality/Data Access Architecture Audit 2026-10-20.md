@@ -89,7 +89,7 @@ Shape: UI → ViewModel → service/use case → repository → Room write **and
   (`core/sync/SyncRepositoryImpl.kt:676-697`), child-before-parent by construction.
 - Waste record/update/delete and borrow returns wrap restore/deduct stock changes in the caller’s
   transaction (`feature/waste/data/WasteRepositoryImpl.kt:36-135`,
-  `feature/inventory/data/InventoryRepositoryImpl.kt:607-683` — cross-batch borrow return relies on
+  `feature/inventory/data/InventoryRepositoryImpl.kt:557-634` — cross-batch borrow return relies on
   the caller’s transaction and says so).
 - Deductions: read-modify-write guarded by `transactionRunner.run` + typed precondition failures
   (`InventoryRepositoryImpl.kt:450-514`, NCC-005/021 fixes visible in source).
@@ -163,7 +163,7 @@ All remote reads/writes (14 pull sites + 6 specialized upload paths + storage + 
 | `PatientRemoteDataSourceImpl.kt:34-57` | `inventory_transactions` | type/date | **range()** | full rows | the only paginated remote read |
 | `VaccinationRepositoryImpl.kt:91-141` | `patient_visits` | `is_deleted=false` | none | full rows | skips visits whose patient is not local |
 | `VaccinationRepositoryImpl.kt:145-152` | `vaccination_items` | `is_deleted=false` | none | full rows | fetch/apply split for FK safety |
-| `InventoryRepositoryImpl.kt:689-707` | `vaccines`, `vaccine_batches` | `is_deleted=false` | none | full rows | |
+| `InventoryRepositoryImpl.kt:639-678` | `vaccines`, `vaccine_batches` | `is_deleted=false` | none | full rows | |
 | `ConsultationRepositoryImpl.kt:206` | `consultations` | `is_deleted=false` | none | full rows | |
 | `PatientTodoRepositoryImpl.kt:34-35` | `consultation_todos`, `vaccination_todos` | `is_deleted=false` | none | full rows | batched upsert (2026-10-19) |
 | `ReminderRepositoryImpl.kt:465-513` | `reminders` | `is_deleted=false` | none | full rows | per-row local checks (DA-03) |

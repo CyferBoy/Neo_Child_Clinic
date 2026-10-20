@@ -45,8 +45,10 @@ refresh, queue, or Realtime code. Updated for the offline-first audit (Oct 2026)
   (any of the nine ViewModels + the reconciler) wait for the one in-flight 11-repository
   pipeline instead of running it twice.
 - Every `refresh*()` is **merge, not replace**: a row is only written when it is absent
-  or fully synced locally and has no pending `sync_queue` entry. A pull never deletes
-  local rows and never clears a table.
+  or fully synced locally and has no pending `sync_queue` entry. A pull does not clear
+  tables; since Phase 2 (`RemotePrune`, Batch 1) it *prunes* — synced rows that the
+  remote set no longer lists and that no queue entry claims are deleted locally
+  (`RemotePrune.computeBatches`; REMINDERS prunes via its `serverId` remote identity).
 - Realtime payloads are treated as *invalidations*, not data: they trigger a re-pull
   through the authenticated PostgREST client.
 
@@ -92,6 +94,7 @@ Never map a flow's `initial` value straight to "empty".
   `clearSynced()` clears terminal rows (`FAILED` and older `SYNCED`), never
   `PENDING`/`SYNCING` ones.
 - `FAILED` rows are retried only manually (Sync screen) or by the sign-out flush gate.
-- Remote rows deleted by another device are not removed by refresh (insert/update only).
+- Remote rows deleted by another device leave this device on the next refresh
+  (`RemotePrune` prune pass, Phase 2 Batch 1 — see `docs/SYNC.md` merge rules).
 - Statistics aggregate whole tables in memory; pagination DAOs exist but are unused.
 - A cancelled sign-out flush leaves rows `SYNCING` until the 5-minute stale requeue.
