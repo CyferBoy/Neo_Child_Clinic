@@ -42,7 +42,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["SyncWorker.doWork"] --> B{"SingleFlight held?"}
-    B -->|waiter| Z["return await result<br/>⚠️ wrapper discards it"]
+    B -->|waiter| Z["await owner's result<br/>same outcome returned"]
     B -->|owner| C["cleanCorruptedItems"]
     C --> D["requeueStale SYNCING<br/>older than 5 min"]
     D --> E["getItemsByStatus PENDING"]
@@ -78,7 +78,7 @@ flowchart TD
 |---|---|
 | Ack mechanism | the row is **deleted**, never written as `SYNCED` (`SyncQueueDao.kt:58-63`) |
 | Dedup | `deletePendingDuplicates` + `@Insert(REPLACE)` — ⚠️ no unique index, documented `shortcut:` |
-| Ordering | `orderPendingIntoGroups` (`:679-700`), re-sorted deterministically |
+| Ordering | `orderPendingIntoGroups` (`:676-697`), re-sorted deterministically |
 | Retry cap | **5 attempts**, then `FAILED` |
 | Backoff | WorkManager only — **no per-item timer in the queue** |
 | `FAILED` rows | retried only manually from the Sync screen |
@@ -115,14 +115,14 @@ patients → vaccinations → finance → expenses → doctor availability
 failure** even when the caller asked to swallow errors — an expired token aborts the
 refresh rather than silently leaving stale data. Covered by `CloudRefreshTest` (6).
 
-## Conflict resolution — two mechanisms, one reachable
+## Conflict resolution — two mechanisms
 
 ```mermaid
 flowchart TD
-    subgraph upload["Upload-time (UNREACHABLE)"]
-        U1{"remote newer?"} -->|yes| U2{"isUnsynced?"}
-        U2 -->|"false"| DL["descriptor.download<br/>REMOTE WINS"]
-        U2 -->|"true — always here"| UP["upsert local<br/>LOCAL WINS"]
+    subgraph upload["Upload-time (reachable since NCC-020)"]
+        U1{"remote newer?"} -->|yes| U2{"another edit<br/>still queued?"}
+        U2 -->|"no"| DL["descriptor.download<br/>REMOTE WINS"]
+        U2 -->|"yes"| UP["upsert local<br/>LOCAL WINS"]
     end
     subgraph pull["Pull-time (the real policy)"]
         P1{"local missing?"} -->|yes| PI["INSERT remote<br/>REMOTE WINS"]
@@ -134,17 +134,20 @@ flowchart TD
     end
 ```
 
-⚠️ The upload-time branch requires `!isUnsynced(...)` (`SyncUploader.kt:514-516`), but
-`processGroup` commits the item to `SYNCING` **before** uploading
-(`SyncRepositoryImpl.kt:284-288` → `:300`), and `isUnsynced` matches `status != 'SYNCED'`.
-So that whole block is dead code. See [[Known Bugs]] §3.2.
+⚠️ This branch used to be **unreachable**. It required `!isUnsynced(...)`
+(`SyncUploader.kt:514-516`), but `processGroup` commits the item to `SYNCING` **before**
+uploading (`SyncRepositoryImpl.kt:281-285` → `:297`), and `isUnsynced` matches
+`status != 'SYNCED'` — true for the in-flight row itself. ✅ Resolved by excluding it:
+`!isUnsyncedExcluding(entityName, entityId, queueId)` (`SyncUploader.kt:517-520`,
+`SyncQueueDao.kt:76-77`), so remote-newer self-heal can now run. Status:
+[[Quality/Bug Register]] — `NCC-020`.
 
 **Effective policy**: a pending local change makes local authoritative until pushed;
 otherwise **last puller wins, with no clock comparison.**
 
 ## Retry and failure classification
 
-`isTransientSyncError` (`SyncRepositoryImpl.kt:585-603`):
+`isTransientSyncError` (`SyncRepositoryImpl.kt:582-600`):
 
 | Condition | Classification |
 |---|---|
@@ -164,7 +167,7 @@ Only two subscription sites, both in `core/sync/RealtimeChangeSubscriptions.kt`:
 | ViewModel | Channel | Tables | Action |
 |---|---|---|---|
 | `PatientListViewModel.kt:110-112` | `patients-db-changes` | `patients`, `patient_visits`, `consultations` | `.debounce(500)` → full `refreshDataUseCase()` |
-| `DashboardViewModel.kt:207-208` | `todays-patients-db-changes` | `consultation_todos`, `vaccination_todos` | `patientTodoRepository.refresh()` |
+| `DashboardViewModel.kt:215-217` | `todays-patients-db-changes` | `consultation_todos`, `vaccination_todos` | `.debounce(500)` → `patientTodoRepository.refresh()` |
 
 ```mermaid
 flowchart LR
@@ -175,33 +178,36 @@ flowchart LR
     CH -.->|"awaitClose"| RM["removeChannel<br/>then cancel scope"]
 ```
 
-✅ Setup removes any pre-existing channel with the same name first (`:39-41`).
-✅ Teardown ordering is correct and documented (`:64-78`).
+✅ Setup removes any pre-existing channel with the same name first (`:44-46`).
+✅ Teardown ordering is correct and documented (`:91-107`).
 
-⚠️ `.catch { }` on each table flow (`:52-54`) **permanently terminates that subscription on
-first error with no resubscribe** — the screen keeps a live-looking ViewModel with a dead
-channel.
+⚠️ `.catch { }` on each table flow used to **permanently terminate that subscription on
+first error, with no resubscribe** — the screen kept a live-looking ViewModel with a dead
+channel. ✅ Resolved in `RealtimeChangeSubscriptions.kt:59-82`: a retry loop with exponential
+backoff that also treats a self-completing stream as a failure (`:67-70`). Status:
+[[Quality/Bug Register]] — `NCC-024`.
 
 ## Cache interaction
 
 Three layers, all in front of Room. Room invalidation of table `patients` clears
-`PatientCache` (`PatientRepositoryImpl.kt:66-68`); a refresh clears it wholesale (`:139`).
+`PatientCache` (`PatientRepositoryImpl.kt:66-68`); a refresh clears it wholesale (`:154`).
 See [[Caching]].
 
 ## Known failure modes
 
 | # | Failure | Mechanism |
 |---|---|---|
-| 2.3 | waiter always reports success | `SyncRepositoryImpl.kt:103-107` captures into a local instead of using the returned value |
-| 3.1 | unbounded work chain | `APPEND_OR_REPLACE` + per-row scheduling |
-| 3.2 | conflict branch unreachable | status committed before upload |
+| 2.3 | ✅ waiter reported success | fixed: `processNextItems()` returns the flight's result (`SyncRepositoryImpl.kt:103-104`); `SingleFlight` hands waiters the owner's outcome (`SingleFlight.kt:27-35`) — register `NCC-009` |
+| 3.1 | ✅ unbounded work chain | fixed: `APPEND_OR_REPLACE` + per-row scheduling replaced with `ExistingWorkPolicy.REPLACE` (`SyncManagerImpl.kt:37-41`, `:59-63`) — register `NCC-019` |
+| 3.2 | ✅ conflict branch unreachable | fixed: the guard now excludes the in-flight row (`SyncUploader.kt:517-520`) — register `NCC-020` |
 | 3.5 | `priority DESC` on TEXT sorts HIGH last | cosmetic, re-sorted downstream |
 | 3.6 | pull never tombstones | deleted rows resurrect from the queue |
-| 3.7 | realtime dies permanently | `.catch {}` without resubscribe |
-| — | items stuck `SYNCING` invisible to the counter | `getPendingCount()` counts only `PENDING` |
-| — | `Result.failure()` cancels appended dependents | next sync delayed ≤15 min |
+| 3.7 | ✅ realtime died permanently | fixed: `.catch {}` replaced by a retry loop with backoff (`RealtimeChangeSubscriptions.kt:59-82`) — register `NCC-024` |
+| — | items stuck `SYNCING` invisible to the counter | `getPendingCount()` counts only `PENDING` (`SyncQueueDao.kt:42-43`) |
+| — | ~~`Result.failure()` cancels appended dependents~~ | **refuted** — `REPLACE` leaves no appended chain ([[Quality/Hypotheses]] HYP-002) |
 
-All detailed in [[Known Bugs]] and the register at [[Quality/Bug Register]].
+All detailed in [[Quality/Bug Register]] (authoritative status); finding text for the
+pre-2026-10-18 state is preserved in [[Known Bugs]].
 
 ## Related
 

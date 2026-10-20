@@ -12,7 +12,7 @@ Every dead-code item below was confirmed by **zero call sites**, not by inspecti
 
 ## Dead code — verified unreachable
 
-### DAO methods (~24)
+### DAO methods (26 listed)
 
 | DAO | Unused methods |
 |---|---|
@@ -23,7 +23,7 @@ Every dead-code item below was confirmed by **zero call sites**, not by inspecti
 | `FinanceDao` | `getTransactionsInRangePage`, `getAmountSumInRange`, `getTransactionCountInRange` |
 | `BorrowDao` | `getActiveBorrowsPage`, `getReturnedBorrowsPage` |
 | `BorrowReturnDao` | `getAllReturnsPage` |
-| `ConsultationDao` | `getAllConsultationsPage`, `getConsultationsForPatientPage`, `getConsultationsForPatientForPage` |
+| `ConsultationDao` | `getAllConsultationsPage`, `getConsultationsForPatientPage` |
 | `BackupDao` | `getHistorySnapshot`, `trimHistoryOlderThan`, `deleteHistory` |
 
 The pagination layer in particular is **built but unwired** — every screen still reads the
@@ -43,7 +43,7 @@ provide is **enforced nowhere**.
 | `VaccineBatchEntity.reservedQuantity` | declared, never read or written |
 | `Vaccine.doseSchedule` | `domain/model/Vaccine.kt:13`; two mapper lines, **no reader anywhere** — there is no clinical schedule engine in this app |
 | `Vaccine.stock`, `Vaccine.isLowStock` | never populated |
-| `Reminder` fields `vaccinationSource`, `reminderDate`, `source`, `lastReminderTime`, `notificationSent` | permanently `null` — all `@Transient` on `ReminderEntity.kt:61-65` |
+| `Reminder` fields `vaccinationSource`, `source` | permanently `null` — both `@Transient` on `ReminderEntity.kt:64-65` |
 | `inventory_deductions` as a table | **no sync descriptor** — deductions recorded here never reach the server |
 
 ### Functions
@@ -56,8 +56,8 @@ provide is **enforced nowhere**.
 | `SyncViewModel.clearSynced()` → `clearSyncedItems()` → `SyncQueueDao.clearSynced()` | no UI caller; the whole path is unreachable |
 | `SyncItem.toEntity()` | never called |
 | WorkManager tags `"SYNC_JOB"`, `"IMMEDIATE_SYNC"` | set, never queried |
-| `BackupProgress.TableDone` | handled in `BackupViewModel.kt:76`; nothing emits it |
-| `NotificationHelper.cancelSummaryNotification()`, `cancelAll()` | no callers |
+| `BackupProgress.TableDone` | handled in `BackupViewModel.kt:81`; nothing emits it |
+| `NotificationHelper.cancelAll()` | no callers — `cancelSummaryNotification()` is called at `MainActivity.kt:82` |
 | `MIGRATIONS 23→24` | an intentional empty hop, kept for version contiguity |
 
 ## Duplication
@@ -65,14 +65,14 @@ provide is **enforced nowhere**.
 ### Four implementations of FEFO batch selection
 
 `AddVaccinationLogic.kt:12-15` · `BorrowBatchSelection.kt:38-40` ·
-`InventoryRepositoryImpl.kt:384-409` · SQL `VaccineDao.kt:32`.
+`InventoryRepositoryImpl.kt:384-409` · SQL `VaccineDao.kt:37`.
 
-Plus **five** variants of the "usable batch" predicate, using **two** different expiry
+Plus **four** variants of the "usable batch" predicate, using **two** different expiry
 predicates (`isExpired` vs `isExpiredAsOf`):
-`InventoryRepositoryImpl.kt:72`, `AddVaccinationLogic.kt:14`, `VaccineRowCard.kt:87`,
-`BorrowBatchSelection.kt:29`, `WasteViewModel.kt:52`.
+`InventoryRepositoryImpl.kt:73`, `AddVaccinationLogic.kt:14`, `VaccineRowCard.kt:87`,
+`BorrowBatchSelection.kt:29`.
 
-### Twelve copies of the same `refresh()` boilerplate
+### Eighteen copies of the same `refresh()` boilerplate
 
 Byte-identical modulo the repository call:
 
@@ -85,10 +85,13 @@ viewModelScope.launch {
 }
 ```
 
-`BorrowedViewModel.kt:158`, `CompletedDismissedViewModel.kt:63`, `DueViewModel.kt:99`,
+`BorrowedViewModel.kt:170`, `CompletedDismissedViewModel.kt:63`, `DueViewModel.kt:99`,
 `VaccineInventoryViewModel.kt:63`, `WasteViewModel.kt:74`, `WeeklyDoctorSlotsViewModel.kt:49`,
-`FullReportViewModel.kt:107`, `FinanceDetailsViewModel.kt:59`, `MilestonePatientsViewModel.kt:34`,
-`VaccineDetailViewModel.kt:108`, `PersonalReminderViewModel.kt:101`, `AdminViewModel.kt:50`.
+`FinanceDetailsViewModel.kt:63`, `MilestonePatientsViewModel.kt:34`, `VaccineDetailViewModel.kt:108`,
+`PersonalReminderViewModel.kt:101`, `AdminViewModel.kt:50`, `FullAuditLogViewModel.kt:47`,
+`PatientListViewModel.kt:120`, `PatientViewModel.kt:168`, `DashboardViewModel.kt:438`,
+`StatisticsViewModel.kt:111`, `StockHistoryViewModel.kt:123`, `SyncViewModel.kt:44`.
+`FullReportViewModel.kt:121` is the same block written against `_uiState.copy(isRefreshing = …)`.
 
 ### Three ad-hoc workarounds for the 5-argument `combine` limit
 
@@ -96,14 +99,14 @@ viewModelScope.launch {
 |---|---|
 | `private data class RefreshState<A,B,C,D,E>` | `PatientListViewModel.kt:221` |
 | `private data class Quad<A,B,C,D>` | `VaccineInventoryViewModel.kt:111` |
-| raw `values[0] as List<T>` casts | `BorrowedViewModel.kt:86`, `PersonalReminderViewModel.kt:65`, `StatisticsViewModel.kt:71`, `FullReportViewModel.kt:77`, `CompletedDismissedViewModel.kt:34` |
+| raw `values[0] as List<T>` casts | `BorrowedViewModel.kt:96`, `PersonalReminderViewModel.kt:67`, `StatisticsViewModel.kt:74`, `FullReportViewModel.kt:82`, `CompletedDismissedViewModel.kt:36` |
 
 Each carries its own `@Suppress("UNCHECKED_CAST")` block. ✅ Fix: kotlinx.coroutines already
 ships `combine(vararg)` overloads and a `combine` for up to 5 flows.
 
 ### Session-status fallback logic in two files
 
-`app/Navigation.kt:50-60` and `app/MainActivity.kt:202-204` — the same decision, written
+`app/Navigation.kt:50-60` and `app/MainActivity.kt:219-225` — the same decision, written
 twice.
 
 ### Three return-label conventions for the same call
@@ -128,7 +131,7 @@ routes (`"patient_list"`, `"due"`, `"vaccine_inventory"`, `"statistics"` are nev
 
 ### `PatientUtils` is a pass-through facade with mutual recursion
 
-`core/common/PatientUtils.kt:11-57` — 19 one-line delegations to `AgeUtils`/`DateUtils`, and
+`core/common/PatientUtils.kt:11-57` — 17 one-line delegations to `AgeUtils`/`DateUtils`, and
 `AgeUtils`/`DateClassifier` **call back into** `PatientUtils.parseDate`
 (`AgeUtils.kt:26,69,86,109`; `DateClassifier.kt:26,62,79-80`). The facade exists purely for
 call-site compatibility (comment at `:7-10`).
@@ -137,26 +140,26 @@ call-site compatibility (comment at `:7-10`).
 
 | File | Lines | Concern |
 |---|---|---|
-| `feature/inventory/data/InventoryRepositoryImpl.kt` | 660 | 19 `override`s; `addStockBatch` is ~10 validation branches interleaved with writes |
-| `feature/vaccination/presentation/AddVaccinationViewModel.kt` | 707 | `saveVaccination` alone is 220 lines |
-| `core/sync/SyncUploader.kt` | 674 | a 22-entry static registry + per-entity conflict rules + 6 hand-rolled PostgREST call shapes, all in `core/` |
-| `feature/dashboard/presentation/DashboardViewModel.kt` | 439 | a 4-level nested `combine`; 13 injected deps |
+| `feature/inventory/data/InventoryRepositoryImpl.kt` | 697 | 19 `override`s; `addStockBatch` is ~10 validation branches interleaved with writes |
+| `feature/vaccination/presentation/AddVaccinationViewModel.kt` | 704 | `saveVaccination` alone is 220 lines |
+| `core/sync/SyncUploader.kt` | 677 | a 24-entry static registry + per-entity conflict rules + 6 hand-rolled PostgREST call shapes, all in `core/` |
+| `feature/dashboard/presentation/DashboardViewModel.kt` | 460 | a 4-level nested `combine`; 13 injected deps |
 | `core/security/AuthViewModel.kt` | 369 | login + profile + device registration + the sign-out data-erase gate |
-| `data/local/dao/BackupDao.kt` | 272 | a second DAO over 20 tables, re-validated by Room on every schema change |
+| `data/local/dao/BackupDao.kt` | 272 | a second DAO over 23 tables, re-validated by Room on every schema change |
 | `data/backup/BackupRestorer.kt` | 318 | the most destructive code in the app, with **zero tests** |
 
 ### `AuditLogger`'s dual API is the biggest footgun in the codebase
 
 `log(...)` (fire-and-forget, escapes transactions) and `recordLog(...)` (suspend, joins
-transactions) are used interchangeably at **20 call sites**; 5 of the `log()` calls are
-*inside* live transactions. **Collapsing to `recordLog` would remove an entire class of bug.**
+transactions) are used interchangeably at **38 call sites** — 12 of `log()`, 26 of `recordLog()`.
+**Collapsing to `recordLog` would remove an entire class of bug.**
 
 ## Stale documentation inside the code
 
 | Claim | Reality |
 |---|---|
 | `AuditLogDao.kt:30-33` — "indexed on … entityType+entityId" | **No composite index exists** — 6 single-column indices only |
-| `DueReminderDao.kt:88` — "UpcomingVaccinationRulesTest asserts they agree with the Kotlin rules" | **No such test exists** — grep returns only this comment |
+| `DueReminderDao.kt:91` — "UpcomingVaccinationRulesTest asserts they agree with the Kotlin rules" | **No such test exists** — grep returns only this comment |
 | `ExpenseDaoTest.kt:21-22` — coverage includes "soft-deleting an expense" | `expenses` has no soft-delete; dropped in 27→28 |
 | `ExpenseMigrationTest.kt:18-23` — migrations are local vals in `getInstance()`; `MigrationTest.kt` references a non-existent constant | **Both stale** — migrations are companion `internal val`s; no `MigrationTest.kt` exists |
 | `DatabaseModule.kt:139-142` — "SyncRepositoryImpl takes AppDatabase" | it takes `SyncQueueDao` |
@@ -171,8 +174,8 @@ no comment:
 
 | Comment | Code |
 |---|---|
-| `SingleFlight.kt:14-18` — claims the shared-result bug is fixed | `SyncRepositoryImpl.kt:103-107` still discards it |
-| `VaccinationEditEngine.kt:180-183` — "a FAILED batch never moves stock in **either direction**" | only the negative direction is capped — see [[Known Bugs]] §1.1 |
+| ~~`SingleFlight.kt:14-18` — claims the shared-result bug is fixed~~ | ✅ **Resolved** — the wrapper now returns the shared result (`SyncRepositoryImpl.kt:103-104`) |
+| ~~`VaccinationEditEngine.kt:180-183` — "a FAILED batch never moves stock in **either direction**"~~ | ✅ **Resolved** — a re-deducted batch is recorded `COMPLETED` (`VaccinationEditEngine.kt:59`) |
 | `20261013140000:9-10` — "the client's absolute sync … clamps at 0" | the uploader omits the column entirely |
 | `20261016:16-17` — "the trigger keeps working (it runs as the table owner)" | the `force` on the next line inverts this |
 

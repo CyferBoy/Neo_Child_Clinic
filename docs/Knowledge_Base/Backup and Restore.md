@@ -6,7 +6,7 @@
 
 ## Format
 
-A single JSON envelope, encrypted. `domain/model/BackupModels.kt:28-51`:
+A single JSON envelope, encrypted. `data/backup/BackupModels.kt:29-51`:
 
 ```kotlin
 @Serializable
@@ -29,9 +29,9 @@ Deliberately excluded (`:22-26`): `sync_queue`, `widget_due_cache`, `backup_hist
 Envelope (`:96-109`): `backupVersion` (`CURRENT_BACKUP_VERSION = 1`, `:13`), `backupId`,
 app/db versions, `createdAt`, `deviceInfo`, `recordCounts`, `checksum`, `data`.
 
-`BackupSerializer.json` (`:13-18`): `ignoreUnknownKeys`, `encodeDefaults`,
-`coerceInputValues` — all three, which is the right combination for forward compatibility.
-`BackupMigrator` (`:90-94`) is a no-op extension point.
+`BackupSerializer.json` (`data/backup/BackupSerializer.kt:13-18`): `ignoreUnknownKeys`,
+`encodeDefaults`, `coerceInputValues` — all three, which is the right combination for forward
+compatibility. `BackupMigrator` (`:90-94`) is a no-op extension point.
 
 ## Crypto — the strongest code in the repo
 
@@ -97,12 +97,13 @@ Local destination: app-private `filesDir/backups/automatic/<backupId>.nccb` (`:3
 rotated by mtime (`:374-377`), retention `coerceIn(1, 30)`
 (`BackupSettingsManager.kt:50`).
 
-⚠️ **Enabling Automatic Backup does not enqueue the worker until the next process start.**
-`BackupAutoScheduler.schedule()` has **zero call sites** —
-`grep` finds only the class declaration, a KDoc mention, and `NeoChildApp.kt:124`
-(`rearmIfEnabled`). `BackupViewModel.enableAutomaticBackup` / `updateAutomaticBackupSettings`
-/ `disableAutomaticBackup` (`:202-215`) write DataStore and never touch the scheduler. See
-[[Known Bugs]].
+⚠️ **Was: enabling Automatic Backup did not enqueue the worker until the next process
+start.** `BackupAutoScheduler.schedule()` had **zero call sites** —
+`grep` found only the class declaration, a KDoc mention, and `NeoChildApp.kt:124`
+(`rearmIfEnabled`). ✅ Resolved: `BackupViewModel` now calls
+`backupAutoScheduler.schedule(...)` at `:209` (`enableAutomaticBackup`) and `:215`
+(`updateAutomaticBackupSettings`), and `cancel()` at `:221` (`disableAutomaticBackup`).
+Status: [[Quality/Bug Register]] — `NCC-011`.
 
 ## Restore — fails closed by design
 
@@ -161,15 +162,19 @@ identity from the token. One automatic session refresh + retry on 401/403 (`:109
 ⚠️ Client and server `MAX_BACKUP_BYTES` = 200 MB, checked **before** upload (`:170`) and
 before download buffering (`:224-226`) using the real `Content-Length`.
 
-⚠️ But the local-file path has a TOCTOU check: `BackupRepositoryImpl.kt:435-441` reads
-`OpenableColumns.SIZE`, compares to the 200 MB ceiling, then calls `it.readBytes()`
-**unbounded**. A provider that reports a small size and streams more defeats the check.
+⚠️ **Was: the local-file path had a TOCTOU check.** `readBytesFromUri` queried
+`OpenableColumns.SIZE` and compared it against the 200 MB ceiling, then called
+`it.readBytes()` **unbounded** — a provider that reported a small size and streamed more
+defeated the check. ✅ Resolved: the metadata check (`:432-440`) is still advisory, and the
+read itself is now bounded (`:441-459`), throwing `TooLarge` as soon as the running total
+crosses `MAX_BACKUP_BYTES` (`:454-455`). Status: [[Quality/Bug Register]] — `NCC-037`.
 
 ## The DAO
 
-`data/local/dao/BackupDao.kt` (272 lines) is a **second DAO over 20 tables** that other
-DAOs own — 20 × get-all / insert-all / clear-all. Its header (`:12-25`) says this is
-deliberate.
+`data/local/dao/BackupDao.kt` (272 lines) is a **second DAO over 22 tables** that other
+DAOs own — 22 × get-all / insert-all / clear-all. Its header (`:12-25`) says this is
+deliberate, though the prose at `:16` still says "20 feature DAOs" while the DAO has 22
+`getAll…ForBackup` methods (`:32`–`:244`).
 
 ✅ It has **no `@Transaction` method**; the atomicity guarantee comes entirely from
 `BackupRestorer.kt:50`'s `database.withTransaction`. That makes the invariant invisible if
@@ -180,9 +185,9 @@ you only read the DAO.
 | # | Finding | Severity | Evidence |
 |---|---|---|---|
 | 1 | `BackupRestorer` — 318 lines, the most destructive path in the app — has **zero tests** | High | `data/backup/BackupRestorer.kt` |
-| 2 | Enabling/disabling automatic backup does not schedule until next process start | Medium | `BackupAutoScheduler.schedule()` has 0 callers |
+| 2 | ✅ Auto-backup enable/disable did not schedule until next process start | Medium | was: `BackupAutoScheduler.schedule()` had 0 callers; now called at `BackupViewModel.kt:209`, `:215`, `cancel()` `:221` — `NCC-011` |
 | 3 | `BackupCollector`'s FCM-token strip — the only privacy guarantee in the export — is untested | Medium | `BackupCollector.kt:20-21` |
-| 4 | `readBytesFromUri` size check is TOCTOU | Medium | `BackupRepositoryImpl.kt:435-441` |
+| 4 | ✅ `readBytesFromUri` size check was TOCTOU | Medium | was metadata-only `:432-440`; read now bounded `:441-459` — `NCC-037` |
 | 5 | No AAD on the container header | Low | `BackupCrypto.kt:70-77` |
 | 6 | Empty salt accepted | Low | `BackupCrypto.kt:98` |
 | 7 | `SafetyBackupStore` stage/commit/discard atomicity untested | Medium | `SafetyBackupStore.kt:39-60` |
@@ -192,4 +197,5 @@ you only read the DAO.
 - [[Room Database]] — the 22 exported tables
 - [[Offline-First Architecture]] — post-restore resync
 - [[Architecture Decisions]] — why insert-if-absent for ledgers
-- [[Known Bugs]] — full ranked defect list
+- [[Quality/Bug Register]] — current status of every finding above
+- [[Known Bugs]] — the 2026-10-16 audit record (superseded in part)

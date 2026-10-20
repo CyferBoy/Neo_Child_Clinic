@@ -1,0 +1,3 @@
+- [x] Update `CompletedDismissedSummaryCards` in `ReminderCards.kt` to remove counters
+- [x] Move `CompletedDismissedSummaryCards` above search bar in `DueTab.kt`
+- [x] Verify build with Gradle assembleDebug

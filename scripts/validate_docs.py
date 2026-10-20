@@ -15,12 +15,16 @@ Checks
   8. Anchors               [[#Heading]], [[Note#Heading]], [[Note#^block-id]] resolve
   9. Dataview blocks       fence balance, query type, clause keywords, FROM targets
  10. Bug register          index statuses are documented; every card has Status + Severity
+ 11. Citations            every `path:line` resolves to a file and to lines that exist
 
 What this cannot check
   Dataview queries are read, never executed. Obsidian and the plugin are not
   available here, so a well-formed query that returns no rows still passes.
   Anchor matching normalises inline markdown (backticks, emphasis) instead of
   requiring Obsidian's exact heading text, so it errs towards silence.
+  A citation that is still in range but now points at different code cannot be
+  detected mechanically - only a reader can. Citations are resolved from the
+  repository root, so run this from there (or pass --repo-root).
 
 Usage
   python3 scripts/validate_docs.py                 # whole vault
@@ -55,6 +59,12 @@ WIKILINK = re.compile(r"\[\[([^\]|#\n]+?)(?:[#|][^\]\n]*)?\]\]")
 # character before the '#'). Group 1 is the note ("" = this note), 2 the anchor, 3 the alias.
 ANCHOR_LINK = re.compile(r"\[\[([^\]\n#|]*)#([^\]\n|]+)(?:\|([^\]\n]*))?\]\]")
 BLOCK_ID = re.compile(r"(?:^|\s)\^([A-Za-z][\w-]*)\s*$", re.M)
+# `path:line` citations. The extension list keeps prose like "at 12:30" out.
+CITATION = re.compile(
+    r"`([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:kt|kts|ts|tsx|js|mjs|sql|py|md|json|toml|gradle"
+    r"|yml|yaml|xml|csv)):(\d+)(?:-(\d+))?`")
+# A citation marked as living outside version control is excused from resolution.
+UNTRACKED_MARKER = re.compile(r"artifact|scratch|untracked|git-?ignored", re.I)
 FENCE = re.compile(r"^\s*```")
 MD_LINK = re.compile(r"(?<!!)\[[^\]\n]*\]\(([^)\s]+)")
 HTTP = re.compile(r"^https?://\S+$")
@@ -536,6 +546,80 @@ def check_bug_register(notes: list[Path], rep: Report) -> None:
                           f"card has no **{field}** row")
 
 
+# Directories that hold no cited source and cost seconds to walk.
+INDEX_SKIP = {".git", ".gradle", ".gradle-user", ".idea", ".kotlin", ".artifacts",
+              "build", "graphify-out", "neochildclinic-release", "node_modules"}
+
+
+def _repo_index(root: Path) -> list[str]:
+    """Repo-relative posix paths of every file a citation could name."""
+    out = []
+    for path in root.rglob("*"):
+        if INDEX_SKIP.intersection(path.parts):
+            continue
+        if path.is_file():
+            out.append(path.relative_to(root).as_posix())
+    return out
+
+
+def check_citations(root: Path, notes: list[Path], rep: Report) -> int:
+    """Every `path:line` citation must name a file that exists, within its length.
+
+    Notes cite short forms ("DueReminderDao.kt:39", "core/cache/MemoryCache.kt:12"), so
+    resolution tries the repo-relative path, then a path suffix, then a unique basename.
+    A basename matching several files is reported as ambiguous, never guessed - the point
+    is to catch citations that resolve to nothing, not to pick for the author.
+    """
+    if not root.is_dir():
+        rep.note(f"citation check skipped: {root} is not a directory")
+        return 0
+    index = _repo_index(root)
+    by_name: dict[str, list[str]] = defaultdict(list)
+    for rel in index:
+        by_name[rel.rsplit("/", 1)[-1]].append(rel)
+    lengths: dict[str, int] = {}
+    total = 0
+    for note in notes:
+        raw = note.read_text(encoding="utf-8").splitlines()
+        for idx, (line, (in_fence, _)) in enumerate(zip(raw, split_code_fences(raw)), 1):
+            if in_fence:
+                continue
+            for m in CITATION.finditer(line):
+                path, span = m.group(1), m.group(2) + ("-" + m.group(3) if m.group(3) else "")
+                total += 1
+                where = f"{note.name}:{idx}"
+                if path in index:
+                    rel = path
+                else:
+                    cands = ([r for r in index if r.endswith("/" + path)]
+                             or by_name.get(path.rsplit("/", 1)[-1], []))
+                    if not cands:
+                        # A citation to a file that is deliberately outside version control
+                        # (audit scratch SQL, a local DB dump) can never resolve from a
+                        # clone. The line must say so - "artifact", "scratch", "untracked",
+                        # "gitignored" - or the citation is reported as a broken one.
+                        span_label = f"`{path}:{span}`"
+                        if UNTRACKED_MARKER.search(line) or UNTRACKED_MARKER.search(path):
+                            rep.note(f"{where}: {span_label} cites an untracked artifact "
+                                     f"(not checkable from a clone)")
+                        else:
+                            rep.error(where, f"citation {span_label} - no such file in the repo")
+                        continue
+                    if len(cands) > 1:
+                        rep.warn(where, f"citation `{path}` is ambiguous: "
+                                        f"{', '.join(sorted(cands)[:3])}")
+                        continue
+                    rel = cands[0]
+                if rel not in lengths:
+                    with open(root / rel, encoding="utf-8", errors="replace") as fh:
+                        lengths[rel] = sum(1 for _ in fh)
+                hi = int(m.group(3)) if m.group(3) else int(m.group(2))
+                if hi > lengths[rel]:
+                    rep.error(where, f"citation `{path}:{span}` - {rel} has "
+                                     f"{lengths[rel]} lines")
+    return total
+
+
 def check_required_sections(vault: Path, notes: list[Path], rep: Report) -> None:
     """Enforce heading skeletons, but only for notes actually in scope.
 
@@ -587,6 +671,8 @@ def main() -> int:
     ap.add_argument("--strict", action="store_true", help="treat warnings as failures")
     ap.add_argument("--changed", action="store_true", help="only check notes git reports as changed")
     ap.add_argument("--quiet", action="store_true", help="summary only")
+    ap.add_argument("--repo-root", default=".",
+                    help="root the `path:line` citations resolve against (default: .)")
     args = ap.parse_args()
 
     vault = Path(args.vault)
@@ -621,6 +707,7 @@ def main() -> int:
     mer = check_mermaid(notes, rep)
     anchors = check_anchors(vault, notes, rep)
     dv = check_dataview(vault, notes, rep)
+    cites = check_citations(Path(args.repo_root), notes, rep)
     check_required_sections(vault, notes, rep)
     check_bug_register(notes, rep)
     check_secrets(notes, rep)
@@ -635,7 +722,8 @@ def main() -> int:
         print(f"ERROR {where}: {msg}")
 
     scope = f"{vault} ({len(notes)} notes checked" + (", changed-only" if args.changed else "") + ")"
-    print(f"\n{scope}, {mer} mermaid blocks, {dv} dataview blocks, {anchors} anchor links")
+    print(f"\n{scope}, {mer} mermaid blocks, {dv} dataview blocks, {anchors} anchor links, "
+          f"{cites} citations")
     if rep.errors:
         print(f"FAILED: {len(rep.errors)} error(s), {len(rep.warnings)} warning(s)")
         return 1

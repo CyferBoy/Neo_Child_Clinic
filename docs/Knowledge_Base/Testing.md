@@ -1,6 +1,6 @@
 # Testing
 
-> 47 test files. 277 unit tests passing. Where the coverage actually is — and where it is not.
+> 49 test files. 277 unit tests passing. Where the coverage actually is — and where it is not.
 > Related: [[Known Bugs]] · [[Room Database]] · [[Error Handling]]
 
 ## The headline number
@@ -8,20 +8,20 @@
 | Metric | Value |
 |---|---|
 | Unit test files (`app/src/test`) | **41** |
-| Instrumented test files (`app/src/androidTest`) | **6** (48 `@Test`, 1 `@Ignore`d) |
-| Total test lines | ~5,320 (vs ~47,680 in main — **11.2%**) |
+| Instrumented test files (`app/src/androidTest`) | **8** (56 `@Test`, 1 `@Ignore`d) |
+| Total test lines | ~5,642 (vs ~47,749 in main — **11.8%**) |
 | Unit tests passing | **277, 0 failures, 0 errors** |
 | Last recorded run | `./gradlew :app:testDebugUnitTest`, **2026-10-18** |
-| Instrumented tests | ✅ **green in CI 2026-10-18** on API 34 — see below |
+| Instrumented tests | 🔍 **green in CI 2026-10-18** on API 34 (CI-recorded, not reproduced here) — see below |
 
 ✅ The 277 figure and the instrumented result are both from runs performed while writing this
 vault, not carried over.
 
 | Lines | Count |
 |---|---|
-| `app/src/main` | 47,679 |
+| `app/src/main` | 47,749 |
 | `app/src/test` | 4,118 |
-| `app/src/androidTest` | 1,205 |
+| `app/src/androidTest` | 1,524 |
 
 ## The pattern that explains everything
 
@@ -36,7 +36,7 @@ neighbours, `FinanceCalculator`, `ExpenseCalculator`, `StatisticsUtils`, `Backup
 🔍 **Zero `*ViewModelTest.kt` files exist.** No coverage of `stateIn` wiring, no coverage of
 an error path, no coverage of a `combine` chain.
 
-## The 6 instrumented tests matter more than their count suggests
+## The 8 instrumented tests matter more than their count suggests
 
 **They are not run by `./gradlew test`** — they need a device. That used to mean DAO SQL
 correctness was invisible to CI, and for a long time it was: `ExpenseMigrationTest.kt` says the
@@ -61,6 +61,8 @@ build. Make it blocking through branch protection when it has a longer green his
 | `PatientVisitPriceQueryTest.kt` | unpaid-patient + batch-item queries (9) | flags when any visit unpaid; **not** flagged with zero visits; flags on exactly 0 but not a small positive; **re-emits when a price changes** |
 | `UpcomingVaccinationDaoTest.kt` | `getUpcomingVaccinationsByType` / `ByVaccineId` (16) | brand match **exact not substring**; `_` in an id stays literal; `softDeletedRemindersAreExcluded`; legacy NULL/empty `nxt_vaccine_id` excluded; **type card count == sum of brand counts** |
 | `ReminderSoftDeleteFilterTest.kt` | soft-delete filtering across `DueReminderDao` (12) | every pre-existing filter still excludes deleted rows, plus the new ones |
+| `BatchPullGuardEquivalenceTest.kt` | batched pull guards — `SyncQueueDao.unsyncedIdSet`, `PatientDao.getAllPatientsSnapshot` (2) | the bulk query answers exactly what the per-row form did, per status and per entity name; a missing entity name returns empty; the snapshot lookups agree with per-row reads |
+| `PullUpsertPreservesChildrenTest.kt` | `@Upsert` write paths used by pulls and edits (6) | a parent upsert leaves visits, items, consultations, reminders, borrows and returns intact; `REPLACE` still cascades (the hazard the upserts exist for); a `clinicId` collision never deletes the other patient |
 | `DateGivenIndexMigrationTest.kt` | migration 32→33 (2) | adds the index without touching data; idempotent; `EXPLAIN QUERY PLAN` loses its temp B-tree |
 | `ExpenseMigrationTest.kt` | migration 22→23 (1) | `@Ignore`d — **never executed** |
 
@@ -84,7 +86,9 @@ assertions now and the workflow rejects a bare `assert` in `androidTest` outrigh
 It now has 28 instrumented cases behind it, and the two that mattered were red on the first run
 that could execute them.
 
-`BackupDao` is a 272-line DAO over 20 tables with **zero** tests.
+`BackupDao` is a 272-line DAO over 23 tables with **zero** tests of its own — its
+`getAllRemindersForBackup` query is exercised incidentally by `ReminderSoftDeleteFilterTest.kt:196`
+and `:226`.
 
 ## The 12 untested critical paths, ranked
 
@@ -92,11 +96,11 @@ that could execute them.
 |---|---|---|
 | 1 | **`BackupRestorer`** — 318 lines, the most destructive code in the app | A wrong FK ordering fails mid-transaction; a wrong `appliedIds` set re-queues rows never written |
 | 2 | **`ClinicalVaccinationService.recordVaccination` / `deductInventoryForNewVaccination`** | The entire create-time stock path: COMPLETED/FAILED ledger distinction, PARTIAL status, the narrow-catch contract. **Where two live bugs sit.** |
-| 3 | **`VaccinationEditEngine.applyInventoryDiff` + `reconcileInventoryDeductions`** | Only the pure `inventoryDiff` is tested. The reversal cap, `allowExpired`, shortfall capture, and the 5-branch status rule are not. |
+| 3 | **`VaccinationEditEngine.applyInventoryDiff` + `reconcileInventoryDeductions`** | Only the pure `inventoryDiff` and `deductionStatus` are tested. The reversal cap, `allowExpired` and shortfall capture are not. |
 | 4 | **`ReminderDueListProcessor.process()` / `.stats()`** | The most load-bearing pure function in the reminder subsystem. **Zero tests.** |
 | 5 | **`InventoryRepositoryImpl` stock mutations** (`deductStockFromBatch`, `addStockToBatch`, `reverseDeduction`, `updateBatch`, `addBatch`) | Every stock write in the app. Only the two pure helpers they call are tested. |
 | 6 | **`VaccinationRepositoryImpl.deleteVaccination`** | The 6-step transactional delete, the idempotency latch, the child-before-parent enqueue order |
-| 7 | **`SyncRepositoryImpl.processNextItems` / `processGroup` / `classifyAndRecordError` / session gate** | Zero tests. The suite only tests the pure helpers **extracted** from them — which is exactly why the `SingleFlight` wrapper bug survives. |
+| 7 | **`SyncRepositoryImpl.processNextItems` / `processGroup` / `classifyAndRecordError` / session gate** | Zero tests. The suite only tests the pure helpers **extracted** from them — which is exactly how the `SingleFlight` wrapper bug (`NCC-009`, since fixed) slipped through. |
 | 8 | **`BorrowRepositoryImpl`** (`saveBorrowedItem`, `submitReturn`, `deleteBorrowedItem`) | The quantity-edit diff, the outstanding cap, the cross-batch release |
 | 9 | **`WasteRepositoryImpl`** (all three mutators) | restore-then-deduct, `wastedQuantity` unwind |
 | 10 | **`DailySummaryWorker`** | The once-per-day guard, the "only mark when non-empty" rule, the low-stock notify/clear machine |
@@ -122,9 +126,9 @@ This is the pattern to copy for any source-scanning test. It is also why
 
 | Test | Why it misses |
 |---|---|
-| `SingleFlightResultTest.kt` | exercises `flight.run { }`'s return value, **not** the `SyncRepositoryImpl.kt:103-107` wrapper that discards it |
-| `SyncOrderingTest.kt` | asserts against a **hand-copied** priority table (`:17-26`) that already disagrees with `SYNC_ENTITY_REGISTRY` — `TRANSACTION`, `AUDIT_LOG`, `PROFILE`, `STAFF` are absent from the test's `when`. It does not assert against the registry, so the two can drift silently. |
-| `VaccinationEditEngineTest.kt` | 3 tests covering only the pure `inventoryDiff`; `applyInventoryDiff` and `reconcileInventoryDeductions` are untested |
+| `SingleFlightResultTest.kt` | ✅ **Resolved** — asserts the shared result (`:47`, `:68`), which the wrapper now returns (`SyncRepositoryImpl.kt:103-104`); the wrapper itself still has no regression test |
+| `SyncOrderingTest.kt` | asserts against a **hand-copied** priority table (`:17-26`) that already disagrees with `SYNC_ENTITY_REGISTRY` — `TRANSACTION`, `PROFILE`, `STAFF` are absent from the test's `when` (it does include `AUDIT_LOG`, `SyncOrderingTest.kt:23`). It does not assert against the registry, so the two can drift silently. |
+| `VaccinationEditEngineTest.kt` | 8 tests covering only the pure `inventoryDiff` and `deductionStatus`; `applyInventoryDiff` and `reconcileInventoryDeductions` are untested |
 | `ExpenseMigrationTest.kt` | `@Ignore`d — never executed |
 | `DateGivenIndexMigrationTest.kt` | re-implements migration 32→33 with a hand-built 5-column `patient_visits` fixture, so `MigrationTestHelper.runMigrationsAndValidate` semantics are not exercised. Its assertions were also no-ops until 2026-10-18 — see [[Quality/Bug Register]] (“NCC-042 — seven instrumented assertions that could not fail”) |
 
@@ -132,7 +136,7 @@ This is the pattern to copy for any source-scanning test. It is also why
 
 ✅ Only **one** schema file has ever been exported:
 `app/schemas/…/AppDatabase/33.json`. The KSP wiring is correct
-(`app/build.gradle.kts:29-31`) and it is packaged into the androidTest APK (`:74-80`), so the
+(`app/build.gradle.kts:29-31`) and it is packaged into the androidTest APK (`:82-86`), so the
 reasoning is right — the migrations just were never run with it.
 
 | Migration | Tested? |
@@ -142,13 +146,17 @@ reasoning is right — the migrations just were never run with it.
 | 31→32 (destructive — mass DELETE + 54 column drops) | **no** |
 | 32→33 | re-implemented, not the real object |
 
-`AppDatabaseMigrationTest` asserts **contiguity only** — it never checks that `MIGRATIONS`
-matches the `@Database(version =)` annotation, nor that entity↔schema identity holds.
+`AppDatabaseMigrationTest` checks more than contiguity: the floor is 17 (`:17-21`), the chain
+is contiguous (`:23-29`), it ends at `DB_VERSION` (`:31-35`, a hand-maintained mirror of the
+annotation — `AppDatabase.kt:79`) and start versions are unique (`:37-41`). It still never
+checks that `MIGRATIONS` matches the `@Database(version =)` annotation (`AppDatabase.kt:42`),
+nor that entity↔schema identity holds.
 
 ## 🔍 Not checked
 
 - The instrumented suite runs in CI, but **not here** — this environment has no usable emulator,
-  so every androidTest assertion above is reported from CI, not reproduced locally.
+  so every androidTest assertion above is reported from CI, not reproduced locally. No androidTest
+  result XML is in the tree — `app/build/` is absent, and build outputs are not committed.
 - `supabase/tests/rls_role_test.sql` and `verify_security.sql` exist but were not executed —
   they need a live database.
 - No coverage measurement (JaCoCo) is configured, so every percentage here is lines, not branches.
@@ -164,5 +172,5 @@ matches the `@Database(version =)` annotation, nor that entity↔schema identity
 
 - [[Known Bugs]] — where most of these gaps hide
 - [[Error Handling]] — why untested error paths matter most here
-- [[Room Database]] — 17 of 21 DAOs untested
+- [[Room Database]] — 16 of 21 DAOs untested
 - [[Technical Debt]] — the dead code that tests would have caught

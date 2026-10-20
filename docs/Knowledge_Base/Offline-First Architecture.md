@@ -20,9 +20,9 @@ or `Realtime`. Proven by tracing the write paths below.
 | After login | `core/security/AuthViewModel.kt:256` | `scheduleImmediateSync()` (expedited) |
 | After backup restore | `data/backup/BackupRepositoryImpl.kt:183`, `:407` | `scheduleImmediateSync()` |
 | **Every queue write** | `core/sync/SyncRepositoryImpl.kt:84` | `scheduleSync()` — i.e. once per row |
-| Transient failure / session deferral | `SyncRepositoryImpl.kt:167`, `:174`, `:229`, `:245` | `scheduleSync()` |
+| Transient failure / session deferral | `SyncRepositoryImpl.kt:164`, `:171`, `:226`, `:242` | `scheduleSync()` |
 | Offline → online edge | `core/sync/SyncReconciler.kt:57-63` | `processNextItems()` then `refreshDataUseCase()` |
-| Realtime postgres event | `PatientListViewModel.kt:110-117`, `DashboardViewModel.kt:207-212` | `refreshDataUseCase()` |
+| Realtime postgres event | `PatientListViewModel.kt:110-117`, `DashboardViewModel.kt:210-221` | `refreshDataUseCase()` / `patientTodoRepository.refresh()` |
 | Manual pull-to-refresh | `feature/sync/presentation/SyncScreen.kt:98`, `DashboardViewModel.kt:422` | push + pull |
 | Sign-out flush | `AuthViewModel.kt:298-302` | bounded by `withTimeoutOrNull(SIGN_OUT_FLUSH_TIMEOUT_MS)` |
 
@@ -61,7 +61,7 @@ flowchart TD
 
 ### Ordering guarantees
 
-`SyncRepositoryImpl.orderPendingIntoGroups` (`:679-700`):
+`SyncRepositoryImpl.orderPendingIntoGroups` (`:676-697`):
 
 1. Group by `transactionGroupId ?: UUID.randomUUID()` — no group id means singleton group.
 2. Sort groups by `(min sortKey, min createdAt)`; `sortKey` is negated for `DELETE`
@@ -74,19 +74,19 @@ Pinned by `app/src/test/.../core/sync/SyncOrderingTest.kt` (6 tests).
 
 ### Retry and failure
 
-`SyncRepositoryImpl.classifyAndRecordError` (`:353-367`):
+`SyncRepositoryImpl.classifyAndRecordError` (`:350-364`):
 
 - Transient = `IOException`, `HttpRequestException`, or `RestException` with 408 / 429 / 5xx.
 - **5 attempts**, then `FAILED`. `FAILED` rows keep `lastError` and are retried only
-  manually from the Sync screen (`:518-542`).
+  manually from the Sync screen (`:515-521`, `:529-532`).
 - `401` never reaches the classifier — it is handled earlier with one inline retry.
 - Backoff is WorkManager's (`EXPONENTIAL`, `MIN_BACKOFF_MILLIS`, `SyncManagerImpl.kt:24-28`).
   **There is no per-item backoff timer in the queue itself.**
 
 ### Session handling
 
-`resolveSessionOrDefer()` (`:207-256`) waits out `SessionStatus.Initializing` for up to 5 s
-(`:611-617`), then either defers (schedules a retry, returns false) or fails permanently
+`resolveSessionOrDefer()` (`:204-253`) waits out `SessionStatus.Initializing` for up to 5 s
+(`:608-614`), then either defers (schedules a retry, returns false) or fails permanently
 with **no retry scheduled**.
 
 ## The pull path (cloud → local)
@@ -109,16 +109,20 @@ aborts the refresh instead of silently leaving stale data.
 
 ### 1. Uploader-side: "who wins when I upload this row"
 
-`core/sync/SyncUploader.kt:486-521`. Requires **all three** conditions to let the remote win:
+`core/sync/SyncUploader.kt:486-524`. Requires **all three** conditions to let the remote win:
 
 - **C1** remote `updated_at` strictly newer than local.
 - **C2** local `updatedAt` parses to `> 0`.
-- **C3** `!isUnsynced(entityName, entityId)`.
+- **C3** no *other* unacknowledged queue row for that entity —
+  `!isUnsyncedExcluding(entityName, entityId, queueId)`.
 
-⚠️ **C3 is always false in the upload path.** `processGroup` commits the item to `SYNCING`
-(`SyncRepositoryImpl.kt:284-288`) *before* calling `uploadEntity` (`:300`), and `isUnsynced`
-matches `status != 'SYNCED'` (`SyncQueueDao.kt:65-66`). So the entire timestamp-comparison
-block is **dead code**, and `fetchRemoteConflictData`'s batch read is fetched then ignored.
+⚠️ **C3 used to be permanently false, making the whole block dead code.** `processGroup`
+commits the item to `SYNCING` (`SyncRepositoryImpl.kt:281-285`) *before* calling
+`uploadEntity` (`:297`), and plain `isUnsynced` matches `status != 'SYNCED'`
+(`SyncQueueDao.kt:65-66`) — which the in-flight row always satisfies. ✅ Resolved by
+excluding that row from the check (`SyncQueueDao.kt:76-77`), so the remote-newer self-heal
+is reachable and `fetchRemoteConflictData`'s batch read is consumed (`SyncUploader.kt:494`).
+Status: [[Quality/Bug Register]] — `NCC-020`.
 
 ### 2. Pull-side: the real policy
 
@@ -139,7 +143,7 @@ same shape in 10 more repositories.
 | Row present, any queue row for that id | local wins (skipped) |
 
 **Effective rule: a pending local change makes local authoritative until pushed; otherwise
-last-puller wins, with no clock comparison.** See [[Known Bugs]] for what this costs.
+last-puller wins, with no clock comparison.** See [[Quality/Bug Register]] for what this costs.
 
 ## Realtime
 
@@ -151,47 +155,59 @@ Only **two** subscription sites, both in `core/sync/RealtimeChangeSubscriptions.
   `consultation_todos`, `vaccination_todos` → `patientTodoRepository.refresh()`.
 
 Events **do** trigger refreshes — but a refresh is a **pull**, never a write-back. Setup
-removes any pre-existing channel with the same name first (`:39-41`); teardown runs in
-`awaitClose`.
+removes any pre-existing channel with the same name first (`:44-46`); teardown runs in
+`awaitClose` (`:91-107`).
 
-⚠️ Each table flow has `.catch { }` (`:52-54`) that **permanently terminates that
-subscription on first error with no resubscribe**. The screen keeps a live-looking
-ViewModel with a dead channel.
+⚠️ Each table flow used to carry `.catch { }` (`:52-54`) that **permanently terminated that
+subscription on first error, with no resubscribe** — the screen kept a live-looking ViewModel
+with a dead channel. ✅ Resolved in `RealtimeChangeSubscriptions.kt:59-82`: a retry loop with
+exponential backoff that also treats a self-completing stream as a failure (`:67-70`), so the
+subscription re-establishes instead of exiting. Status: [[Quality/Bug Register]] — `NCC-024`.
 
 ## The offline write path, proven
 
-**Add patient** — `feature/patient/data/PatientRepositoryImpl.addPatient` (`:142-191`):
+**Add patient** — `feature/patient/data/PatientRepositoryImpl.addPatient` (`:157-206`):
 
-1. `database.withTransaction { }` (`:148`) — mint clinic ID (`:149-159`), insert with
-   `isSynced = false` (`:168`), **and enqueue for sync in the same transaction** (`:172-177`).
-2. Outside: `auditLogger.recordLog(...)` — local-only, fully try/caught (`AuditLogger.kt:59-90`).
-3. `patientCache.invalidate(patient.id)` (`:190`).
+1. `database.withTransaction { }` (`:163`) — mint clinic ID (`:164-174`), insert with
+   `isSynced = false` (`:181-183`), **and enqueue for sync in the same transaction** (`:187-192`).
+2. Outside: `auditLogger.recordLog(...)` (`:196-203`) — local-only, fully try/caught
+   (`AuditLogger.kt:54-96`).
+3. `patientCache.invalidate(patient.id)` (`:205`).
 
-No `Postgrest`/`Auth`/`Realtime` call anywhere. Same shape for `deletePatient` (`:193-251`),
-`addVaccination` (`VaccinationRepositoryImpl.kt:258-353`) and `deleteVaccination` (`:387-504`).
+No `Postgrest`/`Auth`/`Realtime` call anywhere. Same shape for `deletePatient` (`:208-266`),
+`addVaccination` (`VaccinationRepositoryImpl.kt:260-360`) and `deleteVaccination` (`:392-511`).
 
 **Sign-out guard** — `AuthViewModel.logout` (`:296-312`) blocks sign-out while
 `syncQueueDao.getUnacknowledgedCountSync() > 0`, forcing explicit consent before erasing.
 
-## Confirmed bugs in this layer
+## Defects in this layer — history and status
 
-Ranked in [[Known Bugs]]. The three that matter most:
+These three were found by the 2026-10-16 audit and are all fixed in source now. Status,
+severity and evidence live in [[Quality/Bug Register]] (`NCC-009`, `NCC-019`, `NCC-020`);
+the findings are kept here for provenance.
 
-1. **`SingleFlight` wrapper discards the failure result.**
-   `SyncRepositoryImpl.kt:103-107` — a waiter never assigns its captured `anyFailed`, so it
-   always returns `false`, and `SyncWorker.kt:37-40` resets `failure_count` and returns
-   `Result.success()`. The "Some changes could not be synced" alert never fires for a
-   coalesced call.
-2. **Unbounded WorkManager chain growth.** `SyncManagerImpl.kt:32-36` uses
-   `ExistingWorkPolicy.APPEND_OR_REPLACE`, and `scheduleSync()` fires **per queued row**.
-   One `deletePatient` can enqueue dozens of rows (`:206-239`) inside one transaction.
-   Offline, those requests accumulate; on reconnect the whole chain runs sequentially.
-3. **The uploader's conflict branch is unreachable** (above).
+1. **`SingleFlight` wrapper discards the failure result.** `SyncRepositoryImpl.kt:103-107`
+   used to capture `anyFailed` in a local instead of using the flight's return value, so a
+   waiter always reported `false`, and `SyncWorker.kt:37-40` reset `failure_count` and
+   returned `Result.success()` — the "Some changes could not be synced" alert never fired for
+   a coalesced call. ✅ `processNextItems()` now returns the shared result
+   (`SyncRepositoryImpl.kt:103-104`) and `SingleFlight` hands waiters the owner's outcome
+   (`SingleFlight.kt:27-35`); `SyncWorker.kt:29-36` takes `Result.failure()` when it is true.
+   ⚠️ The register still records **no regression test** for the wrapper itself.
+2. **Unbounded WorkManager chain growth.** `SyncManagerImpl.kt:32-36` used
+   `ExistingWorkPolicy.APPEND_OR_REPLACE` while `scheduleSync()` fires **per queued row**.
+   One `deletePatient` can enqueue dozens of rows (`PatientRepositoryImpl.kt:213-254`) inside
+   one transaction; offline those accumulated, and on reconnect the whole chain ran
+   sequentially. ✅ Both unique-work enqueues now use `ExistingWorkPolicy.REPLACE`
+   (`SyncManagerImpl.kt:37-41`, `:59-63`), collapsing a pending chain to the newest request.
+3. **The uploader's conflict branch was unreachable** — resolved by `isUnsyncedExcluding`
+   (see Conflict resolution above).
 
 ## Related
 
 - [[Caching]] — the in-memory layers that make reads instant offline
 - [[Room Database]] — `sync_queue` and every other local table
 - [[Supabase]] — the server side that receives these writes
-- [[Known Bugs]] — full defect list
+- [[Known Bugs]] — the 2026-10-16 audit record (superseded in part)
+- [[Quality/Bug Register]] — current status of every defect
 - [[Architecture Decisions]] — why the queue is last-write-wins

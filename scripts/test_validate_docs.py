@@ -265,6 +265,76 @@ class ExistingRules(unittest.TestCase):
         self.assertIn("possible aws-access-key", out)
 
 
+class Citations(unittest.TestCase):
+    """A citation a reader cannot resolve is a claim they cannot check."""
+
+    def run_with_repo(self, note_body: str, repo_files: dict[str, str], *flags: str):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp) / "repo"
+            repo.mkdir()
+            for name, text in repo_files.items():
+                path = repo / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+            return run_vault(skeleton() | {"Tracker.md": f"# Tracker\n\n{note_body}\n"},
+                             "--repo-root", str(repo), *flags)
+
+    def test_short_form_resolves_by_basename(self):
+        code, out = self.run_with_repo("See `Foo.kt:2`.", {"app/main/Foo.kt": "a\nb\nc\n"})
+        self.assertNotIn("citation `", out)          # the summary line says "1 citations"
+        self.assertEqual(0, code)
+
+    def test_missing_file_is_an_error(self):
+        code, out = self.run_with_repo("See `Nope.kt:3`.", {"app/main/Foo.kt": "a\n"})
+        self.assertEqual(1, code)
+        self.assertIn("citation `Nope.kt:3` - no such file in the repo", out)
+
+    def test_line_beyond_end_of_file_is_an_error(self):
+        # The regression this exists for: a file shrinks and the citation silently
+        # points past the end, where nothing can corroborate the claim.
+        code, out = self.run_with_repo("See `Foo.kt:9`.", {"app/main/Foo.kt": "a\nb\n"})
+        self.assertEqual(1, code)
+        self.assertIn("Foo.kt has 2 lines", out)
+
+    def test_range_end_is_checked_not_just_the_start(self):
+        code, out = self.run_with_repo("See `Foo.kt:1-7`.", {"app/main/Foo.kt": "a\nb\n"})
+        self.assertEqual(1, code)
+        self.assertIn("Foo.kt:1-7", out)
+
+    def test_untracked_artifact_is_a_note_not_an_error(self):
+        # The vault cites audit scratch SQL that was deliberately never committed;
+        # the line has to say so for the citation to be excused.
+        code, out = self.run_with_repo(
+            "⚠️ Legacy policy from `missing_tables.sql:99` (untracked scratch file).", {})
+        self.assertEqual(0, code)
+        self.assertIn("cites an untracked artifact", out)
+
+    def test_unmarked_missing_file_is_not_excused_by_similarity(self):
+        code, out = self.run_with_repo("Legacy policy from `missing_tables.sql:99`.", {})
+        self.assertEqual(1, code)
+        self.assertIn("no such file in the repo", out)
+
+    def test_ambiguous_basename_warns(self):
+        files = {"one/Index.kt": "a\n", "two/Index.kt": "a\n"}
+        code, out = self.run_with_repo("See `Index.kt:1`.", files)
+        self.assertEqual(0, code)                      # a warning, not an error
+        self.assertIn("citation `Index.kt` is ambiguous", out)
+        strict, _ = self.run_with_repo("See `Index.kt:1`.", files, "--strict")
+        self.assertEqual(1, strict)
+
+    def test_exact_path_beats_an_ambiguous_basename(self):
+        files = {"one/Index.kt": "a\n", "two/Index.kt": "a\nb\n"}
+        code, out = self.run_with_repo("See `two/Index.kt:2`.", files)
+        self.assertNotIn("ambiguous", out)
+        self.assertEqual(0, code)
+
+    def test_citation_inside_a_code_fence_is_ignored(self):
+        body = "Quoting a diff:\n\n```sql\n-- see Nope.kt:99\n```\n"
+        code, out = self.run_with_repo(body, {})
+        self.assertNotIn("no such file", out)
+        self.assertEqual(0, code)
+
+
 class ShippedVault(unittest.TestCase):
     def test_real_vault_passes(self):
         argv = ["validate_docs.py", "--vault", str(REAL_VAULT)]

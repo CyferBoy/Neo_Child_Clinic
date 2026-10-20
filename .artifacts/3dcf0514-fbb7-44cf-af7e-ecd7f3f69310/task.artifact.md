@@ -1,0 +1,5 @@
+- [x] Update `playServicesBase` to `18.10.0` in `libs.versions.toml`
+- [x] Apply `google-services` plugin in root `build.gradle.kts`
+- [x] Apply `google-services` plugin in `app/build.gradle.kts`
+- [x] Move `google-services.json` to `app/` directory
+- [x] Gradle Sync and Verify Build

@@ -5,7 +5,7 @@
 
 ## The single most important fact
 
-⚠️ **There is no initial migration that creates the base tables.** The 21 files in
+⚠️ **There is no initial migration that creates the base tables.** The 23 files in
 `supabase/migrations/` only ever `ALTER` the ~12 legacy tables; they `CREATE TABLE` only the
 9 newer ones. Three independent confirmations:
 
@@ -27,19 +27,23 @@
 against a hand-built schema.
 
 ✅ **That gap is closed.** Commit `f8e5d8a` ("chore: track migrations and full project
-documentation") added the folder, and all **22** `.sql` migrations plus the CSV catalog are
+documentation") added the folder, and all **23** `.sql` migrations plus the CSV catalog are
 tracked today (`98f8172` added the 22nd, `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`,
-when `origin/main` was fast-forwarded into this branch):
+when `origin/main` was fast-forwarded into this branch; the 23rd is
+`20261018_ensure_stock_trigger_installed.sql`):
 
 ```
-git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 21
+git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 23
 git check-ignore supabase/migrations/*.sql             # → no output (not ignored)
 ```
+
+🔍 Unverified: the two commands above were not re-run while updating this note; `23` is the
+on-disk file count.
 
 Every `CREATE TABLE`, the RLS baseline and the accountability triggers are reviewable and
 replayable from a clean checkout. ✅ Verified 2026-10-18 against commit `e05f7c0`.
 
-⚠️ The *unreproducible base schema* above is a separate, still-open problem: these 21 files
+⚠️ The *unreproducible base schema* above is a separate, still-open problem: these 23 files
 do not create the ~12 legacy tables, so the missing baseline has not been recovered.
 
 ## Migration timeline (chronological)
@@ -67,6 +71,8 @@ do not create the ~12 legacy tables, so the missing baseline has not been recove
 | 19 | `20261013120000_role_policy_carveouts.sql` | 10-13 | narrows write policies on `expenses` and doctor slots |
 | 20 | `20261013140000_stock_trigger_negative_guard.sql` | 10-13 | negative-stock guard — **only if the function already exists** |
 | 21 | `20261016_rls_index_and_stock_trigger_hardening.sql` | 10-16 | narrows 2 `using (true)` policies; 5 indexes; **installs** the stock trigger |
+| 22 | `20261017_stock_trigger_duplicate_and_update_arithmetic.sql` | 10-17 | drops the legacy `tr_update_batch_stock` (NCC-003 ✅); rewrites `update_batch_stock()`, but its UPDATE branch still nets `new - 2*old` — **NCC-002 stays open** |
+| 23 | `20261018_ensure_stock_trigger_installed.sql` | 10-18 | installs the stock trigger if it is missing, else fails loudly (NCC-007) |
 
 ### Ordering hazard
 
@@ -78,11 +84,11 @@ order. Rename to `20261013000000_profiles_…`.
 
 ### Files with no `begin`/`commit`
 
-7 of 22 are bare DDL with no transaction wrapper. A failure mid-file leaves the database
+7 of 23 are bare DDL with no transaction wrapper. A failure mid-file leaves the database
 half-migrated with no rollback. Riskiest: `20260909_expenses.sql` and
 `20260929001000_write_rate_limit.sql`.
 
-## Table inventory (26 tables)
+## Table inventory (🔍 the live table count is not derivable from the repo)
 
 ### Business tables (base, hand-built)
 
@@ -123,8 +129,6 @@ half-migrated with no rollback. Riskiest: `20260909_expenses.sql` and
 
 | Table | Status |
 |---|---|
-| `sync_queue` | swept to RLS-ON with **zero policies**, no explanation anywhere |
-| `widget_due_cache` | swept to RLS-ON with **zero policies**, no explanation — yet it *does* have a Room counterpart |
 | `todo_notification_events` | no migration creates it; `20261016:13-14` says so explicitly |
 
 ## The catalog CSV is stale — do not trust it
@@ -141,8 +145,8 @@ Snapshot state ≈ after `20260911`.
 
 ## Client ↔ server drift
 
-Room ↔ Postgres table mapping is **1:1 for 19 tables**. The sync registry
-(`core/sync/SyncUploader.kt:60-351`) declares 23 descriptors — some are aliases, e.g.
+Room ↔ Postgres table mapping is **1:1 for 21 tables**. The sync registry
+(`core/sync/SyncUploader.kt:57-361`) declares 24 descriptors — some are aliases, e.g.
 `VISIT`/`VACCINATION` both → `patient_visits`, and `TRANSACTION`/`INVENTORY_TRANSACTION`
 both → `inventory_transactions`.
 
@@ -154,13 +158,14 @@ both → `inventory_transactions`.
 | `api_write_rate_limits` | server-only | ✅ intended |
 | `todo_notification_events` | push dedup | ✅ intended |
 | `user_devices` | PostgREST-only from `DeviceRepositoryImpl.kt:25` | ✅ intended |
-| `sync_queue`, `widget_due_cache` | no Room entity **and** not in the CSV | ⚠️ **drift — unverifiable** |
 
 ### Room tables with no Postgres table
 
 | Room table | Evidence | Consequence |
 |---|---|---|
 | `inventory_deductions` | `InventoryDeductionEntity.kt:19`; PK `Long` autoincrement; **no `SyncEntityDescriptor`** | ⚠️ **The stock deduction ledger never syncs.** Rows recorded here never reach the server. This is the audit trail for every dose that left a batch. |
+| `sync_queue` | `SyncQueueEntity.kt:12`; no `SyncEntityDescriptor`; the Postgres RLS sweep explicitly excludes it (`20260816_security_hardening.sql:38`) | ✅ local-only by design — the upload queue is per-device |
+| `widget_due_cache` | `WidgetDueEntity.kt:9`; no `SyncEntityDescriptor`; same exclusion at `20260816_security_hardening.sql:38` | ✅ local-only by design — derived cache for the home-screen widget |
 | `backup_history` | `BackupHistoryEntity.kt:21` | ✅ local-only by design (cloud path is Cloudflare + R2) |
 
 ⚠️ **Naming collision that hides the above:** `InventoryDeductionEntity` maps to Room table
@@ -181,9 +186,13 @@ both → `inventory_transactions`.
 ## The soft-delete asymmetry
 
 `20260925_business_soft_delete_columns.sql` adds `is_deleted`/`deleted_at`/`deleted_by` to
-18 tables (`:30-36`) and **never touches a single policy.** No final policy anywhere
-contains `is_deleted`. The predicate on all 16 clinic tables is `public.is_active_staff()`,
-which checks the **actor's** profile, not the **row's** soft-delete flag.
+18 tables (`:30-36`) and **never touches a policy for those tables** — no policy gating them
+mentions `is_deleted`. Policies elsewhere do (`profiles`:
+`20260816_security_hardening.sql:130`, `:138`; the `expenses` staff checks:
+`20261013120000_role_policy_carveouts.sql:43`, `:52`, `:66`), so a row soft-deleted there is
+filtered by policy, not merely by the app. The predicate on all 16 clinic tables is
+`public.is_active_staff()`, which checks the **actor's** profile, not the **row's**
+soft-delete flag.
 
 So soft delete is enforced **only in application code**. On the server, a "deleted" row is
 indistinguishable from a live one for any client with SELECT access. Locally, the opposite

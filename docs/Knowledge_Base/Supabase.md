@@ -8,15 +8,24 @@
 ```
 supabase/
 ├── config.toml                       425+ lines; JWT config per function
-├── migrations/                       22 .sql + 1 stale CSV catalog
-│                                    ✅ all 22 tracked in git (fixed in f8e5d8a)
+├── migrations/                       23 .sql + 1 stale CSV catalog
+│                                    ✅ all 23 tracked in git (fixed in f8e5d8a)
 ├── functions/
-│   ├── manage-staff/index.ts         257 lines — the only writer of `profiles`
+│   ├── manage-staff/index.ts         257 lines — privileged `profiles` writer; app self-edits via `SyncUploader.kt:572`
 │   └── notify-update/index.ts        166 lines — FCM fan-out
 ├── tests/rls_role_test.sql
 ├── verify_security.sql
 └── .gitignore
 ```
+
+⚠️ **Tracked, but not replayable from a clean clone.** The 23 migrations contain only 9
+`create table` statements; 18 tables are referenced and altered but never created — the 15
+legacy base tables (`patients`, `patient_visits`, `patient_notes`, `vaccination_items`,
+`vaccines`, `vaccine_batches`, `inventory_transactions`, `waste_records`, `borrow_records`,
+`reminders`, `consultations`, `finance_transactions`, `audit_logs`, `profiles`,
+`user_devices`) plus `sync_queue`, `widget_due_cache` and `todo_notification_events`. A clean
+clone cannot rebuild this schema; the full DDL exists only outside the repository, in an
+untracked local artifact (`.artifacts/f21d0dfd-…/full_project_schema.sql.artifact.md`).
 
 Client wiring: `core/di/SupabaseModule.kt` provides 7 singletons — client, `Auth`,
 `CurrentUserProvider`, `Functions`, `Postgrest`, `Realtime`, `Storage`.
@@ -24,7 +33,8 @@ Client wiring: `core/di/SupabaseModule.kt` provides 7 singletons — client, `Au
 Credentials come from `.env.local` → `BuildConfig` (`app/build.gradle.kts:13-22`).
 ✅ `.env.local` is gitignored, untracked, and has **never** been committed in any branch —
 verified with `git log --all -- .env.local` (empty) and `git ls-files | grep -iE "env|key|secret"`
-(empty). No `eyJ…` JWT or `supabase.co` literal appears anywhere in `app/src/main`.
+(3 benign matches — no secrets). No `eyJ…` JWT or `supabase.co` literal appears anywhere in
+`app/src/main`.
 The anon key shipping in the APK is by design; RLS is the control.
 
 ## Security posture — read this first
@@ -50,25 +60,33 @@ no unqualified-name shadowing surface even if a schema were writable.
 
 ⚠️ **The one unpinned `SECURITY DEFINER` is not in this repository.**
 `.artifacts/f21d0dfd-…/full_project_schema.sql.artifact.md:13-21` defines
-`public.get_my_role()` with **no `set search_path`**, and 10 legacy policies reference it.
+`public.get_my_role()` with **no `set search_path`**, and **14** legacy policies reference it
+(`.artifacts/f21d0dfd-…/full_project_schema.sql.artifact.md:303-345`).
 It is gitignored, so its live status is unverifiable from this repo. See [[Known Bugs]].
 
 ## Triggers
 
 | Trigger | Table | Timing | Effect |
 |---|---|---|---|
-| `set_updated_at()` | **every** table in `public` | BEFORE UPDATE | sets `NEW.updated_at = now()` — `security invoker`, unpinned, but body uses only `pg_catalog.now()` |
+| `set_updated_at()` | every table that existed at 08-16 | BEFORE UPDATE | sets `NEW.updated_at = now()` — `security invoker`, unpinned, but body uses only `pg_catalog.now()` |
 | `protect_profile_privileged_fields()` | `profiles` | BEFORE UPDATE | **raises** if a non-admin self-update changes `id`, `role`, `is_active`, `is_deleted`, `deleted_by`, `deleted_at`, or `email` |
 | `neo_assign_receipt_number()` | `patient_visits` | BEFORE INSERT/UPDATE | assigns when blank; **pins the old value on UPDATE**. Race-free via `ON CONFLICT … RETURNING` |
-| `neo_stamp_accountability()` | 17 tables + `audit_logs` (INSERT only) | BEFORE INSERT/UPDATE | overwrites client-supplied `created_by`/`updated_by`; `created_by` immutable once set |
+| `neo_stamp_accountability()` | 16 business tables + `audit_logs` (INSERT only) — 17 triggers | BEFORE INSERT/UPDATE | overwrites client-supplied `created_by`/`updated_by`; `created_by` immutable once set |
 | `trg_%_write_rate_limit` | 20 tables | BEFORE INSERT/UPDATE/DELETE | see rate limiting below |
 | `update_batch_stock()` | `inventory_transactions` | **AFTER** INSERT/UPDATE/DELETE | maintains `vaccine_batches.remaining_quantity`; raises on negative |
 
-⚠️ **`expenses` has no accountability trigger.** It is the only business table created by a
-migration and never added to the `neo_stamp_accountability` loop. Its `created_by` /
-`updated_by` are client-supplied and unverified — contradicting `20260825:14-20`, which
-exists precisely to stop that. Every other financial table (`finance_transactions`) *is*
-stamped.
+⚠️ **`set_updated_at()` is not on every table.** It is defined at
+`20260816_security_hardening.sql:46-55` and attached only to the tables that existed at the
+time (`:57-72`); no later migration attaches it — `consultation_todos`, `vaccination_todos`,
+`personal_vaccine_reminders`, `borrow_returns`, `doctor_weekly_slots` and
+`doctor_slot_exceptions` all go without. `expenses` has its own trigger instead
+(`20260909_expenses.sql:59-63`).
+
+⚠️ **Three migration-created business tables have no accountability trigger:** `expenses`,
+`doctor_weekly_slots` and `doctor_slot_exceptions` are never added to the
+`neo_stamp_accountability` loop. Their `created_by` / `updated_by` are client-supplied and
+unverified — contradicting `20260825:14-20`, which exists precisely to stop that. Every
+other financial table (`finance_transactions`) *is* stamped.
 
 ### The stock trigger
 
@@ -93,19 +111,35 @@ END IF;
 
 ✅ AFTER, and raises — the comment at `:41-43` is correct that raising rolls back the
 transaction that inserted the movement. 🔍 Note this contradicts the comment at `:9-10`,
-which claims the client sync "clamps at 0" — it does not; `SyncUploader.kt:608-619`
+which claims the client sync "clamps at 0" — it does not; `SyncUploader.kt:620`
 *omits* the column on update instead.
 
 ⚠️ **The `UPDATE` branch is wrong** (`:56-61`): it applies `- OLD.quantity` with no
 `+ NEW.quantity`, and only ever debits `OLD.batch_id`. Since `20261016:140` widened the
 trigger to `after insert or update or delete`, and the client uploads transaction rows with
-`upsert` (`SyncUploader.kt:532`), **any retried upsert of an existing ledger row corrupts
-stock.** See [[Known Bugs]] and [[Inventory Management]].
+a PostgREST `upsert` (`SyncUploader.kt:551`, `:646`), **any retried upsert of an existing
+ledger row corrupts stock.** See [[Known Bugs]] and [[Inventory Management]].
 
 ⚠️ **Both triggers may now be installed.** `20261016:134-138` gates on the absence of
 `inventory_transactions_update_batch_stock` — but the legacy trigger is named
 `tr_update_batch_stock` and is **never dropped by any migration**. If the legacy trigger is
 live, every stock movement is applied **twice**. See [[Known Bugs]].
+
+✅ **The duplicate-trigger half is history.**
+`20261017_stock_trigger_duplicate_and_update_arithmetic.sql` drops `tr_update_batch_stock`
+unconditionally (`:26`) and raises at migration time if any other trigger remains on the
+table (`:31-46`).
+
+⚠️ **The arithmetic half is not.** The rewritten `update_batch_stock()` still corrupts stock
+on any UPDATE: the undo guard `v_delta <> old.quantity` (`:80`) is true for an idempotent
+retry (delta 0 against a non-zero quantity), so it subtracts `OLD.quantity` from the batch
+and *then* applies `v_delta := new.quantity - old.quantity` (`:71`, `:101`) — a net
+`new - 2 * old`, i.e. `-Q` for a retry of a row with quantity `Q`. A retried `VACCINATION`
+upsert (−2) still invents 2 doses, the exact symptom the paragraph above records. The client
+retries with the same `id` (`InventoryTransactionEntity.transactionId`,
+`data/local/entity/VaccineEntity.kt:80`), so a retry *is* an UPDATE. Tracked as **NCC-002**
+in [[Quality/Bug Register]]. 🔍 The live effect needs the pgTAP/psql delta assertion; the
+defect itself is readable in the migration.
 
 ## Write rate limiting
 
@@ -154,7 +188,7 @@ Three problems:
 
 ### `manage-staff` — 257 lines
 
-`verify_jwt = true` (`config.toml:425`), and it **re-verifies itself** server-side:
+`verify_jwt = true` (`config.toml:428`), and it **re-verifies itself** server-side:
 
 ```ts
 // index.ts:24-29
@@ -186,7 +220,7 @@ Two findings:
 
 ### `notify-update` — 166 lines
 
-`verify_jwt = false` (`config.toml:420`) — the caller is a GitHub Actions workflow with a
+`verify_jwt = false` (`config.toml:423`) — the caller is a GitHub Actions workflow with a
 shared secret, not a user. It authenticates itself, and ✅ **fails closed**:
 
 ```ts

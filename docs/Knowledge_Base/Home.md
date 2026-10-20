@@ -1,6 +1,6 @@
 # Neo Child Clinic — Knowledge Base
 
-> **Project dashboard.** Generated from source at **2026-10-16**, commit `f8e5d8a`.
+> **Project dashboard.** Generated from source at **2026-10-19**, commit `0972ed9`.
 > Every claim carries a `path:line` citation. Start at [[Architecture Map]] or
 > [[Quality/Bug Register]].
 > Conventions and evidence rules: [[Documentation Maintenance]].
@@ -11,10 +11,10 @@
 |---|---|
 | Version | **0.5.1** (`versionCode 3`) |
 | Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
-| Supabase | 26 tables, 22 migrations, 2 edge functions |
-| Kotlin | 351 main files · 43 test files |
-| Tests | **270 unit passing**, 0 failures (2026-10-17 07:48) · 48 instrumented in 6 files, **no recorded result** |
-| Open bugs | **22 confirmed open** · 18 fixed · 13 security · 7 hypotheses (2 refuted 2026-10-18) |
+| Supabase | 26 tables, 23 migrations, 2 edge functions |
+| Kotlin | 352 main files · 49 test files |
+| Tests | **277 unit passing**, 0 failures (2026-10-18) · 56 instrumented in 8 files, 🔍 **green in CI 2026-10-18** |
+| Open bugs | **9 confirmed open** · 29 fixed · 2 needs decision · 2 not a bug · 13 security · 7 hypotheses (2 refuted 2026-10-18) |
 | 🚨 Deadline | **`auto_expose_new_tables` removed 2026-10-30** — see NSC-005 |
 
 ## Start here
@@ -61,12 +61,12 @@
 
 ## Quality
 
-- [[Quality/Bug Register]] — 40 tracked defects (18 fixed, 22 open), canonical status
+- [[Quality/Bug Register]] — 42 tracked defects (29 fixed, 9 open, 2 needs decision, 2 not a bug), canonical status
 - [[Quality/Security Concerns]] — 13 items, 5 need a live database
 - [[Quality/Hypotheses]] — 7 unproven claims kept separate; 2 refuted on 2026-10-18
 - [[Quality/Audit Reconciliation]] — ⚠️ **read before fixing anything**
 - [[Technical Debt]] — dead code, duplication, complexity
-- [[Testing]] — 270 tests and the 12 untested critical paths
+- [[Testing]] — 277 tests and the 12 untested critical paths
 
 ## Delivery
 
@@ -107,17 +107,17 @@ graph TB
 | Fact | Value | Source |
 |---|---|---|
 | Kotlin files (main) | 352 | `app/src/main/**/*.kt` |
-| Kotlin files (test) | 47 | 41 unit + 6 instrumented |
-| Lines of Kotlin | ~47,680 main · ~5,320 test | `wc -l` |
+| Kotlin files (test) | 49 | 41 unit + 8 instrumented |
+| Lines of Kotlin | ~47,749 main · ~5,642 test | `wc -l` |
 | ViewModels | 34, **all** `@HiltViewModel` | `grep -rl @HiltViewModel` |
 | `@Singleton` bindings | 46 | `grep -rl @Singleton` |
-| Navigation destinations | 51, flat, **no nested graphs** | `app/Navigation.kt:83-92` |
+| Navigation entries | 51, in 5 `NavGraphBuilder` groups | `app/Navigation.kt:83-91` |
 | Room entities / DAOs / migrations | 25 / 21 / 16 | `AppDatabase.kt:16-40` |
 | Room version | 33 | `AppDatabase.kt:42` |
 | SQL migrations | 23, all git-tracked | `git ls-files supabase/migrations/` |
-| Supabase tables / edge functions | 26 / 2 | — |
+| Supabase tables / edge functions | 🔍 26 / 2 | — |
 | Unit tests passing | 277, 0 failures (2026-10-18) | `app/build/test-results/` |
-| Instrumented tests | 6 files, 48 `@Test` (1 `@Ignore`d), **green in CI 2026-10-18** | `app/src/androidTest/` |
+| Instrumented tests | 8 files, 56 `@Test`, 🔍 green in CI 2026-10-18 | `app/src/androidTest/` |
 
 ## Validate this vault
 

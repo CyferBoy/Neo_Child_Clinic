@@ -29,9 +29,9 @@ difference matters when deciding what is safe to regress:
 
 | Evidence class | Meaning | Items |
 |---|---|---|
-| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-009 ⚠️ test still missing, NCC-017, NCC-019 |
-| **Source-verified** | re-read at `e05f7c0` and confirmed fixed, **no regression test** | NCC-002, NCC-003, NCC-005, NCC-008, NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-035, NCC-040 |
-| **Needs a live DB** | cannot be settled by reading source | NCC-002, NCC-003 |
+| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-017 |
+| **Source-verified** | re-read at `e05f7c0` or re-verified 2026-10-19, and confirmed fixed; **no regression test** | NCC-003, NCC-005, NCC-008, NCC-009 (🔍 test pins `run()` only), NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-019 (⚠️ no test), NCC-035, NCC-040 |
+| **Needs a live DB** | cannot be settled by reading source | NCC-002, NCC-003, NCC-007 |
 
 ⚠️ The repository contains **zero** `*ViewModelTest.kt` files, which is why everything in the
 UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
@@ -53,7 +53,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
 | NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
-| NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
+| NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ⚠️ **Open** | Supabase |
 | NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
 | NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
 | NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
@@ -109,8 +109,9 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | **Impact** | A dose leaves the shelf, the ledger says it did not, and deleting the visit never restores it. |
 
 **Evidence.** `applyInventoryDiff` deducts on `delta > 0` without consulting the ledger;
-the ledger is only read for the reversal cap (`:157`). `reconcileInventoryDeductions`
-infers status at `:192-199`, whose 4th branch is `forVaccine.none { it.status == "COMPLETED" } -> "FAILED"`.
+the ledger is only read for the reversal cap (`:158-161`). `reconcileInventoryDeductions`
+infers status through `deductionStatus` (`:47-64`), whose carry-forward branch is
+`forVaccine.none { it.status == "COMPLETED" } -> "FAILED"` (`:62`).
 
 **Reproduction.**
 
@@ -126,23 +127,36 @@ infers status at `:192-199`, whose 4th branch is `forVaccine.none { it.status ==
 consulted whether stock had actually moved on this edit.
 
 **Fix applied.** Extracted the rule into a pure top-level `deductionStatus(shortfall,
-stockMoved, exactStatus, priorStatuses)` — the same pattern `inventoryDiff` already uses in
-this file. `applyInventoryDiff` now returns a `StockDiffResult(shortfalls, deducted)`
-recording which batches actually moved, and `stockMoved -> "COMPLETED"` is evaluated
-directly after the shortfall branch. A prior `FAILED` row can no longer mask a deduction
-that succeeded.
+deductedThisEdit, exact, previousForVaccine)` (`:47-64`) — the same pattern `inventoryDiff`
+already uses in this file. `reconcileInventoryDeductions` derives
+`deductedThisEdit = (delta[item.batchId] ?: 0) > 0` from the edit's own delta (`:225`), and
+`deductedThisEdit -> "COMPLETED"` (`:59`) is evaluated directly after the shortfall branch.
+A prior `FAILED` row can no longer mask a deduction that succeeded. `applyInventoryDiff`
+returns the shortfall map (`:149`, `:204`).
+
+⚠️ **Corrected 2026-10-19.** This paragraph previously named a `stockMoved` parameter, a
+`StockDiffResult(shortfalls, deducted)` return type and a `stockMoved -> "COMPLETED"` branch.
+No `StockDiffResult` type exists anywhere in the repository: the delta drives the decision,
+and `applyInventoryDiff` returns `Map<String, String>` shortfalls.
 
 Also bundled (same code path, S3): `reverseDeduction` now receives the `transactionGroupId`
 the engine already computed, so the stock reversal uploads in the same sync group as the
 visit edit rather than as a singleton group.
 
-**Regression test.** `VaccinationEditEngineLedgerTest` — 8 tests covering both NCC-001
-reproductions, the shortfall path, and every carry-forward branch.
+**Regression test.** `VaccinationEditEngineTest`
+(`app/src/test/java/com/neochildclinic/feature/vaccination/domain/VaccinationEditEngineTest.kt`,
+8 tests): the restock reproduction (`:74-87`), the shortfall branch (`:90`), and the three
+carry-forward outcomes (`:103`, `:118`, `:133`); the other three pin `inventoryDiff`.
+⚠️ **Corrected 2026-10-19:** the card named `VaccinationEditEngineLedgerTest`; no such class
+exists anywhere in the repository.
 
-**Verification evidence.** Reverting only the `stockMoved -> "COMPLETED"` branch makes
-`stock moved on this edit outranks a prior FAILED row` and `stock moved wins over multiple
-prior FAILED rows` fail; restoring it makes all 8 pass. Suite was
-**260 tests, 0 failures, 0 errors, 0 skipped** (was 252).
+**Verification evidence.** Reverting only the `deductedThisEdit -> "COMPLETED"` branch makes
+`deduction that succeeds after a restock is COMPLETED not the inherited FAILED`
+(`VaccinationEditEngineTest.kt:75`) fail; restoring it makes all 8 pass. Suite was
+**260 tests, 0 failures, 0 errors, 0 skipped** (was 252). ⚠️ **Corrected 2026-10-19:** the
+two test names previously quoted here do not exist in the suite, the restock test above is
+the one that pins the branch, and there is no multiple-`FAILED`-rows test. 🔍 This pass did
+not re-run the suite.
 
 ⚠️ **Dated figure.** That was the suite size when the fix was verified. The suite has since
 grown — the last recorded run is **270 tests, 0 failures (2026-10-17 07:48)**, see
@@ -160,13 +174,14 @@ caught by these tests. The end-to-end path still needs an instrumented test.
 
 | | |
 |---|---|
-| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
-| **Files** | `supabase/migrations/20261013140000_stock_trigger_negative_guard.sql:56-61`, installed at `20261016_rls_index_and_stock_trigger_hardening.sql:140`, corrected by `20261017_stock_trigger_duplicate_and_update_arithmetic.sql` |
+| **Status** | ⚠️ **Open** · **Severity** S1 Critical |
+| **Files** | live definition `supabase/migrations/20261017_stock_trigger_duplicate_and_update_arithmetic.sql:54-108` (rewrite of the old body at `20261013140000_stock_trigger_negative_guard.sql:56-61`); client upsert `core/sync/SyncUploader.kt:551` |
 | **Impact** | A retried ledger upload invents or destroys doses server-side. |
 
 **Evidence.** The `ELSE` branch applies `- OLD.quantity` with no `+ NEW.quantity`, and only
 ever debits `OLD.batch_id`. The trigger now fires `after insert or **update** or delete`, and
-the client uploads transaction rows with `upsert` (`core/sync/SyncUploader.kt:532`).
+the client uploads transaction rows with `upsert` (`core/sync/SyncUploader.kt:646`, dispatched
+at `:551`; the row's Postgres id is its UUID, `data/local/entity/VaccineEntity.kt:80`).
 `SyncUploader.kt:477` explicitly acknowledges that retries after a lost response happen.
 
 - `VACCINATION` row `quantity = -2` → `-(-2)` = **+2 doses invented**
@@ -176,15 +191,31 @@ the client uploads transaction rows with `upsert` (`core/sync/SyncUploader.kt:53
 **Regression test.** `pgTAP` or a psql script: insert a `PURCHASE` row, re-upsert the same
 id with a changed quantity, assert `remaining_quantity` reflects only the delta.
 
-**Verification.** ✅ Migration `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`
-lands on this branch: it `create or replace`s `public.update_batch_stock()` with the UPDATE
-branch computing `v_delta := new.quantity - old.quantity` (`:67`) and undoing `OLD.batch_id`
-when a row moves batch, instead of the old `- OLD.quantity`. 🔍 **Not verified against a
-live database** — confirm with the pgTAP/psql script in *Fix* above before shipping.
+**Verification.** ❌ **Re-verified 2026-10-19: the retry path still reproduces.** `20261017` is
+the only `create or replace function public.update_batch_stock()` in the repository, and
+`20261018_ensure_stock_trigger_installed.sql` installs the trigger without redefining the body.
+The rewrite corrected the apply step but added an **undo** whose guard fires on the wrong
+condition:
 
-⚠️ **Status history.** This card read **In review** from 2026-10-18 until `origin/main`
-fast-forwarded into this branch and brought the migration with it. Before that merge the fix
-existed only as commit `98f8172` on the now-deleted `fix/stock-trigger-double-apply`.
+- `v_delta := new.quantity - old.quantity` (`:71`)
+- undo when `v_delta <> old.quantity` (`:80`) — true for an idempotent retry
+  (`0 <> old.quantity`, and a ledger quantity is never 0), so it subtracts `OLD.quantity`
+- apply `remaining_quantity + v_delta` (`:101`)
+
+Net effect of any UPDATE is `new - 2 * old`, i.e. `-Q` for a retry of a row of quantity `Q`:
+a retried `VACCINATION` upsert (−2) still invents +2 doses and a retried `PURCHASE` (+10)
+still destroys 10 — the two examples in the migration's own comment (`:52-53`). The `INSERT`
+and `DELETE` branches are correct; only `UPDATE` is wrong. The correct implementation is the
+one in *Fix* above — undo `OLD.quantity` whenever the row is updated, then apply
+`NEW.quantity` to `NEW.batch_id` — not `v_delta` on top of the undo.
+
+🔍 **Live-DB confirmation still required** — the pgTAP/psql delta assertion is now the
+acceptance test for the re-fix ([[Release Checklist]] § 5). [[Hypotheses]] HYP-005 covers the
+unrelated client-side question the same migration left behind.
+
+⚠️ **Status history.** This card read **In review** from 2026-10-18, then ✅ Fixed when
+`origin/main` fast-forwarded in the migration. The 2026-10-19 pass re-read the SQL and found
+the guard wrong, so it is open again with the arithmetic above as evidence.
 
 **Links.** [[Supabase]] · [[Inventory Management]] · [[Database Schema]]
 
@@ -274,10 +305,10 @@ user-facing remedy as a shortfall.
 **Preconditions.** A batch deleted after the screen loaded, or a record restored from a
 backup whose batch row is missing.
 
-**Fix.** Throw `InsufficientStockException` from both sites, or catch `IllegalStateException`
-in the same branch.
-**Regression test.** `ClinicalVaccinationService` with a `deductStockFromBatch` stub that
-throws `IllegalStateException`; assert the visit is **not** saved.
+**Fix.** `StockDeductionBlockedException` (new type, `feature/inventory/domain/StockDeductionBlockedException.kt:30`) is thrown from both sites — `InventoryRepositoryImpl.kt:462` ("Batch not found") and `:472` (expired) — and caught in the same branch (`ClinicalVaccinationService.kt:152`, also `VaccinationEditEngine.kt:183`). The visit and its items save; the ledger row is recorded `FAILED` for staff to reconcile.
+**Regression test.** `ClinicalVaccinationService` with a `deductStockFromBatch` stub that throws `StockDeductionBlockedException`; assert the visit **is** saved and the ledger row is `FAILED` — the original defect was that one bad batch line rolled the whole visit back, so "visit not saved" was the bug, not the contract.
+
+**Verification.** ✅ Source-verified 2026-10-19: the throws (`InventoryRepositoryImpl.kt:462`, `:472`), the catch (`ClinicalVaccinationService.kt:152`) and the FAILED-ledger path are present; **no regression test** (`🔍`).
 
 **Links.** [[Vaccination Management]] · [[Inventory Management]]
 
@@ -296,12 +327,15 @@ throws `IllegalStateException`; assert the visit is **not** saved.
 soft-deleted rows on 18 tables but **deliberately excludes `reminders`**, so an upgraded
 device carries live `is_deleted = 1` rows.
 
-⚠️ **Correction (2026-10-18).** This card previously gave three mutually inconsistent
-figures — index "9 queries", heading "5 live reminder queries", evidence "7 of 19", and fix
-"18 predicates in total". Measured against `DueReminderDao.kt` at `e05f7c0`: **21 `@Query`,
-16 `SELECT`, all 16 now filtered, 18 `is_deleted = 0` predicates in the file** (two queries
-filter in both a subquery and the outer `WHERE`). Repo-wide the DAO layer holds **19**
-(18 here + `BackupDao.kt:124`); `VaccineDetailViewModel.kt` adds a 20th outside the DAOs.
+⚠️ **Correction (2026-10-18; re-counted 2026-10-19).** This card previously gave three
+mutually inconsistent figures — index "9 queries", heading "5 live reminder queries",
+evidence "7 of 19", and fix "18 predicates in total". Measured against `DueReminderDao.kt`:
+**21 `@Query`, 16 `SELECT`, all 16 now filtered.** The file contains **16** `is_deleted = 0`
+predicates; the text appears 18 times, but two are comments (`:11`, `:89`). Repo-wide the
+DAO layer holds **17** (16 here + `BackupDao.kt:124`). ⚠️ **2026-10-19:** the earlier
+figure of 18 predicates in the file counted those two comments, and the claim that
+`VaccineDetailViewModel.kt` added a 20th predicate outside the DAOs was false — `:59` there
+is a comment.
 
 **Live reachability:** `getRemindersByVisitId` feeds `@Relation`, and **`@Relation` cannot
 filter**. `getReminderById` has 13 call sites. `BackupDao.getAllRemindersForBackup` exports
@@ -312,7 +346,7 @@ could create the rows. The inconsistency is latent, not active.
 
 **Fix applied.** Every lookup now filters, plus the paginated variants (dead code, but
 wiring them later unfiltered is the same trap) and `BackupDao.getAllRemindersForBackup` —
-19 `is_deleted = 0` predicates across the DAO layer. The file's header comment asserted the
+17 `is_deleted = 0` predicates across the DAO layer. The file's header comment asserted the
 rule while breaking it; it now states what the file does and why (migration 31→32 leaves
 `reminders` out of its hard delete).
 
@@ -329,7 +363,7 @@ run, so this is compile-verified only. ⚠️ **Not executed in this pass.** Run
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 High |
+| **Status** | ✅ **Fixed** · **Severity** S2 High |
 | **Files** | `core/sync/SyncUploader.kt:608-619`; `20261013140000:13-21`; `20261016:127-144` |
 | **Impact** | Stock is permanently zero for every batch. |
 
@@ -530,6 +564,15 @@ balance, structure). Applying it to a live database is still required.
 🔍 independent check still pending:
 `select proname, prosecdef from pg_proc where pronamespace='public'::regnamespace and proname='update_batch_stock';`
 
+**Verification evidence (2026-10-19).** `20261018_ensure_stock_trigger_installed.sql` is on
+this branch: it installs `inventory_transactions_update_batch_stock` when the function and
+table exist but the trigger does not (`:20-39`), and `raise exception`s if it still cannot
+(`:43-68`). The migration was statically checked only (delimiter balance, structure).
+🔍 **Not verified against a live database** — the original reproduction (a batch created at
+zero stock) cannot be re-run from the repository, so this closure rests on the migration's
+install-and-raise structure and is listed under "Needs a live DB" in the evidence table
+above. Run the query before shipping.
+
 **Links.** [[Supabase]] · [[Inventory Management]]
 
 ---
@@ -612,8 +655,8 @@ provenance. Re-verified:
 
 | | |
 |---|---|
-| **Status** | Open · **Severity** S2 High |
-| **Files** | `app/MainActivity.kt:106-114`; `core/ui/LockScreen.kt`; `core/security/BiometricLockManager.kt:8`; `app/NeoChildApp.kt:93-98` |
+| **Status** | ✅ **Fixed** · **Severity** S2 High |
+| **Files** | `app/MainActivity.kt:114-128`; `core/ui/LockScreen.kt`; `core/security/BiometricLockManager.kt:8`; `app/NeoChildApp.kt:93-98` |
 | **Impact** | With biometric lock armed, every screen ViewModel is constructed and patient data is in memory while the lock shows. |
 
 **Evidence.** `AppNavigation` is always composed; `LockScreen` is drawn **over** it. The
@@ -645,6 +688,13 @@ environment lacks. The gate is verified by compilation and inspection only.
 
 **Verification.** 🔍 On-device still pending: confirm the opaque `Surface` fully occludes dialogs,
 and that unlocking restores the previous screen.
+
+**Verification evidence (2026-10-19).** Re-read at HEAD: `AppNavigation` is composed only
+inside `if (lockStateResolved && !isLocked)` (`app/MainActivity.kt:114-116`), the unresolved
+state renders a progress indicator instead of patient data (`:121-128`), and
+`checkAppLock()` marks the state resolved in a `finally` on every path (`:246-251`).
+`BiometricLockManagerTest` pins the four resolved-state rules (`:74`, `:83`, `:96`, `:103`);
+🔍 not executed in this pass.
 
 **Links.** [[Architecture Map]] · [[Error Handling]]
 
@@ -852,7 +902,7 @@ checks in [[Release Checklist]].
 | NCC-033 | S3 | ✅ **Fixed** | `notificationsSentToday` read two `@Transient` fields with no writer ⇒ always 0 — deleted the dead chain | `ReminderDueListProcessor.kt`, `ReminderStats.kt`, `ReminderEntity.kt`, `Reminder.kt` |
 | NCC-034 | S3 | ⚠️ **Not a bug** | Blank `reminderDate` notifies on every run — this is the stated design | `PersonalReminderNotificationWorker.kt:27-31`; intent quoted from `NotificationHelper.kt:171` |
 | NCC-035 | S4 | ✅ **Fixed** | `2000 + (hash and 0x7fffffff) % 100000` parses as `2000 + (hash and 83647)` | `NotificationHelper.kt:187` — now `PERSONAL_REMINDER_BASE_ID + ((id.hashCode() and 0x7fffffff) % 100000)`; comment at `:185` records the old precedence bug |
-| NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **34** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
+| NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **33** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18, file count corrected 2026-10-19. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
 | NCC-037 | S3 | ✅ **Fixed** | `readBytesFromUri` checked `OpenableColumns.SIZE` then read unbounded | `BackupRepositoryImpl.kt` — read is now bounded at `MAX_BACKUP_BYTES` |
 | NCC-038 | S3 | ⚠️ **Needs decision** | `inventory_deductions` is local-only — but this is a missing feature, not a defect, and the impact is narrower than stated | no server table exists in any migration, nothing enqueues `INVENTORY_DEDUCTION`, no descriptor |
 | NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
@@ -939,8 +989,8 @@ too strict — not data loss. Left alone deliberately.
 The `vac_ax` probe is the case that rules out `LIKE`: with a pattern it would have matched as a
 wildcard.
 
-**Regression test.** `UpcomingVaccinationDaoTest` and `ReminderSoftDeleteFilterTest` — 12 cases in
-total, already written, red until this fix. They had never executed before PR #17; they are the
+**Regression test.** `UpcomingVaccinationDaoTest` and `ReminderSoftDeleteFilterTest` — 28 cases in
+total (16 + 12), already written, red until this fix. They had never executed before PR #17; they are the
 check. Local confirmation is limited to the compile plus the observed-table array in the generated
 `DueReminderDao_Impl`, because the failure mode above only appears on a real device.
 
@@ -950,7 +1000,7 @@ check. Local confirmation is limited to the compile plus the observed-table arra
 
 | | |
 |---|---|
-| **Status** | ✅ Fixed 2026-10-18 · **Severity** S3 High |
+| **Status** | ✅ Fixed 2026-10-18 · **Severity** S3 Medium |
 | **Files** | `androidTest/.../DateGivenIndexMigrationTest.kt`; `androidTest/.../ExpenseMigrationTest.kt`; `.github/workflows/android-instrumented.yml` |
 | **Found by** | reading the `androidTest` log of a *green* build |
 

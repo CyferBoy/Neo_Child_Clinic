@@ -72,7 +72,7 @@ select count(*) from public.profiles;          -- expect 1 row, not all
 
 **Needs live DB · Critical.** Two problems compound:
 
-1. `.artifacts/…/scratch/missing_tables.sql:95-100` creates
+1. `.artifacts/…/scratch/missing_tables.sql:95-99` creates
    `CREATE POLICY "Staff can record audit logs" ON public.audit_logs FOR INSERT WITH CHECK (true);`
    — permissive policies OR, so **any authenticated user, including a deactivated one, can
    forge audit entries**.
@@ -191,7 +191,8 @@ RETURNS text AS $$ ... $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 No `set search_path`. ✅ Its body is fully qualified so it is not directly exploitable today,
-but it is the canonical anti-pattern and 10 legacy policies reference it.
+but it is the canonical anti-pattern and **14** legacy policies reference it
+(`.artifacts/f21d0dfd-…/full_project_schema.sql.artifact.md:303-345`).
 
 ✅ **Every `SECURITY DEFINER` authored inside `supabase/migrations/` pins its
 `search_path`** — all ten verified. See [[Supabase]].
@@ -200,10 +201,10 @@ but it is the canonical anti-pattern and 10 legacy policies reference it.
 
 ## NSC-007 — `expenses` has no accountability trigger
 
-**Confirmed · Medium.** `expenses` is the only business table created by a migration and never
-added to the `neo_stamp_accountability` loop. Its `created_by` / `updated_by` are
-client-supplied and unverified — contradicting `20260825:14-20`, which exists precisely to
-stop that:
+**Confirmed · Medium.** `expenses`, `doctor_weekly_slots` and `doctor_slot_exceptions` are the
+three business tables created by a migration and never added to the
+`neo_stamp_accountability` loop. Their `created_by` / `updated_by` are client-supplied and
+unverified — contradicting `20260825:14-20`, which exists precisely to stop that:
 
 > *created_by/updated_by … were being set by the Android app itself and sent as plain strings,
 > so any client — or anyone with the anon key — could put any name they liked into who's
@@ -274,7 +275,7 @@ devices un-notified with no record of which.
 
 ## NSC-011 — `notify-update` does not join `profiles.is_active`
 
-**Needs live DB · Low.** `index.ts:45` selects `.eq('is_active', true)` on `user_devices`
+**Needs live DB · Low.** `notify-update/index.ts:45` selects `.eq('is_active', true)` on `user_devices`
 only. It never joins `profiles.is_active` / `is_deleted`. Correct **only** because
 `manage-staff:194-196` sets `user_devices.is_active = false` on `SOFT_DELETE`.
 
@@ -291,7 +292,7 @@ where d.is_active and (p.is_active is not true or p.is_deleted);
 
 | Item | Why accepted |
 |---|---|
-| **Single-clinic access model** — 16 of 26 tables grant full CRUD to any active staff member | Documented at `20260825:22-26`. A receptionist **can** hard-delete `patient_visits`. Intentional. |
+| **Single-clinic access model** — 16 of the 27 tables in the policy matrix grant full CRUD to any authenticated, active, non-deleted staff member regardless of role; the live table total is not derivable from the repo (🔍) | Documented at `20260825:22-26`. A receptionist **can** hard-delete `patient_visits`. Intentional. |
 | No policy granted to `anon` | ✅ Good — the anon key in the APK reads nothing |
 | `receipt_sequences`, `api_write_rate_limits` with zero policies + `revoke all` | ✅ Server-only by design |
 | `audit_logs` select+insert only | ✅ Correctly append-only |

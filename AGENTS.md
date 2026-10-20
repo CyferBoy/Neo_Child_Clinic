@@ -60,3 +60,20 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Knowledge Base (docs/Knowledge_Base)
+
+The Obsidian vault holds the documentation; every rule above applies to it as well.
+
+- Before committing a note change, run `python3 scripts/validate_docs.py --strict` from the
+  repository root. It checks wikilinks and anchors, Mermaid and Dataview fences, required
+  sections, the Bug Register (status vocabulary and card fields), secret patterns, stubs,
+  and that every `path:line` citation resolves to a file and to lines that exist.
+  `python3 scripts/test_validate_docs.py` runs its regression tests.
+- Every claim carries a `path:line` citation; a claim you cannot cite is a hypothesis. Line
+  numbers shift when code moves, so a citation that still resolves can still be wrong.
+- Confirmed defects live in `Quality/Bug Register.md`, unproven risks in
+  `Quality/Hypotheses.md`; the registers stay separate, and a `Fixed` status needs evidence
+  against the original reproduction, not just a changed code path.
+- The `docs-maintainer` agent may edit `docs/Knowledge_Base/**` and nothing else — its
+  permissions are in `.opencode/agents/docs-maintainer.md` (that file is not tracked by git).

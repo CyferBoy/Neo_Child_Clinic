@@ -152,33 +152,33 @@ filtering inconsistency that survives.
 ```mermaid
 graph LR
     subgraph room["Room (25 entities)"]
-        R1["19 tables"]
-        R2["inventory_deductions<br/>LOCAL ONLY"]
-        R3["backup_history<br/>LOCAL ONLY"]
+        R1["21 tables"]
+        R2["inventory_deductions · sync_queue<br/>widget_due_cache · backup_history<br/>LOCAL ONLY"]
     end
-    subgraph pg["Postgres (26 tables)"]
-        P1["19 tables"]
-        P2["receipt_sequences<br/>SERVER ONLY"]
-        P3["api_write_rate_limits<br/>SERVER ONLY"]
-        P4["todo_notification_events<br/>SERVER ONLY"]
-        P5["user_devices<br/>SERVER ONLY"]
+    subgraph pg["Postgres"]
+        P1["21 tables"]
+        P2["receipt_sequences · user_devices<br/>api_write_rate_limits<br/>SERVER ONLY"]
+        P3["todo_notification_events<br/>created outside this repo"]
     end
     R1 <-->|1:1| P1
 ```
 
 ⚠️ **The drift that matters**: `inventory_deductions` has **no `SyncEntityDescriptor`** —
 the per-dose audit trail of every dose that left a batch never reaches the server.
-`sync_queue` and `widget_due_cache` exist in Postgres with RLS-on/zero-policies and are not
-in the Room schema. See [[Database Schema]].
+`inventory_deductions`, `sync_queue`, `widget_due_cache` and `backup_history` are all
+Room-only (they appear in the exported Room schema), and the Postgres table total is **not
+derivable from the repo** 🔍 — `todo_notification_events` is created by a migration that is
+not in this repository (`20261016_rls_index_and_stock_trigger_hardening.sql:13`). See
+[[Database Schema]].
 
 ## Entity counts
 
 | Layer | Count |
 |---|---|
 | `@Entity` classes in `data/local/entity/` | **25** across 21 files |
-| `BackupDao` second surface over other DAOs' tables | 20 |
+| `BackupDao` second surface over other DAOs' tables | 22 |
 | `BackupPayloadV1` tables exported | 22 |
-| Postgres tables | 26 |
+| Postgres tables | 🔍 not derivable from the repo — the catalog CSV lists 23, `api_write_rate_limits` is added by a migration, and `todo_notification_events` is created outside the repo |
 | Room migrations registered | 16 (v17 → v33) |
 
 ## Related

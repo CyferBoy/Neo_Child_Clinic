@@ -7,9 +7,9 @@
 Nothing here is fixed. This page is the backlog.
 
 ⚠️ **Superseded in part (2026-10-18).** That sentence described the state when this audit was
-written. Seven items in *Suggested order of work* below have since been fixed in source, and
-one (4.6) was retracted outright. This page is preserved as the audit record — do not treat
-it as the current backlog. Read [[Quality/Bug Register]] for status.
+written. Six items in *Suggested order of work* below have since been fixed in source; one
+(4.5) is still open, and one (4.6) was retracted outright. This page is preserved as the audit
+record — do not treat it as the current backlog. Read [[Quality/Bug Register]] for status.
 
 ## Confirmed — data loss or wrong clinical data
 
@@ -357,8 +357,8 @@ ViewModel with a dead channel.
 | 4.3 | ⚠️ `todo_notification_events` had **no RLS and no revocation** from its creation until `20261016`, and receives `patient_id`, patient `name`, `doctor_id`. | `20261016:13-14` says so explicitly |
 | 4.4 | ⚠️ `FORCE ROW LEVEL SECURITY` on `todo_notification_events` with zero policies **breaks the documented writer** — `FORCE` applies RLS to the table owner, and a `SECURITY DEFINER` trigger runs as owner. | `20261016:53-60` vs `:16-17` |
 | 4.5 | ⚠️ **No migration issues a table-level `GRANT`.** Under the new `auto_expose_new_tables = false` default, a perfect RLS policy is irrelevant and **every app write fails with `permission denied for table …`**. The field is removed **2026-10-30**. ⚠️ *Corrected 2026-10-18: the original wording said "a single GRANT", which was literally false — four `grant execute on function` statements exist (`20260816:93`, `20260825:49`, `20260929000000:32`, `20261001:45`). No table GRANT does, which is the claim that matters.* | `supabase/config.toml:19-24` |
-| 4.6 | ⚠️ **17 of 21 migrations are untracked in git** — every `CREATE TABLE`, the entire RLS baseline and the accountability triggers exist in one working tree only. The `.gitignore` comment claims the opposite. | `git ls-files supabase/migrations/` |
-| 4.7 | ⚠️ `get_my_role()` is `SECURITY DEFINER` with **no `set search_path`** and is referenced by 10 legacy policies — but it is not in this repository. | `.artifacts/…/full_project_schema.sql.artifact.md:13-21` |
+| 4.6 | ⚠️ ~~**17 of 21 migrations are untracked in git**~~ — **retracted 2026-10-18: 0 of 23 migrations are untracked; all 23 `.sql` files are tracked.** The `.gitignore` comment describes a past incident, not the current state — see [[Quality/Audit Reconciliation]]. | `git ls-files supabase/migrations/` → 23 `.sql`, 0 untracked |
+| 4.7 | ⚠️ `get_my_role()` is `SECURITY DEFINER` with **no `set search_path`** and is referenced by **14** legacy policies (recounted 2026-10-19; the finding said 10) — but it is not in this repository. | `.artifacts/…/full_project_schema.sql.artifact.md:13-21`, policies at `:303-345` |
 | 4.8 | ⚠️ `expenses` has **no** `neo_stamp_accountability` trigger — its `created_by`/`updated_by` are client-supplied and unverified, contradicting the migration that exists to prevent exactly that. | `20260909_expenses.sql` |
 | 4.9 | ⚠️ `user_devices(user_id)` has **no index** despite every device policy filtering on it. `20261016:81-124` adds 5 indexes, none on an RLS predicate column. | `20260816:162-163`, `20260929:137-145` |
 | 4.10 | ⚠️ The write rate limiter counts **rows**, not requests, so one bulk `DELETE` burns the whole 600/minute budget; and `cleanup_write_rate_limits()` is never scheduled, so the table grows forever. | `20260929001000_write_rate_limit.sql:16-49`, `:77-91` |
@@ -381,7 +381,7 @@ ViewModel with a dead channel.
 | S6 | `_syncState` has no `try`/`finally` around `= SYNCING` | An escaping DB exception strands the Dashboard on "syncing" |
 | S-7 | `VaccineDetailViewModel.kt:91-95` re-filters in Kotlin with no test | Rows saved before `vaccineName` normalisation would be counted on the card and hidden in the list |
 | S-8 | 60 unguarded `viewModelScope.launch` bodies | Crash-capable, but each individual site may be unreachable in practice |
-| S-9 | `VaccineItem.batchId` defaults to `""` | `deductStockFromBatch("")` throws → bug 1.2's full-rollback path, but only if legacy rows exist |
+| S-9 | `VaccinationItem.batchId` defaults to `""` | Since NCC-005, `deductStockFromBatch("")` throws `StockDeductionBlockedException` (`InventoryRepositoryImpl.kt:462`), caught to a FAILED ledger row (`ClinicalVaccinationService.kt:152`), not bug 1.2's rollback path — the open question is whether legacy rows exist |
 
 ## Suggested order of work
 
@@ -392,15 +392,19 @@ ViewModel with a dead channel.
 > Items below marked ✅ were later fixed in source; the finding text is kept for provenance.
 
 1. **1.4** — ✅ **done.** `is_deleted = 0` now filters all 16 `SELECT`s in `DueReminderDao`
-   (18 predicates in the file, 19 across the DAO layer). The "9 reminder queries" figure in
+   (16 predicates in the file, 17 across the DAO layer). The "9 reminder queries" figure in
    the finding below was never consistent — see [[Quality/Bug Register#NCC-006 — Soft-delete filter missing on reminder queries|NCC-006]] for the corrected count.
-2. **1.5 + 1.6** — ✅ **done.** `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`
-   corrects the `UPDATE` branch to `-OLD.quantity + NEW.quantity` and drops
-   `tr_update_batch_stock`. 🔍 Still needs a live-DB check.
+2. **1.6** — ✅ **done.** `20261017_stock_trigger_duplicate_and_update_arithmetic.sql` drops
+   `tr_update_batch_stock` (`:26`) and raises at migration time if another trigger remains
+   (`:31-46`). **1.5 is not done**: the rewritten `UPDATE` branch still nets `new - 2 * old`
+   (undo guard `:80` fires on a retry, apply `:101`), so a retried upsert still invents or
+   destroys doses — see
+   [[Quality/Bug Register#NCC-002 — Postgres stock trigger corrupts stock on any retried upsert|NCC-002]]
+   (re-opened 2026-10-19). 🔍 Still needs a live-DB check.
 3. **1.1** — ✅ **done.** `deductedThisEdit` branch added at `VaccinationEditEngine.kt:52-64`.
    Ledger status test-pinned (`VaccinationEditEngineTest`, 8 tests).
 4. **1.2** — ✅ **done.** `deductStockFromBatch` now throws `StockDeductionBlockedException`
-   (`InventoryRepositoryImpl.kt:452`, `:462`), caught at `ClinicalVaccinationService.kt:121`.
+   (`InventoryRepositoryImpl.kt:462`, `:472`), caught at `ClinicalVaccinationService.kt:152`.
 5. **1.3** — ✅ **done.** The reminder loop moved inside `recordVaccination`'s transaction.
 6. **2.3, 2.7, 2.8** — ✅ **done** (`DashboardViewModel.errorMessage`, `BorrowedViewModel.
    actionError`, `savePatient` `onError`). ⚠️ **Source-verified only — no regression test
@@ -411,7 +415,7 @@ ViewModel with a dead channel.
    table-level `GRANT` exists**, so with `auto_expose_new_tables` removed on **2026-10-30**
    every app write can fail. Verify against the live DB.
 8. **4.6** — ✅ **retracted.** Migrations were never untracked; `f8e5d8a` tracked them all
-   before this audit was written (22 `.sql` as of `20261017_…`). See
+   before this audit was written (23 `.sql`, the latest `20261018_ensure_stock_trigger_installed.sql`). See
    [[Quality/Audit Reconciliation]].
 
 ## Related

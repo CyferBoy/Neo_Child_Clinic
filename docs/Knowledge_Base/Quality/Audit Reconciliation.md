@@ -12,19 +12,23 @@ without a live database, it is marked 🔍 rather than counted either way.
 
 ## Headline
 
-⚠️ **The audit's "Fixed" table overclaims. Four entries are partial fixes: the mechanism was
-corrected, but a neighbouring code path still produces the original symptom.**
+⚠️ **The audit's "Fixed" table overclaimed. Four entries were partial fixes: the mechanism
+was corrected, but a neighbouring code path still produced the original symptom.**
 
 This is not a criticism of the fixes — each one improved a real problem. It is a warning
 that the *claims* are stronger than the evidence, which matters because closing a finding
 removes it from anyone's follow-up list.
 
+✅ **Update 2026-10-19: all four are now closed.** Each neighbouring path named below has
+since been fixed and re-verified against the current source — see *2026-10-19 verification
+pass* at the end of this page. The original verdict text is preserved.
+
 | Audit claim | Re-verified state | Verdict |
 |---|---|---|
-| #14 `SingleFlight` waiter reported success | `SingleFlight.run` **does** now return the owner's result. But the caller still captures into a local instead of using it | ⚠️ **Partial** |
-| #15 two screens showed different revenue | `computeMonthly` **does** use `effectiveIncome`. `computeDaily` does not | ⚠️ **Partial** |
-| #38 due-list counts ignored `is_deleted` | 7 queries **do** filter. 14 remain unfiltered, 5 of which feed live screens | ⚠️ **Partial** |
-| #2 the "insufficient stock" catch was too wide | The catch **is** now narrow (`InsufficientStockException` only). But 2 `IllegalStateException`s still escape it | ⚠️ **Partial** |
+| #14 `SingleFlight` waiter reported success | `SingleFlight.run` **does** return the owner's result, and the caller now uses it: `SyncRepositoryImpl.kt:103-104` is `= flight.run { processNextItemsInternal() }` | ✅ **Confirmed fixed** (2026-10-19) |
+| #15 two screens showed different revenue | `computeMonthly` **does** use `effectiveIncome`, and so does `computeDaily` now (`FullReportViewModel.kt:298`) | ✅ **Confirmed fixed** (2026-10-19) |
+| #38 due-list counts ignored `is_deleted` | All 16 `SELECT`s in `DueReminderDao` now filter `is_deleted = 0` (plus `BackupDao.kt:124`); the other 5 `@Query`s are 3 `DELETE` + 2 `UPDATE`, correctly unfiltered | ✅ **Confirmed fixed** (2026-10-19) |
+| #2 the "insufficient stock" catch was too wide | Every pre-write rejection is now `StockDeductionBlockedException` or its `InsufficientStockException` subtype (`InventoryRepositoryImpl.kt:462`, `:472`, `:477`) and is caught (`ClinicalVaccinationService.kt:152`) | ✅ **Confirmed fixed** (2026-10-19) |
 | #4 editing discarded the whole clinical edit | `applyInventoryDiff` **does** capture shortfalls and complete the edit | ✅ **Confirmed fixed** |
 | #3 deleting a patient restored every dose | `deletePatient` **does** clear deductions first | ✅ **Confirmed fixed** |
 | #1 borrow across batches returned doses to the wrong batch | `BorrowBatchSelection.selectBorrowBatch` exists and refuses to span batches | ✅ **Confirmed fixed** |
@@ -35,6 +39,10 @@ removes it from anyone's follow-up list.
 | #36 due dates shifted east of IST | `parseDate` anchors to IST; 10 tests | ✅ **Confirmed fixed** |
 
 ## The four partial fixes, in detail
+
+✅ **Banner (2026-10-19): all four entries below are now closed** — see *2026-10-19
+verification pass* at the end of this page. The detail is preserved as written at the time
+of the original pass.
 
 ### #14 — `SingleFlight`
 
@@ -121,8 +129,8 @@ And these were **not in the original audit at all** — found during the knowled
 | Finding | Area |
 |---|---|
 | Stock ledger records `FAILED` while a dose leaves the shelf | `VaccinationEditEngine` |
-| Postgres stock trigger's `UPDATE` branch corrupts stock on a retried upsert | `20261013140000:56-61` |
-| Legacy `tr_update_batch_stock` never dropped → possible double-application | `20261016:134-138` |
+| Postgres stock trigger's `UPDATE` branch corrupts stock on a retried upsert | `20261017:80,101` — the rewrite did not fix it; NCC-002 is open again (2026-10-19) |
+| Legacy `tr_update_batch_stock` never dropped → possible double-application | ✅ resolved by `20261017:26` (NCC-003) |
 | A reminder-loop failure after commit creates a duplicate visit on retry | `AddVaccinationViewModel:687-698` |
 | `inventory_deductions` has no sync descriptor — the dose ledger never reaches the server | `Database Schema` |
 | Every active staff member can `select *` from `profiles` | `20260929000000:119-121` |
@@ -154,35 +162,57 @@ Re-verified against commit `e05f7c0`. The original finding is preserved above; t
 reconciliation, not a rewrite.
 
 **`Known Bugs` §4.6 ("17 of 21 migrations are untracked in git") is a false positive.**
-(The denominator is now 22 — `20261017_…` landed after this was written.)
+(The denominator is now 23 — `20261017_…` and `20261018_…` landed after this was written.)
 Commit `f8e5d8a` ("chore: track migrations and full project documentation") added the folder
 before the vault was generated, so the finding was already stale when it was written down.
 
 ```bash
-git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 21
+git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 23
 git check-ignore supabase/migrations/*.sql             # → no output
 ```
 
 The `.gitignore` comment at `supabase/.gitignore:5-8` describes a real *past* incident — it
 is the historical record of the gap that `f8e5d8a` closed, not a current defect.
 
-⚠️ **What survives** is the separate problem in `Known Bugs` §4.6's neighbourhood: these 21
-migrations never `CREATE` the ~12 legacy base tables, so **a clean clone still cannot
-reproduce the database** — that half of the claim stands, and the base schema artifact
-remains gitignored. Splitting the finding into "tracking ✅ fixed" and "baseline schema ⚠️
-still missing" is the correction; deleting the row entirely would lose a real defect.
+⚠️ **What survives** is the separate problem in `Known Bugs` §4.6's neighbourhood: the 23
+migrations contain only 9 `CREATE TABLE` statements, so the 15 legacy base tables
+(`patients`, `patient_visits`, `patient_notes`, `vaccination_items`, `vaccines`,
+`vaccine_batches`, `inventory_transactions`, `waste_records`, `borrow_records`, `reminders`,
+`consultations`, `finance_transactions`, `audit_logs`, `profiles`, `user_devices`) plus
+`sync_queue`, `widget_due_cache` and `todo_notification_events` have no DDL in git — **a clean
+clone still cannot reproduce the database**, and the base schema artifact remains gitignored.
+Splitting the finding into "tracking ✅ fixed" and "baseline schema ⚠️ still missing" is the
+correction; deleting the row entirely would lose a real defect.
 
 Also corrected in the same pass: `Database Schema.md` and `Supabase.md` both carried the
 false "only 4 tracked" claim, and `Release Notes.md` listed it as a shipping blocker.
+
+## 2026-10-19 verification pass — the four partial fixes are closed
+
+Re-verified against the current source on 2026-10-19; every citation below resolves in the
+working tree. **No test suite was run in this pass** — each closure is source evidence, and
+the instrumented tests named are cited, not executed.
+
+| # | Neighbouring path | Now |
+|---|---|---|
+| #14 | `processNextItems()` captured the flight's boolean into a local | `SyncRepositoryImpl.kt:103-104` — `= flight.run { processNextItemsInternal() }`, so a waiter returns the owner's answer |
+| #15 | `computeDaily` summed raw income rows | `FullReportViewModel.kt:298` — `FinanceCalculator.effectiveIncome(...)`, the same rule as `computeMonthly` |
+| #38 | 7 of 19 `DueReminderDao` queries filtered; the paged twins and the `@Relation` feeder did not | All 16 `SELECT`s filter `is_deleted = 0` (`:18` through `:129`), including `getRemindersByVisitId` (`:42`), the pages (`:30`, `:33`, `:36`) and `BackupDao.kt:124` |
+| #2 | Two plain `IllegalStateException`s escaped the `InsufficientStockException` catch | `deductStockFromBatch` throws `StockDeductionBlockedException` (`InventoryRepositoryImpl.kt:462`, `:472`) and `InsufficientStockException` (`:477`, a subtype), all caught at `ClinicalVaccinationService.kt:152` |
+
+⚠️ **What is still 🔍:** #38's instrumented check (`ReminderSoftDeleteFilterTest` 12 cases +
+`UpcomingVaccinationDaoTest` 16 cases) has not been executed; #14's wrapper is covered by
+source only, since `SingleFlightResultTest` exercises `run()`'s return value rather than this
+call site; and the catch in #2 has no automated test.
 
 ## Net position
 
 | | Count |
 |---|---|
-| Audit claims **confirmed fixed** | 8 |
-| Audit claims **partial fixes, still open** | **4** |
+| Audit claims **confirmed fixed** | **12** (was 8; the four partials closed 2026-10-19) |
+| Audit claims **partial fixes, still open** | **0** (was 4) |
 | Audit findings **deliberately not done** | 5 |
-| Findings **not in the audit**, found later | 15 |
+| Findings **not in the audit**, found later | 16 |
 | Audit findings **retracted as false positives** | **1** (§4.6, tracking half only) |
 | 🔍 Needs a live database to settle | 5 |
 

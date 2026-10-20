@@ -94,7 +94,7 @@ python3 scripts/validate_docs.py              # whole vault
 python3 scripts/validate_docs.py --strict     # warnings also fail
 python3 scripts/validate_docs.py --changed    # only notes git sees as changed
 python3 scripts/validate_docs.py --quiet      # summary only
-python3 scripts/test_validate_docs.py         # 28 regression tests for the validator
+python3 scripts/test_validate_docs.py         # 37 regression tests for the validator
 ```
 
 What it checks:
@@ -111,6 +111,7 @@ What it checks:
 | Heading and block anchors | `[[#Heading]]` / `[[Note#Heading]]` / `[[Note#^id]]` goes nowhere |
 | Dataview blocks | unclosed or empty fence, unknown query type, typo'd clause, `FROM` target that matches no note |
 | Bug register | a status in the index is not in the Status vocabulary, or a card has no Status/Severity |
+| `path:line` citations | a cited file does not exist, or the cited line is past the end of the file. A citation into a deliberately untracked artifact is reported as an information note, not an error |
 
 ⚠️ The Mermaid check is **heuristic, not a parser**. It catches the common slips (unclosed
 fence, wrong diagram keyword, unbalanced label brackets) and will not catch a semantically
@@ -150,7 +151,10 @@ failure rather than a silent dead link.
 
 It reads the vault; it does not run Obsidian. A Dataview query is checked for shape and for a
 `FROM` target that exists — never for the rows it returns, so a query naming a field that does
-not exist still passes. The Mermaid check is heuristic, not a parser. Anchor matching is looser
+not exist still passes. The `path:line` check resolves the file and the line range only: a
+citation **inside** the file that no longer points at the code it describes still passes, so
+re-read the cited line when a claim matters — that is the accuracy rule in § 1, not something
+the tool can enforce. The Mermaid check is heuristic, not a parser. Anchor matching is looser
 than Obsidian's exact-text rule, so it errs towards silence. Render the vault to be certain.
 
 ## Mermaid conventions used here
@@ -222,5 +226,6 @@ add the job name to the repository's required status checks in
 
 - [[Quality/Bug Register]] · [[Quality/Hypotheses]] · [[Quality/Security Concerns]]
 - [[Quality/Audit Reconciliation]] — why this page is strict about evidence
+- [[Quality/Documentation Repair 2026-10-20]] — the last full-vault pass, and its validator changes
 - [[Home]] — the index
 - [[Release Checklist]] — the pre-ship gate

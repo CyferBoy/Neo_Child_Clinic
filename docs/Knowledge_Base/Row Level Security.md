@@ -1,6 +1,7 @@
 # Row Level Security
 
-> The complete policy matrix after all 22 migrations, plus the gaps. Companion:
+> The complete `public`-schema policy matrix after all 23 migrations, plus the gaps; the one
+> `storage.objects` policy is noted below. Companion:
 > [[Supabase]] · [[Database Schema]]
 
 ## Roles
@@ -48,14 +49,20 @@ default — null on anything unrecognised.
 | `sync_queue` | 🔒🔒🔒🔒 | 🔒 | 🔒 | 🔒 | 🔒 | ⚠️ **zero policies — unexplained** |
 | `widget_due_cache` | 🔒🔒🔒🔒 | 🔒 | 🔒 | 🔒 | 🔒 | ⚠️ **zero policies — unexplained** |
 
+ℹ️ The matrix is `public`-schema only. One policy lives outside it:
+`20261016_rls_index_and_stock_trigger_hardening.sql:72-76` creates `"patient docs staff
+access"` on `storage.objects` (`for all to authenticated`, `using (bucket_id = 'patient-docs'
+and public.is_active_staff())`) for the private `patient-docs` bucket.
+
 ✅ **No table has RLS disabled within the migration set.** `20260825:172-189` sweeps RLS
 onto every `public` table not on a 16-name allow-list, and every table created later enables
 RLS in its own `create` block.
 
 ## The model is "single clinic", not "role-scoped"
 
-**16 of 26 tables grant full CRUD to any authenticated, active, non-deleted staff member
-regardless of role.** A receptionist can hard-DELETE `patient_visits`,
+**16 of the 27 tables in the policy matrix grant full CRUD to any authenticated, active,
+non-deleted staff member regardless of role; the live table total is not derivable from the
+repo (🔍).** A receptionist can hard-DELETE `patient_visits`,
 `finance_transactions` and `inventory_transactions`.
 
 ✅ This is deliberate and documented at `20260825:22-26`:
@@ -109,12 +116,12 @@ applied.
 
 ### 4. ⚠️ Legacy policies from unversioned scratch SQL may still exist
 
-`.artifacts/712413f3-…/scratch/missing_tables.sql:95-100` and
+`.artifacts/712413f3-…/scratch/missing_tables.sql:95-99` and
 `full_project_schema.sql.artifact.md:303-345` created a policy generation that **no
 migration ever drops**:
 
 ```sql
--- missing_tables.sql:99
+-- missing_tables.sql:98
 CREATE POLICY "Staff can record audit logs" ON public.audit_logs FOR INSERT WITH CHECK (true);
 
 -- artifact:337
@@ -162,8 +169,11 @@ Currently latent only because `notify_todays_patient()` has no trigger at all �
 `supabase/config.toml:19-24` leaves `auto_expose_new_tables` commented out, matching the new
 cloud default where new entities are **not** auto-exposed.
 
-✅ **No migration in this repository issues a single `GRANT`.** Every migration relies on the
-legacy default grants. Under the new default, a perfect RLS policy is irrelevant if
+✅ **No migration in this repository issues a single table-level `GRANT`** — four
+**function-execution** grants exist and only those (`20260816_security_hardening.sql:93`,
+`20260825_clinic_rls_and_accountability.sql:49`, `20260929000000_security_baseline.sql:32`,
+`20261001_app_metadata_roles.sql:45`); they do not grant table access. Every migration relies
+on the legacy default grants. Under the new default, a perfect RLS policy is irrelevant if
 `anon`/`authenticated` hold no table privilege — **every app write fails with
 `permission denied for table …`**, and the field is removed on 2026-10-30.
 
@@ -194,8 +204,11 @@ Other predicate columns are covered: `profiles.id` is the PK;
 ### 8. ⚠️ Soft delete is invisible to RLS
 
 `20260925` adds `is_deleted`/`deleted_at`/`deleted_by` to 18 tables and **never touches a
-policy**. No final policy contains `is_deleted`. The predicate `is_active_staff()` checks the
-**actor's** profile, not the **row's** soft-delete flag. See [[Database Schema]].
+policy**. Several *final* policies do contain `is_deleted`, but only against the **actor's**
+profile — the `profiles` select and update policies (`20260816_security_hardening.sql:130`,
+`:138`) and the `expenses` policies (`20261013120000_role_policy_carveouts.sql:42-43`,
+`:51-52`, `:65-66`). The predicate `is_active_staff()` likewise checks the **actor's**
+profile, not the **row's** soft-delete flag. See [[Database Schema]].
 
 ## Client-side role gating is a separate, weaker system
 

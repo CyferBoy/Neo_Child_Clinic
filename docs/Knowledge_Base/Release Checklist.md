@@ -48,8 +48,8 @@ and is **not** staged: `git status --porcelain | grep google-services` must be e
 - [ ] Room migrations 17→33 apply cleanly on an existing install
 - [ ] `MigrationTestHelper` ran against a real exported schema
 
-⚠️ **All 5 instrumented tests are currently in `androidTest` and do NOT run in
-`./gradlew test`.** A green `test` task says nothing about DAO SQL. See [[Testing]].
+⚠️ **All 8 instrumented test classes (56 `@Test` methods) are currently in `androidTest` and
+do NOT run in `./gradlew test`.** A green `test` task says nothing about DAO SQL. See [[Testing]].
 
 ## 3. Database migration compatibility
 
@@ -71,7 +71,7 @@ before dropping columns. Anything similar needs a release note, not just a code 
 - [ ] New migration added to `supabase/migrations/` with a **lexically sortable** timestamp
 - [ ] ⚠️ Timestamp prefix sorts correctly — `20261013120000` sorts **after** `20261013_profiles`
       because `_` > digits. Rename to `20261013000000_profiles…` style
-- [ ] Migration wrapped in `begin; … commit;` — ⚠️ 7 of 22 are currently bare DDL
+- [ ] Migration wrapped in `begin; … commit;` — ⚠️ 7 of 23 are currently bare DDL
 - [ ] Migration is **idempotent** (`if exists`, `if not exists`, `to_regclass` guards)
 - [ ] Any `SECURITY DEFINER` function sets `search_path`
 - [ ] Existing triggers dropped before a replacement is installed — ⚠️ see [[Quality/Bug Register#NCC-003 — Legacy stock trigger never dropped; possible double-application|NCC-003]]

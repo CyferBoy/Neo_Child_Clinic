@@ -49,15 +49,16 @@ if ((local == null || local.isSynced) && entity.id !in pendingIds) { insert remo
 **A pending local change makes local authoritative until pushed; otherwise last-puller
 wins.** There is no timestamp comparison on the pull side at all.
 
-⚠️ The uploader *does* have timestamp comparison (`SyncUploader.kt:486-521`) but it is
-unreachable — see [[Known Bugs]] §3.2. So in practice the app is **last-write-wins with no
-clock**, and the sync-group ordering exists precisely to prevent the FK violations that a
-naive last-write-wins would cause (`SyncRepositoryImpl.kt:668-678` explains this at length).
+⚠️ The uploader *does* have timestamp comparison (`SyncUploader.kt:486-525`); it was
+unreachable until the in-flight queue row was excluded from the guard (`:514-520`, NCC-020 —
+[[Quality/Bug Register]]). The pull side still has **no clock** at all, and the sync-group
+ordering exists precisely to prevent the FK violations that a naive last-write-wins would
+cause (`SyncRepositoryImpl.kt:668-678` explains this at length).
 
 ## 5. Deletes are enqueued child-before-parent, always
 
-`VaccinationRepositoryImpl.deleteVaccination` (`:387-506`), `deletePatient` (`:193-251`),
-`deleteVaccination`'s comment at `:366-386`. The parent DELETE is always enqueued **last**,
+`VaccinationRepositoryImpl.deleteVaccination` (`:392-511`), `deletePatient` (`:208-266`),
+`deleteVaccination`'s comment at `:371-391`. The parent DELETE is always enqueued **last**,
 because a server-side FK (`finance_transactions_visit_id_fkey`) would otherwise reject the
 parent delete while children still reference it.
 
@@ -67,14 +68,14 @@ group id.
 
 ## 6. `ABORT` on patient insert, so a clinic-id collision fails loudly
 
-`PatientRepositoryImpl.kt:168` uses the `ABORT` insert variant
-(`PatientDao.kt:29-30`) rather than `REPLACE`. `REPLACE` on a unique-index conflict would
+`PatientRepositoryImpl.kt:183` uses the `ABORT` insert variant
+(`PatientDao.kt:30-31`) rather than `REPLACE`. `REPLACE` on a unique-index conflict would
 **delete the colliding patient** and insert the new one. ✅ Correct.
 
 ## 7. Inventory quantity is maintained server-side by a trigger, not pushed
 
-`SyncUploader.kt:595-619` sends `remaining_quantity = 0` on create and **omits** the column
-on update. The comment at `:595-597` explains that `tr_update_batch_stock` adjusts it by
+`SyncUploader.kt:612-623` sends `remaining_quantity = 0` on create and **omits** the column
+on update. The comment at `:599-611` explains that `tr_update_batch_stock` adjusts it by
 `NEW.quantity` for every ledger row.
 
 The rationale — a clinic with several devices must not have stock clobbered by whichever
@@ -158,8 +159,10 @@ portable password cipher. ✅ Right separation.
 > whole sync group.*
 
 That is a real constraint discovered the hard way: the client upserts a fixed column set, so
-the server schema must accept every column it sends. It is why `is_deleted` is on 18 tables
-even though only `reminders` still filters it locally. See [[Database Schema]].
+the server schema must accept every column it sends. It is why `is_deleted` is on the 18
+business tables in `20260925_business_soft_delete_columns.sql:30-36` even though only
+`reminders` still filters it locally; the schema-wide table count is not derivable from the
+repo 🔍. See [[Database Schema]].
 
 ## 16. Roles live in `app_metadata`, not `user_metadata` or `profiles`
 
@@ -191,7 +194,8 @@ versioned at all.
 > authenticated, active, non-deleted staff member can read/write the shared clinic dataset,
 > regardless of role.*
 
-16 of 26 tables grant full CRUD to any active staff member. A receptionist **can**
+16 of the 27 tables in the policy matrix grant full CRUD to any active staff member (the live
+table count is not derivable from the repo 🔍). A receptionist **can**
 hard-delete `patient_visits` and `finance_transactions`. ✅ Intentional and documented —
 recorded here so it is not re-discovered as a bug each audit. See [[Row Level Security]].
 
@@ -214,11 +218,12 @@ and compares SHA-256 with `MessageDigest.isEqual` (constant time, `:193`) before
 `onVerified()`. `setUserAuthenticationRequired(true)` (`:119`) and
 `FLAG_SECURE` unconditionally (`MainActivity.kt:85`). ✅ Correct design.
 
-## 22. `PatientHistoryUiState` exists because a null list is ambiguous
+## 22. `PatientHistoryUiState` exists because an unloaded list is ambiguous
 
-`feature/patient/presentation/PatientHistoryUiState.kt:8-18` documents it: an initial `null`
-list means "still loading", an empty list means "loaded and empty". It is the **only** screen
-in the app that models this. See [[MVVM]].
+`feature/patient/presentation/PatientHistoryUiState.kt:8-18` documents it: the state now
+models `isLoaded: Boolean` (`:20`) instead of a `null` list, so "still loading" and "loaded
+and empty" are distinguishable. It is the **only** screen in the app that models this. See
+[[MVVM]].
 
 ## 23. Shared pure engines exist so the rules are testable
 

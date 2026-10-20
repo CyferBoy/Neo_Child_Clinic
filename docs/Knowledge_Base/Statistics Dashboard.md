@@ -127,22 +127,17 @@ rejected — the residue of a `takeLast(5)` bug.
 because a visit can legitimately carry more than one income row (`:310-312`).
 `FinanceCalculatorTest` pins it.
 
-⚠️ **One screen re-implements it anyway.** `FullReportViewModel.computeDaily` (`:282`)
-sums raw transactions:
+✅ **Was re-implemented anyway (NCC-008).** `FullReportViewModel.computeDaily` summed raw
+transactions:
 
 ```kotlin
 transactions.filter { it.type.equals("INCOME", true) }.forEach { tx -> … }
 ```
 
-…while `computeMonthly` in the **same class** (`:196-198`) does it correctly:
-
-```kotlin
-FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) })
-   .forEach { tx -> … }
-```
-
-Result: drilling Full Report into a single month **over-reports** revenue, cash, online and
-net profit, while the same screen shows the correct figure one level up. See [[Known Bugs]].
+…so drilling Full Report into a single month **over-reported** revenue, cash, online and net
+profit while the same screen showed the correct figure one level up. `computeDaily` now goes
+through `FinanceCalculator.effectiveIncome` too (`:298`), as `computeMonthly` already did
+(`:212`) — the inline comment records the rule.
 
 ## `resolveReportingDate`
 
@@ -164,8 +159,10 @@ tests**.
 - The total of brand counts **equals** what
   `getUpcomingVaccinationsByVaccineId` would return — i.e. card count == detail count.
 
-The SQL side uses a delimited match on the JSON column
-(`DueReminderDao.kt:101`: `(',' || nxt_vaccine_id || ',') LIKE '%,' || :vaccineId || ',%'`).
+The SQL side matches the JSON text exactly (`DueReminderDao.kt:121-122`:
+`instr(COALESCE(nxt_vaccine_id, ''), '"' || :vaccineId || '"') > 0`). The older delimited
+`LIKE` match could never hit JSON-quoted ids and returned 0 rows for every brand — see
+[[Quality/Bug Register]] NCC-041.
 
 ⚠️ But `VaccineDetailViewModel.kt:91-95` **re-filters in Kotlin**, dropping any row whose
 `cleanVaccineName(reminder.vaccineName)` does not case-insensitively equal the catalog
@@ -177,8 +174,8 @@ would be counted on the card and hidden in the list.
 
 | # | Finding | Severity | Evidence |
 |---|---|---|---|
-| 1 | `FullReportViewModel.computeDaily` double-counts duplicate vaccination income | **High** | `FullReportViewModel.kt:282` |
-| 2 | Three statistics ViewModels have no `.catch` on terminal flows — `isLoading` can never return to false | Medium | `FinanceDetailsViewModel.kt:50-57`, `FullReportViewModel.kt:66-94`, `StatisticsViewModel.kt:55-95` |
+| 1 | `FullReportViewModel.computeDaily` double-counted duplicate vaccination income | **High** | Was `FullReportViewModel.kt:282`; now `effectiveIncome` at `:298` (NCC-008) |
+| 2 | Three statistics ViewModels had no `.catch` on terminal flows — `isLoading` could never return to false | Medium | Was `FinanceDetailsViewModel.kt:50-57`, `FullReportViewModel.kt:66-94`, `StatisticsViewModel.kt:55-95`; now `try`/`finally` `:50-61`, `.catch` `:99-106`, `.catch` `:100` (NCC-016) |
 | 3 | `VaccineDetailViewModel` re-filter discards the error message and has no test | Medium | `:99-104`, `:91-95` |
 | 4 | Reminder scheduling uses device time; all statistics use IST | Medium | `ReminderScheduler.kt:39` |
 | 5 | `AgeUtils` milestone table labels `"16–17 Months"` **twice** with different dates | Cosmetic | `core/common/AgeUtils.kt:42-43` |

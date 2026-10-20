@@ -1,0 +1,22 @@
+# Tasks: Staff, Profile & Navigation Redesign
+
+- [x] **Infrastructure & Domain**
+    - [x] Update `Profile` data model with new fields
+    - [x] Update `Routes` with new staff management paths
+    - [x] Extract `AppDrawer` component logic
+- [x] **My Profile Module**
+    - [x] Enhance `ProfileViewModel` (Password change, phone update, status)
+    - [x] Redesign `ProfileScreen` with M3 grouped sections and dialogs
+- [x] **Manage Staff Module**
+    - [x] Enhance `AdminViewModel` (Status toggle, soft delete, activity summary)
+    - [x] Redesign `ManageStaffScreen` (Cards, search, filters)
+    - [x] Implement `StaffDetailsScreen`
+    - [x] Implement `AddStaffScreen`
+    - [x] Implement `EditStaffScreen`
+- [x] **Navigation & Integration**
+    - [x] Integrate `AppDrawer` into `DashboardScreen`
+    - [x] Update `AppNavigation` with new routes and permission guards
+- [x] **Verification**
+    - [x] Verify role-based visibility in drawer
+    - [x] Verify profile updates and password reset
+    - [x] Verify staff management CRUD and status toggles

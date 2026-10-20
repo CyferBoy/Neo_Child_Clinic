@@ -36,19 +36,21 @@ supplies its own `Configuration.Provider` + `HiltWorkerFactory`
 
 | Work | Period | Constraints | Backoff | Policy |
 |---|---|---|---|---|
-| `DailySummaryWorker` | **1 hour** (not daily — the dedupe lives in the worker, `:51`) | `NetworkType.CONNECTED` (`:31`) | `EXPONENTIAL`, 15 min | `UPDATE` (`:63`) |
+| `DailySummaryWorker` | **1 hour** (not daily — the dedupe lives in the worker, `:32`) | `NetworkType.CONNECTED` (`:31`) | `EXPONENTIAL`, 15 min | `UPDATE` (`:63`) |
 | `PersonalReminderNotificationWorker` | 24 hours (`:81`) | **none** | — | `UPDATE` (`:84`) |
 
 `runNow()` (`:87-93`) is a **non-unique** expedited `OneTimeWorkRequest<DailySummaryWorker>`.
 
-⚠️ **Two consequences, both confirmed:**
+⚠️ **Two consequences, one now resolved:**
 
-1. **Changing the notification time in Settings has no effect until the app restarts.**
-   `NotificationSettingsViewModel.updateSettings` (`:27-31`) writes DataStore and never
-   reschedules. `grep` finds exactly two call sites for the two schedule methods, both in
-   `NeoChildApp.kt:111-112`.
+1. **Was: changing the notification time in Settings had no effect until the app restarted.**
+   `NotificationSettingsViewModel.updateSettings` (`:27-31`) wrote DataStore and never
+   rescheduled — the two schedule methods' only call sites were `NeoChildApp.kt:111-112`.
+   `updateSettings` now re-arms both (`:37-38`), and `ExistingPeriodicWorkPolicy.UPDATE`
+   recomputes the delay, so the new time takes effect immediately (NCC-010).
 2. **Every reminder mutation enqueues a fresh worker.** `triggerImmediateCheck()`
-   (`ReminderRepositoryImpl.kt:513-516`) fires `runNow()` from all six mutators.
+   (`ReminderRepositoryImpl.kt:514-516`) fires `runNow()` from seven call sites
+   (`:271`, `:292`, `:312`, `:354`, `:368`, `:388`, `:409`).
    `DueViewModel.completeVaccination` (`:134-140`) loops over reminders, so completing a
    3-reminder row enqueues 3 workers — each recomputing `getClinicStats()` (a 4-way
    `combine` over full tables, `ClinicStatsManager.kt:40-45`) plus a full
@@ -79,7 +81,7 @@ All transitions are DAO methods in `DueReminderDao.kt`, implemented as **insert-
 `[patientId, originalVisitId, dueDate, type, vaccineName]` (`ReminderEntity.kt:26`).
 
 ```kotlin
-// DueReminderDao.kt:133-145
+// DueReminderDao.kt:153-165
 suspend fun moveDueToCompleted(reminder: ReminderEntity, completedBy: String, notes: String? = null) {
     val updated = reminder.copy(
         status = "COMPLETED",
@@ -103,9 +105,11 @@ So the invariant is **`status="COMPLETED" ⟺ reminderEnabled=false`** and
 | Cancel one vaccine | — | `:317-356` |
 | Hard delete | — | `:392-411` |
 
-⚠️ `DueViewModel`'s four mutations (`:126`, `:134`, `:142`, `:150`) are among the **60
-`viewModelScope.launch` bodies with no `try`/`catch`** — an uncaught exception there reaches
-the default handler and **crashes the process**. See [[Error Handling]].
+⚠️ `DueViewModel`'s four mutations (`:126`, `:134`, `:142`, `:150`) are `viewModelScope.launch`
+bodies with no `try`/`catch` — an uncaught exception there reaches the default handler and
+**crashes the process**. NCC-036 re-measured the class of defect at **140 launches across 34
+`*ViewModel.kt` files** (upper bound — the unprotected subset was not separated). See
+[[Error Handling]].
 
 ## ReminderDueListProcessor — the authoritative projection
 
@@ -160,11 +164,11 @@ See [[Known Bugs]] for full severity. Reminder-specific:
 
 | # | Finding | Evidence |
 |---|---|---|
-| 1 | Notification-time changes do not take effect until process restart | `ReminderScheduler.kt` has 2 call sites, both `NeoChildApp.kt:111-112` |
-| 2 | Every reminder mutation enqueues a non-unique `DailySummaryWorker`; N reminders → N full stats recomputes | `ReminderRepositoryImpl.kt:513-516`, `DueViewModel.kt:134` |
-| 3 | `ReminderRepositoryImpl.reschedule` silently discards its `reminderDate` argument | `:296-314` |
+| 1 | Notification-time changes did not take effect until process restart | Was: `ReminderScheduler.kt`'s 2 call sites, both `NeoChildApp.kt:111-112`; now re-armed from `NotificationSettingsViewModel.kt:37-38` (NCC-010) |
+| 2 | Every reminder mutation enqueues a non-unique `DailySummaryWorker`; N reminders → N full stats recomputes | `ReminderRepositoryImpl.kt:514-516` (7 call sites), `DueViewModel.kt:134` |
+| 3 | `ReminderRepositoryImpl.reschedule` silently discarded its `reminderDate` argument (the whole chain was dead) | Was `:296-314`; the argument, the dialog picker and both `@Transient` fields were deleted (NCC-032) |
 | 4 | `ReminderDueListProcessor` drops rows matching neither terminal branch | `:62-65` |
-| 5 | `notificationsSentToday` is **structurally always 0** — both fields are `@Transient`, never persisted, no writer | `ReminderDueListProcessor.kt:115`, `ReminderEntity.kt:64-65` |
+| 5 | `notificationsSentToday` was **structurally always 0** — both fields `@Transient`, never persisted, no writer | Deleted, along with the unused `ReminderStats` field — no screen read it (NCC-033); the remaining stats block is `ReminderDueListProcessor.kt:99-116` |
 | 6 | Personal reminder with a blank date notifies on every run | `PersonalReminderNotificationWorker.kt:26-28` |
 | 7 | Scheduler uses **device** timezone; all statistics use **IST** | `ReminderScheduler.kt:39`, `DailySummaryWorker.kt:29` |
 | 8 | Pull paths never apply tombstones — a row deleted on device B stays on device A | `ReminderRepositoryImpl.kt:459-504`, `PersonalReminderRepositoryImpl.kt:176-183` |

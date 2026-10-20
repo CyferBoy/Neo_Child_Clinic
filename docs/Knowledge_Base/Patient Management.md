@@ -29,8 +29,8 @@ interpolated raw into routes — see [[Clean Architecture]].
 | `patientClinicId` | `PatientIdGenerator`, unique-indexed | the **human-facing** clinic number staff read over the phone |
 
 `PatientRepositoryImpl.addPatient` mints the clinic id **inside** the transaction
-(`:149-159`) and inserts with `OnConflictStrategy.ABORT` (`:168`) so a clinic-id collision
-fails loudly instead of REPLACE-deleting another patient (`PatientDao.kt:29-30`). That is a
+(`:164-174`) and inserts with `OnConflictStrategy.ABORT` (`:183`) so a clinic-id collision
+fails loudly instead of REPLACE-deleting another patient (`PatientDao.kt:30-31`). That is a
 good decision — see [[Architecture Decisions]].
 
 `PatientClinicIdMigrationWorker` backfills clinic ids for rows created before the field
@@ -38,40 +38,42 @@ existed, and runs on an untracked scope in `NeoChildApp.kt`.
 
 ## Write paths — all offline-safe
 
-**Add** — `PatientRepositoryImpl.kt:142-191`:
+**Add** — `PatientRepositoryImpl.kt:157-206`:
 
-1. `database.withTransaction { }` (`:148`) — mint/validate clinic id, insert with
-   `isSynced = false`, **enqueue for sync in the same transaction** (`:172-177`).
+1. `database.withTransaction { }` (`:163`) — mint/validate clinic id, insert with
+   `isSynced = false`, **enqueue for sync in the same transaction** (`:187-192`).
 2. `auditLogger.recordLog(...)` outside the transaction — local-only, fully try/caught.
-3. `patientCache.invalidate(patient.id)` (`:190`).
+3. `patientCache.invalidate(patient.id)` (`:205`).
 
-**Delete** — `:193-251`. One transaction cascading reminders, personal reminders,
+**Delete** — `:208-266`. One transaction cascading reminders, personal reminders,
 vaccinations and consultations, enqueueing a DELETE for each. **The patient DELETE is
-enqueued last** (`:236-239`) so server-side FK order is safe.
+enqueued last** (`:251-254`) so server-side FK order is safe.
 
 Both paths touch no `Postgrest`, `Auth`, or `Realtime` object. See [[Offline-First
 Architecture]].
 
 ## Search
 
-`PatientDao.searchPatients` (`PatientDao.kt:36-41`):
+`PatientDao.searchPatients` (`PatientDao.kt:44-49`):
 
 ```sql
 WHERE name LIKE :q OR phone LIKE :q OR patientClinicId LIKE :q OR address LIKE :q
    OR id IN (SELECT patientId FROM patient_visits WHERE vaccineNames LIKE :q OR receiptNumber LIKE :q)
 ```
 
-⚠️ Three problems, none confirmed as a live bug:
+⚠️ Two problems, neither confirmed as a live bug:
 
 1. `address` has **no index**.
-2. `:q` arrives bare — no `%` added in Kotlin. The caller must supply wildcards. *(Not
-   traced — this may be intentional.)*
-3. The correlated subquery scans `patient_visits.vaccineNames`, which is an **unindexed
+2. The correlated subquery scans `patient_visits.vaccineNames`, which is an **unindexed
    comma-joined string column** built at `VaccinationEntity.kt:115`.
 
-The correct delimited-match pattern already exists elsewhere —
-`DueReminderDao.kt:101` wraps the value in commas, and
-`UpcomingVaccinationDaoTest.kt:103` documents why: *"a plain `LIKE '%vac-a%'` would also
+The wildcards are **not** missing: `SearchPatientsUseCase.kt:19` passes `"%$query%"`, and a
+blank query returns `allPatients` (`:16-17`). [[Quality/Hypotheses]] HYP-008 was refuted on
+this basis (2026-10-18).
+
+The correct exact-match pattern already exists elsewhere —
+`DueReminderDao.kt:121` matches the id wrapped in its own quotes via `instr(...)`, and
+`UpcomingVaccinationDaoTest.kt:127` documents why: *"a plain `LIKE '%vac-a%'` would also
 match 'vac-ab'"*.
 
 `SearchPatientsUseCase` is the domain entry point; `PatientListViewModel` combines 5 Room
@@ -80,10 +82,11 @@ flows through a private holder type (`:221`) to work around the `combine` arity 
 ## Merge patients
 
 `feature/patient/domain/MergePatientsUseCase.kt` — moves records from a duplicate patient
-into a survivor and deletes the duplicate. Runs in one transaction (`:31`) but calls
-`auditLogger.log(...)` — the **fire-and-forget** variant — from inside it (`:47`), so the
-audit row is written on a separate coroutine and **survives a rollback**. See
-[[Error Handling]] and [[Known Bugs]].
+into a survivor and deletes the duplicate. Runs in one transaction (`:31`). It used to call
+`auditLogger.log(...)` — the **fire-and-forget** variant — from inside that transaction
+(`:47`), so the audit row was written on a separate coroutine and **survived a rollback**.
+✅ Resolved: it now calls the suspendable `auditLogger.recordLog(...)` (`:47`), inside the
+transaction. Status: [[Quality/Bug Register]] — `NCC-022`.
 
 ## History and the vaccination card
 
@@ -93,9 +96,10 @@ from "loaded and empty" (`:8-18` documents why). `PatientViewModel.kt:122-125` u
 `SharingStarted.Eagerly` with `initialValue = null` to make that possible.
 
 `PatientVaccinationCardEntity` uses Room `@Relation` to pull reminders for a visit. ⚠️
-**`@Relation` cannot filter**, so `getRemindersByVisitId` (`DueReminderDao.kt:39`) returning
-soft-deleted rows puts them on the history screen regardless of any predicate. See
-[[Room Database]] and [[Known Bugs]].
+**`@Relation` cannot filter** — but it no longer has to: `getRemindersByVisitId`
+(`DueReminderDao.kt:42-43`) now filters `is_deleted = 0` in SQL. ✅ That closes the
+soft-deleted-row leak on the history screen (`NCC-006`). Status:
+[[Quality/Bug Register]].
 
 ## Receipts
 
@@ -109,21 +113,22 @@ that assigns from `receipt_sequences`, and the client always uploads a blank val
 
 `PatientCache` is invalidated per-id on write, and cleared wholesale on Room invalidation
 of table `patients` (`PatientRepositoryImpl.kt:66-68`) and at the end of `refreshPatients`
-(`:139`). ⚠️ Because the Room observer is scoped to `patients` only, **editing a vaccination
-does not clear it** — a cached `Patient` can hold a stale history for up to 5 minutes. See
-[[Caching]].
+(`:154`). ✅ The `patients`-only scope is sufficient: `Patient` is a typealias for
+`PatientEntity` (`Patient.kt:3`), which carries scalar patient fields only
+(`PatientEntity.kt:21-38`), so a vaccination edit leaves nothing stale behind. See
+[[Caching]] and [[Quality/Hypotheses]] HYP-001.
 
 ## Confirmed findings
 
 | # | Finding | Severity | Evidence |
 |---|---|---|---|
-| 1 | `PatientViewModel.savePatient` catches its **own validation exception** and discards it — a blank name gives the user zero feedback and no navigation | High | `PatientViewModel.kt:198-204` |
-| 2 | `MergePatientsUseCase` writes its audit row outside the transaction | Medium | `MergePatientsUseCase.kt:47` + `AuditLogger.kt:40-42` |
-| 3 | `PatientRepositoryImpl.deletePatient` calls `getDueRemindersForPatient`, which omits the `is_deleted` filter | Low | `DueReminderDao.kt:109`, `:200` |
-| 4 | `searchPatients` cannot use any of its indices; `address` is unindexed | Low | `PatientDao.kt:36-41` |
+| 1 | ✅ `savePatient` used to catch its **own validation exception** and discard it — a blank name gave zero feedback and no navigation. Now takes a required `onError`, invokes it (`:215`) and rethrows `CancellationException` (`:212`) | was High | `PatientViewModel.kt:200-215` — `NCC-015` |
+| 2 | ✅ `MergePatientsUseCase` used to write its audit row outside the transaction (`log()` = fire-and-forget). Now calls the suspendable `recordLog()` inside it | was Medium | `MergePatientsUseCase.kt:47` — `NCC-022` |
+| 3 | ✅ `deletePatient` used to pull reminders through a query with no `is_deleted` filter. The DAO now filters in SQL | was Low | `DueReminderDao.kt:129-130` — `NCC-006` |
+| 4 | `searchPatients` cannot use any of its indices; `address` is unindexed | Low | `PatientDao.kt:44-49` |
 | 5 | N+1 in `refreshPatients` — uses the bulk `unsyncedIds` ✅ but still one query per remote row elsewhere | Info | `PatientRepositoryImpl.kt:97` |
 
-All ranked in [[Known Bugs]].
+Status lives in [[Quality/Bug Register]]; [[Known Bugs]] is the 2026-10-16 audit record.
 
 ## Related
 

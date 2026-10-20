@@ -106,8 +106,8 @@ the only occurrence is the `DELETE FROM` inside `migration31_32` (`AppDatabase.k
 `reminders`** (`:392-399`), because HEAD keeps the columns there. So a device upgraded from
 an old build can carry live `is_deleted = 1` reminder rows into HEAD.
 
-The DAO then applies `is_deleted = 0` to **7 of 16** `DueReminderDao` queries. The file's
-own comment (`:10-13`) asserts the rule and then breaks it. See [[Known Bugs]].
+The DAO applies `is_deleted = 0` to **all 16** `DueReminderDao` read queries, matching the
+file's own comment (`:10-13`). See [[Known Bugs]].
 
 ## DAOs — 21
 
@@ -136,9 +136,9 @@ and provided by Hilt in `core/di/DatabaseModule.kt:39-137`.
 | `ConsultationDao` | none | ❌ |
 | `VaccinationItemDao` | none | ✅ androidTest |
 | `DoctorAvailabilityDao` | none | ❌ |
-| `BackupDao` (20 tables) | none — relies on `BackupRestorer` | ❌ |
+| `BackupDao` (23 tables) | none — relies on `BackupRestorer` | ❌ |
 
-**4 of 21 DAOs have any test (19%), and every DAO test is `androidTest`, which is not part
+**5 of 21 DAOs have any test (24%), and every DAO test is `androidTest`, which is not part
 of `./gradlew test`.**
 
 ## Type converters
@@ -163,8 +163,8 @@ of another.
 `withTransaction`, bound in `core/di/RepositoryModule.kt:70`. Nesting is safe because Room
 reuses the dispatcher.
 
-11 repositories consume it. The best-transacted write is
-`ClinicalVaccinationService.recordVaccination` (`:42-89`), which covers **9 tables** —
+13 classes consume it — 9 repositories plus 4 domain engines/services. The best-transacted
+write is `ClinicalVaccinationService.recordVaccination` (`:52-122`), which covers **9 tables** —
 `patient_visits`, `vaccination_items`, `finance_transactions`, `reminders`,
 `vaccine_batches`, `inventory_transactions`, `inventory_deductions`, `sync_queue`,
 `audit_logs`.
@@ -175,23 +175,29 @@ reuses the dispatcher.
 |---|---|
 | `PersonalReminderRepositoryImpl` — all 6 mutators | repository has **no** `TransactionRunner` dependency |
 | `DoctorAvailabilityRepositoryImpl` — all 4 mutators | same |
-| `InventoryRepositoryImpl.addStockBatch` (`:233-263`) | loop body interleaves validation and writes; fails mid-loop → partial commit |
-| `InventoryRepositoryImpl.deductStock` (`:372-421`) | `for` loop at `:393-409` with no transaction — but **dead code**, zero callers |
+| `InventoryRepositoryImpl.deductStock` (`:384-433`) | `for` loop at `:405-421` with no transaction — but **dead code**, zero callers |
 | `AuditLogger.log(...)` called from inside live transactions | fires on a **separate** coroutine (`AuditLogger.kt:40-42`), so the audit row survives a rollback |
-| `AddVaccinationViewModel` reminders loop (`:687-698`) | runs **after** `recordVaccination` has already committed |
+
+Two entries formerly in this table have since been fixed and are kept for history:
+`InventoryRepositoryImpl.addStockBatch` now wraps its whole validation/write loop in
+`transactionRunner.run` (`:250`, NCC-018), and the `AddVaccinationViewModel` reminder loop is
+gone — reminders are passed into `recordVaccination` as `reminderSpecs` and written inside its
+transaction (`AddVaccinationViewModel.kt:685-695`, NCC-004).
 
 ## Confirmed findings
 
 See [[Known Bugs]] for the full list with severity. Room-specific:
 
-1. ✅ `DueReminderDao` soft-delete filter applied to 7 of 16 queries — inconsistent by the
-   DAO's own stated rule.
+1. ✅ Re-checked at HEAD: `DueReminderDao` applies `is_deleted = 0` to all 16 read queries,
+   matching the DAO's own stated rule — the earlier "7 of 16" observation no longer holds.
 2. ✅ `AuditLogDao.kt:30-33` comment claims a composite `(entityType, entityId)` index that
    **does not exist**; the entity declares 6 single-column indices only.
-3. ✅ `VaccineDao.getAuditCountForVaccine` (`:137-141`) queries `audit_logs.remarks` for a
-   brand name, but the brand is stored in `oldValue`/`newValue` (`InventoryRepositoryImpl.kt:165`).
-   Both methods have **zero call sites** — the guard described is enforced nowhere.
-4. ✅ All 7 `FinanceDao` read queries order by
+3. ✅ `VaccineDao.getAuditCountForVaccine` (`:147-148`, sibling at `:150-151`) queries
+   `audit_logs.remarks` for a brand name — and `remarks` is exactly where the brand is written
+   (`InventoryRepositoryImpl.kt:171`). Both methods have **zero call sites** — the deletion
+   guard counts vaccinations, waste and transactions (`InventoryRepositoryImpl.kt:364-366`),
+   not audit rows.
+4. ✅ 7 of the 9 `FinanceDao` read queries order by
    `COALESCE(transaction_date, substr(timestamp,1,10)) DESC` — an expression that **no
    B-tree index can serve**, making `index_finance_transactions_transaction_date` useless.
 5. ✅ `consultations.visitId` is `NOT NULL` with a CASCADE FK but defaults to `""` in Kotlin
@@ -201,6 +207,6 @@ See [[Known Bugs]] for the full list with severity. Room-specific:
 
 - [[Database Schema]] — the Postgres side and the client/server drift
 - [[Caching]] — what sits in front of these tables
-- [[Testing]] — 17 of 21 DAOs untested, all DAO tests are instrumented
+- [[Testing]] — 16 of 21 DAOs untested, all DAO tests are instrumented
 - [[Known Bugs]] — full defect list
-- [[Backup and Restore]] — `BackupDao` is a second DAO over 20 of these tables
+- [[Backup and Restore]] — `BackupDao` is a second DAO over 23 of these tables

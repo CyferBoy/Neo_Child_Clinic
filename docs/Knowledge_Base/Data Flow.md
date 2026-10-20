@@ -22,7 +22,7 @@ construction — the repository returns `Flow<T>` from the DAO and never awaits 
 | Screen | Source |
 |---|---|
 | Patient list | `PatientRepositoryImpl.kt:86` `allPatients` Flow |
-| Dashboard | 4-level `combine` over `ClinicStatsManager` (`DashboardViewModel.kt:215-291`) |
+| Dashboard | 4-level `combine` over `ClinicStatsManager` (`DashboardViewModel.kt:223-299`) |
 | Due list | `ReminderDueListProcessor.process()` |
 | Inventory | `VaccineDao.getActiveBatchesByExpiry` + `getInventoryItems` |
 | Statistics | `FinanceCalculator` / `ExpenseCalculator` over DAO Flows |
@@ -57,14 +57,14 @@ side-effects all commit together. A crash mid-write leaves nothing partial.
 ✅ **Offline**: nothing in this path touches `Postgrest`, `Auth` or `Realtime`.
 
 The best example is `ClinicalVaccinationService.recordVaccination`
-(`:41-89`) — **9 tables** in one transaction.
+(`:52-122`) — **9 tables** in one transaction.
 
-⚠️ Two writes escape the transaction:
+Two writes that used to escape the transaction are now inside it — kept for history:
 
-| Location | What escapes |
+| Location | What changed |
 |---|---|
-| `AddVaccinationViewModel.kt:687-698` | next-vaccination reminder rows, written **after** the visit commits |
-| `InventoryRepositoryImpl.addStockBatch` (`:233-263`) | the whole batch loop — no `transactionRunner.run` at all |
+| `AddVaccinationViewModel.kt:685-695` | reminder loop removed; reminders pass into `recordVaccination` as `reminderSpecs` (NCC-004) |
+| `InventoryRepositoryImpl.addStockBatch` (`:250`) | batch loop now wrapped in `transactionRunner.run` (NCC-018) |
 
 Both are in [[Known Bugs]].
 
@@ -72,10 +72,10 @@ Both are in [[Known Bugs]].
 
 | Path | Tables | Transaction |
 |---|---|---|
-| `recordVaccination` | 9 | ✅ `ClinicalVaccinationService.kt:42` |
-| `addPatient` | 2 + queue | ✅ `PatientRepositoryImpl.kt:148` |
-| `deletePatient` | cascades + queue | ✅ `:198` |
-| `deleteVaccination` | 6 + stock reversal | ✅ `VaccinationRepositoryImpl.kt:389` |
+| `recordVaccination` | 9 | ✅ `ClinicalVaccinationService.kt:52` |
+| `addPatient` | 2 + queue | ✅ `PatientRepositoryImpl.kt:157` |
+| `deletePatient` | cascades + queue | ✅ `:208` |
+| `deleteVaccination` | 6 + stock reversal | ✅ `VaccinationRepositoryImpl.kt:392` |
 | `recordConsultation` / `editConsultation` | 3 | ✅ `ConsultationEditEngine.kt:23` |
 | `addBatch` / `deductStockFromBatch` / `reverseDeduction` | 3 | ⚠️ **caller must wrap** |
 | `recordWaste` / `saveBorrowedItem` | 3 | ✅ wrapped by the caller |
@@ -91,7 +91,7 @@ flowchart TD
     WM --> W["SyncWorker.doWork"]
     W --> P["processNextItems"]
     P --> Q[("sync_queue<br/>PENDING rows")]
-    Q --> U["SyncUploader<br/>22 descriptors"]
+    Q --> U["SyncUploader<br/>24 descriptors"]
     U -->|upsert/delete| PG[("Postgres")]
 ```
 
@@ -121,8 +121,9 @@ flowchart TD
     S12 --> AGG["aggregate errors, throw at end"]
 ```
 
-14 steps in FK-safe order. Each is wrapped in `runRefreshStep` so **one failure does not
-abort the rest**; errors aggregate and throw at the end.
+13 steps in FK-safe order (`feature/sync/domain/RefreshDataUseCase.kt:57-127`). Each is
+wrapped in `runRefreshStep` so **one failure does not abort the rest**; errors aggregate
+and throw at the end.
 
 ⚠️ Two pull paths have **no tombstone application** — a row deleted on device B survives on
 device A: `ReminderRepositoryImpl.refreshReminders()` and
@@ -204,7 +205,7 @@ flowchart TD
 | Flow | Weakest link | Bug |
 |---|---|---|
 | Read | `PatientCache` not cleared on vaccination edit | stale object for up to 5 min |
-| Write | reminder loop outside the visit transaction | §1.3 |
+| Write | reminder loop now inside the visit transaction | §1.3 (fixed) |
 | Sync push | `SingleFlight` wrapper discards the result | §2.3 |
 | Sync pull | no tombstones | §3.6 |
 | Realtime | `.catch {}` kills the subscription permanently | §3.7 |

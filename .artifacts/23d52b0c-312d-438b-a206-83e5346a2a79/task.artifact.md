@@ -1,0 +1,2 @@
+- [x] Update `gradle.properties` to suppress Kotlin source set check
+- [x] Verify fix by running Gradle Sync

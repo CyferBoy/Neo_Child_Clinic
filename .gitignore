@@ -27,7 +27,7 @@ local.properties
 app/release/
 
 # Local Dev Artifacts
-.artifacts/
+# .artifacts/  — unignored 2026-10-20: audit artifacts are source-checkable citations now (.artifacts/ citations carry validator info notes)
 
 # Signing keys and certificates — NEVER commit
 *.jks
@@ -78,8 +78,12 @@ Thumbs.db
 **/.dev.vars.*
 !**/.dev.vars.example
   
-# OpenCode  
-.opencode/ 
+# OpenCode — agent configs are source (docs-maintainer's restricted permissions are
+# referenced from AGENTS.md's Knowledge Base rules); session state stays ignored
+.opencode/*
+!.opencode/agents/
+.opencode/agents/*
+!.opencode/agents/docs-maintainer.md
 .superpowers/
 docs/superpowers/
 

@@ -18,13 +18,13 @@ com.neochildclinic/
 │   ├── local/            entities, dao/, database/
 │   ├── remote/           PostgREST data sources
 │   └── backup/           13 files: crypto, collector, restorer, cloud API
-├── domain/model/         30 pure Kotlin models, no Android imports
+├── domain/model/         36 pure Kotlin models, no Android imports
 └── feature/<name>/       data · domain · presentation   ← the Clean Architecture layers
 ```
 
 Each feature package contains its own `data/` (repository impl), `domain/` (repository
 interface + pure engines) and `presentation/` (ViewModel + Compose screen). There are
-**26 feature packages**.
+**21 feature packages**.
 
 ## The dependency rule
 
@@ -42,18 +42,18 @@ The rule holds: **presentation and domain never import a repository implementati
 
 ## The one architecture-breaking exception
 
-`core/sync/SyncUploader.kt` (674 lines) sits in `core/`, not in any feature's `data/`, and
+`core/sync/SyncUploader.kt` (677 lines) sits in `core/`, not in any feature's `data/`, and
 it reaches **directly into Room** via the whole `AppDatabase`:
 
 ```kotlin
 // core/sync/SyncUploader.kt — descriptor.fetch(database, …), descriptor.download(database, …)
 ```
 
-It holds a static registry of **22 entity descriptors**, each with its own fetch, download,
+It holds a static registry of **24 entity descriptors**, each with its own fetch, download,
 updatedAt-extractor and delete-filter. This means the sync layer knows about every entity
 table in the app. It is the de-facto fourth layer that the package structure hides.
 
-Consequence: adding a table means editing a 674-line file in `core/` plus the Room
+Consequence: adding a table means editing a 677-line file in `core/` plus the Room
 migration plus a sync descriptor. See [[Technical Debt]].
 
 ## Layer responsibilities as coded
@@ -65,7 +65,7 @@ migration plus a sync descriptor. See [[Technical Debt]].
 | Data | `feature/*/data`, `data/` | Room, Supabase SDK, Hilt | Repository implementations, DAOs, entities |
 | Core | `core/` | everything | DI, sync, cache, security, notification, backup |
 
-`domain/model/` is genuinely pure — 30 model files, no Android imports. The pure-domain
+`domain/model/` is genuinely pure — 36 model files, no Android imports. The pure-domain
 engines (`VaccinationEditEngine.inventoryDiff`, `EditReconciler.classifyItems`,
 `InventoryStockMovement.deducted`, `ReminderDueListProcessor`, `AddVaccinationLogic`) are
 also dependency-free, which is exactly why they are the only well-tested code in the app.
@@ -77,7 +77,7 @@ See [[Testing]].
 
 | Module | File | Provides |
 |---|---|---|
-| `DatabaseModule` | `core/di/DatabaseModule.kt:29` | `AppDatabase` (singleton), 23 DAOs unscoped |
+| `DatabaseModule` | `core/di/DatabaseModule.kt:39-137` | `AppDatabase` (singleton), 20 DAO providers — no `BackupDao` (`DatabaseModule.kt:139-142`) |
 | `SupabaseModule` | `core/di/SupabaseModule.kt:32` | 7 singletons: client, `Auth`, `CurrentUserProvider`, `Functions`, `Postgrest`, `Realtime`, `Storage` |
 | `RepositoryModule` | `core/di/RepositoryModule.kt:48` | 20 `@Binds`, interface → impl |
 | `RemoteDataSourceModule` | `core/di/RemoteDataSourceModule.kt:10` | 1 `@Binds` |
@@ -97,11 +97,11 @@ See [[Testing]].
 
 ## Navigation
 
-`app/Navigation.kt:83-92` — a **flat** `NavHost` with 5 graph-builder functions and
+`app/Navigation.kt:83-91` — a **flat** `NavHost` with 5 graph-builder functions and
 **51 destinations**. No nested graphs (`grep "navigation("` returns nothing).
 
 Routes are plain `const val` strings (`app/Routes.kt`), not type-safe `@Serializable` nav.
-26 `navigate()` calls interpolate ids raw. `Routes.kt:59-67` documents exactly why that
+22 `navigate()` calls interpolate ids raw. `Routes.kt:59-67` documents exactly why that
 breaks (a brand name containing `/` makes a destination silently never open) and fixed it
 for `brandName` only — every id is still raw. Today all ids are UUIDs so it is latent.
 

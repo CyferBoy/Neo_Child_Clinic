@@ -22,9 +22,9 @@ reads from it. The three above sit in front of it.
 
 Verified properties:
 
-- Uses `SystemClock.elapsedRealtime()`, not wall clock — so a clock change cannot expire
-  entries early (`:83-93`).
-- Lock-guarded; `maxSize` eviction removes the **earliest-expiring** entry (`:60-68`).
+- Uses `System.nanoTime()`, not wall clock — so a clock change cannot expire entries early
+  (`:38`, `:83-93`).
+- Lock-guarded; `maxSize` eviction removes the **earliest-expiring** entry (`:90-93`).
 - Expiry is **lazy** — checked on `get` and `put`, not on a timer. An entry that is never
   read again is never evicted; only `put` triggers a size trim (`:90-93`).
 - Overwriting an existing key does **not** count against `maxSize` — correct, since it
@@ -53,13 +53,15 @@ invalidate-during-load race, and it is tested.
 
 Invalidation triggers:
 
-- `patientCache.invalidate(patient.id)` after every write — `PatientRepositoryImpl.kt:190`.
+- `patientCache.invalidate(patient.id)` after every write — `PatientRepositoryImpl.kt:205`.
 - `clear()` on **Room invalidation of table `patients`** — `PatientRepositoryImpl.kt:66-68`.
-- `clear()` at the end of `refreshPatients` — `:139`.
+- `clear()` at the end of `refreshPatients` — `:154`.
 
-⚠️ The Room-triggered clear is scoped to `patients` only. Editing a **vaccination** does
-not clear it, so a `Patient` object cached with a stale embedded vaccination count or
-history can survive a vaccination edit until the 5-minute TTL expires.
+✅ The Room-triggered clear is scoped to `patients` only, and that is sufficient: `Patient`
+is a typealias for `PatientEntity` (`Patient.kt:3`) carrying scalar patient fields only
+(`PatientEntity.kt:21-38`) — no history, no vaccination counts. A vaccination edit has
+nothing vaccination-shaped in this cache to go stale. [[Quality/Hypotheses]] HYP-001 was
+refuted on this basis (2026-10-19).
 
 ## DI wiring
 
@@ -77,7 +79,7 @@ The cache is a **nice-to-have, not the reason reads are fast**. Every list scree
 live Room `Flow`:
 
 - `PatientRepositoryImpl.kt:86` — `allPatients` is a Room `Flow`.
-- `PatientRepositoryImpl.kt:254-255` — `searchPatients` likewise.
+- `PatientRepositoryImpl.kt:269-270` — `searchPatients` likewise.
 
 Room queries on a local SQLite file never block on the network, so the offline-first
 experience is provided by the persistence layer, not by these caches. The caches exist to
@@ -89,7 +91,7 @@ avoid re-running a query for a detail screen that was just on the list.
 |---|---|---|---|
 | 1 | `MemoryCache` lazy expiry means read-never entries are never evicted — bounded by `maxSize` but never TTL-swept | Low | `MemoryCache.kt:90-93` |
 | 2 | `MemoryCache` TTL/size hardcoded; not injectable | Low | `PatientCache.kt:25` |
-| 3 | `PatientCache` not invalidated on vaccination edit — stale patient object for up to 5 min | Medium | Room invalidation filter is `patients`-only, `PatientRepositoryImpl.kt:66-68` |
+| 3 | ~~`PatientCache` not invalidated on vaccination edit — stale patient object for up to 5 min~~ — **refuted**: the cache holds scalar `PatientEntity` rows only | None | `Patient.kt:3`, `PatientEntity.kt:21-38` — [[Quality/Hypotheses]] HYP-001 |
 | 4 | `CacheRegistry` clear only on login/logout — a stale cache survives a mid-session account switch until `clearAllTables` | Low | `AuthViewModel.kt:212`, `:341` |
 
 ## Related

@@ -23,11 +23,11 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 
 | ID | Hypothesis | Status | Needs |
 |---|---|---|---|
-| HYP-001 | `PatientCache` serves stale data after a vaccination edit | Needs runtime | an invalidation test |
+| HYP-001 | ~~`PatientCache` serves stale data after a vaccination edit~~ | ✅ **Refuted** 2026-10-19 | cache holds scalar patient rows only |
 | HYP-002 | ~~`Result.failure()` cancels appended WorkManager dependents~~ | ✅ **Refuted** 2026-10-18 | `SyncManagerImpl` uses `REPLACE` |
 | HYP-003 | `_syncState` strands on `SYNCING` after an exception | Needs runtime | injected DAO failure |
 | HYP-004 | `VaccineDetailViewModel` hides rows the card counts | Needs runtime | legacy `vaccineName` data |
-| HYP-005 | `vaccination_items.batchId = ""` triggers NCC-005's rollback path | Needs runtime | legacy rows |
+| HYP-005 | `vaccination_items.batchId = ""` — a blank batch is recorded FAILED, not a rollback | Needs runtime | legacy rows |
 | HYP-006 | Raw `execSQL` in `markUploaded` may not fire Room invalidation | Needs runtime | Flow observation |
 | HYP-007 | ISO string comparison is wrong at sub-second boundaries | Hypothesis | a boundary test |
 | HYP-008 | ~~`searchPatients` is passed `:q` without wildcards~~ | ✅ **Refuted** 2026-10-18 | caller builds `"%$query%"` |
@@ -44,21 +44,23 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | `BackupDao`'s lack of `@Transaction` is a bug | Atomicity comes from `BackupRestorer.kt:50`'s `database.withTransaction`. Works, but is invisible from the DAO. Recorded as a readability concern, not a defect. |
 | HYP-002 — `Result.failure()` cancels appended WorkManager dependents | **Premise is dead (2026-10-18).** There is no appended chain: `SyncManagerImpl.kt:39` and `:61` both use `ExistingWorkPolicy.REPLACE`, not `APPEND_OR_REPLACE`, so a failed element has no dependents to cancel. `:32-36` is now the explanatory comment describing the switch. [[Quality/Bug Register]] NCC-019 is Fixed on that basis. |
 | HYP-008 — `searchPatients` receives `:q` without wildcards | **Refuted by source (2026-10-18).** `SearchPatientsUseCase.kt:19` calls `patientRepository.searchPatients("%$query%")`, and `:16-17` returns `allPatients` for a blank query. Reached from `PatientListViewModel.kt:67`. The DAO takes a fully-formed pattern, exactly as `PatientDao.kt:36-41` expects. |
+| HYP-001 — `PatientCache` serves stale data after a vaccination edit | **Refuted by source (2026-10-19).** `Patient` is a typealias for `PatientEntity` (`Patient.kt:3`), which carries scalar patient fields only (`PatientEntity.kt:21-38`) — no history, no vaccination counts. The cache is populated only by `getPatientById` (`PatientRepositoryImpl.kt:88-89`; `allPatients` is an uncached Room Flow, `:85-86`) and cleared by any write to the `patients` table (`:66-68`). Editing a vaccination cannot make the cached value user-visibly stale. |
 
 ---
 
 ## HYP-001 — `PatientCache` serves stale data after a vaccination edit
 
-**Needs runtime.** `PatientRepositoryImpl.kt:66-68` registers a Room invalidation observer
-scoped to **table `patients` only**. Editing a vaccination does not touch that table, so a
-cached `Patient` object can retain a stale history for up to the 5-minute TTL.
+✅ **Refuted by source 2026-10-19.** The `patients`-only invalidation observer is real
+(`PatientRepositoryImpl.kt:66-68`), but there is nothing in the cached object to go stale.
 
-⚠️ Why unproven: whether the cached `Patient` actually embeds history or vaccination counts
-depends on which fields `PatientRepositoryImpl` populates. If it carries only scalar patient
-data, the impact is nil.
+`Patient` is a typealias for `PatientEntity` (`Patient.kt:3`), and `PatientEntity` carries
+scalar patient fields only (`PatientEntity.kt:21-38`) — no history, no vaccination rows, no
+counts. The cache is populated only by `getPatientById` (`PatientRepositoryImpl.kt:88-89`);
+`allPatients` is an uncached Room `Flow` (`:85-86`), and any write to the `patients` table
+clears the cache (`:66-68`). Editing a vaccination cannot make the cached value
+user-visibly stale, because the cached value does not embed vaccination data.
 
-**To confirm.** Write a test: cache a patient, edit one of their vaccinations, read the cache
-before the TTL elapses, assert the embedded history is unchanged.
+The original reasoning stays here for provenance; do not re-raise it.
 
 **Links.** [[Caching]] · [[Patient Management]]
 
@@ -101,8 +103,8 @@ written defensively. It is a robustness gap, not a demonstrated failure.
 
 ## HYP-004 — `VaccineDetailViewModel` hides rows the card counts
 
-**Needs runtime.** `DueReminderDao.kt:101-102` selects by delimited match on
-`nxt_vaccine_id`, then `VaccineDetailViewModel.kt:91-95` drops any row whose
+**Needs runtime.** `DueReminderDao.kt:121` selects by quoted-id `instr()` match on
+`nxt_vaccine_id` (the NCC-041 fix), then `VaccineDetailViewModel.kt:91-95` drops any row whose
 `cleanVaccineName(reminder.vaccineName)` does not case-insensitively equal the catalog
 `brandName`. The comment at `:57-60` promises exact card/detail parity.
 
@@ -120,7 +122,11 @@ whether such rows exist is a data question.
 ## HYP-005 — Blank `batchId` on legacy items
 
 **Needs runtime.** `VaccinationItem.batchId` defaults to `""` (`domain/model/Vaccination.kt:12`).
-`deductStockFromBatch("")` throws `"Batch not found"` — the NCC-005 rollback path.
+`deductStockFromBatch("")` throws `StockDeductionBlockedException("Batch not found")`
+(`InventoryRepositoryImpl.kt:462`), which is caught, not a rollback: the create path records
+a FAILED `inventory_deductions` row and still saves the visit
+(`ClinicalVaccinationService.kt:152`, row at `:162-171`), and the edit path records the batch
+as a shortfall (`VaccinationEditEngine.kt:183`).
 
 ⚠️ Why unproven: this requires legacy rows written before `batchId` was populated, and
 `VaccinationItemEntity.batchId` has a CASCADE FK to `vaccine_batches`, so such rows may not
