@@ -6,6 +6,7 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.feature.patient.domain.MergePatientsUseCase
 import com.neochildclinic.feature.patient.domain.SearchPatientsUseCase
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
+import com.neochildclinic.feature.sync.domain.RefreshTables
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.domain.model.UserRole
@@ -94,7 +95,10 @@ class PatientListViewModel @Inject constructor(
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientListUiState(isLoading = true))
 
     init {
-        refresh()
+        // Entry and realtime events pull only the three tables this screen shows (plus
+        // their FK dependencies) - not the 13-step whole-database pipeline. Manual
+        // pull-to-refresh keeps the full pipeline (refresh() with no scope).
+        refreshPatientsAndVisits()
         observeRealtimeChanges()
     }
 
@@ -110,21 +114,26 @@ class PatientListViewModel @Inject constructor(
             realtimeChangeSubscriptions.tableChanges(
                 "patients-db-changes", "patients", "patient_visits", "consultations"
             ).debounce(500).onEach {
-                refresh()
+                refreshPatientsAndVisits()
             }.catch { e ->
                 Log.e("Realtime", "Error in patient realtime changes", e)
             }.collect()
         }
     }
 
-    fun refresh() {
-        // Guard: without this, N realtime events become N concurrent 15-table full syncs.
+    // Scope covering patients, patient_visits and consultations (the tables the screen
+    // subscribes to). Kept next to refresh() so the full/scoped split stays obvious.
+    private fun refreshPatientsAndVisits() =
+        refresh(RefreshTables.PATIENTS, RefreshTables.VISITS, RefreshTables.CONSULTATIONS)
+
+    fun refresh(vararg tables: RefreshTables) {
+        // Guard: without this, N realtime events become N concurrent full syncs.
         // A refresh already in flight will pick up everything the burst contains anyway.
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                refreshDataUseCase()
+                refreshDataUseCase(*tables)
             } catch (e: Exception) {
                 _error.value = "Refresh failed: ${e.message}"
             } finally {

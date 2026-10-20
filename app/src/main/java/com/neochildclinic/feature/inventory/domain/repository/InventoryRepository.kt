@@ -16,6 +16,10 @@ interface InventoryRepository {
         filter: InventoryFilter = InventoryFilter.ALL,
         sort: InventorySort = InventorySort.ALPHABETICAL
     ): Flow<List<InventoryItem>>
+
+    /** Tile counts for the dashboard, derived the same way the per-vaccine stock flags
+     * above are, but without materializing batch lists per vaccine. */
+    fun getStockCounts(): Flow<Pair<Int, Int>>
     fun getAllVaccines(): Flow<List<Vaccine>>
     fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatch>>
     suspend fun getBatchById(batchId: String): VaccineBatch?

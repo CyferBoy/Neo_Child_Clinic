@@ -54,6 +54,8 @@ class BorrowRepositoryImpl @Inject constructor(
     override fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>> =
         borrowDao.getActiveBorrows().map { list -> list.map { it.toDomain() } }
 
+    override fun getActiveBorrowCount(): Flow<Int> = borrowDao.getActiveBorrowCount()
+
     override fun getReturnedRecords(): Flow<List<BorrowedVaccine>> =
         borrowDao.getReturnedBorrows().map { list -> list.map { it.toDomain() } }
 

@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 
 interface BorrowRepository {
     fun getActiveBorrowedRecords(): Flow<List<BorrowedVaccine>>
+
+    /** Tile count for the dashboard; COUNT in SQL, same predicate as the list. */
+    fun getActiveBorrowCount(): Flow<Int>
     fun getReturnedRecords(): Flow<List<BorrowedVaccine>>
     fun getReturnRecords(): Flow<List<BorrowReturnRecord>>
     suspend fun saveBorrowedItem(item: BorrowedVaccine)

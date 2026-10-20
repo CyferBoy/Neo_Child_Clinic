@@ -46,14 +46,16 @@ class RefreshDataUseCase @Inject constructor(
 ) {
     private val flight = SingleFlight()
 
-    suspend operator fun invoke() = flight.run { runRefresh() }
+    suspend operator fun invoke(vararg tables: RefreshTables) =
+        flight.run { runRefresh(stepsFor(tables.toList())) }
 
-    private suspend fun runRefresh() = coroutineScope {
+    private suspend fun runRefresh(wanted: Set<String>?) = coroutineScope {
         // Audit finding 15: one broken pull used to abort every later step (and the error
         // was swallowed by callers). Each step now runs regardless of earlier failures and
         // its failure is collected; a single aggregated error is surfaced at the end.
         val failures = mutableListOf<String>()
         suspend fun step(name: String, block: suspend () -> Unit) {
+            if (wanted != null && name !in wanted) return
             runRefreshStep(name, block)?.let { failures += it }
         }
 
@@ -140,4 +142,38 @@ internal suspend fun runRefreshStep(name: String, block: suspend () -> Unit): St
     } catch (e: Exception) {
         "$name: ${e.message ?: e::class.java.simpleName}"
     }
+
+/**
+ * Which tables a [RefreshDataUseCase] pull covers. Full-scope callers pass nothing;
+ * realtime/screen-entry triggers pass only the tables they actually show, so a pushed
+ * change cannot re-pull the entire database from this device. Scopes include their FK
+ * dependencies (e.g. VISITS pulls Patients first, exactly like the ordering comments
+ * in the pipeline above), so a scoped pull never inserts rows Room would reject.
+ */
+enum class RefreshTables {
+    PATIENTS, VISITS, FINANCE, EXPENSES, CONSULTATIONS, TODOS, REMINDERS,
+    WASTE, INVENTORY, PERSONAL_REMINDERS, VACCINATION_ITEMS
+}
+
+// Pipeline step names each table needs, including FK dependencies. Order exists only in
+// comments above (see RefreshDataUseCase); the pipeline runs its steps in pipeline order
+// and skips the rest.
+internal val refreshTablesSteps: Map<RefreshTables, List<String>> = mapOf(
+    RefreshTables.PATIENTS to listOf("Patients"),
+    RefreshTables.VISITS to listOf("Patients", "Vaccinations"),
+    RefreshTables.FINANCE to listOf("Patients", "Vaccinations", "Finance transactions", "COGS migration"),
+    RefreshTables.EXPENSES to listOf("Expenses"),
+    RefreshTables.CONSULTATIONS to listOf("Patients", "Consultations"),
+    RefreshTables.TODOS to listOf("Patients", "Today's Patient todos"),
+    RefreshTables.REMINDERS to listOf("Patients", "Reminders"),
+    RefreshTables.WASTE to listOf("Waste"),
+    RefreshTables.INVENTORY to listOf("Inventory"),
+    RefreshTables.PERSONAL_REMINDERS to listOf("Inventory", "Personal reminders"),
+    RefreshTables.VACCINATION_ITEMS to listOf("Inventory", "Vaccination items")
+)
+
+// null = every step (an unscooped call must behave exactly as before this API existed).
+internal fun stepsFor(tables: List<RefreshTables>): Set<String>? =
+    if (tables.isEmpty()) null
+    else tables.flatMap { refreshTablesSteps.getValue(it) }.toSet()
 

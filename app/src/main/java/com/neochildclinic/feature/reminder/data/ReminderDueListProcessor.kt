@@ -96,6 +96,15 @@ object ReminderDueListProcessor {
         return result
     }
 
+    /** Due-today tile count on a processed due list: ACTIVE rows only, classified Today.
+     *  Terminal rows (COMPLETED/DISMISSED) also carry dueDate strings and must never count,
+     *  which is why this is not simply `stats(dueList).dueToday` (report item F4). */
+    fun dueTodayCount(dueList: List<Vaccination>): Int {
+        val todayCal = DateClassifier.getTodayStart()
+        return dueList.filter { it.status == ReminderStatus.ACTIVE }
+            .count { DateClassifier.classify(it.nextDueDate, todayCal) is DateCategory.Today }
+    }
+
     fun stats(dueList: List<Vaccination>, reminders: List<ReminderEntity>): ReminderStats {
         val todayCal = DateClassifier.getTodayStart()
         val todayStart = todayCal.timeInMillis

@@ -18,10 +18,12 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.database.TransactionRunner
 
 @Singleton
 class PatientTodoRepositoryImpl @Inject constructor(
     private val dao: PatientTodoDao,
+    private val transactionRunner: TransactionRunner,
     private val syncRepository: SyncRepository,
     private val syncQueueDao: SyncQueueDao,
     private val postgrest: Postgrest,
@@ -31,15 +33,34 @@ class PatientTodoRepositoryImpl @Inject constructor(
     override suspend fun refresh() = cloudRefresh("PatientTodoRepo", rethrow = true) {
         val consultations = postgrest.from("consultation_todos").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationTodoEntity>()
         val vaccinations = postgrest.from("vaccination_todos").select { filter { eq("is_deleted", false) } }.decodeList<VaccinationTodoEntity>()
-        consultations.forEach { remote ->
-            val local = dao.getConsultationTodoById(remote.id)
-            // A queued row (unsynced edit, or a local delete awaiting upload) is the
-            // device's version until its push lands - same rule as every other repo.
-            if ((local == null || local.isSynced) && !syncQueueDao.isUnsynced("CONSULTATION_TODO", remote.id)) dao.insertConsultation(remote.copy(isSynced = true))
+
+        // One queue-guard read plus one local snapshot per table, then only the rows that
+        // change anything are written (see [todoUpsertsForRefresh]). Previously every
+        // remote row did a local lookup and a REPLACE, so even an unchanged pull issued
+        // 2N local queries and rewrote the whole todos table, invalidating every flow
+        // that watches it. Guard + snapshot + writes share one transaction so a local
+        // edit racing the pull keeps its row (the SyncQueueDao.unsyncedIdSet rule).
+        transactionRunner.run {
+            val upserted = todoUpsertsForRefresh(
+                remote = consultations,
+                localById = dao.getAllConsultationTodos().associateBy { it.id },
+                unsyncedIdSet = syncQueueDao.unsyncedIdSet("CONSULTATION_TODO"),
+                id = { it.id },
+                isSynced = { it.isSynced },
+                markedSynced = { it.copy(isSynced = true) }
+            )
+            upserted.forEach { dao.insertConsultation(it) }
         }
-        vaccinations.forEach { remote ->
-            val local = dao.getVaccinationTodoById(remote.id)
-            if ((local == null || local.isSynced) && !syncQueueDao.isUnsynced("VACCINATION_TODO", remote.id)) dao.insertVaccination(remote.copy(isSynced = true))
+        transactionRunner.run {
+            val upserted = todoUpsertsForRefresh(
+                remote = vaccinations,
+                localById = dao.getAllVaccinationTodos().associateBy { it.id },
+                unsyncedIdSet = syncQueueDao.unsyncedIdSet("VACCINATION_TODO"),
+                id = { it.id },
+                isSynced = { it.isSynced },
+                markedSynced = { it.copy(isSynced = true) }
+            )
+            upserted.forEach { dao.insertVaccination(it) }
         }
     }
 
@@ -84,4 +105,22 @@ dao.deleteConsultation(id)
 dao.deleteVaccination(id)
           syncRepository.enqueue("VACCINATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }
+}
+
+/** Decision core of the todos refresh: which remote rows to write now. Keeps the per-row
+ * guard rules exactly - a queue-unsynced row and a dirty local row are never overwritten;
+ * a synced row whose content already equals the remote copy is not rewritten (REPLACE of
+ * identical bytes would invalidate every flow watching the table without changing state). */
+internal fun <T> todoUpsertsForRefresh(
+    remote: List<T>,
+    localById: Map<String, T>,
+    unsyncedIdSet: Set<String>,
+    id: (T) -> String,
+    isSynced: (T) -> Boolean,
+    markedSynced: (T) -> T
+): List<T> = remote.filter { remoteRow ->
+    val local = localById[id(remoteRow)]
+    (local == null || isSynced(local)) &&
+        id(remoteRow) !in unsyncedIdSet &&
+        markedSynced(remoteRow) != local
 }

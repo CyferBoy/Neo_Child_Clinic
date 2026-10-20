@@ -118,11 +118,19 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override fun getDashboardStats(): Flow<ReminderStats> = combine(
         vaccinationDao.getAllVaccinations(),
-        dueReminderDao.getAllReminders(),
-        patientDao.getAllPatients()
-    ) { vaccs, reminders, _ ->
+        dueReminderDao.getAllReminders()
+    ) { vaccs, reminders ->
+        // The patients flow used to be combined in and discarded (`_`): it added the whole
+        // patients table to this pipeline's invalidation surface for zero data.
         ReminderDueListProcessor.stats(ReminderDueListProcessor.process(vaccs, reminders), reminders)
     }
+
+    override fun getDueTodayCount(): Flow<Int> = combine(
+        vaccinationDao.getAllVaccinations(),
+        dueReminderDao.getAllReminders()
+    ) { vaccs, reminders ->
+        ReminderDueListProcessor.dueTodayCount(ReminderDueListProcessor.process(vaccs, reminders))
+    }.distinctUntilChanged()
 
     private suspend fun enqueueReminderSync(
         entityName: String,

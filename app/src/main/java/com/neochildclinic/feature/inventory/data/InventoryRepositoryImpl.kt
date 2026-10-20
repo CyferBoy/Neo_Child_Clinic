@@ -133,6 +133,21 @@ class InventoryRepositoryImpl @Inject constructor(
         }.flowOn(Dispatchers.Default)
     }
 
+    override fun getStockCounts(): Flow<Pair<Int, Int>> = combine(
+        vaccineDao.getAllVaccines(),
+        vaccineDao.getAllBatches(),
+        settingsManager.settingsFlow
+    ) { vaccines, batches, settings ->
+        // Same active-batch rule as getInventoryItems above; only the tile count is built,
+        // no per-vaccine InventoryItem with its mapped-and-sorted batch list (report F2).
+        stockTileCounts(
+            vaccineIds = vaccines.map { it.id },
+            batches = batches.map { BatchStock(it.vaccineId, it.remainingQuantity, it.expiryDate) },
+            threshold = settings.lowStockThreshold,
+            isExpired = { InventoryUtils.isExpired(it) }
+        )
+    }.flowOn(Dispatchers.Default)
+
     override fun getAllVaccines(): Flow<List<Vaccine>> = vaccineDao.getAllVaccines().map { it.map { row -> row.toDomain() } }
 
     override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatch>> =

@@ -19,8 +19,6 @@ import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
 import com.neochildclinic.core.ui.SlotsUiState
 import com.neochildclinic.core.ui.loadUiState
-import com.neochildclinic.core.common.DateClassifier
-import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.sync.RealtimeChangeSubscriptions
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
@@ -414,19 +412,11 @@ class DashboardViewModel @Inject constructor(
 
     private fun patientCount(): Flow<Int> = patientRepository.getPatientCount()
 
-    private fun inventoryStockCounts(): Flow<Pair<Int, Int>> = inventoryRepository.getInventoryItems().map { items ->
-        items.count { it.isLowStock && !it.hasOutofStock } to items.count { it.hasOutofStock }
-    }
+    private fun inventoryStockCounts(): Flow<Pair<Int, Int>> = inventoryRepository.getStockCounts()
 
-    private fun borrowedCount(): Flow<Int> = borrowRepository.getActiveBorrowedRecords().map { it.size }
+    private fun borrowedCount(): Flow<Int> = borrowRepository.getActiveBorrowCount()
 
-    private fun dueCount(): Flow<Int> = reminderRepository.getDueList().map { list ->
-        val todayCal = DateClassifier.getTodayStart()
-        list.count {
-            val cat = DateClassifier.classify(it.nextDueDate, todayCal)
-            cat is DateCategory.Today
-        }
-    }
+    private fun dueCount(): Flow<Int> = reminderRepository.getDueTodayCount()
 
     private fun wasteCount(): Flow<Int> = wasteRepository.getWasteCount()
 

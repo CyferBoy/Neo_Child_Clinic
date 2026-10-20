@@ -38,6 +38,10 @@ interface ReminderRepository {
     suspend fun refreshReminders()
 
     fun getDashboardStats(): Flow<ReminderStats>
+
+    /** Due-today tile for the dashboard: ACTIVE rows only, no patient switchboard, and
+     *  deduplicated so a burst touching both tables emits one count (report item F4). */
+    fun getDueTodayCount(): Flow<Int>
     suspend fun getReminderById(id: String): Reminder?
     fun getAllReminders(): Flow<List<Reminder>>
 

@@ -82,6 +82,7 @@ class FakeReminderRepository(private val runner: RecordingTransactionRunner) : R
     override suspend fun transferReminders(duplicateId: String, masterId: String) = TODO()
     override suspend fun refreshReminders() = TODO()
     override fun getDashboardStats(): Flow<ReminderStats> = TODO()
+    override fun getDueTodayCount(): Flow<Int> = TODO()
     override suspend fun getReminderById(id: String): Reminder? = TODO()
     override fun getAllReminders(): Flow<List<Reminder>> = TODO()
     override fun getUpcomingVaccinations(): Flow<List<Reminder>> = TODO()
@@ -102,6 +103,7 @@ class FakeSyncRepository(private val runner: RecordingTransactionRunner) : SyncR
 
 class FakeInventoryRepository(private val runner: RecordingTransactionRunner) : InventoryRepository {
     override fun getInventoryItems( query: String , filter: InventoryFilter , sort: InventorySort ): Flow<List<InventoryItem>> = TODO()
+    override fun getStockCounts(): Flow<Pair<Int, Int>> = TODO()
     override fun getAllVaccines(): Flow<List<Vaccine>> = TODO()
     override fun getVaccineBatches(vaccineId: String): Flow<List<VaccineBatch>> = TODO()
     override suspend fun getBatchById(batchId: String): VaccineBatch? = TODO()

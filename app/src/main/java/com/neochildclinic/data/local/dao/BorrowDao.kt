@@ -23,6 +23,11 @@ interface BorrowDao {
     @Query("SELECT * FROM borrow_records WHERE isReturned = 0")
     fun getActiveBorrows(): Flow<List<BorrowEntity>>
 
+    // Dashboard tile (report F2): COUNT instead of materializing every active borrow
+    // record and mapping it to the domain. Same predicate as [getActiveBorrows].
+    @Query("SELECT COUNT(*) FROM borrow_records WHERE isReturned = 0")
+    fun getActiveBorrowCount(): Flow<Int>
+
     @Query("SELECT * FROM borrow_records WHERE isReturned = 1")
     fun getReturnedBorrows(): Flow<List<BorrowEntity>>
 

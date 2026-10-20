@@ -31,6 +31,14 @@ interface PatientTodoDao {
     @Query("SELECT * FROM vaccination_todos WHERE id = :id LIMIT 1")
     suspend fun getVaccinationTodoById(id: String): VaccinationTodoEntity?
 
+    // Parameterless snapshots for the refresh loop (same pattern as PatientDao's
+    // getAllPatientsSnapshot): one query per table, built once outside the loop.
+    @Query("SELECT * FROM consultation_todos")
+    suspend fun getAllConsultationTodos(): List<ConsultationTodoEntity>
+
+    @Query("SELECT * FROM vaccination_todos")
+    suspend fun getAllVaccinationTodos(): List<VaccinationTodoEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConsultation(todo: ConsultationTodoEntity)
 
