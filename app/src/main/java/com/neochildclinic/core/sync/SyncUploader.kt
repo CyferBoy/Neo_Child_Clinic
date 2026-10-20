@@ -4,6 +4,7 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.SyncOperation
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -411,7 +412,14 @@ class SyncUploader @Inject constructor(
             if (ids.isEmpty()) continue
 
             try {
-                val rows = postgrest.from(table).select {
+                // Project only the columns the conflict consumer reads (remoteData["id"],
+                // remoteData["updated_at"]). updated_at exists on every public table
+                // (migration 20260816 add-if-not-exists + set_updated_at trigger), so the
+                // projection cannot 400 like the legacy `last_updated` fallback could - that
+                // column exists nowhere in the schema, the constraint branch was dead code;
+                // the projected select drops it alongside every other unused field of the
+                // formerly full-row read.
+                val rows = postgrest.from(table).select(columns = Columns.list("id", "updated_at")) {
                     filter { isIn("id", ids) }
                 }.decodeList<Map<String, JsonElement>>()
 

@@ -19,6 +19,7 @@ import io.github.jan.supabase.storage.storage
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.ktor.client.engine.cio.CIO
 import com.russhwolf.settings.SharedPreferencesSettings
+import kotlin.time.Duration.Companion.seconds
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SecurityUtils
 import com.neochildclinic.core.security.SessionCurrentUserProvider
@@ -46,6 +47,10 @@ object SupabaseModule {
             supabaseKey = SUPABASE_ANON_KEY
         ) {
             httpEngine = CIO.create()
+            // DA-07: supabase-kt's built-in default is 10 s (decompiled
+            // SupabaseClientBuilder init) - a slow-clinic-network first pull of thousands of
+            // rows trips it and every sync just fails instead of taking longer. Pin 60 s.
+            requestTimeout = 60.seconds
             defaultSerializer = KotlinXSerializer(Json {
                 ignoreUnknownKeys = true
                 coerceInputValues = true
