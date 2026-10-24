@@ -77,12 +77,12 @@ fun OverviewTab(
         if (isOverall) emptyList() else financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
     }
 
-    // Visit-type counts (all non-deleted visits, by visit_type) for the three Overview cards.
+    // Visit-type counts (all valid/non-cancelled visits, by visit_type) for the three Overview cards.
     val visitTypeStatsCurrent = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
-        StatisticsUtils.visitTypeStats(vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) })
+        StatisticsUtils.visitTypeStats(StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) })
     }
     val visitTypeStatsPrev = remember(vaccinations, prevFilter, prevQuarter, prevMonth, isOverall) {
-        if (isOverall) VisitTypeStats(0, 0, 0) else StatisticsUtils.visitTypeStats(vaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) })
+        if (isOverall) VisitTypeStats(0, 0, 0) else StatisticsUtils.visitTypeStats(StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) })
     }
 
     // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)

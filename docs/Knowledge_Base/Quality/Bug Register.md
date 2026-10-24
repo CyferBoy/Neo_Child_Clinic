@@ -76,7 +76,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | NCC-022 | `AuditLogger.log()` writes outside the caller's transaction | S3 | ✅ Fixed | Logging |
 | NCC-023 | Pull paths never apply tombstones | S3 | ✅ Fixed (absence reconciliation shipped instead) — see note | Sync |
 | NCC-024 | Realtime subscription dies permanently on first error | S3 | ✅ Fixed | Sync |
-| NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | Open | Sync |
+| NCC-025 | `SyncQueueDao` orders a TEXT priority column backwards | S4 | ✅ Fixed | Sync |
 | NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
 | NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
 | NCC-028 | `consultations.visitId` defaults to `""` — an FK-violating value | S4 | Open | Room |

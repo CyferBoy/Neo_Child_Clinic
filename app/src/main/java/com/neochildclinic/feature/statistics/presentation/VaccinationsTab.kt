@@ -34,7 +34,7 @@ import java.util.*
 private data class AdministeredDose(val vaccineName: String, val quantity: Int, val dateGiven: String)
 
 private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: Set<String>): List<AdministeredDose> =
-    vaccinations.flatMap { v ->
+    StatisticsUtils.filterValidVaccinations(vaccinations).flatMap { v ->
         v.items
             .filter { it.vaccineName.isNotBlank() && it.vaccineId in validVaccineIds }
             .map { AdministeredDose(PatientUtils.cleanVaccineName(it.vaccineName), it.quantity.coerceAtLeast(0), v.dateGiven) }

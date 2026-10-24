@@ -547,7 +547,7 @@ def check_bug_register(notes: list[Path], rep: Report) -> None:
 
 
 # Directories that hold no cited source and cost seconds to walk.
-INDEX_SKIP = {".git", ".gradle", ".gradle-user", ".idea", ".kotlin", ".artifacts",
+INDEX_SKIP = {".git", ".gradle", ".gradle-user", ".idea", ".kotlin",
               "build", "graphify-out", "neochildclinic-release", "node_modules"}
 
 
