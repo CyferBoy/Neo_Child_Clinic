@@ -51,7 +51,7 @@ not deletion — which is what the findings below cover.
 | 21 | `DueReminderDao.kt` | upcoming/due/dismissed queries | **SQL-level** `is_deleted = 0` + status on every read (`:22-134`) |
 | 22 | `FinanceDao.kt` / `ExpenseDao.kt` | ledger flows | no soft-delete column locally |
 | 23 | `VaccineDao.kt` | inventory + `getVaccinationCountForVaccine` (`:118-119`) | no status predicate — **suspected**: counts pending visits; recorded, unverified, not fixed |
-| 24 | Repo impls: `PatientRepositoryImpl`, `VaccinationRepositoryImpl`, `ReminderRepositoryImpl` (`:428-429`, `:97-118`), `FinanceRepositoryImpl`, `ExpenseRepositoryImpl`, `InventoryRepositoryImpl` | Room flows + remote refresh | every remote pull filters `is_deleted = false`; local prune via `RemotePrune` (`core/sync/RemotePrune.kt:29-58`) |
+| 24 | Repo impls: `PatientRepositoryImpl`, `VaccinationRepositoryImpl`, `ReminderRepositoryImpl` (`:428-429`, `:97-118`), `FinanceRepositoryImpl`, `ExpenseRepositoryImpl`, `InventoryRepositoryImpl` | Room flows + remote refresh | every remote pull filters `is_deleted = false`; local prune via `RemotePrune` (`core/sync/RemotePrune.kt:29-58`). **NCC-044 (fixed)**: `refreshTransactions`' import guard let `local == null` bypass the pending set, re-importing freshly deleted income rows — now `financeImportAllowed(...)` gates both branches |
 | 25 | `core/sync/SyncUploader.kt`, `RealtimeChangeSubscriptions.kt` | sync | **residual risk**: `fetchRemoteConflictData` (`:422`) is the one business-table read with no `is_deleted` filter; `RemoteReminder.toLocal()` hard-codes `isDeleted = false` |
 
 ## 4. The defect this audit confirmed and fixed — NCC-043

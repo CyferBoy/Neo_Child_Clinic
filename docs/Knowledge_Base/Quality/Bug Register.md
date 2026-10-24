@@ -29,7 +29,7 @@ difference matters when deciding what is safe to regress:
 
 | Evidence class | Meaning | Items |
 |---|---|---|
-| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-017, NCC-043 |
+| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-017, NCC-043, NCC-044 |
 | **Source-verified** | re-read at `e05f7c0` or re-verified 2026-10-19, and confirmed fixed; **no regression test** | NCC-003, NCC-005, NCC-008, NCC-009 (🔍 test pins `run()` only), NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-019 (⚠️ no test), NCC-035, NCC-040 |
 | **Needs a live DB** | cannot be settled by reading source | NCC-002, NCC-003, NCC-007 |
 
@@ -95,6 +95,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
 | NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
 | NCC-043 | Statistics visit-type cards gated on the wrong helper — consultation visits counted as 0 | S2 | ✅ Fixed | Statistics |
+| NCC-044 | `refreshTransactions` re-imports finance rows deleted locally while their remote DELETE was in flight | S2 | ✅ Fixed | Finance |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -1116,6 +1117,78 @@ composition's 0 directly). `./gradlew app:assembleDebug` → **BUILD SUCCESSFUL*
 run, not an independent one here.
 
 **Links.** [[Statistics Dashboard]] · [[Testing]] · [[Quality/Audit Reconciliation]]
+
+---
+
+## NCC-044 — `refreshTransactions` re-imported finance rows deleted locally while their remote DELETE was in flight
+
+| | |
+|---|---|
+| **Status** | ✅ Fixed 2026-10-24 · **Severity** S2 High |
+| **Files** | `feature/finance/data/FinanceRepositoryImpl.kt:417-421` (guard call site), `:461-465` (`financeImportAllowed`, new); cascades at `feature/vaccination/data/VaccinationRepositoryImpl.kt:488-500`, `feature/consultation/data/ConsultationRepositoryImpl.kt:170-182`, `feature/finance/data/ExpenseRepositoryImpl.kt:97-114` |
+
+**Impact.** Income deleted on this device came back from the next pull and stayed in
+**Statistics → Finance** and **Monthly Finance Details** — both read
+`FinanceDao.getAllTransactions()` (`data/local/dao/FinanceDao.kt:19`, consumed at
+`feature/statistics/presentation/StatisticsViewModel.kt:62` and
+`feature/statistics/presentation/FinanceDetailsViewModel.kt:30`). The resurrected row also
+became *un-prunable*: `RemotePrune.computeBatches` skips ids still claimed by the queue
+(`core/sync/RemotePrune.kt:36-38`), so as long as the FINANCE DELETE stayed pending the row
+could not be removed by absence reconciliation either.
+
+**Reproduction.**
+
+1. Delete a visit or consultation (or an expense). The finance rows are hard-deleted locally
+   and a FINANCE `DELETE` is enqueued
+   (`VaccinationRepositoryImpl.kt:488-500`, `ConsultationRepositoryImpl.kt:170-182`,
+   `ExpenseRepositoryImpl.kt:97-114`).
+2. Before `SyncWorker` uploads it (a one-time WorkManager request,
+   `core/sync/SyncManagerImpl.kt:22`) — a race the user typically loses by opening
+   Statistics right after the delete — a pull runs.
+3. The pull sees `local == null` for the deleted id, short-circuits the pending check, and
+   re-inserts the row as `isSynced = true`.
+4. The deleted income is visible again in Statistics, and stays visible while the DELETE is
+   queued.
+
+**Root cause.** The import guard in `refreshTransactions` was
+`local == null || (local.isSynced && id !in pendingFinanceIds)`: the pending-set check sat
+*inside* the `local != null` arm only, so the `local == null` case (a row we just
+hard-deleted) never consulted the queue and re-imported the row the DELETE was about to
+remove.
+
+**Fix applied.** Extracted `financeImportAllowed(local, remoteId, pendingIds)`
+(`FinanceRepositoryImpl.kt:461-465`) — the pending set now gates the `local == null` case
+too (`remoteId !in pendingIds && (local == null || local.isSynced)`), contract documented in
+its KDoc (`:453-460`). This mirrors `todoUpsertsForRefresh`
+(`feature/patient/data/PatientTodoRepositoryImpl.kt:135-143`), which already had the pending
+set as an outer gate. The heal-override branch (`local != null && wasHealed`,
+`:424-427`) is unchanged. **Finance was the only pull path with this shape** — every sibling
+gates the insert on the pending set unconditionally: patients
+(`PatientRepositoryImpl.kt:135`), visits (`VaccinationRepositoryImpl.kt:126`),
+consultations (`ConsultationRepositoryImpl.kt:211`), expenses
+(`ExpenseRepositoryImpl.kt:125`), todos (`PatientTodoRepositoryImpl.kt:141`), profiles
+(`ProfileRepositoryImpl.kt:75`), reminders (`ReminderRepositoryImpl.kt:493-498`).
+
+**Regression test.** `FinanceRefreshImportTest.kt`
+(`app/src/test/java/com/neochildclinic/feature/finance/data/FinanceRefreshImportTest.kt`) —
+5 cases against `financeImportAllowed`, including the exact defect: `row pending a remote
+DELETE is not re-imported after the local delete` (`:26-29`) asserts `local == null` +
+pending id ⇒ not imported.
+
+**Verification evidence.** Reported by the change author 2026-10-24:
+`./gradlew app:testDebugUnitTest` → **317 tests, 0 failures** (was 312);
+`./gradlew app:assembleDebug` → **BUILD SUCCESSFUL**. 🔍 The docs pass did not re-run either
+Gradle command — the suite result is the author's run, not an independent one here.
+
+⚠️ **Suspected, NOT fixed — do not read this card as closing it.** Income rows created by
+legacy builds with a blank/null `visitId` would escape the visit cascade entirely: the
+cascade selects `WHERE visitId = :id` (`FinanceDao.kt:21-22`) and
+`ConsultationRepositoryImpl.kt:171` guards its whole finance-delete block on
+`existing.visitId.isNotBlank()`, so such a row matches neither. Current code regenerates the
+visit id when it is blank (`ClinicalVaccinationService.kt:199`), so no *new* rows can look
+like this — only pre-existing data could, and that is unverified without a live database.
+
+**Links.** [[Offline Synchronization]] · [[Statistics Dashboard]] · [[Testing]]
 
 ## Closing a bug
 

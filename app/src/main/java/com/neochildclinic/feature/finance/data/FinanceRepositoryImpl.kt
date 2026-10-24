@@ -411,8 +411,14 @@ class FinanceRepositoryImpl @Inject constructor(
                         // (markUploaded clears the flag by id only), so trusting that flag
                         // alone let a concurrent pull overwrite the newer local edit - and the
                         // rolled-back version was then uploaded, losing the edit on every device.
-                        var shouldUpdateLocal = local == null ||
-                                (local.isSynced && normalizedRemote.id !in pendingFinanceIds)
+                        // The pending set gates BOTH branches: without it, `local == null`
+                        // re-imported a row we hard-deleted while its DELETE upload was still
+                        // in flight, and it resurfaced in Statistics (NCC-044).
+                        var shouldUpdateLocal = financeImportAllowed(
+                            local = local,
+                            remoteId = normalizedRemote.id,
+                            pendingIds = pendingFinanceIds
+                        )
                         var finalEntity = normalizedRemote.copy(isSynced = true)
 
                         if (local != null && wasHealed) {
@@ -443,4 +449,18 @@ class FinanceRepositoryImpl @Inject constructor(
                 }
     }
 }
+
+/**
+ * Whether a pulled remote finance row may be written into Room. Same contract as every other
+ * refresh path (see todoUpsertsForRefresh): the pending queue entry is authoritative. The
+ * pending set must gate the `local == null` case too - a locally hard-deleted row whose remote
+ * DELETE upload was still in flight used to pass that case, get re-imported as isSynced=true,
+ * resurface in Statistics > Finance / Monthly Finance Details, and stay un-prunable while the
+ * DELETE remained pending (NCC-044).
+ */
+internal fun financeImportAllowed(
+    local: FinanceEntity?,
+    remoteId: String,
+    pendingIds: Set<String>
+): Boolean = remoteId !in pendingIds && (local == null || local.isSynced)
 
