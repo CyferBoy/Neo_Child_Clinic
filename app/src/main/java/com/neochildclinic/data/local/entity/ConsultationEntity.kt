@@ -30,7 +30,7 @@ import kotlinx.serialization.Serializable
 )
 data class ConsultationEntity(
     @PrimaryKey val id: String,
-    @SerialName("visit_id") val visitId: String = "",
+    @SerialName("visit_id") val visitId: String,
     @SerialName("patient_id") val patientId: String,
     @SerialName("doctor_id") val doctorId: String = "",
     @SerialName("doctor_name") val doctorName: String = "",

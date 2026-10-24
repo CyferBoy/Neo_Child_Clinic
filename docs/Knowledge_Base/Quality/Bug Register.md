@@ -29,7 +29,7 @@ difference matters when deciding what is safe to regress:
 
 | Evidence class | Meaning | Items |
 |---|---|---|
-| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-017 |
+| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-017, NCC-043 |
 | **Source-verified** | re-read at `e05f7c0` or re-verified 2026-10-19, and confirmed fixed; **no regression test** | NCC-003, NCC-005, NCC-008, NCC-009 (🔍 test pins `run()` only), NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-019 (⚠️ no test), NCC-035, NCC-040 |
 | **Needs a live DB** | cannot be settled by reading source | NCC-002, NCC-003, NCC-007 |
 
@@ -94,6 +94,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
 | NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
 | NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
+| NCC-043 | Statistics visit-type cards gated on the wrong helper — consultation visits counted as 0 | S2 | ✅ Fixed | Statistics |
 
 **Security** → [[Quality/Security Concerns]] (NSC-001…NSC-013)
 **Hypotheses** → [[Quality/Hypotheses]] (HYP-001…HYP-009)
@@ -1060,6 +1061,61 @@ never changes it. The next run's counters will settle which of the two disagrees
 guessing now.
 
 **Links.** [[Room Database]] · [[Documentation Maintenance]]
+
+## NCC-043 — Statistics visit-type cards gated on the wrong helper — consultation visits counted as 0
+
+| | |
+|---|---|
+| **Status** | ✅ Fixed 2026-10-24 · **Severity** S2 High |
+| **Files** | `feature/statistics/domain/StatisticsUtils.kt:168-173` (new); `feature/statistics/presentation/OverviewTab.kt:52`, `:82-87`, `:109-111`; `feature/statistics/presentation/FullReportViewModel.kt:159-172`, `:256-269`; `feature/statistics/presentation/VaccinationsTab.kt` (comments only) |
+| **Introduced by** | commit `8b3c415` ("exclude cancelled and dismissed visits from all statistics filters") |
+
+**Impact.** The Overview "Consulted Patients" and "Total Consultation" cards and the
+consultation series in the Patient Activity chart were **permanently 0**. The same
+over-gating made `computeEffectiveRegistrationDates` receive only valid vaccinations in
+`OverviewTab`/`FullReportViewModel`, so a consultation-first patient got a later effective
+registration date than on the Patients tab (which passes raw visits). In Full Report the
+monthly and daily consultation series were also permanently 0.
+
+**Evidence.** Consultation visits are persisted with `ReminderStatus.ACTIVE` — they have no
+completion state — so `isCountedVaccination` (`StatisticsUtils.kt:43-44`) returns false for
+**100%** of them. Commit `8b3c415` wrapped the Overview visit-type input in
+`StatisticsUtils.filterValidVaccinations(...)` before `StatisticsUtils.visitTypeStats(...)`,
+which silently excluded every consultation from the count.
+
+**Root cause.** The correct-by-design rule in `visitTypeStats` (`StatisticsUtils.kt:144-149`
+— deliberately *not* status-gated) was undermined at the call site: the caller pre-filtered
+its input with the vaccination-status gate before calling it, so the function's own
+ungated loop never saw a consultation visit.
+
+**Fix applied.** New `StatisticsUtils.visitTypeStatsForFilter(visits, filterMode,
+fyQuarter, selectedMonth)` (`StatisticsUtils.kt:168-173`) applies only the date filter
+(`isDateInFilter`), never the status gate. `OverviewTab.kt:82-87` now calls it and passes
+raw visits to `computeEffectiveRegistrationDates` (`:52`) and the consultation chart series
+(`:109-111`); `FullReportViewModel.kt` threads a raw `allVisits` parameter through
+`computeMonthly` (`:162`, `:172`, `:204`) and `computeDaily` (`:259`, `:269`, `:298`) for
+the same two purposes. Vaccination-type metrics remain status-gated
+(`filterValidVaccinations`, `OverviewTab.kt:60`, `FullReportViewModel.kt` `validVaccinations`)
+— a pending vaccination visit must not count as administered. Also corrected two misleading
+comments in `VaccinationsTab.kt` that claimed doses were "never gated on the parent visit's
+status" while `administeredDoses` does gate (documentation-only, no behaviour change).
+
+**Regression test.** `VisitTypeStatsTest.kt`
+(`app/src/test/java/com/neochildclinic/feature/statistics/domain/VisitTypeStatsTest.kt`) —
+two new cases: `visitTypeStatsForFilter counts ACTIVE consultation visits instead of
+filtering them out` (`:61-82`) and `visitTypeStatsForFilter applies the date window before
+counting` (`:85-95`). The first also asserts the pre-fix composition
+`visitTypeStats(filterValidVaccinations(visits))` returns 0 consultations (`:80-81`), so
+the test provably bites on the original code.
+
+**Verification evidence.** Reported by the change author 2026-10-24:
+`./gradlew app:testDebugUnitTest` → **312 tests, 0 failures** (was 310); the two new tests
+above pin the fix, and the first fails without it by construction (it asserts the old
+composition's 0 directly). `./gradlew app:assembleDebug` → **BUILD SUCCESSFUL**.
+🔍 The docs pass did not re-run either Gradle command — the suite result is the author's
+run, not an independent one here.
+
+**Links.** [[Statistics Dashboard]] · [[Testing]] · [[Quality/Audit Reconciliation]]
 
 ## Closing a bug
 

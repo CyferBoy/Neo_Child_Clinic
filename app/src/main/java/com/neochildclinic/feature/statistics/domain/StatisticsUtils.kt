@@ -144,8 +144,8 @@ object StatisticsUtils {
     /**
      * Visit-type counts for Overview cards. Counts every non-deleted visit (the caller's list is
      * already is_deleted=0 filtered), by visit_type — deliberately NOT gated by [filterValidVaccinations],
-     * because visits are recorded with ACTIVE status and must still count ([VisitTypeStats.consultedPatients]
-     * is unique patients, the other two are per-visit counts).
+     * because consultation visits are recorded with ACTIVE status and must still count
+     * ([VisitTypeStats.consultedPatients] is unique patients, the other two are per-visit counts).
      */
     fun visitTypeStats(visits: List<Vaccination>): VisitTypeStats {
         val consultedIds = mutableSetOf<String>()
@@ -159,6 +159,18 @@ object StatisticsUtils {
         }
         return VisitTypeStats(consultedIds.size, totalConsultation, totalVaccination)
     }
+
+    /**
+     * The visit-type card rule for a date window: [visitTypeStats] over the date-filtered raw
+     * visit list. Never wrap the input in [filterValidVaccinations] first — that drops the
+     * ACTIVE-status consultation visits these cards exist to count (NCC-043).
+     */
+    fun visitTypeStatsForFilter(
+        visits: List<Vaccination>,
+        filterMode: String,
+        fyQuarter: Int = 0,
+        selectedMonth: Int = -1
+    ): VisitTypeStats = visitTypeStats(visits.filter { isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) })
 }
 
 data class VisitTypeStats(

@@ -110,7 +110,7 @@ class ClinicStatsManager @Inject constructor(
     ): List<Pair<String, Int>> {
         val counts = mutableMapOf<String, Int>()
         vaccinations
-            .filter { it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED || it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL || it.source.equals("EXTERNAL", true) }
+            .filter(StatisticsUtils::isCountedVaccination)
             .filter { vaccination -> StatisticsDateUtils.monthOfIST(vaccination.dateGiven) == month }
             .forEach { vaccination ->
                 vaccination.items.forEachIndexed { index, item ->

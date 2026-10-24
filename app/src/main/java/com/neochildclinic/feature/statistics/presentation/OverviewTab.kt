@@ -46,9 +46,10 @@ fun OverviewTab(
         )
     }
 
-    // Pre-compute effective registration dates for all patients
+    // Pre-compute effective registration dates for all patients. Raw visits: a patient's first
+    // contact may be an ACTIVE-status consultation, so the list matches PatientsTab's input.
     val effectiveRegDates = remember(patients, vaccinations) {
-        StatisticsDateUtils.computeEffectiveRegistrationDates(patients, StatisticsUtils.filterValidVaccinations(vaccinations))
+        StatisticsDateUtils.computeEffectiveRegistrationDates(patients, vaccinations)
     }
 
     // Current period data — patients use effective registration date
@@ -77,12 +78,12 @@ fun OverviewTab(
         if (isOverall) emptyList() else financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), prevFilter, prevQuarter, prevMonth) }
     }
 
-    // Visit-type counts (all valid/non-cancelled visits, by visit_type) for the three Overview cards.
+    // Visit-type counts (raw, non-deleted visits, by visit_type) for the three Overview cards.
     val visitTypeStatsCurrent = remember(vaccinations, filterMode, fyQuarter, selectedMonth) {
-        StatisticsUtils.visitTypeStats(StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) })
+        StatisticsUtils.visitTypeStatsForFilter(vaccinations, filterMode, fyQuarter, selectedMonth)
     }
     val visitTypeStatsPrev = remember(vaccinations, prevFilter, prevQuarter, prevMonth, isOverall) {
-        if (isOverall) VisitTypeStats(0, 0, 0) else StatisticsUtils.visitTypeStats(StatisticsUtils.filterValidVaccinations(vaccinations).filter { StatisticsUtils.isDateInFilter(it.dateGiven, prevFilter, prevQuarter, prevMonth) })
+        if (isOverall) VisitTypeStats(0, 0, 0) else StatisticsUtils.visitTypeStatsForFilter(vaccinations, prevFilter, prevQuarter, prevMonth)
     }
 
     // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)
@@ -105,7 +106,8 @@ fun OverviewTab(
             .filter { it in monthKeys }
             .groupingBy { it }.eachCount()
 
-        val consultationCounts = allValidVaccinations.asSequence()
+        // Raw visits: consultation visits are recorded ACTIVE and are never filterValidVaccinations-gated.
+        val consultationCounts = vaccinations.asSequence()
             .filter { it.visitType.equals("CONSULTATION", ignoreCase = true) }
             .mapNotNull { StatisticsDateUtils.monthOfIST(it.dateGiven) }
             .filter { it in monthKeys }

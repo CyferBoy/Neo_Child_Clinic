@@ -27,10 +27,11 @@ import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.common.PatientUtils
 import java.util.*
 
-// A single administered dose, sourced from vaccination_items (never gated on the parent
-// visit's status - see StatisticsUtils rules for the Administered segment). dateGiven is
-// carried over from the parent vaccination purely to filter/group by period; it is not a
-// vaccination_items column.
+// A single administered dose, sourced from vaccination_items. The parent visit IS status-gated
+// (StatisticsUtils.filterValidVaccinations): only COMPLETED/EXTERNAL visits count as
+// administered doses - vaccination_items rows on a pending visit are planned, not given.
+// dateGiven is carried over from the parent vaccination purely to filter/group by period;
+// it is not a vaccination_items column.
 private data class AdministeredDose(val vaccineName: String, val quantity: Int, val dateGiven: String)
 
 private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: Set<String>): List<AdministeredDose> =
@@ -47,8 +48,8 @@ fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
     val validVaccineIds = remember(vaccines) { vaccines.map { it.id }.toSet() }
-    // All administered doses, independent of visit status - the Administered segment's
-    // source of truth is vaccination_items itself, not the parent visit's completion state.
+    // All administered doses: filterValidVaccinations keeps only COMPLETED/EXTERNAL parent
+    // visits, so a pending visit's items never inflate the Administered segment.
     val allDoses = remember(vaccinations, validVaccineIds) { administeredDoses(vaccinations, validVaccineIds) }
     val availableYears = remember(allDoses) { StatisticsUtils.getAvailableFinancialYears(allDoses.map { it.dateGiven }) }
 

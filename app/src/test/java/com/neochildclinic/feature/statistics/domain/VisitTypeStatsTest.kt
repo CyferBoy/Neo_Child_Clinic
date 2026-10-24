@@ -56,4 +56,41 @@ class VisitTypeStatsTest {
     fun `empty list yields zero counts`() {
         assertEquals(VisitTypeStats(0, 0, 0), StatisticsUtils.visitTypeStats(emptyList()))
     }
+
+    @Test
+    fun `visitTypeStatsForFilter counts ACTIVE consultation visits instead of filtering them out`() {
+        // Regression for NCC-043: the old composition visitTypeStats(filterValidVaccinations(...))
+        // dropped every consultation (consultations are persisted ACTIVE), leaving the
+        // Overview cards and report series permanently at 0.
+        val visits = listOf(
+            visit(id = "v1", patientId = "p1", type = "CONSULTATION", status = ReminderStatus.ACTIVE),
+            visit(id = "v2", patientId = "p2", type = "VACCINATION", status = ReminderStatus.COMPLETED),
+            visit(id = "v3", patientId = "p3", type = "VACCINATION", status = ReminderStatus.ACTIVE) // pending
+        )
+
+        val stats = StatisticsUtils.visitTypeStatsForFilter(visits, "Overall")
+
+        assertEquals(1, stats.totalConsultation)
+        assertEquals(1, stats.consultedPatients)
+        // visitTypeStats counts by visit_type, not status: the pending visit still counts here
+        // (its doses are separately excluded from administered-dose metrics).
+        assertEquals(2, stats.totalVaccination)
+
+        // The pre-fix composition really did lose the consultation (proves the test bites).
+        val broken = StatisticsUtils.visitTypeStats(StatisticsUtils.filterValidVaccinations(visits))
+        assertEquals(0, broken.totalConsultation)
+    }
+
+    @Test
+    fun `visitTypeStatsForFilter applies the date window before counting`() {
+        val visits = listOf(
+            visit(id = "v1", type = "CONSULTATION").copy(dateGiven = "2025-05-10"), // FY 25-26 Q1 (April-June)
+            visit(id = "v2", type = "CONSULTATION").copy(dateGiven = "2026-05-10")  // FY 26-27
+        )
+
+        assertEquals(1, StatisticsUtils.visitTypeStatsForFilter(visits, "FY 25-26").totalConsultation)
+        assertEquals(1, StatisticsUtils.visitTypeStatsForFilter(visits, "FY 25-26", fyQuarter = 1).totalConsultation)
+        assertEquals(0, StatisticsUtils.visitTypeStatsForFilter(visits, "FY 25-26", fyQuarter = 2).totalConsultation)
+        assertEquals(2, StatisticsUtils.visitTypeStatsForFilter(visits, "Overall").totalConsultation)
+    }
 }

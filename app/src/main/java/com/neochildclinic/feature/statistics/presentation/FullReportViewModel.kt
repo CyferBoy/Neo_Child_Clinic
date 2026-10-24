@@ -150,15 +150,16 @@ class FullReportViewModel @Inject constructor(
         val availableYears = StatisticsUtils.getAvailableFinancialYears(allDates).sorted().reversed()
 
         return if (isDaily) {
-            computeDaily(patients, validVaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode, availableYears)
+            computeDaily(patients, validVaccinations, vaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode, availableYears)
         } else {
-            computeMonthly(patients, validVaccinations, transactions, expenses, filterMode, fyQuarter, chartMode, availableYears)
+            computeMonthly(patients, validVaccinations, vaccinations, transactions, expenses, filterMode, fyQuarter, chartMode, availableYears)
         }
     }
 
     private fun computeMonthly(
         patients: List<Patient>,
         validVaccinations: List<Vaccination>,
+        allVisits: List<Vaccination>,
         transactions: List<FinanceTransaction>,
         expenses: List<Expense>,
         filterMode: String,
@@ -166,7 +167,9 @@ class FullReportViewModel @Inject constructor(
         chartMode: ChartMode,
         availableYears: List<String>
     ): FullReportUiState {
-        val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, validVaccinations)
+        // Raw visits: consultation visits are recorded ACTIVE, so effective registration dates
+        // and the consultation series must not be gated by filterValidVaccinations (NCC-043).
+        val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, allVisits)
 
         val monthKeys: List<YearMonth>
         val periodLabel: String
@@ -198,7 +201,7 @@ class FullReportViewModel @Inject constructor(
             .filter { it in monthKeySet }
             .groupingBy { it }.eachCount()
 
-        val consultBuckets = validVaccinations
+        val consultBuckets = allVisits
             .filter { it.visitType.equals("CONSULTATION", true) }
             .groupBy { StatisticsDateUtils.monthOfIST(it.dateGiven) }
         val vaccBuckets = validVaccinations
@@ -253,6 +256,7 @@ class FullReportViewModel @Inject constructor(
     private fun computeDaily(
         patients: List<Patient>,
         validVaccinations: List<Vaccination>,
+        allVisits: List<Vaccination>,
         transactions: List<FinanceTransaction>,
         expenses: List<Expense>,
         filterMode: String,
@@ -261,7 +265,8 @@ class FullReportViewModel @Inject constructor(
         chartMode: ChartMode,
         availableYears: List<String>
     ): FullReportUiState {
-        val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, validVaccinations)
+        // Raw visits, as in computeMonthly (NCC-043).
+        val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, allVisits)
 
         val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: 0
         val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
@@ -290,7 +295,7 @@ class FullReportViewModel @Inject constructor(
                 }
             }
         }
-        validVaccinations.filter { it.visitType.equals("CONSULTATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { dayBuckets[it]?.consults?.plus(1)?.let { n -> dayBuckets[it] = dayBuckets[it]!!.copy(consults = n) } } }
+        allVisits.filter { it.visitType.equals("CONSULTATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { dayBuckets[it]?.consults?.plus(1)?.let { n -> dayBuckets[it] = dayBuckets[it]!!.copy(consults = n) } } }
         validVaccinations.filter { it.visitType.equals("VACCINATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { val qty = v.items.sumOf { it.quantity.coerceAtLeast(0) }; dayBuckets[it]?.let { b -> dayBuckets[it] = b.copy(vaccs = b.vaccs + qty) } } }
 
         // Same rule as computeMonthly above: collapse duplicate vaccination income per visit,
