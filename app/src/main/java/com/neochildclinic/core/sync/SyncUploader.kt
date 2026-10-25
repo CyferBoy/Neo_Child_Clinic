@@ -556,7 +556,17 @@ class SyncUploader @Inject constructor(
                 // Supabase, and the visit's own DELETE later fails with
                 // "..._visit_id_fkey" (23503) even though the unlink "succeeded". Force an
                 // explicit-nulls encode so a genuine null on this field is actually sent.
-                is InventoryTransactionEntity -> uploadWithExplicitNulls(table, localData, InventoryTransactionEntity.serializer())
+                // A stock-ledger row is append-only. A CREATE retry must be INSERT ... ON
+                // CONFLICT DO NOTHING, not the default upsert's INSERT ... ON CONFLICT DO
+                // UPDATE: the latter fires the stock trigger's UPDATE branch on every lost-
+                // response retry. The 20261021002000 trigger fix makes that branch idempotent for
+                // identical rows, but insert-only keeps retries out of it entirely.
+                is InventoryTransactionEntity -> uploadWithExplicitNulls(
+                    table = table,
+                    data = localData,
+                    serializer = InventoryTransactionEntity.serializer(),
+                    insertOnly = item.operation == SyncOperation.CREATE.name
+                )
                 is FinanceEntity -> uploadWithExplicitNulls(table, localData, FinanceEntity.serializer())
                 // audit_logs is append-only on the server: SELECT + INSERT policies only, no
                 // UPDATE and no DELETE (see 20260929000000_security_baseline.sql). upsert()
@@ -645,13 +655,16 @@ class SyncUploader @Inject constructor(
     private suspend fun <T> uploadWithExplicitNulls(
         table: String,
         data: T,
-        serializer: kotlinx.serialization.KSerializer<T>
+        serializer: kotlinx.serialization.KSerializer<T>,
+        insertOnly: Boolean = false
     ) {
         // Cast to JsonObject to match the exact call shape uploadBatch already uses below
         // (postgrest.from(table).upsert(JsonObject(...))) - a data class always encodes to
         // a JSON object, never another JsonElement subtype, so this is safe.
         val payload = explicitNullsJson.encodeToJsonElement(serializer, data) as JsonObject
-        postgrest.from(table).upsert(payload)
+        postgrest.from(table).upsert(payload) {
+            if (insertOnly) ignoreDuplicates = true
+        }
     }
 
     // patient_visits.receipt_number is assigned by a database trigger (never by this app -
