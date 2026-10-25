@@ -13,11 +13,13 @@ import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -145,8 +147,24 @@ syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPr
     }
 
     override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo", rethrow = true) {
-        val remoteSlots = postgrest.from("doctor_weekly_slots").select { filter { eq("is_deleted", false) } }.decodeList<DoctorWeeklySlotEntity>()
-        val remoteExceptions = postgrest.from("doctor_slot_exceptions").select { filter { eq("is_deleted", false) } }.decodeList<DoctorSlotExceptionEntity>()
+        val remoteSlots = fetchAllPages { from, to ->
+            postgrest.from("doctor_weekly_slots")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<DoctorWeeklySlotEntity>()
+        }
+        val remoteExceptions = fetchAllPages { from, to ->
+            postgrest.from("doctor_slot_exceptions")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<DoctorSlotExceptionEntity>()
+        }
 
         // One bulk queue read per entity name instead of one per remote row
         // (SyncQueueDao.unsyncedIdSet callers) - same semantics as the per-row isUnsynced

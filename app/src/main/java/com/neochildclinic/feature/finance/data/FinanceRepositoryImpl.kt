@@ -14,11 +14,13 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -350,18 +352,29 @@ class FinanceRepositoryImpl @Inject constructor(
                 .filter { it.type.equals("INCOME", true) && it.category.equals("VACCINATION", true) }
                 .forEach { transaction ->
                     val visitId = transaction.visitId ?: return@forEach
-                    if (transaction.remarks?.contains("[COGS_SNAPSHOT:") == true) return@forEach
+                    val existingCogs = FinanceCalculator.cogsOf(transaction.remarks)
                     val vaccination = validById[visitId] ?: return@forEach
                     val cogs = vaccination.items.sumOf { item ->
                         item.netRate.coerceAtLeast(0.0) * item.quantity.coerceAtLeast(0)
                     }
+                    // A marked non-zero snapshot is historical: do not overwrite it. A marked
+                    // zero snapshot may have been written before the items landed (the old
+                    // ordering bug), so repair it once the items produce a non-zero cost.
+                    if (existingCogs != null && (existingCogs != 0.0 || cogs == 0.0)) return@forEach
                     val snapshotRemarks = FinanceCalculator.buildVaccinationRemarks(
                         vaccination.items.joinToString(", ") { it.vaccineName },
                         cogs
                     )
-                    val updatedRemarks = transaction.remarks?.let {
-                        if (it.contains("[COGS_SNAPSHOT:") ) it else "$it $snapshotRemarks"
-                    } ?: snapshotRemarks
+                    // Replace any old marker instead of appending a second one.
+                    val baseRemarks = transaction.remarks
+                        ?.substringBefore("[COGS_SNAPSHOT:")
+                        ?.trimEnd()
+                        ?.takeIf { it.isNotEmpty() }
+                    val updatedRemarks = if (baseRemarks == null) {
+                        snapshotRemarks
+                    } else {
+                        "$baseRemarks $snapshotRemarks"
+                    }
                     val updated = transaction.copy(
                         remarks = updatedRemarks,
                         isSynced = false
@@ -381,9 +394,15 @@ class FinanceRepositoryImpl @Inject constructor(
                 // is_deleted filter matches the convention used by the 13 other refresh paths:
                 // rows soft-deleted by an earlier build are still on the server and would
                 // otherwise be re-imported here and counted in revenue/profit totals.
-                val transactions = postgrest.from("finance_transactions")
-                    .select { filter { eq("is_deleted", false) } }
-                    .decodeList<FinanceEntity>()
+                val transactions = fetchAllPages { from, to ->
+                    postgrest.from("finance_transactions")
+                        .select {
+                            filter { eq("is_deleted", false) }
+                            order("id", Order.ASCENDING)
+                            range(from, to)
+                        }
+                        .decodeList<FinanceEntity>()
+                }
                 transactionRunner.run {
                     val pendingFinanceIds = syncQueueDao.unsyncedIdSet("FINANCE")
                     val visitDao = vaccinationDao

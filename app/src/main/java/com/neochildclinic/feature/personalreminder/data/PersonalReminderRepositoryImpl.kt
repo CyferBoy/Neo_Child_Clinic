@@ -14,11 +14,13 @@ import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.PersonalReminderStatus
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -171,8 +173,15 @@ syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIU
     }
 
     override suspend fun refresh() = cloudRefresh("PersonalReminder", rethrow = true) {
-        val remote = postgrest.from("personal_vaccine_reminders").select { filter { eq("is_deleted", false) } }
-            .decodeList<PersonalReminderEntity>()
+        val remote = fetchAllPages { from, to ->
+            postgrest.from("personal_vaccine_reminders")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<PersonalReminderEntity>()
+        }
         Log.d("PersonalReminder", "Remote refresh: fetched " + remote.size + " reminders")
         // One bulk queue read per refresh instead of one per row (SyncQueueDao.unsyncedIdSet
         // callers) - same semantics as the per-row isUnsynced call this replaces.

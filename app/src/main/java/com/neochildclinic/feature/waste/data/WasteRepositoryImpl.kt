@@ -11,10 +11,12 @@ import com.neochildclinic.domain.model.WasteRecord
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -148,7 +150,15 @@ class WasteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshWaste() = cloudRefresh("WasteRepo", rethrow = true) {
-        val wasteRecords = postgrest.from("waste_records").select { filter { eq("is_deleted", false) } }.decodeList<WasteRecord>()
+        val wasteRecords = fetchAllPages { from, to ->
+            postgrest.from("waste_records")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<WasteRecord>()
+        }
         transactionRunner.run {
             val pendingWasteIds = syncQueueDao.unsyncedIdSet("WASTE")
             for (remote in wasteRecords) {

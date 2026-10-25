@@ -9,6 +9,7 @@ import com.neochildclinic.data.local.entity.VaccinationTodoEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.model.ConsultationTodo
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 import com.neochildclinic.core.database.TransactionRunner
 
@@ -32,8 +34,24 @@ class PatientTodoRepositoryImpl @Inject constructor(
 ) : PatientTodoRepository {
 
     override suspend fun refresh() = cloudRefresh("PatientTodoRepo", rethrow = true) {
-        val consultations = postgrest.from("consultation_todos").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationTodoEntity>()
-        val vaccinations = postgrest.from("vaccination_todos").select { filter { eq("is_deleted", false) } }.decodeList<VaccinationTodoEntity>()
+        val consultations = fetchAllPages { from, to ->
+            postgrest.from("consultation_todos")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<ConsultationTodoEntity>()
+        }
+        val vaccinations = fetchAllPages { from, to ->
+            postgrest.from("vaccination_todos")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<VaccinationTodoEntity>()
+        }
 
         // One queue-guard read plus one local snapshot per table, then only the rows that
         // change anything are written (see [todoUpsertsForRefresh]). Previously every

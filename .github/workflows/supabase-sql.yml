@@ -1,0 +1,92 @@
+name: Supabase SQL
+
+on:
+  push:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-sql.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-sql.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sql-regressions:
+    name: SQL regression tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGPASSWORD: postgres
+      PGHOST: localhost
+      PGUSER: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # The full Supabase schema needs the local Supabase stack; this test only needs the
+      # two tables and the trigger migration it exercises.
+      - name: Create minimal schema
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create extension if not exists pgcrypto;
+          create table public.vaccine_batches (
+            id uuid primary key,
+            remaining_quantity integer not null default 0,
+            updated_at timestamptz not null default now()
+          );
+          create table public.inventory_transactions (
+            id uuid primary key default gen_random_uuid(),
+            batch_id uuid references public.vaccine_batches(id),
+            quantity integer not null,
+            transaction_type text not null
+          );
+          SQL
+
+      - name: Apply stock trigger migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022_fix_stock_trigger_update_arithmetic.sql
+
+      - name: Run stock trigger regression test
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/stock_trigger_arithmetic.sql
+
+      - name: Test audit-log retention function
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create table public.audit_logs (
+            id uuid primary key default gen_random_uuid(),
+            timestamp text
+          );
+          insert into public.audit_logs(timestamp) values
+            (to_char(now() - interval '400 days', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+            (to_char(now() - interval '2 days', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+          SQL
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025_audit_log_retention.sql
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          select public.prune_audit_logs();
+          do $$
+          begin
+            if (select count(*) from public.audit_logs) <> 1 then
+              raise exception 'audit retention: expected 1 row after prune';
+            end if;
+          end $$;
+          SQL

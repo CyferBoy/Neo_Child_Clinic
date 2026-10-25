@@ -99,7 +99,7 @@ class PatientRepositoryImpl @Inject constructor(
         // empty-pull guard; the parameterless snapshot has neither problem.
         val pendingPatientIds = syncQueueDao.unsyncedIdSet("PATIENT")
         val localPatients = patientDao.getAllPatientsSnapshot()
-        val localById = localPatients.associateBy { it.id }
+        val localById = localPatients.associateBy { it.id }.toMutableMap()
         // patientClinicId has a unique index, so there is at most one owner per id.
         val clinicIdOwner = localPatients
             .mapNotNull { p -> p.patientClinicId?.takeIf { it.isNotBlank() }?.let { it to p.id } }
@@ -119,16 +119,39 @@ class PatientRepositoryImpl @Inject constructor(
                 if (!localClinicId.startsWith("TEMP-")) {
                     val existingOwnerId = clinicIdOwner[localClinicId]
                     if (existingOwnerId != null && existingOwnerId != entity.id) {
-                        val resolvedId = localClinicId + "-CONFLICT-" + entity.id.take(4)
-                        // Upsert, not insertPatient: this row can already exist (same remote id
-                        // pulled again) and a REPLACE would delete it and cascade its children.
-                        patientDao.upsertPatient(entity.copy(
-                            patientClinicId = resolvedId,
-                            updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-                            isSynced = true
-                        ))
-                        clinicIdOwner[resolvedId] = entity.id
-                        continue
+                        val localOwner = localById[existingOwnerId]
+                        if (localOwner != null &&
+                            (!localOwner.isSynced || localOwner.id in pendingPatientIds)
+                        ) {
+                            // The remote row owns this clinic ID on the server. Rename the
+                            // local-only row instead of the remote one; otherwise the remote
+                            // patient is displayed under a made-up ID forever while the
+                            // server keeps the real one. The queue entry (if any) follows
+                            // the patient id, so its next upload carries the new clinic ID.
+                            val resolvedId = localClinicId + "-CONFLICT-" + localOwner.id.take(4)
+                            val renamed = localOwner.copy(
+                                patientClinicId = resolvedId,
+                                isSynced = false
+                            )
+                            patientDao.upsertPatient(renamed)
+                            localById[existingOwnerId] = renamed
+                            clinicIdOwner.remove(localClinicId)
+                            clinicIdOwner[resolvedId] = existingOwnerId
+                        } else {
+                            // Both rows are already synced: the server's unique index should
+                            // have prevented this, so it is legacy drift. Keep the remote row
+                            // usable locally under a conflict ID (the previous behavior).
+                            val resolvedId = localClinicId + "-CONFLICT-" + entity.id.take(4)
+                            // Upsert, not insertPatient: this row can already exist (same remote id
+                            // pulled again) and a REPLACE would delete it and cascade its children.
+                            patientDao.upsertPatient(entity.copy(
+                                patientClinicId = resolvedId,
+                                updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+                                isSynced = true
+                            ))
+                            clinicIdOwner[resolvedId] = entity.id
+                            continue
+                        }
                     }
                 }
 

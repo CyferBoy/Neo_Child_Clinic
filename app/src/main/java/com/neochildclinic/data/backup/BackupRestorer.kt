@@ -48,6 +48,14 @@ class BackupRestorer(
 
     suspend fun restore(payload: BackupPayloadV1, mode: RestoreMode): Outcome {
         return database.withTransaction {
+            // A restore replaces the rows that queued operations refer to. Leaving an old
+            // DELETE/UPDATE in the queue lets it run after the restore and delete or
+            // overwrite the restored row on the server. Clear it in the same transaction,
+            // then re-enqueue only the restored rows that still need pushing.
+            // shortcut: merge restore also drops queue entries for local-only pending rows;
+            // those rows stay local but need an edit (or a full re-enqueue) to upload.
+            // Revisit if merge restore is used while unrelated edits are pending.
+            database.syncQueueDao().clearAll()
             when (mode) {
                 RestoreMode.REPLACE -> replaceAll(payload)
                 RestoreMode.MERGE -> mergeAll(payload)
@@ -193,7 +201,20 @@ class BackupRestorer(
         if (consultationsToApply.isNotEmpty()) backupDao.insertConsultations(consultationsToApply)
         appliedCounts["consultations"] = consultationsToApply.size
 
-        val remindersToApply = lww("reminders", payload.reminders, backupDao.getAllRemindersForBackup(), { it.id }, { it.updatedAt })
+        val existingReminders = backupDao.getAllRemindersForBackup()
+        val existingReminderById = existingReminders.associateBy { it.id }
+        val existingReminderByNaturalKey = existingReminders.associateBy { it.naturalKey() }
+        val remindersToApply = payload.reminders.filter { incoming ->
+            // The table's unique index is the reminder's natural key, so an incoming row
+            // with a different id can still replace a newer local row through
+            // OnConflictStrategy.REPLACE. Compare against both identities.
+            val current = listOfNotNull(
+                existingReminderById[incoming.id],
+                existingReminderByNaturalKey[incoming.naturalKey()]
+            ).maxByOrNull { it.updatedAt }
+            current == null || incoming.updatedAt > current.updatedAt
+        }
+        appliedIds.getOrPut("reminders") { mutableSetOf() }.addAll(remindersToApply.map { it.id })
         if (remindersToApply.isNotEmpty()) backupDao.insertReminders(remindersToApply)
         appliedCounts["reminders"] = remindersToApply.size
 
@@ -316,3 +337,6 @@ class BackupRestorer(
         entries.forEach { database.syncQueueDao().enqueue(it) }
     }
 }
+
+private fun ReminderEntity.naturalKey(): String =
+    "$patientId|$originalVisitId|$dueDate|$type|$vaccineName"

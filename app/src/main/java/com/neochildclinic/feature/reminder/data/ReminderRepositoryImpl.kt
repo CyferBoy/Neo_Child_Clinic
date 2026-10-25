@@ -14,6 +14,7 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import com.neochildclinic.feature.widget.data.WidgetUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 /**
@@ -463,7 +465,15 @@ class ReminderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshReminders() = cloudRefresh("ReminderRepo", rethrow = true) {
-                val entities = postgrest.from("reminders").select { filter { eq("is_deleted", false) } }.decodeList<RemoteReminder>()
+                val entities = fetchAllPages { from, to ->
+                    postgrest.from("reminders")
+                        .select {
+                            filter { eq("is_deleted", false) }
+                            order("id", Order.ASCENDING)
+                            range(from, to)
+                        }
+                        .decodeList<RemoteReminder>()
+                }
                 transactionRunner.run {
                     val pendingReminderIds = syncQueueDao.unsyncedIdSet("REMINDERS")
                     for (remote in entities) {

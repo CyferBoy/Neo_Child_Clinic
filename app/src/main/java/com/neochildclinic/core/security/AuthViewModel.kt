@@ -16,11 +16,13 @@ import androidx.compose.runtime.State
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
@@ -229,8 +231,16 @@ class AuthViewModel @Inject constructor(
                     }
                     // Everything is already acknowledged: dropping the cached rows is a
                     // cache invalidation, not data loss, and keeps one clinic's patients
-                    // out of another account's screens.
-                    runCatching { appDatabase.clearAllTables() }
+                    // out of another account's screens. Room's clearAllTables is a blocking
+                    // @WorkerThread call, so it must never run on the main dispatcher.
+                    try {
+                        clearLocalDatabase()
+                    } catch (e: Exception) {
+                        _isLoading.value = false
+                        _error.value = "Could not clear the previous account's local data: ${e.message}"
+                        runCatching { auth.clearSession() }
+                        return@launch
+                    }
                 }
                 finishLogin(userId, onSuccess)
             } catch (e: Exception) {
@@ -261,7 +271,12 @@ class AuthViewModel @Inject constructor(
     fun confirmAccountSwitchReset() {
         val pending = pendingSwitch ?: return
         viewModelScope.launch {
-            runCatching { appDatabase.clearAllTables() }
+            try {
+                clearLocalDatabase()
+            } catch (e: Exception) {
+                _error.value = "Could not clear the previous account's local data: ${e.message}"
+                return@launch
+            }
             pendingSwitch = null
             _loginSwitchBlocked.value = null
             finishLogin(pending.userId, pending.onSuccess)
@@ -306,7 +321,7 @@ class AuthViewModel @Inject constructor(
                 _logoutBlocked.value = unacknowledged
                 return@launch
             }
-            completeSignOut()
+            if (!completeSignOut()) return@launch
             onSignedOut()
         }
     }
@@ -316,8 +331,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             pendingSignOutCallback = null
             _logoutBlocked.value = null
-            completeSignOut()
-            continuation?.invoke()
+            if (completeSignOut()) continuation?.invoke()
         }
     }
 
@@ -326,7 +340,7 @@ class AuthViewModel @Inject constructor(
         _logoutBlocked.value = null
     }
 
-    private suspend fun completeSignOut() {
+    private suspend fun completeSignOut(): Boolean {
         // Each step is best-effort: a failed device deactivation or a failed server
         // revocation must not leave a half-signed-out session pointing at another
         // account's (now erased) data.
@@ -340,8 +354,21 @@ class AuthViewModel @Inject constructor(
         // unacknowledged rows or the user explicitly confirmed the erase.
         cacheRegistry.clearAll()
         _profile.value = null
-        runCatching { appDatabase.clearAllTables() }
+        try {
+            clearLocalDatabase()
+        } catch (e: Exception) {
+            // Keep KEY_LAST_ACCOUNT so the next login still detects the account mismatch
+            // and asks before exposing the old rows. Do not report a successful sign-out.
+            _error.value = "Could not erase local data: ${e.message}"
+            return false
+        }
         accountPrefs.edit().remove(KEY_LAST_ACCOUNT).apply()
+        return true
+    }
+
+    /** Room's clearAllTables is a blocking @WorkerThread call; never run it on Main. */
+    private suspend fun clearLocalDatabase() = withContext(Dispatchers.IO) {
+        appDatabase.clearAllTables()
     }
 
     fun refreshSessionStatus() {

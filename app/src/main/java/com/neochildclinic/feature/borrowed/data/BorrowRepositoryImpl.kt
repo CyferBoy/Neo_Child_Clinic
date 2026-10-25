@@ -23,6 +23,7 @@ import com.neochildclinic.feature.inventory.domain.repository.InventoryRepositor
 import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -32,6 +33,7 @@ import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -299,8 +301,24 @@ syncRepository.enqueue(
 
     override suspend fun refreshBorrows() = cloudRefresh(TAG, rethrow = true) {
                 Log.d(TAG, "Refreshing borrow records from Supabase...")
-                val records = postgrest.from("borrow_records").select { filter { eq("is_deleted", false) } }.decodeList<BorrowEntity>()
-                val returns = postgrest.from("borrow_returns").select { filter { eq("is_deleted", false) } }.decodeList<BorrowReturnEntity>()
+                val records = fetchAllPages { from, to ->
+                    postgrest.from("borrow_records")
+                        .select {
+                            filter { eq("is_deleted", false) }
+                            order("id", Order.ASCENDING)
+                            range(from, to)
+                        }
+                        .decodeList<BorrowEntity>()
+                }
+                val returns = fetchAllPages { from, to ->
+                    postgrest.from("borrow_returns")
+                        .select {
+                            filter { eq("is_deleted", false) }
+                            order("id", Order.ASCENDING)
+                            range(from, to)
+                        }
+                        .decodeList<BorrowReturnEntity>()
+                }
 
                 Log.d(TAG, "Fetched ${records.size} borrow records and ${returns.size} returns.")
 

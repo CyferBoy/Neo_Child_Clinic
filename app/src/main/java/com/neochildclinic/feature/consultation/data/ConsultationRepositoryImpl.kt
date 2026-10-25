@@ -13,12 +13,14 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -204,13 +206,30 @@ class ConsultationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshConsultations() = cloudRefresh("ConsultationRepo", rethrow = true) {
-        val entities = postgrest.from("consultations").select { filter { eq("is_deleted", false) } }.decodeList<ConsultationEntity>()
+        val entities = fetchAllPages { from, to ->
+            postgrest.from("consultations")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<ConsultationEntity>()
+        }
         transactionRunner.run {
             val pendingConsultationIds = syncQueueDao.unsyncedIdSet("CONSULTATION")
+            val localVisitIds = vaccinationDao.getVisitIds().toHashSet()
+            var skippedMissingVisit = 0
             for (remote in entities) {
+                if (remote.visitId !in localVisitIds) {
+                    skippedMissingVisit++
+                    continue
+                }
                 if (remote.id !in pendingConsultationIds) {
                     consultationDao.insertConsultation(remote.copy(isSynced = true))
                 }
+            }
+            if (skippedMissingVisit > 0) {
+                android.util.Log.w("ConsultationRepo", "Skipped $skippedMissingVisit consultations with no local visit")
             }
             // Remote-deletion propagation (NCC-023 / DA-01): synced consultations the remote
             // set no longer lists and no queue entry claims are drift - delete (cascade-safe:

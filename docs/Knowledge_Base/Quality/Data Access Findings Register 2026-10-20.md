@@ -195,6 +195,11 @@
 - **Remediation decision needed**: defined retention (e.g. local 90 d, remote 1 y) implemented as
   a scheduled prune + server-side policy, or declare retention “keep all” explicitly and remove
   it from the risk list. User decision required.
+- **Resolution (2026-10-25)**: local 90-day prune of synced rows
+  (`app/src/main/java/com/neochildclinic/app/NeoChildApp.kt:85-93`,
+  `app/src/main/java/com/neochildclinic/data/local/dao/AuditLogDao.kt:34-41`); remote 1-year
+  `public.prune_audit_logs()` plus an optional `pg_cron` schedule when the extension is
+  available (`supabase/migrations/20261025_audit_log_retention.sql:1`).
 
 ## DA-11 — Patient identifiers / email written to Logcat on pull failure
 

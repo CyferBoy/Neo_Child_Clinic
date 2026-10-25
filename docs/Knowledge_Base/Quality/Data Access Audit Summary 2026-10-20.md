@@ -57,7 +57,7 @@ NCC-025/027/028/029/030/031/036/038/039) are cross-referenced, not duplicated.
 |---|---|---|
 | Deletion propagation | (a) server tombstones · (b) id-diff pruner · (c) soft-delete booleans | **(b)** — smallest, no schema change, guarded |
 | `lifecycle-runtime-compose` dependency (item 5 of the earlier plan) | add dep vs manual lifecycle gating | add — single small dependency |
-| `audit_logs` retention (DA-10) | keep-all vs windowed prune | windowed (90 d local / 1 y remote), needs sign-off |
+| `audit_logs` retention (DA-10) | keep-all vs windowed prune | implemented 2026-10-25: 90 d local / 1 y remote |
 | Manual refresh scope (DA-14) | full pipeline (status quo) vs per-screen scoped | keep status quo initially; measure first |
 
 ## Commands executed during Phase 1 (all read-only)

@@ -23,6 +23,23 @@ interface AuditLogDao {
     @Query("SELECT * FROM audit_logs WHERE module = :module ORDER BY timestamp DESC")
     fun getLogsForModule(module: String): Flow<List<AuditLogEntity>>
 
+    /**
+     * Drops synced local audit rows past the retention window. The server keeps one year;
+     * the local table exists for offline/sync and reminder timelines.
+     */
+    @Query(
+        """
+        DELETE FROM audit_logs
+        WHERE isSynced = 1 AND timestamp < :cutoff
+          AND NOT EXISTS (
+              SELECT 1 FROM sync_queue
+              WHERE sync_queue.entityId = audit_logs.id
+                AND sync_queue.entityName = 'AUDIT_LOG'
+          )
+        """
+    )
+    suspend fun deleteSyncedOlderThan(cutoff: String)
+
     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 200")
     fun getAllLogs(): Flow<List<AuditLogEntity>>
 

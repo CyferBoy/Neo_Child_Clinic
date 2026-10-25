@@ -22,7 +22,8 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
     private val database: AppDatabase,
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val idGenerator: PatientIdGenerator
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -40,17 +41,10 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
             }
 
             database.withTransaction {
-                var nextNumber = getStartingNumber(patientDao)
-                
                 for (patient in patientsToMigrate) {
-                    // Generate sequential ID
-                    var clinicId = "NEO-$nextNumber"
-                    
-                    // Safety check against existing IDs
-                    while (patientDao.getPatientByClinicId(clinicId) != null) {
-                        nextNumber++
-                        clinicId = "NEO-$nextNumber"
-                    }
+                    // Same generator as new patients, so legacy rows get the per-install
+                    // suffix that prevents cross-device clinic-ID collisions.
+                    val clinicId = idGenerator.generateUniqueClinicId()
 
                     // Update Room
                     val updatedPatient = patient.copy(
@@ -58,7 +52,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                         isSynced = false
                     )
                     patientDao.upsertPatient(updatedPatient)
-                    
+
                     // Queue for cloud sync
                     syncRepository.enqueue(
                         entityName = "PATIENT",
@@ -76,9 +70,8 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                         patientId = patient.id,
                         remarks = "Assigned Clinic ID: $clinicId (Legacy migration)"
                     )
-                    
+
                     Log.d(TAG, "Updated Patient ${patient.id}: assigned $clinicId")
-                    nextNumber++
                 }
             }
 
@@ -89,16 +82,6 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Migration failed", e)
             return Result.retry()
-        }
-    }
-
-    private suspend fun getStartingNumber(patientDao: com.neochildclinic.data.local.dao.PatientDao): Int {
-        val maxId = patientDao.getMaxClinicId()
-        return if (maxId != null && maxId.startsWith("NEO-")) {
-            val numericPart = maxId.substring(4).toIntOrNull() ?: 0
-            numericPart + 1
-        } else {
-            1000
         }
     }
 

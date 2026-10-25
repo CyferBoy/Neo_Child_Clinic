@@ -2,7 +2,7 @@
 
 | ID | Title | Severity | Confidence | Status | Area | Evidence / Notes |
 |---|---|---|---|---|---|---|
-| **NCC-002** | Postgres stock trigger batch reassignment flaw | S1 | Confirmed | ⚠️ **Open** | Supabase | `20261021001000_stock_trigger_upsert_fix.sql` handles same-batch quantity deltas, but an UPDATE changing `batch_id` does not reconcile both batches. |
+| **NCC-002** | Postgres stock trigger batch reassignment flaw | S1 | Confirmed | ✅ **Fixed** | Supabase | `20261022_fix_stock_trigger_update_arithmetic.sql` applies same-batch deltas and reconciles both batches on reassignment; `supabase/tests/stock_trigger_arithmetic.sql` runs in `.github/workflows/supabase-sql.yml`. |
 | **NCC-027** | `isLowStock` uses `<=`, flagging at-threshold stock | S4 | Confirmed | ⚠️ **Open** | Inventory | `InventoryRepositoryImpl.kt:78` |
 | **NCC-028** | `consultations.visitId` defaults to `""` against FK | S4 | Confirmed | ⚠️ **Open** | Room | `ConsultationEntity.kt:33` |
 | **NCC-029** | `AuditLogDao` comment claims missing composite index | S4 | Confirmed | ⚠️ **Open** | Room | `AuditLogDao.kt:29-33` |

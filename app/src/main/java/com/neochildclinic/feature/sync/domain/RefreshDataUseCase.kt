@@ -54,9 +54,14 @@ class RefreshDataUseCase @Inject constructor(
         // was swallowed by callers). Each step now runs regardless of earlier failures and
         // its failure is collected; a single aggregated error is surfaced at the end.
         val failures = mutableListOf<String>()
-        suspend fun step(name: String, block: suspend () -> Unit) {
-            if (wanted != null && name !in wanted) return
-            runRefreshStep(name, block)?.let { failures += it }
+        suspend fun step(name: String, block: suspend () -> Unit): Boolean {
+            if (wanted != null && name !in wanted) return true
+            val failure = runRefreshStep(name, block)
+            if (failure != null) {
+                failures += failure
+                return false
+            }
+            return true
         }
 
         // 1. Mandatory Order: Patients, Vaccinations, Consultations, then Reminders.
@@ -77,12 +82,6 @@ class RefreshDataUseCase @Inject constructor(
         // before patientTodoRepository.refresh() below so the doctor/slot picker on
         // Today's Patient has fresh availability data as soon as the queue is populated.
         step("Doctor availability") { doctorAvailabilityRepository.refresh() }
-        // Remote vaccination records may arrive after the application-startup migration.
-        // Re-run the idempotent COGS snapshot migration after refresh so legacy finance rows
-        // are upgraded as soon as their linked vaccinations are available locally.
-        step("COGS migration") {
-            financeRepository.migrateLegacyVaccinationCogs(vaccinationRepository.allVaccinations.first())
-        }
         step("Consultations") { consultationRepository.refreshConsultations() }
         // Today's Patient (consultation_todos/vaccination_todos) previously only ever
         // refreshed once, inside DashboardViewModel's init block - a manual "Sync Now"
@@ -116,9 +115,20 @@ class RefreshDataUseCase @Inject constructor(
         // Unresolved dependencies are therefore retried by the next refresh instead of being
         // lost behind an already-completed parallel fetch. One step: a failed fetch must not
         // proceed to apply an empty/stale list.
-        step("Vaccination items") {
+        val vaccinationItemsLoaded = step("Vaccination items") {
             val vaccinationItems = vaccinationRepository.fetchRemoteVaccinationItems()
             vaccinationRepository.applyDownloadedVaccinationItems(vaccinationItems)
+        }
+
+        // Remote vaccination records may arrive after the finance pull. Re-run the
+        // idempotent COGS snapshot migration only after vaccination items have landed:
+        // migrateLegacyVaccinationCogs stamps a permanent zero snapshot for a row whose
+        // items are not local yet, and later runs then skip it. If the items step failed,
+        // leave COGS alone rather than stamping zeros from a partial dataset.
+        if (vaccinationItemsLoaded) {
+            step("COGS migration") {
+                financeRepository.migrateLegacyVaccinationCogs(vaccinationRepository.allVaccinations.first())
+            }
         }
 
         if (failures.isNotEmpty()) {
@@ -161,9 +171,12 @@ enum class RefreshTables {
 internal val refreshTablesSteps: Map<RefreshTables, List<String>> = mapOf(
     RefreshTables.PATIENTS to listOf("Patients"),
     RefreshTables.VISITS to listOf("Patients", "Vaccinations"),
-    RefreshTables.FINANCE to listOf("Patients", "Vaccinations", "Finance transactions", "COGS migration"),
+    RefreshTables.FINANCE to listOf(
+        "Patients", "Vaccinations", "Finance transactions",
+        "Inventory", "Vaccination items", "COGS migration"
+    ),
     RefreshTables.EXPENSES to listOf("Expenses"),
-    RefreshTables.CONSULTATIONS to listOf("Patients", "Consultations"),
+    RefreshTables.CONSULTATIONS to listOf("Patients", "Vaccinations", "Consultations"),
     RefreshTables.TODOS to listOf("Patients", "Today's Patient todos"),
     RefreshTables.REMINDERS to listOf("Patients", "Reminders"),
     RefreshTables.WASTE to listOf("Waste"),

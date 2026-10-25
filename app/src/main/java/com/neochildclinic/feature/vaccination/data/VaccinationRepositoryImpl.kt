@@ -27,12 +27,14 @@ import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 fun completedQuantityByBatch(rows: List<InventoryDeductionEntity>): Map<String, Int> =
@@ -93,9 +95,15 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 // is_deleted filter matches the convention used by the 13 other refresh paths:
                 // rows soft-deleted by an earlier build are still on the server and would
                 // otherwise be re-imported here and counted by every vaccination statistic.
-                val entities = postgrest.from("patient_visits")
-                    .select { filter { eq("is_deleted", false) } }
-                    .decodeList<VisitEntity>()
+                val entities = fetchAllPages { from, to ->
+                    postgrest.from("patient_visits")
+                        .select {
+                            filter { eq("is_deleted", false) }
+                            order("id", Order.ASCENDING)
+                            range(from, to)
+                        }
+                        .decodeList<VisitEntity>()
+                }
                 val totalDownloaded = entities.size
                 var imported = 0
                 var failedValidation = 0
@@ -159,14 +167,15 @@ override val allVaccinations: Flow<List<Vaccination>> =
     // startup sync tasks (e.g. inventory) without any ordering dependency.
     override suspend fun fetchRemoteVaccinationItems(): List<VaccinationItem> =
         withContext(Dispatchers.IO) {
-            try {
+            fetchAllPages { from, to ->
                 postgrest.from("vaccination_items")
-                    .select { filter { eq("is_deleted", false) } }
-                    .decodeList<VaccinationItemEntity>().map { it.toDomain() }
-            } catch (e: Exception) {
-                android.util.Log.e("VaccinationRepo", "Vaccination items fetch failed", e)
-                emptyList()
-            }
+                    .select {
+                        filter { eq("is_deleted", false) }
+                        order("id", Order.ASCENDING)
+                        range(from, to)
+                    }
+                    .decodeList<VaccinationItemEntity>()
+            }.map { it.toDomain() }
         }
 
     // Local insert only - patient_visits carries only a denormalized name/id snapshot,

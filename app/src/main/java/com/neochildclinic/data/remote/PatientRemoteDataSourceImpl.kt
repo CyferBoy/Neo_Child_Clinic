@@ -1,5 +1,6 @@
 package com.neochildclinic.data.remote
 
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.data.local.entity.PatientEntity
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import io.github.jan.supabase.postgrest.Postgrest
@@ -15,9 +16,15 @@ class PatientRemoteDataSourceImpl @Inject constructor(
 ) : PatientRemoteDataSource {
 
     override suspend fun fetchAllPatients(): List<PatientEntity> {
-        return postgrest.from("patients")
-            .select { filter { eq("is_deleted", false) } }
-            .decodeList<PatientEntity>()
+        return fetchAllPages { from, to ->
+            postgrest.from("patients")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<PatientEntity>()
+        }
     }
 
     override suspend fun fetchPatientById(id: String): PatientEntity? {

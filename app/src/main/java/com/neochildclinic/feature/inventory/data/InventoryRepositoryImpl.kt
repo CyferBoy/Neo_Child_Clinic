@@ -28,12 +28,14 @@ import com.neochildclinic.feature.inventory.domain.repository.InventoryRepositor
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -637,8 +639,24 @@ action = "DELETED",
     }
 
     override suspend fun refreshInventory() = cloudRefresh("InventoryRepo", rethrow = true) {
-        val vaccines = postgrest.from("vaccines").select { filter { eq("is_deleted", false) } }.decodeList<VaccineEntity>()
-        val batches = postgrest.from("vaccine_batches").select { filter { eq("is_deleted", false) } }.decodeList<VaccineBatchEntity>()
+        val vaccines = fetchAllPages { from, to ->
+            postgrest.from("vaccines")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<VaccineEntity>()
+        }
+        val batches = fetchAllPages { from, to ->
+            postgrest.from("vaccine_batches")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<VaccineBatchEntity>()
+        }
 
         // One query per entity name instead of one per remote row (see SyncQueueDao.unsyncedIdSet).
         val pendingVaccineIds = syncQueueDao.unsyncedIdSet("VACCINE")

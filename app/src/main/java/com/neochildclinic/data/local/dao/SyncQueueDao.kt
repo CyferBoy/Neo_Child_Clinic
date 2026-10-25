@@ -39,6 +39,10 @@ interface SyncQueueDao {
     @Delete
     suspend fun deleteItem(item: SyncQueueEntity)
 
+    /** Drops every queued upload. Used by backup restore before it re-enqueues restored rows. */
+    @Query("DELETE FROM sync_queue")
+    suspend fun clearAll()
+
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     fun getPendingCount(): Flow<Int>
 

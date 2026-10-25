@@ -6,8 +6,7 @@ import android.webkit.WebView
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.neochildclinic.core.notification.ReminderScheduler
-import com.neochildclinic.feature.finance.data.FinanceRepositoryImpl
-import com.neochildclinic.feature.vaccination.data.VaccinationRepositoryImpl
+import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.core.sync.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
@@ -36,12 +35,6 @@ class NeoChildApp : Application(), Configuration.Provider {
     lateinit var reminderScheduler: dagger.Lazy<ReminderScheduler>
 
     @Inject
-    lateinit var financeRepository: dagger.Lazy<FinanceRepositoryImpl>
-
-    @Inject
-    lateinit var vaccinationRepository: dagger.Lazy<VaccinationRepositoryImpl>
-
-    @Inject
     lateinit var backupAutoScheduler: dagger.Lazy<com.neochildclinic.data.backup.BackupAutoScheduler>
 
     @Inject
@@ -49,6 +42,9 @@ class NeoChildApp : Application(), Configuration.Provider {
 
     @Inject
     lateinit var settingsManager: dagger.Lazy<NotificationSettingsManager>
+
+    @Inject
+    lateinit var database: dagger.Lazy<AppDatabase>
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -83,6 +79,20 @@ class NeoChildApp : Application(), Configuration.Provider {
             syncReconciler.get().start()
         }
 
+        // Keep the local audit table bounded. The server retains one year (see
+        // supabase/migrations/20261025_audit_log_retention.sql); local rows older than
+        // 90 days are already synced and only serve offline views.
+        scope.launch {
+            try {
+                val cutoff = java.time.Instant.now()
+                    .minus(90, java.time.temporal.ChronoUnit.DAYS)
+                    .toString()
+                database.get().auditLogDao().deleteSyncedOlderThan(cutoff)
+            } catch (e: Exception) {
+                Log.w(TAG, "Audit log retention cleanup failed (non-fatal)", e)
+            }
+        }
+
         // BiometricLockManager's lock state is in-memory and dies with the process;
         // mirror the arm flag into DataStore (NotificationSettingsManager.needsAuth) so a
         // screen-off + process-death cycle still locks on the next cold start
@@ -110,14 +120,6 @@ class NeoChildApp : Application(), Configuration.Provider {
         scope.launch {
             reminderScheduler.get().scheduleDailySummary()
             reminderScheduler.get().schedulePersonalReminderNotifications()
-        }
-        scope.launch {
-            try {
-                val vaccinations = vaccinationRepository.get().allVaccinations.first()
-                financeRepository.get().migrateLegacyVaccinationCogs(vaccinations)
-            } catch (e: Exception) {
-                Log.e(TAG, "Unable to migrate historical finance COGS snapshots", e)
-            }
         }
         scope.launch {
             try {

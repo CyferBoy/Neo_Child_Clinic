@@ -38,7 +38,7 @@ class RemotePruneTest {
         val batches = RemotePrune.computeBatches(
             localIds = listOf("a"),
             syncedIds = setOf("a"),
-            remoteIds = emptySet(),
+            remoteIds = setOf("remote-other"),
             pendingIds = setOf("a")
         )
         assertEquals(emptyList<List<String>>(), batches)
@@ -49,7 +49,7 @@ class RemotePruneTest {
         val batches = RemotePrune.computeBatches(
             localIds = listOf("a"),
             syncedIds = setOf<String>(), // a exists locally but is not synced yet
-            remoteIds = emptySet(),
+            remoteIds = setOf("remote-other"),
             pendingIds = emptySet()
         )
         assertEquals(emptyList<List<String>>(), batches)
@@ -73,7 +73,7 @@ class RemotePruneTest {
         val batches = RemotePrune.computeBatches(
             localIds = listOf("a"),
             syncedIds = null,
-            remoteIds = emptySet(),
+            remoteIds = setOf("remote-other"),
             pendingIds = setOf("a")
         )
         assertEquals(emptyList<List<String>>(), batches)
@@ -87,7 +87,8 @@ class RemotePruneTest {
             syncedIds = doomed.toSet(),
             remoteIds = emptySet(),
             pendingIds = emptySet(),
-            chunkSize = 500
+            chunkSize = 500,
+            allowEmptyRemote = true
         )
         assertEquals(3, batches.size)
         assertEquals(500, batches[0].size)
@@ -101,7 +102,8 @@ class RemotePruneTest {
             localIds = listOf("b", "b", "b"),
             syncedIds = setOf("b"),
             remoteIds = emptySet(),
-            pendingIds = emptySet()
+            pendingIds = emptySet(),
+            allowEmptyRemote = true
         )
         assertEquals(listOf(listOf("b")), batches)
     }
@@ -117,7 +119,8 @@ class RemotePruneTest {
                 RemotePrune.ReminderRef(localId = "loc-1", remoteId = "srv-1", synced = true)
             ),
             remoteIds = emptySet(),
-            pendingIds = emptySet()
+            pendingIds = emptySet(),
+            allowEmptyRemote = true
         )
         assertEquals(listOf(listOf("loc-1")), batches)
     }
@@ -159,6 +162,41 @@ class RemotePruneTest {
             pendingIds = emptySet()
         )
         assertEquals(listOf(listOf("loc-b")), batches)
+    }
+
+    @Test
+    fun emptyRemoteSetDoesNotWipeNonEmptyLocalSet() {
+        val batches = RemotePrune.computeBatches(
+            localIds = listOf("a", "b"),
+            syncedIds = setOf("a", "b"),
+            remoteIds = emptySet(),
+            pendingIds = emptySet()
+        )
+        assertEquals(emptyList<List<String>>(), batches)
+    }
+
+    @Test
+    fun emptyRemoteSetIsAllowedWhenExplicitlyAuthoritative() {
+        val batches = RemotePrune.computeBatches(
+            localIds = listOf("a", "b"),
+            syncedIds = setOf("a", "b"),
+            remoteIds = emptySet(),
+            pendingIds = emptySet(),
+            allowEmptyRemote = true
+        )
+        assertEquals(listOf(listOf("a", "b")), batches)
+    }
+
+    @Test
+    fun reminders_emptyRemoteSetDoesNotWipeAcknowledgedRows() {
+        val batches = RemotePrune.computeRemindersBatches(
+            localReminders = listOf(
+                RemotePrune.ReminderRef(localId = "loc-1", remoteId = "srv-1", synced = true)
+            ),
+            remoteIds = emptySet(),
+            pendingIds = emptySet()
+        )
+        assertEquals(emptyList<List<String>>(), batches)
     }
 
     private fun idsToSet(ids: List<String>) = ids.toSet()

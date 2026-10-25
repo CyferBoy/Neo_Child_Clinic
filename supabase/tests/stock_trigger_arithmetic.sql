@@ -1,7 +1,7 @@
 -- Disposable-database regression test for public.update_batch_stock().
 --
 -- Run against a database that has the schema and the landed trigger fix
--- (20261021001000 + 20261021002000) applied:
+-- (20261022_fix_stock_trigger_update_arithmetic.sql) applied:
 --   psql "$DATABASE_URL" -f supabase/tests/stock_trigger_arithmetic.sql
 --
 -- Everything runs in one transaction and is rolled back. Do not run this against

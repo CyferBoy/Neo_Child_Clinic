@@ -5,7 +5,7 @@ This report reconciles the repository's internal bug audit reports with the exte
 
 ## 2. Integration of External Audit Findings
 - **Statistics (All) Filter Nuance**: Confirmed that `StatisticsUtils.filterValidVaccinations()` checks `ReminderStatus.COMPLETED` or `EXTERNAL`, but does not detect true soft-deletes or resolve the KDoc vs. filter contradiction regarding `ACTIVE` visits.
-- **Stock Trigger Batch Reassignment (NCC-AUDIT-001)**: Confirmed that `supabase/migrations/20261021001000_stock_trigger_upsert_fix.sql` handles same-batch quantity deltas correctly (`- OLD.quantity + NEW.quantity`), but fails to debit/credit two different batches if an `UPDATE` changes `batch_id`.
+- **Stock Trigger Batch Reassignment (NCC-AUDIT-001)**: Confirmed that `supabase/migrations/20261021001000_stock_trigger_upsert_fix.sql` handles same-batch quantity deltas correctly (`- OLD.quantity + NEW.quantity`), but fails to debit/credit two different batches if an `UPDATE` changes `batch_id`. **Resolved 2026-10-25:** `20261022_fix_stock_trigger_update_arithmetic.sql` reconciles both batches; `supabase/tests/stock_trigger_arithmetic.sql` runs in `.github/workflows/supabase-sql.yml`. Production deployment remains NCC-AUDIT-003.
 - **Documentation Discrepancies**: The workflow tracker's claim that all phases and findings are fully closed conflicts with `Bug Register.md`, which still lists several open S4/S3 findings (NCC-027 through NCC-031, NCC-036, NCC-039).
 
 ## 3. Reconciled Findings & Corrections

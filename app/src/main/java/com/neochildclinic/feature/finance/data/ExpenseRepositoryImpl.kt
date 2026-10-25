@@ -15,11 +15,13 @@ import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -117,8 +119,16 @@ syncRepository.enqueue(
         }
     }
 
-    override suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo") {
-        val remoteExpenses = postgrest.from("expenses").select { filter { eq("is_deleted", false) } }.decodeList<ExpenseEntity>()
+    override suspend fun refreshExpenses() = cloudRefresh("ExpenseRepo", rethrow = true) {
+        val remoteExpenses = fetchAllPages { from, to ->
+            postgrest.from("expenses")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<ExpenseEntity>()
+        }
         transactionRunner.run {
             val pendingExpenseIds = syncQueueDao.unsyncedIdSet("EXPENSE")
             for (remote in remoteExpenses) {

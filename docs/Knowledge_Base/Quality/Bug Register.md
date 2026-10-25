@@ -29,9 +29,9 @@ difference matters when deciding what is safe to regress:
 
 | Evidence class | Meaning | Items |
 |---|---|---|
-| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-006 (🔍 instrumented only), NCC-017, NCC-043, NCC-044 |
+| **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-002, NCC-006 (🔍 instrumented only), NCC-017, NCC-043, NCC-044 |
 | **Source-verified** | re-read at `e05f7c0` or re-verified 2026-10-19, and confirmed fixed; **no regression test** | NCC-003, NCC-005, NCC-008, NCC-009 (🔍 test pins `run()` only), NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-019 (⚠️ no test), NCC-035, NCC-040 |
-| **Needs a live DB** | cannot be settled by reading source | NCC-002, NCC-003, NCC-007 |
+| **Needs a live DB** | cannot be settled by reading source | NCC-003, NCC-007 |
 
 ⚠️ The repository contains **zero** `*ViewModelTest.kt` files, which is why everything in the
 UI layer is source-verified only. Do not read "Fixed" as "regression-protected".
@@ -53,7 +53,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | ID | Title | Sev | Status | Area |
 |---|---|---|---|---|
 | NCC-001 | Edit that raises quantity on a failed batch moves stock but records `FAILED` | S1 | ✅ **Fixed** | Inventory |
-| NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ⚠️ **Open** | Supabase |
+| NCC-002 | Postgres stock trigger corrupts stock on any retried upsert | S1 | ✅ **Fixed** | Supabase |
 | NCC-003 | Legacy stock trigger never dropped — **confirmed live, double-applying** | S1 | ✅ **Fixed** | Supabase |
 | NCC-004 | Reminder failure after commit duplicates the visit and double-deducts | S1 | ✅ Fixed | Vaccination |
 | NCC-005 | `deductStockFromBatch` pre-write throws bypass stock recovery | S1 | ✅ **Fixed** | Inventory |
@@ -176,8 +176,8 @@ caught by these tests. The end-to-end path still needs an instrumented test.
 
 | | |
 |---|---|
-| **Status** | ⚠️ **Open** · **Severity** S1 Critical |
-| **Files** | live definition `supabase/migrations/20261017_stock_trigger_duplicate_and_update_arithmetic.sql:54-108` (rewrite of the old body at `20261013140000_stock_trigger_negative_guard.sql:56-61`); client upsert `core/sync/SyncUploader.kt:551` |
+| **Status** | ✅ **Fixed** · **Severity** S1 Critical |
+| **Files** | fixed definition `supabase/migrations/20261022_fix_stock_trigger_update_arithmetic.sql:1-100`; previous body `20261017_stock_trigger_duplicate_and_update_arithmetic.sql:54-108`; client upsert `core/sync/SyncUploader.kt:551` |
 | **Impact** | A retried ledger upload invents or destroys doses server-side. |
 
 **Evidence.** The `ELSE` branch applies `- OLD.quantity` with no `+ NEW.quantity`, and only
@@ -211,13 +211,18 @@ and `DELETE` branches are correct; only `UPDATE` is wrong. The correct implement
 one in *Fix* above — undo `OLD.quantity` whenever the row is updated, then apply
 `NEW.quantity` to `NEW.batch_id` — not `v_delta` on top of the undo.
 
-🔍 **Live-DB confirmation still required** — the pgTAP/psql delta assertion is now the
-acceptance test for the re-fix ([[Release Checklist]] § 5). [[Hypotheses]] HYP-005 covers the
-unrelated client-side question the same migration left behind.
+✅ **Resolution (2026-10-25).** `supabase/migrations/20261022_fix_stock_trigger_update_arithmetic.sql`
+replaces the function: it reverses `OLD` and applies `NEW` to `NEW.batch_id` when the batch
+changes, and the same-batch path applies only the quantity delta. `supabase/tests/stock_trigger_arithmetic.sql`
+exercises retry, edit, batch reassignment, and negative-stock rejection against a real
+PostgreSQL 16 instance in `.github/workflows/supabase-sql.yml`; it passes. Production migration
+state is still covered by NCC-AUDIT-003, not by this source-level fix. [[Hypotheses]] HYP-005
+covers the unrelated client-side question the same migration left behind.
 
 ⚠️ **Status history.** This card read **In review** from 2026-10-18, then ✅ Fixed when
 `origin/main` fast-forwarded in the migration. The 2026-10-19 pass re-read the SQL and found
-the guard wrong, so it is open again with the arithmetic above as evidence.
+the guard wrong, so it was open again with the arithmetic above as evidence; the
+2026-10-25 resolution above closes it with a real-Postgres regression test.
 
 **Links.** [[Supabase]] · [[Inventory Management]] · [[Database Schema]]
 

@@ -13,12 +13,14 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
+import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
@@ -67,7 +69,15 @@ class ProfileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshProfiles() = cloudRefresh("ProfileRepo", rethrow = true) {
-        val profiles = postgrest.from("profiles").select { filter { eq("is_deleted", false) } }.decodeList<Profile>()
+        val profiles = fetchAllPages { from, to ->
+            postgrest.from("profiles")
+                .select {
+                    filter { eq("is_deleted", false) }
+                    order("id", Order.ASCENDING)
+                    range(from, to)
+                }
+                .decodeList<Profile>()
+        }
         // One bulk queue read per refresh instead of one per row (same semantics as the
         // per-row isUnsynced this replaces).
         val pendingProfileIds = syncQueueDao.unsyncedIdSet("PROFILE")

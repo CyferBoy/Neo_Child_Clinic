@@ -141,10 +141,12 @@ hoists, list pagination design. Tracked in [[Performance and Measurement Plan 20
 ## Out of scope (recorded, no batch)
 
 - DA-05 (search FTS) — requires benchmark evidence + design; queued decision list.
-- DA-10 (audit retention) — policy decision needed first (keep-all vs window).
+- DA-10 (audit retention) — implemented 2026-10-25: 90-day local prune and 1-year server
+  function with optional `pg_cron` schedule.
 - DA-12 (WAL vs TRUNCATE) — measurement-only; do not change without device numbers.
 - DA-13 — deliberate; no change.
-- Server-side stock trigger verification (NCC-002) — live-DB confirmation, separate track.
+- Server-side stock trigger verification (NCC-002) — PostgreSQL regression test added to CI;
+  production deployment verification remains a separate track (NCC-AUDIT-003).
 
 ## Related reports
 
