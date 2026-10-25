@@ -42,7 +42,21 @@ class VaccineWidget : GlanceAppWidget() {
     companion object {
         val OPACITY_KEY = floatPreferencesKey("widget_opacity")
         val THEME_KEY = stringPreferencesKey("widget_theme")
-        private const val DEFAULT_OPACITY = 0.85f
+        val FONT_SIZE_KEY = floatPreferencesKey("widget_font_size")
+        val PADDING_KEY = floatPreferencesKey("widget_padding")
+        const val DEFAULT_OPACITY = 0.85f
+        const val DEFAULT_FONT_SIZE = 12f
+        const val DEFAULT_PADDING = 6f
+
+        // Design baselines the configuration defaults map to: font sizes scale by
+        // ratio to DESIGN_ROW_SP and internal gaps by ratio to DEFAULT_PADDING, so
+        // the size/padding sliders introduce no new hardcoded values. At the defaults
+        // the widget renders exactly as before the sliders existed.
+        private const val DESIGN_TITLE_SP = 16f
+        private const val DESIGN_EMPTY_SP = 15f
+        private const val DESIGN_ROW_SP = 12f
+        private const val DESIGN_GAP_DP = 4f
+        private const val DESIGN_ROW_GAP_DP = 3f
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -56,7 +70,9 @@ class VaccineWidget : GlanceAppWidget() {
             val prefs = currentState<Preferences>()
             val opacity = prefs[OPACITY_KEY] ?: DEFAULT_OPACITY
             val theme = VaccineWidgetTheme.fromKey(prefs[THEME_KEY])
-            WidgetContent(context, dueItems, opacity, theme)
+            val fontScale = (prefs[FONT_SIZE_KEY] ?: DEFAULT_FONT_SIZE) / DESIGN_ROW_SP
+            val padding = prefs[PADDING_KEY] ?: DEFAULT_PADDING
+            WidgetContent(context, dueItems, opacity, theme, fontScale, padding)
         }
     }
 
@@ -65,19 +81,22 @@ class VaccineWidget : GlanceAppWidget() {
         context: Context,
         items: List<WidgetDueEntity>,
         opacity: Float,
-        theme: VaccineWidgetTheme
+        theme: VaccineWidgetTheme,
+        fontScale: Float,
+        padding: Float
     ) {
         val colors = theme.colors(context)
         val resolvedBgColor = colors.background.copy(alpha = opacity)
         val textColorProvider = androidx.glance.color.ColorProvider(colors.primaryText, colors.primaryText)
         val secondaryTextProvider = androidx.glance.color.ColorProvider(colors.secondaryText, colors.secondaryText)
+        val padScale = padding / DEFAULT_PADDING
 
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(resolvedBgColor)
                 .cornerRadius(24.dp)
-                .padding(6.dp)
+                .padding(padding.dp)
                 .clickable(
                     actionStartActivity<MainActivity>(
                         actionParametersOf(
@@ -95,7 +114,7 @@ class VaccineWidget : GlanceAppWidget() {
                 Text(
                     text = "Due Vaccination",
                     style = TextStyle(
-                        fontSize = 16.sp,
+                        fontSize = (DESIGN_TITLE_SP * fontScale).sp,
                         fontWeight = FontWeight.Bold,
                         color = textColorProvider
                     )
@@ -109,13 +128,13 @@ class VaccineWidget : GlanceAppWidget() {
                     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = "No upcoming vaccinations",
-                            style = TextStyle(fontSize = 15.sp, color = secondaryTextProvider)
+                            style = TextStyle(fontSize = (DESIGN_EMPTY_SP * fontScale).sp, color = secondaryTextProvider)
                         )
                     }
                 } else {
-                    LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(top = 4.dp)) {
+                    LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(top = (DESIGN_GAP_DP * padScale).dp)) {
                         items(items) { item ->
-                            VaccineRow(item, textColorProvider, colors.accent)
+                            VaccineRow(item, textColorProvider, colors.accent, fontScale, padScale)
                         }
                     }
                 }
@@ -123,7 +142,7 @@ class VaccineWidget : GlanceAppWidget() {
 
             // Footer: Centered Refresh Button
             Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp),
+                modifier = GlanceModifier.fillMaxWidth().padding(top = (DESIGN_GAP_DP * padScale).dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -143,11 +162,13 @@ class VaccineWidget : GlanceAppWidget() {
     private fun VaccineRow(
         item: WidgetDueEntity,
         textColorProvider: ColorProvider,
-        accentColor: Color
+        accentColor: Color,
+        fontScale: Float,
+        padScale: Float
     ) {
         val dateColor = if (item.isOverdue) androidx.glance.color.ColorProvider(Color(0xFFD32F2F), Color(0xFFD32F2F)) else androidx.glance.color.ColorProvider(accentColor, accentColor)
         Column(
-            modifier = GlanceModifier.fillMaxWidth().padding(vertical = 3.dp)
+            modifier = GlanceModifier.fillMaxWidth().padding(vertical = (DESIGN_ROW_GAP_DP * padScale).dp)
         ) {
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
@@ -156,7 +177,7 @@ class VaccineWidget : GlanceAppWidget() {
                 Text(
                     text = "${item.patientName}: ",
                     style = TextStyle(
-                        fontSize = 12.sp,
+                        fontSize = (DESIGN_ROW_SP * fontScale).sp,
                         fontWeight = FontWeight.Medium,
                         color = textColorProvider
                     ),
@@ -166,7 +187,7 @@ class VaccineWidget : GlanceAppWidget() {
                 Text(
                     text = item.dueDate,
                     style = TextStyle(
-                        fontSize = 12.sp,
+                        fontSize = (DESIGN_ROW_SP * fontScale).sp,
                         color = dateColor,
                         fontWeight = FontWeight.Normal
                     ),
