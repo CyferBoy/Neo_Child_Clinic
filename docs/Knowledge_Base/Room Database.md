@@ -175,8 +175,10 @@ write is `ClinicalVaccinationService.recordVaccination` (`:52-122`), which cover
 |---|---|
 | `PersonalReminderRepositoryImpl` — all 6 mutators | repository has **no** `TransactionRunner` dependency |
 | `DoctorAvailabilityRepositoryImpl` — all 4 mutators | same |
-| `InventoryRepositoryImpl.deductStock` (`:384-433`) | `for` loop at `:405-421` with no transaction — but **dead code**, zero callers |
 | `AuditLogger.log(...)` called from inside live transactions | fires on a **separate** coroutine (`AuditLogger.kt:40-42`), so the audit row survives a rollback |
+
+`InventoryRepositoryImpl.deductStock` and `VaccineDao.getActiveBatchesByExpiry` were dead
+and were deleted on 2026-10-25.
 
 Two entries formerly in this table have since been fixed and are kept for history:
 `InventoryRepositoryImpl.addStockBatch` now wraps its whole validation/write loop in
@@ -190,13 +192,11 @@ See [[Known Bugs]] for the full list with severity. Room-specific:
 
 1. ✅ Re-checked at HEAD: `DueReminderDao` applies `is_deleted = 0` to all 16 read queries,
    matching the DAO's own stated rule — the earlier "7 of 16" observation no longer holds.
-2. ✅ `AuditLogDao.kt:30-33` comment claims a composite `(entityType, entityId)` index that
-   **does not exist**; the entity declares 6 single-column indices only.
-3. ✅ `VaccineDao.getAuditCountForVaccine` (`:147-148`, sibling at `:150-151`) queries
-   `audit_logs.remarks` for a brand name — and `remarks` is exactly where the brand is written
-   (`InventoryRepositoryImpl.kt:171`). Both methods have **zero call sites** — the deletion
-   guard counts vaccinations, waste and transactions (`InventoryRepositoryImpl.kt:364-366`),
-   not audit rows.
+2. ✅ `AuditLogDao` comment corrected: the entity declares separate `entityType` and
+   `entityId` indices, not a composite (NCC-029).
+3. ✅ `VaccineDao.getAuditCountForVaccine` / `getAuditCountExcludingCreation` were dead and
+   queried the wrong column; both were deleted in `f28ce21` (NCC-030). The destructive-delete
+   guard still counts vaccinations, waste and transactions, not audit rows.
 4. ✅ 7 of the 9 `FinanceDao` read queries order by
    `COALESCE(transaction_date, substr(timestamp,1,10)) DESC` — an expression that **no
    B-tree index can serve**, making `index_finance_transactions_transaction_date` useless.

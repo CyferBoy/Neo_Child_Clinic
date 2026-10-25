@@ -148,18 +148,14 @@ pattern exists in `VaccineDetailViewModel.kt:99-104` (`.catch { … }`) — but 
 | `AuthViewModel.kt` | 369 | 11 |
 | `FullReportViewModel.kt` | 324 | 5 |
 
-## Confirmed bugs in this layer
+## Fixed bugs in this layer
 
-Full detail in [[Known Bugs]]; the two MVVM-specific ones:
+Full detail in [[Known Bugs]]; the two MVVM-specific ones are both fixed:
 
-- **`DashboardViewModel.errorMessage` is dead.** Declared at `:47`, and the only
-  `DashboardUiState(...)` construction (`:270-290`) never passes it. `grep errorMessage`
-  in that file returns **one** hit — the declaration. Yet `DashboardScreen.kt:199-201`
-  contains live code that can never run.
-- **`BorrowedViewModel.actionError` is dead.** Declared at `:59`, never assigned (one grep
-  hit). `BorrowedScreen.kt` has zero error references. So `submitReturn` (`:194-210`),
-  `deleteBorrowedItem` (`:212-220`) and `saveBorrowedItem` (`:178-182`) fail **completely
-  silently**.
+- **`DashboardViewModel.errorMessage` was dead.** It is now written at `:278` and shown by
+  `DashboardScreen.kt:195-205`.
+- **`BorrowedViewModel.actionError` was dead.** It is now written at `:200`, `:238`, `:251`
+  and shown by `BorrowedScreen.kt:48`.
 
 ## Test coverage of this layer
 

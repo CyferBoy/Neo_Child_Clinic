@@ -26,12 +26,13 @@ confirmed — 15 new findings (DA-01…DA-15), of which **one is High**:
 
 The rest are Medium efficiency findings (DA-02 full-collection downloads with no projection or
 delta cursor; DA-03 pull-loop N+1s; DA-04 in-memory statistics over full-table combines; DA-05
-unindexable search scans; DA-06 widget reading the whole patients table; DA-10 unbounded
-`audit_logs`), and Low items (dead code DA-09, queue unique-key DA-08, timeouts DA-07,
-Logcat identifiers DA-11, SQLite journal mode DA-12, blockquote-level design records DA-13/14/15).
+unindexable search scans; DA-06 widget reading the whole patients table), and Low items
+(queue unique-key DA-08, timeouts DA-07, Logcat identifiers DA-11, SQLite journal mode DA-12,
+blockquote-level design records DA-13/14/15). DA-09 (dead code) and DA-10 (audit retention)
+are resolved.
 
-Bug Register defects re-verified (NCC-002 trigger Open awaiting live-DB confirmation;
-NCC-025/027/028/029/030/031/036/038/039) are cross-referenced, not duplicated.
+Bug Register defects re-verified (NCC-002 ✅ fixed and test-pinned; NCC-025/029/030/039 ✅
+fixed; NCC-027/028/031/036/038 still open) are cross-referenced, not duplicated.
 
 ## Top priorities (Phase 2, in order)
 

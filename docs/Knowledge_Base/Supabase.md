@@ -8,8 +8,8 @@
 ```
 supabase/
 ├── config.toml                       425+ lines; JWT config per function
-├── migrations/                       23 .sql + 1 stale CSV catalog
-│                                    ✅ all 23 tracked in git (fixed in f8e5d8a)
+├── migrations/                       29 .sql + 1 stale CSV catalog
+│                                    ✅ all 29 tracked in git (fixed in f8e5d8a)
 ├── functions/
 │   ├── manage-staff/index.ts         257 lines — privileged `profiles` writer; app self-edits via `SyncUploader.kt:572`
 │   └── notify-update/index.ts        166 lines — FCM fan-out
@@ -18,7 +18,7 @@ supabase/
 └── .gitignore
 ```
 
-⚠️ **Tracked, but not replayable from a clean clone.** The 23 migrations contain only 9
+⚠️ **Tracked, but not replayable from a clean clone.** The 29 migrations contain only 9
 `create table` statements; 18 tables are referenced and altered but never created — the 15
 legacy base tables (`patients`, `patient_visits`, `patient_notes`, `vaccination_items`,
 `vaccines`, `vaccine_batches`, `inventory_transactions`, `waste_records`, `borrow_records`,

@@ -30,7 +30,7 @@ difference matters when deciding what is safe to regress:
 | Evidence class | Meaning | Items |
 |---|---|---|
 | **Test-pinned** | a named test fails without the fix and passes with it | NCC-001, NCC-002, NCC-006 (🔍 instrumented only), NCC-017, NCC-043, NCC-044 |
-| **Source-verified** | re-read at `e05f7c0` or re-verified 2026-10-19, and confirmed fixed; **no regression test** | NCC-003, NCC-005, NCC-008, NCC-009 (🔍 test pins `run()` only), NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-019 (⚠️ no test), NCC-035, NCC-040 |
+| **Source-verified** | re-read at `e05f7c0`, or re-verified 2026-10-19 / 2026-10-25, and confirmed fixed; **no regression test** | NCC-003, NCC-005, NCC-008, NCC-009 (🔍 test pins `run()` only), NCC-013, NCC-014, NCC-015, NCC-016, NCC-018, NCC-019 (⚠️ no test), NCC-025, NCC-029, NCC-030, NCC-035, NCC-039, NCC-040 |
 | **Needs a live DB** | cannot be settled by reading source | NCC-003, NCC-007 |
 
 ⚠️ The repository contains **zero** `*ViewModelTest.kt` files, which is why everything in the
@@ -80,8 +80,8 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | NCC-026 | `isExpired` fails open on an unparseable date | S4 | ⚠️ Not a bug | Inventory |
 | NCC-027 | `isLowStock` uses `<=`, flagging exactly-at-threshold stock | S4 | Open | Inventory |
 | NCC-028 | `consultations.visitId` defaults to `""` — an FK-violating value | S4 | Open | Room |
-| NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | Open | Room |
-| NCC-030 | `VaccineDao` audit-count guards query the wrong column | S4 | Open | Inventory |
+| NCC-029 | `AuditLogDao` references a composite index that does not exist | S4 | ✅ Fixed | Room |
+| NCC-030 | `VaccineDao` audit-count guards query the wrong column | S4 | ✅ Fixed | Inventory |
 | NCC-031 | `FinanceDao` sorts on an expression no index can serve | S4 | Open | Room |
 | NCC-032 | `reschedule` discards its `reminderDate` argument | S3 | ✅ Fixed | Reminders |
 | NCC-033 | `notificationsSentToday` is structurally always 0 | S3 | ✅ Fixed | Reminders |
@@ -90,7 +90,7 @@ They stay plain text here because a wikilink alias needs a `|`, which would end 
 | NCC-036 | 60 `viewModelScope.launch` bodies have no `try`/`catch` | S3 | Open | UI |
 | NCC-037 | `readBytesFromUri` size check is TOCTOU | S3 | ✅ Fixed | Backup |
 | NCC-038 | `inventory_deductions` is never synced to the server | S3 | ⚠️ Needs decision | Sync |
-| NCC-039 | `neochild_db` opened twice as a singleton | S4 | Open | DI |
+| NCC-039 | `neochild_db` opened twice as a singleton | S4 | ✅ Fixed | DI |
 | NCC-040 | Latest-batch fallback in `AddBatchViewModel` picks the oldest | S2 | ✅ Fixed | Inventory |
 | NCC-041 | Brand drill-down returned 0 rows for every brand — query matched JSON as comma-text | S2 | ✅ Fixed | Statistics |
 | NCC-042 | Instrumented tests asserted with Kotlin `assert()`, a no-op without `-ea` — 7 assertions could never fail | S3 | ✅ Fixed | Tests |
@@ -865,12 +865,12 @@ NCC-023 apply tombstones on pull. NCC-024 resubscribe with backoff on error.
 
 | ID | Sev | Status | Summary | Location |
 |---|---|---|---|---|
-| NCC-025 | S4 | Open | `ORDER BY priority DESC` on TEXT sorts `HIGH` last | `SyncQueueDao.kt:12` — ✅ re-verified 2026-10-18 |
+| NCC-025 | S4 | ✅ **Fixed** | SQL no longer orders by the TEXT `priority` column; `orderPendingIntoGroups` applies the entity-name weight after the query | `SyncQueueDao.kt:12-14` |
 | NCC-026 | S4 | ⚠️ Not a bug | `isExpired` returns false on an unparseable date — deliberate, see below | `InventoryUtils.kt:24` — comment added; no behaviour change |
 | NCC-027 | S4 | Open | `isLowStock = totalStock <= globalThreshold` flags at-threshold stock | `InventoryRepositoryImpl.kt:78` (was `:77`) |
 | NCC-028 | S4 | Open | `consultations.visitId` defaults to `""` against a NOT NULL CASCADE FK | `ConsultationEntity.kt:33` — ✅ re-verified 2026-10-18 |
-| NCC-029 | S4 | Open | `AuditLogDao` comment claims a composite index that does not exist | `AuditLogDao.kt:29-33` — ✅ re-verified 2026-10-18: the comment spans `:29-33` and the DAO contains **zero** `Index(` declarations |
-| NCC-030 | S4 | Open | Audit-count guards query `audit_logs.remarks`; the brand is in `old_value`/`new_value` — and both have **0 call sites** | `VaccineDao.kt:137-141` — ✅ re-verified 2026-10-18 |
+| NCC-029 | S4 | ✅ **Fixed** | Comment corrected: the entity has separate `entityType` and `entityId` indexes, not a composite | `AuditLogDao.kt:47-50`; `AuditLogEntity.kt:18-25` |
+| NCC-030 | S4 | ✅ **Fixed** | Both dead-and-wrong audit-count guards were deleted in `f28ce21`; zero references remain | `VaccineDao.kt` (methods removed) |
 | NCC-031 | S4 | Open | `FinanceDao` orders by `COALESCE(...)` — unindexable, so its indices are dead | `FinanceDao.kt:15,18,36` — ✅ re-verified 2026-10-18 |
 
 ### NCC-026 — reclassified, not fixed
@@ -923,7 +923,7 @@ checks in [[Release Checklist]].
 | NCC-036 | S3 | Open | `viewModelScope.launch` bodies with no `try`/`catch` | **140** launches across **33** `*ViewModel.kt` files. ⚠️ The card said "60 … 27 ViewModels"; re-measured 2026-10-18, file count corrected 2026-10-19. The exact count of *unprotected* bodies was not recomputed here — treat the number as an upper bound. |
 | NCC-037 | S3 | ✅ **Fixed** | `readBytesFromUri` checked `OpenableColumns.SIZE` then read unbounded | `BackupRepositoryImpl.kt` — read is now bounded at `MAX_BACKUP_BYTES` |
 | NCC-038 | S3 | ⚠️ **Needs decision** | `inventory_deductions` is local-only — but this is a missing feature, not a defect, and the impact is narrower than stated | no server table exists in any migration, nothing enqueues `INVENTORY_DEDUCTION`, no descriptor |
-| NCC-039 | S4 | Open | `AppDatabase` has both double-checked locking and `@Singleton` | `AppDatabase.kt:81-82`; `DatabaseModule.kt:33-37` |
+| NCC-039 | S4 | ✅ **Fixed** | Removed the redundant Hilt `@Singleton`; `AppDatabase.getDatabase()` is the single owner | `AppDatabase.kt:442-444`; `DatabaseModule.kt:32-37` |
 | NCC-040 | S2 | ✅ **Fixed** | `AddBatchViewModel` `maxByOrNull { it.purchaseDate }` — same lexicographic defect as NCC-017 | `AddBatchViewModel.kt:59-60` (was cited `:56`) — now `newestBatch()` with a `parseDate` fallback |
 | NCC-041 | S2 | ✅ **Fixed** | `getUpcomingVaccinationsByVaccineId` matched `nxt_vaccine_id` as comma-joined text; the column is JSON, so it returned 0 rows for every brand | `DueReminderDao.kt` — quoted-id `instr()` match; `ReminderEntity.kt` comment corrected |
 

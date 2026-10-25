@@ -11,10 +11,10 @@
 |---|---|
 | Version | **0.5.1** (`versionCode 3`) |
 | Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
-| Supabase | 26 tables, 23 migrations, 2 edge functions |
-| Kotlin | 352 main files · 49 test files |
+| Supabase | 26 tables, 29 migrations, 2 edge functions |
+| Kotlin | 354 main files · 49 test files |
 | Tests | **277 unit passing**, 0 failures (2026-10-18) · 56 instrumented in 8 files, 🔍 **green in CI 2026-10-18** |
-| Open bugs | **9 confirmed open** · 29 fixed · 2 needs decision · 2 not a bug · 13 security · 7 hypotheses (2 refuted 2026-10-18) |
+| Open bugs | **4 confirmed open** · 37 fixed · 1 needs decision · 2 not a bug · 13 security · 7 hypotheses (2 refuted 2026-10-18) |
 | 🚨 Deadline | **`auto_expose_new_tables` removed 2026-10-30** — see NSC-005 |
 
 ## Start here
@@ -61,12 +61,18 @@
 
 ## Quality
 
-- [[Quality/Bug Register]] — 42 tracked defects (29 fixed, 9 open, 2 needs decision, 2 not a bug), canonical status
+- [[Quality/Bug Register]] — 44 tracked defects (37 fixed, 4 open, 1 needs decision, 2 not a bug), canonical status
 - [[Quality/Security Concerns]] — 13 items, 5 need a live database
 - [[Quality/Hypotheses]] — 7 unproven claims kept separate; 2 refuted on 2026-10-18
 - [[Quality/Audit Reconciliation]] — ⚠️ **read before fixing anything**
 - [[Technical Debt]] — dead code, duplication, complexity
 - [[Testing]] — 277 tests and the 12 untested critical paths
+
+## Audit archives
+
+- [[Database-Audit/00_Index]] — 17-note database and data-access audit
+- [[Full-Code-Audit/00_Index]] — whole-project code audit and remediation roadmap
+- [[Quality/Karpathy Principles]] — the review principles used for the audits
 
 ## Delivery
 
@@ -106,7 +112,7 @@ graph TB
 
 | Fact | Value | Source |
 |---|---|---|
-| Kotlin files (main) | 352 | `app/src/main/**/*.kt` |
+| Kotlin files (main) | 354 | `app/src/main/**/*.kt` |
 | Kotlin files (test) | 49 | 41 unit + 8 instrumented |
 | Lines of Kotlin | ~47,749 main · ~5,642 test | `wc -l` |
 | ViewModels | 34, **all** `@HiltViewModel` | `grep -rl @HiltViewModel` |
@@ -114,7 +120,7 @@ graph TB
 | Navigation entries | 51, in 5 `NavGraphBuilder` groups | `app/Navigation.kt:83-91` |
 | Room entities / DAOs / migrations | 25 / 21 / 16 | `AppDatabase.kt:16-40` |
 | Room version | 33 | `AppDatabase.kt:42` |
-| SQL migrations | 23, all git-tracked | `git ls-files supabase/migrations/` |
+| SQL migrations | 29, all git-tracked | `git ls-files supabase/migrations/` |
 | Supabase tables / edge functions | 🔍 26 / 2 | — |
 | Unit tests passing | 277, 0 failures (2026-10-18) | `app/build/test-results/` |
 | Instrumented tests | 8 files, 56 `@Test`, 🔍 green in CI 2026-10-18 | `app/src/androidTest/` |

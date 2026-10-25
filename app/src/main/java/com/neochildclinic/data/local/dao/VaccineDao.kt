@@ -34,9 +34,6 @@ interface VaccineDao {
     suspend fun deleteVaccinePermanently(vaccine: VaccineEntity)
 
     // Batches
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND remainingQuantity > 0 ORDER BY expiryDate ASC")
-    suspend fun getActiveBatchesByExpiry(vaccineId: String): List<VaccineBatchEntity>
-
     @Query("SELECT * FROM vaccine_batches")
     fun getAllBatches(): Flow<List<VaccineBatchEntity>>
 

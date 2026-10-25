@@ -9,7 +9,9 @@ interface SyncQueueDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun enqueue(item: SyncQueueEntity)
 
-    @Query("SELECT * FROM sync_queue WHERE status = :status ORDER BY priority DESC, createdAt ASC")
+    // Priority is an entity-name weight, not the TEXT `priority` column; orderPendingIntoGroups
+    // applies it after this query. FIFO here avoids the misleading TEXT sort (NCC-025).
+    @Query("SELECT * FROM sync_queue WHERE status = :status ORDER BY createdAt ASC")
     suspend fun getItemsByStatus(status: String): List<SyncQueueEntity>
 
     @Query("SELECT * FROM sync_queue WHERE queueId = :id LIMIT 1")

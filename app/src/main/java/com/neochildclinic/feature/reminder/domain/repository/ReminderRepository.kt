@@ -1,6 +1,5 @@
 package com.neochildclinic.feature.reminder.domain.repository
 
-import com.neochildclinic.domain.model.ReminderAudit
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.ReminderStats
 import com.neochildclinic.domain.model.ReminderStatus
@@ -13,7 +12,6 @@ interface ReminderRepository {
         filterStatus: List<ReminderStatus>? = null
     ): Flow<List<Vaccination>>
     fun getPatientReminders(patientId: String): Flow<List<Reminder>>
-    fun getAuditTrail(patientId: String): Flow<List<ReminderAudit>>
     suspend fun getRemindersByVisitId(visitId: String): List<Reminder>
     suspend fun markReminderCompleted(
         reminder: Reminder,

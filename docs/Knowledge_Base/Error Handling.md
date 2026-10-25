@@ -81,16 +81,13 @@ The caller (`AddPatientScreen.kt:136`) passes only an `onComplete` lambda — no
 a blank name or a duplicate clinic ID (`PatientRepositoryImpl.kt:155-157`) gives the user
 **zero feedback and the screen never advances**.
 
-## Dead error fields — errors that cannot be shown
+## Error fields that were dead — both fixed
 
 | Field | Declared | Writers | Result |
 |---|---|---|---|
-| `DashboardViewModel.errorMessage` | `:47` | **0** | `DashboardScreen.kt:199-201` is live code that can never run |
-| `BorrowedViewModel.actionError` | `:59` | **0** | `submitReturn`, `deleteBorrowedItem`, `saveBorrowedItem` fail **completely silently** |
+| `DashboardViewModel.errorMessage` | `:47` | **1** (`:278`) | ✅ `DashboardScreen.kt:195-205` shows the snackbar |
+| `BorrowedViewModel.actionError` | `:61` | **3** (`:200`, `:238`, `:251`) | ✅ `BorrowedScreen.kt:48` shows the snackbar |
 | `AuthViewModel._error` | `:88` | 8 | Set by background `fetchProfile` failures (`:166`, `:193`) but **cleared only inside `login()`** (`:206`) — so it persists for the rest of the process. Its only reader is `LoginScreen.kt:39`, which a user already past login never sees. |
-
-Both dead fields are provable from a single construction site: `grep errorMessage` in
-`DashboardViewModel.kt` returns **one** hit — the declaration.
 
 ## Loading states that can never clear
 

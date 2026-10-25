@@ -28,7 +28,7 @@
 | DA-13 | Informational | Documented decisions | Audit screen remote-only (offline blank); `patient-docs` staff-wide path boundary; policy intentionally matches table boundary | Confirmed | New (recorded, not a defect) |
 | DA-14 | Low | Refresh policy | Manual pull-to-refresh always runs the full 13-step pipeline incl. COGS migration, regardless of screen needs | Confirmed | New (design accepted) |
 | DA-15 | Low | DI boundary | Widget worker injects concrete `*RepositoryImpl` instead of feature interfaces | Confirmed | New |
-| — | see [[Bug Register]] | Sync/Trigger/Room | NCC-002 (Open, 🔍 live DB), NCC-025, NCC-027–031, NCC-036, NCC-038, NCC-039 | various | existing |
+| — | see [[Bug Register]] | Sync/Trigger/Room | NCC-002/025/029/030/039 ✅ fixed; NCC-027/028/031/036/038 still open | various | existing |
 
 ## DA-01 — Cross-device deletion divergence (the one systemic correctness gap)
 
@@ -183,7 +183,9 @@
   (`app/src/main/java/com/neochildclinic/data/local/dao/VaccineDao.kt:147-151`); they are also the
   unbounded `audit_logs` LIKE scans called out under DA-10, and their index requirement is the
   (differing) basis of NCC-030.
-- **Remediation**: delete. (Deleting the queries also removes a growing scan surface.)
+- **Resolution (2026-10-25)**: both groups are gone. `VaccineDao.getAuditCount*` was deleted
+  in `f28ce21`; `InventoryRepository.deductStock` and its only-reachable
+  `VaccineDao.getActiveBatchesByExpiry` were deleted on 2026-10-25. DA-09 is closed.
 
 ## DA-10 — `audit_logs` retention: unbounded local + remote growth
 
@@ -263,15 +265,16 @@
 
 ## Re-verified existing findings (no new number — cross-references)
 
-- **NCC-002** (Open ⚠️, 🔍 live DB required): Postgres stock-trigger UPDATE-branch arithmetic —
-  re-read the exported fix migrations `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`
-  and `20261018_ensure_stock_trigger_installed.sql`; consistent with the register; still needs the
-  live-DB confirmation note. Not re-classified here.
+- **NCC-002** (✅ Fixed 2026-10-25): the stock-trigger UPDATE arithmetic is corrected by
+  `20261022_fix_stock_trigger_update_arithmetic.sql`, and the regression test
+  `supabase/tests/stock_trigger_arithmetic.sql` passes in CI. Production deployment
+  verification remains NCC-AUDIT-003.
 - **NCC-019/020/009/022/003/005/021/040**: sync fixes visible in current source at the exact
   registers’ cited lines (re-verified during the write-path audit; matches ✅/Source-verified
   status in [[Bug Register]]).
-- **NCC-025/027/028/029/030/031/036/038/039**: re-confirmed open (source unchanged in audited
-  paths), including `InventoryRepository.kt:67`’s orphaned multi-batch API (related to DA-09).
+- **NCC-025/029/030/039** (✅ Fixed 2026-10-25): see their cards in [[Bug Register]].
+  **NCC-027/028/031/036/038** remain open; `InventoryRepository.kt:67`’s orphaned multi-batch
+  API was removed with DA-09.
 
 ## Related reports
 

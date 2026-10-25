@@ -129,7 +129,7 @@ And these were **not in the original audit at all** — found during the knowled
 | Finding | Area |
 |---|---|
 | Stock ledger records `FAILED` while a dose leaves the shelf | `VaccinationEditEngine` |
-| Postgres stock trigger's `UPDATE` branch corrupts stock on a retried upsert | `20261017:80,101` — the rewrite did not fix it; NCC-002 is open again (2026-10-19) |
+| Postgres stock trigger's `UPDATE` branch corrupts stock on a retried upsert | ✅ Fixed by `20261022_fix_stock_trigger_update_arithmetic.sql`; NCC-002 is test-pinned by `supabase/tests/stock_trigger_arithmetic.sql` |
 | Legacy `tr_update_batch_stock` never dropped → possible double-application | ✅ resolved by `20261017:26` (NCC-003) |
 | A reminder-loop failure after commit creates a duplicate visit on retry | `AddVaccinationViewModel:687-698` |
 | `inventory_deductions` has no sync descriptor — the dose ledger never reaches the server | `Database Schema` |

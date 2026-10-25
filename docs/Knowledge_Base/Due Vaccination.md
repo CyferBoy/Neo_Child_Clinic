@@ -49,7 +49,7 @@ supplies its own `Configuration.Provider` + `HiltWorkerFactory`
    `updateSettings` now re-arms both (`:37-38`), and `ExistingPeriodicWorkPolicy.UPDATE`
    recomputes the delay, so the new time takes effect immediately (NCC-010).
 2. **Every reminder mutation enqueues a fresh worker.** `triggerImmediateCheck()`
-   (`ReminderRepositoryImpl.kt:514-516`) fires `runNow()` from seven call sites
+   (`ReminderRepositoryImpl.kt:520-523`) fires `runNow()` from seven call sites
    (`:271`, `:292`, `:312`, `:354`, `:368`, `:388`, `:409`).
    `DueViewModel.completeVaccination` (`:134-140`) loops over reminders, so completing a
    3-reminder row enqueues 3 workers — each recomputing `getClinicStats()` (a 4-way
@@ -165,14 +165,14 @@ See [[Known Bugs]] for full severity. Reminder-specific:
 | # | Finding | Evidence |
 |---|---|---|
 | 1 | Notification-time changes did not take effect until process restart | Was: `ReminderScheduler.kt`'s 2 call sites, both `NeoChildApp.kt:111-112`; now re-armed from `NotificationSettingsViewModel.kt:37-38` (NCC-010) |
-| 2 | Every reminder mutation enqueues a non-unique `DailySummaryWorker`; N reminders → N full stats recomputes | `ReminderRepositoryImpl.kt:514-516` (7 call sites), `DueViewModel.kt:134` |
+| 2 | Every reminder mutation enqueues a non-unique `DailySummaryWorker`; N reminders → N full stats recomputes | `ReminderRepositoryImpl.kt:520-523` (7 call sites), `DueViewModel.kt:134` |
 | 3 | `ReminderRepositoryImpl.reschedule` silently discarded its `reminderDate` argument (the whole chain was dead) | Was `:296-314`; the argument, the dialog picker and both `@Transient` fields were deleted (NCC-032) |
 | 4 | `ReminderDueListProcessor` drops rows matching neither terminal branch | `:62-65` |
 | 5 | `notificationsSentToday` was **structurally always 0** — both fields `@Transient`, never persisted, no writer | Deleted, along with the unused `ReminderStats` field — no screen read it (NCC-033); the remaining stats block is `ReminderDueListProcessor.kt:99-116` |
 | 6 | Personal reminder with a blank date notifies on every run | `PersonalReminderNotificationWorker.kt:26-28` |
 | 7 | Scheduler uses **device** timezone; all statistics use **IST** | `ReminderScheduler.kt:39`, `DailySummaryWorker.kt:29` |
-| 8 | Pull paths never apply tombstones — a row deleted on device B stays on device A | `ReminderRepositoryImpl.kt:459-504`, `PersonalReminderRepositoryImpl.kt:176-183` |
-| 9 | `getAuditTrail` maps audit fields to semantically wrong targets — and is dead code | `ReminderRepositoryImpl.kt:436-451` |
+| 8 | ✅ Was: pull paths never applied tombstones — a row deleted on device B stayed on device A. Now both reminder pulls reconcile absence through `RemotePrune`. | `ReminderRepositoryImpl.kt:505`, `PersonalReminderRepositoryImpl.kt:201` |
+| 9 | ✅ Was: `getAuditTrail` mapped audit fields to semantically wrong targets and had no consumer. The method and the unused `ReminderAudit` model were deleted. | `ReminderRepository.kt` (method removed) |
 
 ## Related
 

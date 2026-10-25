@@ -8,7 +8,7 @@
 
 | Root | Files | Role |
 |---|---|---|
-| `app/src/main/java/com/neochildclinic/` | 352 | production Kotlin |
+| `app/src/main/java/com/neochildclinic/` | 354 | production Kotlin |
 | `app/src/test/java/com/neochildclinic/` | 41 | JVM unit tests |
 | `app/src/androidTest/java/com/neochildclinic/` | 8 | instrumented tests |
 | `app/src/main/res/` | — | resources; `res/xml/` holds only `vaccine_widget_info.xml` |

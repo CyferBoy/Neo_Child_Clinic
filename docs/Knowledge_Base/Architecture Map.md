@@ -6,7 +6,7 @@
 
 ## Package layout
 
-`app/src/main/java/com/neochildclinic/` — 352 Kotlin files, feature-first.
+`app/src/main/java/com/neochildclinic/` — 354 Kotlin files, feature-first.
 
 | Package | Files | Role |
 |---|---|---|

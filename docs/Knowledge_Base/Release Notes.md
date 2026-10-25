@@ -51,7 +51,8 @@ tests alongside them (`CloudRefreshTest`, `SyncOrderingTest`, `EditReconcilerTes
 ⚠️ **But the open bugs in [[Known Bugs]] were not part of that wave.** The stock ledger
 lying about a moved dose (NCC-001) and the reminder-loop duplicate-visit path (NCC-004) have
 since been ✅ **Fixed** in [[Quality/Bug Register]]. The retried-upsert stock corruption
-(NCC-002) is ⚠️ **Open** — re-verified 2026-10-19; the reproduction is on its card.
+(NCC-002) is also ✅ **Fixed** — `20261022_fix_stock_trigger_update_arithmetic.sql`, with the
+stock-trigger regression test in CI.
 
 ## What shipped in the current version
 
@@ -92,9 +93,9 @@ Before shipping, these are the things that will bite:
    environment — `Known Bugs` §1.6 and §2.1 both depend on it.
 4. **`auto_expose_new_tables` is removed on 2026-10-30.** 🔍 `Known Bugs` §4.5 — if no
    migration issues a `GRANT`, every write fails. This has a hard deadline.
-5. ~~**17 migrations are untracked in git.**~~ ✅ **Resolved** — all 23 migration `.sql`
-   files are tracked (the latest, `20261018_ensure_stock_trigger_installed.sql`, was added
-   by `06f87a4`). A clean clone can replay every migration in this repository, but still
+5. ~~**17 migrations are untracked in git.**~~ ✅ **Resolved** — all 29 migration `.sql`
+   files are tracked (the latest is `20261025_audit_log_retention.sql`). A clean clone can
+   replay every migration in this repository, but still
    **cannot** recreate the ~12 legacy base tables (no initial migration exists for them) —
    see `Known Bugs` §4.6 and [[Quality/Audit Reconciliation]].
 

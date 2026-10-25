@@ -2,7 +2,6 @@ package com.neochildclinic.feature.reminder.data
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.domain.model.Reminder
-import com.neochildclinic.domain.model.ReminderAudit
 
 import android.content.Context
 import com.neochildclinic.data.local.dao.*
@@ -42,7 +41,6 @@ class ReminderRepositoryImpl @Inject constructor(
     private val vaccinationDao: VaccinationDao,
     private val vaccineDao: VaccineDao,
     private val patientDao: PatientDao,
-    private val auditLogDao: AuditLogDao,
     private val syncQueueDao: SyncQueueDao,
     private val syncRepository: SyncRepository,
     private val reminderScheduler: ReminderScheduler,
@@ -440,29 +438,6 @@ class ReminderRepositoryImpl @Inject constructor(
         dueReminderDao.getRemindersByVisitId(visitId).map { it.toDomain() }
 
     override suspend fun getReminderById(id: String): Reminder? = dueReminderDao.getReminderById(id)?.toDomain()
-
-    override fun getAuditTrail(patientId: String): Flow<List<ReminderAudit>> {
-        return auditLogDao.getLogsForPatient(patientId).map { logs ->
-            logs.map { log ->
-                ReminderAudit(
-                    patientId = log.patientId ?: "",
-                    originalVisitId = log.entityId,
-                    vaccineName = log.remarks ?: "",
-                    action = log.action,
-                    oldStatus = log.oldValue,
-                    newStatus = log.newValue ?: "",
-                    oldDate = null,
-                    newDate = log.newValue,
-                    priority = null,
-                    reminderEnabled = null,
-                    performedBy = log.user,
-                    timestamp = com.neochildclinic.core.common.PatientUtils.isoToLong(log.timestamp),
-                    notes = log.remarks,
-                    isSynced = log.isSynced
-                )
-            }
-        }
-    }
 
     override suspend fun refreshReminders() = cloudRefresh("ReminderRepo", rethrow = true) {
                 val entities = fetchAllPages { from, to ->

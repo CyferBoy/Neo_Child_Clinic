@@ -12,13 +12,13 @@ Every dead-code item below was confirmed by **zero call sites**, not by inspecti
 
 ## Dead code — verified unreachable
 
-### DAO methods (26 listed)
+### DAO methods (24 listed)
 
 | DAO | Unused methods |
 |---|---|
 | `VaccinationDao` | `getAllVaccinationsPage`, `getVaccinationsForPatientPage`, `getDueCount` |
 | `DueReminderDao` | `getAllDueReminders`, `getAllCompletedReminders`, `getAllDismissedReminders`, `getDueRemindersPage`, `getCompletedRemindersPage`, `getDismissedRemindersPage`, `getDueReminder` |
-| `VaccineDao` | `getBatchesByVaccineSync`, **`getAuditCountForVaccine`**, **`getAuditCountExcludingCreation`** |
+| `VaccineDao` | `getBatchesByVaccineSync` |
 | `AuditLogDao` | `getLogsBefore`, `getLogsForModulePage` |
 | `FinanceDao` | `getTransactionsInRangePage`, `getAmountSumInRange`, `getTransactionCountInRange` |
 | `BorrowDao` | `getActiveBorrowsPage`, `getReturnedBorrowsPage` |
@@ -30,11 +30,9 @@ The pagination layer in particular is **built but unwired** — every screen sti
 unbounded `Flow` version. Each unused method carries a multi-line comment explaining its
 future use.
 
-⚠️ The two bolded `VaccineDao` methods are not merely unused — they are **wrong**: they query
-`audit_logs.remarks` for a brand name, but the brand lives in `old_value`/`new_value`
-(`InventoryRepositoryImpl.kt:165` writes `"Vaccine Definition: ${vaccine.brandName}"`).
-They are dead-and-wrong, which also means the destructive-delete guard they were meant to
-provide is **enforced nowhere**.
+⚠️ The two dead-and-wrong `VaccineDao` audit-count methods were deleted in `f28ce21`
+(NCC-030). The destructive-delete guard they were meant to provide is still **enforced
+nowhere**; removing the bad queries did not add the guard.
 
 ### Entities and columns
 
@@ -50,8 +48,6 @@ provide is **enforced nowhere**.
 
 | Item | Evidence |
 |---|---|
-| `InventoryRepository.deductStock` — 50 lines of FEFO spread | zero callers. Its `getActiveBatchesByExpiry` query is also only reachable from it — and that query has the same `"d MMM yyyy"` string-sort defect |
-| `ReminderRepository.getAuditTrail` | no consumer — and it maps audit fields to **semantically wrong targets** (`ReminderRepositoryImpl.kt:436-451`) |
 | `SyncViewModel.processSync()` | no UI or other caller |
 | `SyncViewModel.clearSynced()` → `clearSyncedItems()` → `SyncQueueDao.clearSynced()` | no UI caller; the whole path is unreachable |
 | `SyncItem.toEntity()` | never called |
@@ -60,12 +56,17 @@ provide is **enforced nowhere**.
 | `NotificationHelper.cancelAll()` | no callers — `cancelSummaryNotification()` is called at `MainActivity.kt:82` |
 | `MIGRATIONS 23→24` | an intentional empty hop, kept for version contiguity |
 
+✅ **Removed 2026-10-25:** `InventoryRepository.deductStock` and its only-reachable
+`VaccineDao.getActiveBatchesByExpiry`, plus `ReminderRepository.getAuditTrail` and the unused
+`ReminderAudit` model. The remaining rows above still have zero call sites.
+
 ## Duplication
 
-### Four implementations of FEFO batch selection
+### Two implementations of FEFO batch selection
 
-`AddVaccinationLogic.kt:12-15` · `BorrowBatchSelection.kt:38-40` ·
-`InventoryRepositoryImpl.kt:384-409` · SQL `VaccineDao.kt:37`.
+`AddVaccinationLogic.kt:12-15` · `BorrowBatchSelection.kt:38-40`. The old
+`InventoryRepository.deductStock` copy and its `VaccineDao.getActiveBatchesByExpiry` SQL were
+deleted on 2026-10-25.
 
 Plus **four** variants of the "usable batch" predicate, using **two** different expiry
 predicates (`isExpired` vs `isExpiredAsOf`):
@@ -158,7 +159,7 @@ transactions) are used interchangeably at **38 call sites** — 12 of `log()`, 2
 
 | Claim | Reality |
 |---|---|
-| `AuditLogDao.kt:30-33` — "indexed on … entityType+entityId" | **No composite index exists** — 6 single-column indices only |
+| ~~`AuditLogDao.kt:30-33` — "indexed on … entityType+entityId"~~ | ✅ **Resolved 2026-10-25** — the comment now says the indexes are separate (NCC-029) |
 | `DueReminderDao.kt:91` — "UpcomingVaccinationRulesTest asserts they agree with the Kotlin rules" | **No such test exists** — grep returns only this comment |
 | `ExpenseDaoTest.kt:21-22` — coverage includes "soft-deleting an expense" | `expenses` has no soft-delete; dropped in 27→28 |
 | `ExpenseMigrationTest.kt:18-23` — migrations are local vals in `getInstance()`; `MigrationTest.kt` references a non-existent constant | **Both stale** — migrations are companion `internal val`s; no `MigrationTest.kt` exists |

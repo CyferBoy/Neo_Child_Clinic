@@ -45,9 +45,9 @@ interface AuditLogDao {
 
     // --- Pagination (large-data scalability pass) ---
     // getAllLogs() above already caps at 200; these cover the three per-patient/per-entity/
-    // per-module queries, which had no cap at all and are indexed on patientId, entityType+
-    // entityId, and module respectively (see AuditLogEntity). Additive, existing Flow
-    // methods above are untouched.
+    // per-module queries, which had no cap at all and are indexed on patientId, entityType
+    // and entityId separately, and module respectively (see AuditLogEntity). Additive,
+    // existing Flow methods above are untouched.
     @Query("SELECT * FROM audit_logs WHERE patientId = :patientId ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
     suspend fun getLogsForPatientPage(patientId: String, limit: Int, offset: Int): List<AuditLogEntity>
 

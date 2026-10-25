@@ -1,6 +1,6 @@
 # Row Level Security
 
-> The complete `public`-schema policy matrix after all 23 migrations, plus the gaps; the one
+> The complete `public`-schema policy matrix after all 29 migrations, plus the gaps; the one
 > `storage.objects` policy is noted below. Companion:
 > [[Supabase]] · [[Database Schema]]
 

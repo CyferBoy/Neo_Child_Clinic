@@ -24,7 +24,7 @@ construction — the repository returns `Flow<T>` from the DAO and never awaits 
 | Patient list | `PatientRepositoryImpl.kt:86` `allPatients` Flow |
 | Dashboard | 4-level `combine` over `ClinicStatsManager` (`DashboardViewModel.kt:223-299`) |
 | Due list | `ReminderDueListProcessor.process()` |
-| Inventory | `VaccineDao.getActiveBatchesByExpiry` + `getInventoryItems` |
+| Inventory | `InventoryRepositoryImpl.getInventoryItems` (`getAllVaccines` + `getAllBatches`) |
 | Statistics | `FinanceCalculator` / `ExpenseCalculator` over DAO Flows |
 
 ### Cache read-through

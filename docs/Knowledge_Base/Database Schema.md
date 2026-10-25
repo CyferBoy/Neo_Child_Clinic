@@ -5,7 +5,7 @@
 
 ## The single most important fact
 
-⚠️ **There is no initial migration that creates the base tables.** The 23 files in
+⚠️ **There is no initial migration that creates the base tables.** The 29 files in
 `supabase/migrations/` only ever `ALTER` the ~12 legacy tables; they `CREATE TABLE` only the
 9 newer ones. Three independent confirmations:
 
@@ -27,23 +27,18 @@
 against a hand-built schema.
 
 ✅ **That gap is closed.** Commit `f8e5d8a` ("chore: track migrations and full project
-documentation") added the folder, and all **23** `.sql` migrations plus the CSV catalog are
-tracked today (`98f8172` added the 22nd, `20261017_stock_trigger_duplicate_and_update_arithmetic.sql`,
-when `origin/main` was fast-forwarded into this branch; the 23rd is
-`20261018_ensure_stock_trigger_installed.sql`):
+documentation") added the folder, and all **29** `.sql` migrations plus the CSV catalog are
+tracked today (the latest is `20261025_audit_log_retention.sql`):
 
 ```
-git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 23
+git ls-files supabase/migrations/ | grep -c '\.sql$'   # → 29
 git check-ignore supabase/migrations/*.sql             # → no output (not ignored)
 ```
 
-🔍 Unverified: the two commands above were not re-run while updating this note; `23` is the
-on-disk file count.
-
 Every `CREATE TABLE`, the RLS baseline and the accountability triggers are reviewable and
-replayable from a clean checkout. ✅ Verified 2026-10-18 against commit `e05f7c0`.
+replayable from a clean checkout. ✅ Verified 2026-10-25.
 
-⚠️ The *unreproducible base schema* above is a separate, still-open problem: these 23 files
+⚠️ The *unreproducible base schema* above is a separate, still-open problem: these 29 files
 do not create the ~12 legacy tables, so the missing baseline has not been recovered.
 
 ## Migration timeline (chronological)
@@ -71,8 +66,14 @@ do not create the ~12 legacy tables, so the missing baseline has not been recove
 | 19 | `20261013120000_role_policy_carveouts.sql` | 10-13 | narrows write policies on `expenses` and doctor slots |
 | 20 | `20261013140000_stock_trigger_negative_guard.sql` | 10-13 | negative-stock guard — **only if the function already exists** |
 | 21 | `20261016_rls_index_and_stock_trigger_hardening.sql` | 10-16 | narrows 2 `using (true)` policies; 5 indexes; **installs** the stock trigger |
-| 22 | `20261017_stock_trigger_duplicate_and_update_arithmetic.sql` | 10-17 | drops the legacy `tr_update_batch_stock` (NCC-003 ✅); rewrites `update_batch_stock()`, but its UPDATE branch still nets `new - 2*old` — **NCC-002 stays open** |
+| 22 | `20261017_stock_trigger_duplicate_and_update_arithmetic.sql` | 10-17 | drops the legacy `tr_update_batch_stock` (NCC-003 ✅); rewrites `update_batch_stock()`, but its UPDATE branch still nets `new - 2*old` — superseded by `20261022` (NCC-002 ✅) |
 | 23 | `20261018_ensure_stock_trigger_installed.sql` | 10-18 | installs the stock trigger if it is missing, else fails loudly (NCC-007) |
+| 24 | `20261021000000_drop_legacy_profiles_policy.sql` | 10-21 | drops the legacy permissive `profiles` policy that bypassed App Metadata RBAC |
+| 25 | `20261021001000_stock_trigger_upsert_fix.sql` | 10-21 | same-batch quantity deltas on retried upserts |
+| 26 | `20261021002000_fix_stock_trigger_batch_reassignment.sql` | 10-21 | reverses the old batch and applies the movement to the new batch when `batch_id` changes (NCC-AUDIT-001) |
+| 27 | `20261022_fix_stock_trigger_update_arithmetic.sql` | 10-22 | removes the remaining UPDATE undo arithmetic (NCC-002 ✅) |
+| 28 | `20261022_inventory_reconciliation_view.sql` | 10-22 | diagnostic view for batches whose ledger sum disagrees with `remaining_quantity`; does not repair |
+| 29 | `20261025_audit_log_retention.sql` | 10-25 | one-year server-side `prune_audit_logs()` plus an optional guarded `pg_cron` schedule (DA-10) |
 
 ### Ordering hazard
 
@@ -84,9 +85,10 @@ order. Rename to `20261013000000_profiles_…`.
 
 ### Files with no `begin`/`commit`
 
-7 of 23 are bare DDL with no transaction wrapper. A failure mid-file leaves the database
+9 of 29 are bare DDL with no transaction wrapper. A failure mid-file leaves the database
 half-migrated with no rollback. Riskiest: `20260909_expenses.sql` and
-`20260929001000_write_rate_limit.sql`.
+`20260929001000_write_rate_limit.sql`; the stock-trigger migration is covered by
+`supabase/tests/stock_trigger_arithmetic.sql` in CI.
 
 ## Table inventory (🔍 the live table count is not derivable from the repo)
 

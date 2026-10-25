@@ -248,12 +248,12 @@ Compounding it, the re-arm is not awaited before UI renders
 `checkAppLock()` first waits up to **4 s** for the session status
 (`MainActivity.kt:194-225`).
 
-### 2.7 ✅ Two declared error fields can never be set — so the errors are invisible
+### 2.7 ✅ Two declared error fields could never be set — both fixed
 
 | Field | Declared | Writers | Consequence |
 |---|---|---|---|
-| `DashboardViewModel.errorMessage` | `:47` | **0** | `DashboardScreen.kt:199-201` is dead code |
-| `BorrowedViewModel.actionError` | `:59` | **0** | `submitReturn`, `deleteBorrowedItem`, `saveBorrowedItem` fail **completely silently**; `BorrowedScreen.kt` has zero error references |
+| `DashboardViewModel.errorMessage` | `:47` | **1** (`DashboardViewModel.kt:278`) | ✅ `DashboardScreen.kt:195-205` shows the snackbar |
+| `BorrowedViewModel.actionError` | `:61` | **3** (`BorrowedViewModel.kt:200`, `:238`, `:251`) | ✅ `BorrowedScreen.kt:48` shows the snackbar |
 
 ### 2.8 ✅ `savePatient` swallows its own validation error
 
@@ -328,19 +328,20 @@ called from inside live transactions in 5 places — `WasteRepositoryImpl.kt:64`
 rows **survive a rollback**. And `recordLog` itself swallows everything (`:88-90`), so a
 committed `isSynced = false` audit row can end up with no queue row and never upload.
 
-### 3.5 ✅ `SyncQueueDao` orders a TEXT priority column backwards
+### 3.5 ✅ `SyncQueueDao` ordered a TEXT priority column backwards — fixed
 
-`SyncQueueDao.kt:12` — `ORDER BY priority DESC`. `SyncPriority` is stored as its name
-(`LOW`, `MEDIUM`, `HIGH`), so lexicographic DESC gives `MEDIUM, LOW, HIGH` — **`HIGH`
-sorts last**. No behavioural impact, because `orderPendingIntoGroups` re-sorts
-deterministically, but it makes the column actively misleading.
+`SyncQueueDao` used `ORDER BY priority DESC`. `SyncPriority` is stored as its name (`LOW`,
+`MEDIUM`, `HIGH`), so lexicographic DESC gave `MEDIUM, LOW, HIGH` — **`HIGH` sorted last**.
+The query now orders FIFO by `createdAt`; `orderPendingIntoGroups` applies the entity-name
+weight deterministically.
 
-### 3.6 ✅ `reminders` pull never applies tombstones
+### 3.6 ✅ `reminders` pull never applied tombstones — fixed
 
-`ReminderRepositoryImpl.refreshReminders()` (`:459-504`) and
-`PersonalReminderRepositoryImpl.refresh()` (`:176-183`) only insert/overwrite. A row deleted
-on device B stays on device A — and the queue-aware guard preserves it **indefinitely** if it
-is locally unsynced.
+`ReminderRepositoryImpl.refreshReminders()` and `PersonalReminderRepositoryImpl.refresh()`
+used to only insert/overwrite, so a row deleted on device B stayed on device A. Both now
+reconcile absence through `RemotePrune` (`ReminderRepositoryImpl.kt:505`,
+`PersonalReminderRepositoryImpl.kt:201`); the queue-aware guard still preserves locally
+unsynced rows.
 
 ### 3.7 ✅ A realtime subscription dies permanently on first error
 
@@ -357,7 +358,7 @@ ViewModel with a dead channel.
 | 4.3 | ⚠️ `todo_notification_events` had **no RLS and no revocation** from its creation until `20261016`, and receives `patient_id`, patient `name`, `doctor_id`. | `20261016:13-14` says so explicitly |
 | 4.4 | ⚠️ `FORCE ROW LEVEL SECURITY` on `todo_notification_events` with zero policies **breaks the documented writer** — `FORCE` applies RLS to the table owner, and a `SECURITY DEFINER` trigger runs as owner. | `20261016:53-60` vs `:16-17` |
 | 4.5 | ⚠️ **No migration issues a table-level `GRANT`.** Under the new `auto_expose_new_tables = false` default, a perfect RLS policy is irrelevant and **every app write fails with `permission denied for table …`**. The field is removed **2026-10-30**. ⚠️ *Corrected 2026-10-18: the original wording said "a single GRANT", which was literally false — four `grant execute on function` statements exist (`20260816:93`, `20260825:49`, `20260929000000:32`, `20261001:45`). No table GRANT does, which is the claim that matters.* | `supabase/config.toml:19-24` |
-| 4.6 | ⚠️ ~~**17 of 21 migrations are untracked in git**~~ — **retracted 2026-10-18: 0 of 23 migrations are untracked; all 23 `.sql` files are tracked.** The `.gitignore` comment describes a past incident, not the current state — see [[Quality/Audit Reconciliation]]. | `git ls-files supabase/migrations/` → 23 `.sql`, 0 untracked |
+| 4.6 | ⚠️ ~~**17 of 21 migrations are untracked in git**~~ — **retracted 2026-10-18: 0 of 29 migrations are untracked; all 29 `.sql` files are tracked.** The `.gitignore` comment describes a past incident, not the current state — see [[Quality/Audit Reconciliation]]. | `git ls-files supabase/migrations/` → 29 `.sql`, 0 untracked |
 | 4.7 | ⚠️ `get_my_role()` is `SECURITY DEFINER` with **no `set search_path`** and is referenced by **14** legacy policies (recounted 2026-10-19; the finding said 10) — but it is not in this repository. | `.artifacts/…/full_project_schema.sql.artifact.md:13-21`, policies at `:303-345` |
 | 4.8 | ⚠️ `expenses` has **no** `neo_stamp_accountability` trigger — its `created_by`/`updated_by` are client-supplied and unverified, contradicting the migration that exists to prevent exactly that. | `20260909_expenses.sql` |
 | 4.9 | ⚠️ `user_devices(user_id)` has **no index** despite every device policy filtering on it. `20261016:81-124` adds 5 indexes, none on an RLS predicate column. | `20260816:162-163`, `20260929:137-145` |
@@ -415,7 +416,7 @@ ViewModel with a dead channel.
    table-level `GRANT` exists**, so with `auto_expose_new_tables` removed on **2026-10-30**
    every app write can fail. Verify against the live DB.
 8. **4.6** — ✅ **retracted.** Migrations were never untracked; `f8e5d8a` tracked them all
-   before this audit was written (23 `.sql`, the latest `20261018_ensure_stock_trigger_installed.sql`). See
+   before this audit was written (29 `.sql`, the latest `20261025_audit_log_retention.sql`). See
    [[Quality/Audit Reconciliation]].
 
 ## Related

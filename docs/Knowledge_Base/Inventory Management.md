@@ -48,16 +48,17 @@ internal fun VaccineBatchEntity.deducted(quantity: Int, transactionType: ..., us
 with `require(quantity > 0)` guarding the delta. ✅ Good design — one funnel, one guard,
 and it **is** tested (`InventoryStockMovementTest.kt`, 6 tests).
 
-## Batch selection — FEFO, implemented four times
+## Batch selection — FEFO, implemented twice
 
-There is no shared selector. Four implementations of first-expiry-first-out exist:
+There is no shared selector. Two implementations of first-expiry-first-out remain:
 
 | Where | Behaviour |
 |---|---|
 | `AddVaccinationLogic.bestAvailableBatch` (`:11-15`) | in stock, not expired **as of the given date**, soonest expiry |
 | `BorrowBatchSelection.selectBorrowBatch` (`:21-41`) | must be a **single** batch covering the whole quantity; honours a preferred id first |
-| `InventoryRepositoryImpl.deductStock` (`:384-433`) | multi-batch spread, FEFO |
-| `VaccineDao.getActiveBatchesByExpiry` (`:32`) | `ORDER BY expiryDate ASC` **on a non-padded date string** ⚠️ |
+
+The old `InventoryRepository.deductStock` copy and its `VaccineDao.getActiveBatchesByExpiry`
+query were deleted on 2026-10-25.
 
 The "usable batch" predicate also has **five** slightly different variants across
 `InventoryRepositoryImpl.kt:73`, `AddVaccinationLogic.kt:14`, `VaccineRowCard.kt:87`,
@@ -131,7 +132,6 @@ safely when a caller already holds one (`:453-455`). Wrapped by the caller: `add
 
 | Path | Problem |
 |---|---|
-| `deductStock` (`:384-433`) | a `for` loop over batches with no transaction — but ⚠️ **it is dead code**, zero callers |
 | `addVaccine` / `updateVaccine` / `deleteVaccine` / `deleteBatch` | no `transactionRunner` |
 | `PersonalReminderRepositoryImpl`, `DoctorAvailabilityRepositoryImpl` | repositories with **no `TransactionRunner` dependency at all** |
 
@@ -179,10 +179,12 @@ and unlike `addStockBatch`.
 
 | Item | Evidence |
 |---|---|
-| `InventoryRepository.deductStock` — 50 lines of FEFO-spread | zero callers; its `getActiveBatchesByExpiry` query is also only reachable from it |
 | `reservedQuantity` column | declared, never read or written |
-| `VaccineDao.getBatchesByVaccineSync`, `getAuditCountForVaccine`, `getAuditCountExcludingCreation` | zero callers — and the latter two query the **wrong column** (`audit_logs.remarks` instead of `old_value`/`new_value`) |
+| `VaccineDao.getBatchesByVaccineSync` | zero callers |
 | `Vaccine.stock`, `Vaccine.isLowStock` | never populated |
+
+The dead `InventoryRepository.deductStock` and `VaccineDao.getActiveBatchesByExpiry` were
+deleted on 2026-10-25, along with the two wrong `VaccineDao` audit-count methods (NCC-030).
 
 ## Confirmed findings
 
@@ -197,7 +199,7 @@ See [[Known Bugs]] for severity. Inventory-specific:
 | 5 | Lost-update race on every batch mutation | Was `:435` + `:452`; now wrapped at `:456` / `:564` (NCC-021) |
 | 6 | `isExpired` fails open on an unparseable date | `InventoryUtils.kt:24` — deliberate, see NCC-026 |
 | 7 | `isLowStock` uses `<=`, so exactly-at-threshold stock is flagged LOW | `InventoryRepositoryImpl.kt:78` |
-| 8 | The Postgres stock trigger's `UPDATE` branch corrupts stock on any retried upsert | The rewrite underneath did not fix it: its undo guard `v_delta <> old.quantity` (`20261017:80`) fires on a retry, so the branch nets `new - 2*old` (`:101`). NCC-002 — re-opened 2026-10-19; the card carries the arithmetic. 🔍 live-DB confirmation |
+| 8 | ✅ Was: the Postgres stock trigger's `UPDATE` branch corrupted stock on a retried upsert. Fixed by `20261022_fix_stock_trigger_update_arithmetic.sql`; the regression test passes in CI. Production deployment verification remains NCC-AUDIT-003. | `20261022_fix_stock_trigger_update_arithmetic.sql`; `supabase/tests/stock_trigger_arithmetic.sql` |
 | 9 | The legacy trigger `tr_update_batch_stock` was **never dropped**, so both could be installed — **every movement applied twice** | Dropped by `20261017_stock_trigger_duplicate_and_update_arithmetic.sql:26`, with a duplicate-trigger guard at `:31-46`; 🔍 live DB check pending (NCC-003) |
 
 The app already documents hazard #1 in `domain/model/Vaccination.kt:60-61` and fixes it
