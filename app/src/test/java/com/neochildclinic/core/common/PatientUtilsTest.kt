@@ -35,4 +35,11 @@ class PatientUtilsTest {
             PatientUtils.isoToLong(instant.toString())
         )
     }
+
+    @Test
+    fun testDateOnlyParseUsesClinicDateInIst() {
+        // Finance date bucketing must not follow the device zone: a date-only visit date
+        // parsed on a UTC device must still be the same calendar day in IST.
+        assertEquals("2026-05-09", PatientUtils.parseDate("2026-05-09")!!.toLocalDate().toString())
+    }
 }

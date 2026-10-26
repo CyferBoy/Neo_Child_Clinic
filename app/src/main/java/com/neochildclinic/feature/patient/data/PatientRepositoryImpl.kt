@@ -249,20 +249,33 @@ class PatientRepositoryImpl @Inject constructor(
         // its own enqueue outside any transaction, so a crash mid-way left deletes without
         // their queue rows (remote rows surviving) or queue rows without deletes.
         database.withTransaction {
+            val deleteGroupId = java.util.UUID.randomUUID().toString()
             val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
-            val reminderIds = dueReminderDao.getDueRemindersForPatient(id).first().map { it.id }
+            val reminders = dueReminderDao.getDueRemindersForPatient(id).first()
             val personalReminderIds = personalReminderDao.getActiveReminders().first().filter { it.patientId == id }.map { it.id }
             val consultationIds = consultationDao.getConsultationsForPatient(id).first().map { it.id }
 
             // Delete Reminders
             dueReminderDao.deleteRemindersByPatientId(id)
-            reminderIds.forEach {
-                syncRepository.enqueue("REMINDERS", it, SyncOperation.DELETE, SyncPriority.LOW)
+            reminders.forEach { reminder ->
+                syncRepository.enqueue(
+                    "REMINDERS",
+                    reminder.serverId ?: reminder.id,
+                    SyncOperation.DELETE,
+                    SyncPriority.LOW,
+                    deleteGroupId
+                )
             }
 
             personalReminderIds.forEach {
                 personalReminderDao.delete(it)
-                syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.DELETE, SyncPriority.LOW)
+                syncRepository.enqueue(
+                    "PERSONAL_REMINDER",
+                    it,
+                    SyncOperation.DELETE,
+                    SyncPriority.LOW,
+                    deleteGroupId
+                )
             }
 
             // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs).
@@ -277,26 +290,42 @@ class PatientRepositoryImpl @Inject constructor(
             // staff can reconcile.
             vaccinationIds.forEach { database.inventoryDeductionDao().deleteForVaccination(it) }
             vaccinationIds.forEach {
-                vaccinationRepository.get().deleteVaccination(it)
+                vaccinationRepository.get().deleteVaccination(it, deleteGroupId)
             }
 
             // Delete Consultations
             consultationIds.forEach {
                 consultationDao.deleteConsultation(it)
-                syncRepository.enqueue("CONSULTATION", it, SyncOperation.DELETE, SyncPriority.MEDIUM)
+                syncRepository.enqueue(
+                    "CONSULTATION",
+                    it,
+                    SyncOperation.DELETE,
+                    SyncPriority.MEDIUM,
+                    deleteGroupId
+                )
             }
 
-            // Delete Patient - enqueued last: every child is enqueued above so the server-side
-            // DELETE for patients can't hit a foreign-key reference from a child still on the row.
-            patientDao.deletePatient(id)
-            syncRepository.enqueue("PATIENT", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
-
+            // Audit row joins the same transaction and group, and is enqueued before the
+            // parent DELETE. If the parent went first, the remote audit row could fail its
+            // patient FK after the patient row was gone.
             auditLogger.recordLog(
                 module = "PATIENT",
                 entityType = "PATIENT",
                 entityId = id,
                 action = "DELETED",
-                patientId = id
+                patientId = id,
+                transactionGroupId = deleteGroupId
+            )
+
+            // Delete Patient - enqueued last: every child is enqueued above so the server-side
+            // DELETE for patients can't hit a foreign-key reference from a child still on the row.
+            patientDao.deletePatient(id)
+            syncRepository.enqueue(
+                "PATIENT",
+                id,
+                SyncOperation.DELETE,
+                SyncPriority.MEDIUM,
+                deleteGroupId
             )
         }
 

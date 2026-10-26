@@ -302,7 +302,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
             val entity = carried.copy(
                 createdBy = if (existing == null) userName else (existing.createdBy ?: vaccination.createdBy ?: userName),
                 updatedBy = userName
-            ).toEntity(isSynced = false)
+            ).toEntity(isSynced = false, createdAtOverride = existing?.createdAt)
                 .let { if (existing == null) it else it.copy(
                     paymentId = existing.paymentId,
                     materialsUsed = existing.materialsUsed
@@ -412,8 +412,8 @@ override val allVaccinations: Flow<List<Vaccination>> =
     //   DELETE/CREATE/UPDATE operations below simply stay PENDING (or FAILED, still visible
     //   on the Sync screen and retryable) until they succeed - see SyncRepositoryImpl for
     //   the retry/backoff and DELETE-idempotency guarantees that apply once they're queued.
-    override suspend fun deleteVaccination(id: String) {
-        val transactionGroupId = java.util.UUID.randomUUID().toString()
+    override suspend fun deleteVaccination(id: String, transactionGroupId: String?) {
+        val groupId = transactionGroupId ?: java.util.UUID.randomUUID().toString()
         transactionRunner.run {
             val existing = vaccinationDao.getActiveVaccinationById(id) ?: return@run
 
@@ -437,7 +437,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     user = user,
                     visitId = id,
                     patientId = existing.patientId,
-                    transactionGroupId = transactionGroupId
+                    transactionGroupId = groupId
                 )
             }
 
@@ -473,7 +473,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     entityId = reminder.serverId ?: reminder.id,
                     operation = SyncOperation.DELETE,
                     priority = SyncPriority.LOW,
-                    transactionGroupId = transactionGroupId
+                    transactionGroupId = groupId
                 )
             }
 
@@ -489,7 +489,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                         entityId = item.id,
                         operation = SyncOperation.DELETE,
                         priority = SyncPriority.MEDIUM,
-                        transactionGroupId = transactionGroupId
+                        transactionGroupId = groupId
                     )
                 }
             }
@@ -504,7 +504,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     entityId = txn.id,
                     operation = SyncOperation.DELETE,
                     priority = SyncPriority.MEDIUM,
-                    transactionGroupId = transactionGroupId
+                    transactionGroupId = groupId
                 )
             }
 
@@ -517,7 +517,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 entityId = id,
                 operation = SyncOperation.DELETE,
                 priority = SyncPriority.MEDIUM,
-                transactionGroupId = transactionGroupId
+                transactionGroupId = groupId
             )
 
             auditLogger.recordLog(
@@ -527,7 +527,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 action = "DELETED",
                 patientId = existing.patientId,
                 remarks = "Vaccines: ${existing.vaccineNames}",
-                transactionGroupId = transactionGroupId
+                transactionGroupId = groupId
             )
         }
         WidgetUtils.updateWidget(appContext)

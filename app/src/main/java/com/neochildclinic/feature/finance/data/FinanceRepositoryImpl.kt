@@ -22,6 +22,7 @@ import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
 import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
+import com.neochildclinic.core.common.toLocalDate
 
 @Singleton
 class FinanceRepositoryImpl @Inject constructor(
@@ -58,7 +59,7 @@ class FinanceRepositoryImpl @Inject constructor(
         if (dateGiven.isNullOrBlank()) return null
         
         val parsed = com.neochildclinic.core.common.PatientUtils.parseDate(dateGiven) ?: return null
-        return parsed.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+        return parsed.toLocalDate().toString()
     }
 
     override fun getAllTransactions(): Flow<List<FinanceTransaction>> =
@@ -407,21 +408,18 @@ class FinanceRepositoryImpl @Inject constructor(
                     val pendingFinanceIds = syncQueueDao.unsyncedIdSet("FINANCE")
                     val visitDao = vaccinationDao
                     for (remote in transactions) {
-                        var normalizedRemote = remote
-                        
-                        // Self-healing: Ensure transaction date matches the visit date if linked
+                        // Self-healing: Ensure transaction date matches the visit date if linked.
+                        // Use the clinic timezone; a device outside IST must not shift the day.
                         val visitId = remote.visitId
-                        var wasHealed = false
-                        if (!visitId.isNullOrBlank()) {
-                            val visit = visitDao.getVaccinationById(visitId)
-                            if (visit != null) {
-                                val visitDate = com.neochildclinic.core.common.PatientUtils.parseDate(visit.dateGiven)
-                                    ?.toInstant()?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()?.toString()
-                                if (visitDate != null && remote.transactionDate != visitDate) {
-                                    normalizedRemote = remote.copy(transactionDate = visitDate)
-                                    wasHealed = true
-                                }
-                            }
+                        val visitDate = if (!visitId.isNullOrBlank()) {
+                            visitDao.getVaccinationById(visitId)?.dateGiven
+                                ?.let { com.neochildclinic.core.common.PatientUtils.parseDate(it) }
+                                ?.toLocalDate()?.toString()
+                        } else null
+                        val normalizedRemote = if (visitDate != null && remote.transactionDate != visitDate) {
+                            remote.copy(transactionDate = visitDate)
+                        } else {
+                            remote
                         }
 
                         val local = financeDao.getTransactionById(normalizedRemote.id)
@@ -432,30 +430,18 @@ class FinanceRepositoryImpl @Inject constructor(
                         // rolled-back version was then uploaded, losing the edit on every device.
                         // The pending set gates BOTH branches: without it, `local == null`
                         // re-imported a row we hard-deleted while its DELETE upload was still
-                        // in flight, and it resurfaced in Statistics (NCC-044).
-                        var shouldUpdateLocal = financeImportAllowed(
-                            local = local,
-                            remoteId = normalizedRemote.id,
-                            pendingIds = pendingFinanceIds
-                        )
-                        var finalEntity = normalizedRemote.copy(isSynced = true)
-
-                        if (local != null && wasHealed) {
-                            finalEntity = normalizedRemote.copy(isSynced = false)
-                            shouldUpdateLocal = true
+                        // in flight, and it resurfaced in Statistics (NCC-044). It also gates
+                        // the date-heal branch: a pull must never overwrite a pending edit or
+                        // enqueue work of its own.
+                        if (!financeImportAllowed(
+                                local = local,
+                                remoteId = normalizedRemote.id,
+                                pendingIds = pendingFinanceIds
+                            )
+                        ) {
+                            continue
                         }
-
-                        if (shouldUpdateLocal) {
-                            financeDao.insertTransaction(finalEntity)
-                            if (wasHealed && !finalEntity.isSynced) {
-                                syncRepository.enqueue(
-                                    entityName = "FINANCE",
-                                    entityId = finalEntity.id,
-                                    operation = SyncOperation.UPDATE,
-                                    priority = SyncPriority.MEDIUM
-                                )
-                            }
-                        }
+                        financeDao.insertTransaction(normalizedRemote.copy(isSynced = true))
                     }
                     // Remote-deletion propagation (NCC-023 / DA-01): synced transactions the
                     // remote set no longer lists and no queue entry claims are drift.

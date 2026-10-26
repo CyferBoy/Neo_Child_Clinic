@@ -8,6 +8,7 @@ import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.common.toLocalDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
@@ -161,7 +161,7 @@ class AddExpenseViewModel @Inject constructor(
                 // string comparison in SQL only sorts/range-filters correctly on ISO dates
                 // (see ExpenseDao.getFilteredExpensesPage).
                 val isoDate = PatientUtils.parseDate(state.expenseDate)
-                    ?.let { it.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().toString() }
+                    ?.toLocalDate().toString()
                     ?: state.expenseDate
                 val expense = Expense(
                     id = state.expenseId,

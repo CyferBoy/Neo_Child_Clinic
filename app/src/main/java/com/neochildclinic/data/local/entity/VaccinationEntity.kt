@@ -100,7 +100,7 @@ fun VisitEntity.toVaccination() = Vaccination(
     updatedBy = updatedBy
 )
 
-fun Vaccination.toEntity(isSynced: Boolean = true) = run {
+fun Vaccination.toEntity(isSynced: Boolean = true, createdAtOverride: String? = null) = run {
     // updatedAt is blank for a brand-new vaccination (nothing sets it before this point),
     // and createdAt/updatedAt were previously left as null in that case - which Supabase's
     // patient_visits.created_at (NOT NULL) rejects outright, failing every new record's sync.
@@ -127,7 +127,7 @@ fun Vaccination.toEntity(isSynced: Boolean = true) = run {
     source = source,
     inventoryStatus = inventoryStatus,
     availabilitySlotId = availabilitySlotId,
-    createdAt = timestamp,
+    createdAt = createdAtOverride?.takeIf { it.isNotBlank() } ?: timestamp,
     updatedAt = timestamp,
     isSynced = isSynced,
     createdBy = createdBy,

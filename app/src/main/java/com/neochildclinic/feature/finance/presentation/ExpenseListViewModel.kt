@@ -10,13 +10,13 @@ import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.common.toLocalDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
@@ -128,7 +128,7 @@ class ExpenseListViewModel @Inject constructor(
     private fun toIsoDate(displayDate: String): String? {
         if (displayDate.isBlank()) return null
         val date = PatientUtils.parseDate(displayDate) ?: return null
-        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().toString()
+        return date.toLocalDate().toString()
     }
 
     private fun loadPage(reset: Boolean) {

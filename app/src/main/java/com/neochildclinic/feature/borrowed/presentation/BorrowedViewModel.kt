@@ -228,7 +228,7 @@ class BorrowedViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                borrowRepository.submitReturn(item.id, item.record.batchId, item.vaccineId, item.vaccineName, item.remainingQuantity, quantity, batchId, notes, newBatchInfo)
+                borrowRepository.submitReturn(item.id, item.record.batchId, item.vaccineId, item.vaccineName, quantity, batchId, notes, newBatchInfo)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

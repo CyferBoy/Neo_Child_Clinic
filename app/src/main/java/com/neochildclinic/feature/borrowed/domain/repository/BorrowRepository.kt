@@ -18,7 +18,6 @@ interface BorrowRepository {
         originalBatchId: String,
         vaccineId: String,
         vaccineName: String,
-        remainingQuantity: Int,
         quantity: Int,
         batchId: String,
         notes: String?,

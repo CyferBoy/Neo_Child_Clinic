@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.borrowed.data
+import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.database.TransactionRunner
 
 import android.util.Log
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
@@ -152,7 +154,7 @@ class BorrowRepositoryImpl @Inject constructor(
             )
 
             val vaccineName = inventoryRepository.getVaccineById(item.vaccineId)?.let { "${it.type} (${it.brandName})" } ?: item.vaccineId
-            auditLogger.log(
+            auditLogger.recordLog(
                 module = "INVENTORY",
                 entityType = "BORROW",
                 entityId = entity.id,
@@ -202,7 +204,6 @@ syncRepository.enqueue(
         originalBatchId: String,
         vaccineId: String,
         vaccineName: String,
-        remainingQuantity: Int,
         quantity: Int,
         batchId: String,
         notes: String?,
@@ -210,7 +211,7 @@ syncRepository.enqueue(
     ) {
         transactionRunner.run {
             val user = sessionManager.getCurrentUserName()
-            val today = LocalDate.now().toString()
+            val today = LocalDate.now(ZoneId.of(IST_ZONE_ID)).toString()
             val transactionGroupId = UUID.randomUUID().toString()
 
             // Repository-side cap (the UI-level check in ReturnVaccineDialog can be
@@ -278,7 +279,7 @@ syncRepository.enqueue(
                 transactionGroupId = transactionGroupId
             )
 
-            if (quantity >= remainingQuantity) {
+            if (quantity == outstanding) {
                 borrowDao.markReturned(borrowRecordId, today)
                 syncRepository.enqueue(
                     entityName = "BORROW",

@@ -16,7 +16,7 @@ interface VaccinationRepository {
     suspend fun transferVaccinations(duplicateId: String, masterId: String)
 
     suspend fun getVaccinationById(id: String): Vaccination?
-    suspend fun deleteVaccination(id: String)
+    suspend fun deleteVaccination(id: String, transactionGroupId: String? = null)
     fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCard>>
     suspend fun insertVisit(visit: Visit)
     suspend fun updateVisitInventoryStatus(vaccinationId: String, status: String)
