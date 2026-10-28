@@ -137,31 +137,34 @@ fun ManageStaffScreen(
 private fun StaffCard(staff: Profile, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
-            modifier = Modifier.padding(Spacing.md).fillMaxWidth(),
+            modifier = Modifier.padding(Spacing.card).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(44.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = staff.displayName.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
 
-            Spacer(Modifier.width(Spacing.lg))
+            Spacer(Modifier.width(Spacing.md))
 
             Column(Modifier.weight(1f)) {
-                Text(staff.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(staff.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(staff.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.xs)) {
@@ -173,6 +176,7 @@ private fun StaffCard(staff: Profile, onClick: () -> Unit) {
                             text = staff.role.name.uppercase(),
                             modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
@@ -181,7 +185,7 @@ private fun StaffCard(staff: Profile, onClick: () -> Unit) {
                 }
             }
 
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -192,13 +196,14 @@ private fun StatusBadge(isActive: Boolean) {
         Surface(
             modifier = Modifier.size(8.dp),
             shape = CircleShape,
-            color = if (isActive) Color(0xFF4CAF50) else Color(0xFFF44336)
+            color = if (isActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
         ) {}
         Spacer(Modifier.width(Spacing.xs))
         Text(
             text = if (isActive) "Active" else "Inactive",
             style = MaterialTheme.typography.labelSmall,
-            color = if (isActive) Color(0xFF2E7D32) else Color(0xFFC62828)
+            fontWeight = FontWeight.Medium,
+            color = if (isActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
         )
     }
 }

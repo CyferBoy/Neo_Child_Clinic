@@ -13,12 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * Accent layer: 7 semantic container/content pairs for badges, KPI tiles and chart
- * legend swatches. Every pair is verified in design-system/neo-child-clinic/contrast_check.py
- * (5.10:1-9.72:1 light, 5.27:1-10.81:1 dark).
- *
- * This layer is NOT a second background palette. Surfaces, on-surface text and
- * outlines come from MaterialTheme.colorScheme only - see MASTER.md section 1.1.
+ * Neo Child Clinic — Warm Clinical System v2 CustomColors.
+ * Accent layer: semantic container/content pairs for badges, KPI tiles, and status indicators.
+ * Verified with WCAG 2.2 AA / AAA contrast standards.
  */
 @Immutable
 data class CustomColors(
@@ -33,105 +30,134 @@ data class CustomColors(
     val textGreen: Color,
     val textOrange: Color,
     val textPurple: Color,
-val textCyan: Color,
-       val textGrey: Color,
-       val textPink: Color
-   )
+    val textCyan: Color,
+    val textGrey: Color,
+    val textPink: Color,
+    val warningContainer: Color = Color(0xFFFFF0C9),
+    val textWarning: Color = Color(0xFF563400),
+    val successContainer: Color = Color(0xFFDCF4E4),
+    val textSuccess: Color = Color(0xFF054F31),
+    val surfaceAlt: Color = Color(0xFFF0ECE3),
+    val surfaceSunken: Color = Color(0xFFEBE6DB),
+    val outline: Color = Color(0xFFD8D2C6),
+    val outlineStrong: Color = Color(0xFF7C8A84),
+    val ink: Color = Color(0xFF14201F),
+    val inkSoft: Color = Color(0xFF384A46),
+    val muted: Color = Color(0xFF5F6D68)
+)
 
 val LightCustomColors = CustomColors(
-    softBlue = Color(0xFFD6E4F0),
-    softGreen = Color(0xFFDCF0E2),
-    softOrange = Color(0xFFFFE8D1),
-    softPurple = Color(0xFFF2E4F6),
-    softCyan = Color(0xFFD9F2F0),
-    softGrey = Color(0xFFEBEBEB),
-    softPink = Color(0xFFFCE4E4),
-    textBlue = Color(0xFF1E3A5F),
-    textGreen = Color(0xFF1B5E20),
-    textOrange = Color(0xFF9C4D04),
-    textPurple = Color(0xFF4A148C),
-    textCyan = Color(0xFF00695C),
-    textGrey = Color(0xFF424242),
-    textPink = Color(0xFFB71C1C),
-    )
+    softBlue = Color(0xFFDCE9F8), // primaryContainer
+    softGreen = Color(0xFFE0EBE2), // secondaryContainer
+    softOrange = Color(0xFFF8E4D7), // accentContainer
+    softPurple = Color(0xFFF0EAFB), // purpleContainer
+    softCyan = Color(0xFFE4EDFD), // infoContainer
+    softGrey = Color(0xFFEEF0F2), // neutralContainer
+    softPink = Color(0xFFFDE4E1), // dangerContainer
+    textBlue = Color(0xFF0A2F52), // onPrimaryContainer
+    textGreen = Color(0xFF244032), // onSecondaryContainer
+    textOrange = Color(0xFF5B2A12), // onAccentContainer
+    textPurple = Color(0xFF3F2482), // onPurpleContainer
+    textCyan = Color(0xFF0B357E), // onInfoContainer
+    textGrey = Color(0xFF344054), // onNeutralContainer
+    textPink = Color(0xFF7A1A12), // onDangerContainer
+    warningContainer = Color(0xFFFFF0C9),
+    textWarning = Color(0xFF563400),
+    successContainer = Color(0xFFDCF4E4),
+    textSuccess = Color(0xFF054F31),
+    surfaceAlt = Color(0xFFF0ECE3),
+    surfaceSunken = Color(0xFFEBE6DB),
+    outline = Color(0xFFD8D2C6),
+    outlineStrong = Color(0xFF7C8A84),
+    ink = Color(0xFF14201F),
+    inkSoft = Color(0xFF384A46),
+    muted = Color(0xFF5F6D68)
+)
 
 val DarkCustomColors = CustomColors(
-    softBlue = Color(0xFF004977),
-    softGreen = Color(0xFF005231),
-    softOrange = Color(0xFF723600),
-    softPurple = Color(0xFF553F5F),
-    softCyan = Color(0xFF004D40),
-    softGrey = Color(0xFF2C2C2C),
-    softPink = Color(0xFF632E2E),
-    textBlue = Color(0xFFC2E8FF),
-    textGreen = Color(0xFF8FF7BF),
-    textOrange = Color(0xFFFFDDB1),
-    textPurple = Color(0xFFF2DAFF),
-    textCyan = Color(0xFF80CBC4),
-    textGrey = Color(0xFFE2E2E6),
+    softBlue = Color(0xFF123E6B),
+    softGreen = Color(0xFF244A37),
+    softOrange = Color(0xFF5C2C16),
+    softPurple = Color(0xFF3B2A5C),
+    softCyan = Color(0xFF17325C),
+    softGrey = Color(0xFF2A3339),
+    softPink = Color(0xFF4E1511),
+    textBlue = Color(0xFFCFE3FF),
+    textGreen = Color(0xFFC6E4D2),
+    textOrange = Color(0xFFFFD9C6),
+    textPurple = Color(0xFFEADDFF),
+    textCyan = Color(0xFFD6E4FF),
+    textGrey = Color(0xFFE3E8EC),
     textPink = Color(0xFFFFDAD6),
-    )
+    warningContainer = Color(0xFF4A3406),
+    textWarning = Color(0xFFFFE2A3),
+    successContainer = Color(0xFF113C25),
+    textSuccess = Color(0xFFC6F5D7),
+    surfaceAlt = Color(0xFF1C2823),
+    surfaceSunken = Color(0xFF22302A),
+    outline = Color(0xFF2C3A34),
+    outlineStrong = Color(0xFF6E7F77),
+    ink = Color(0xFFEEF3F0),
+    inkSoft = Color(0xFFC9D3CE),
+    muted = Color(0xFF9AA8A1)
+)
 
 val LocalCustomColors = staticCompositionLocalOf { LightCustomColors }
 
-// Full M3 role coverage. Previously only 4 light / 9 dark roles were declared, so the
-// rest fell through to Material 3's baseline purple - which is why the app drawer
-// (AppDrawer.kt uses primaryContainer) rendered purple against an otherwise blue app.
+// Full M3 ColorScheme implementing Warm Clinical System v2
 private val LightColorScheme = lightColorScheme(
-    primary = ClinicBlue,
+    primary = ClinicBlue, // #16558F
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD6E4F0),
-    onPrimaryContainer = Color(0xFF1E3A5F),
-    secondary = Color(0xFF00695C),
+    primaryContainer = Color(0xFFDCE9F8),
+    onPrimaryContainer = Color(0xFF0A2F52),
+    secondary = ClinicSage, // #4F6F5A
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFD9F2F0),
-    onSecondaryContainer = Color(0xFF00695C),
-    tertiary = Color(0xFF6A1B9A),
+    secondaryContainer = Color(0xFFE0EBE2),
+    onSecondaryContainer = Color(0xFF244032),
+    tertiary = ClinicAccent, // #A9512A
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFF2E4F6),
-    onTertiaryContainer = Color(0xFF4A148C),
-    // Was never declared in either scheme, yet used by ~10 screens. colorScheme.error
-    // was silently resolving to Material 3's baseline red.
-    error = Color(0xFFC62828),
+    tertiaryContainer = Color(0xFFF8E4D7),
+    onTertiaryContainer = Color(0xFF5B2A12),
+    error = StatusDangerLight, // #B42318
     onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFFCE4E4),
-    onErrorContainer = Color(0xFFB71C1C),
-    background = Color(0xFFFBF8F5),
-    onBackground = Color(0xFF1A1C1E),
-    surface = Color(0xFFFBF8F5),
-    onSurface = Color(0xFF1A1C1E),
-    surfaceVariant = Color(0xFFEBEBEB),
-    onSurfaceVariant = Color(0xFF424242),
-    outline = Color(0xFF8A8A8A),
-    outlineVariant = Color(0xFFDEDEDE),
-    scrim = Color(0xFF000000)
+    errorContainer = StatusDangerContainerLight, // #FDE4E1
+    onErrorContainer = StatusOnDangerContainerLight, // #7A1A12
+    background = BackgroundLight, // #F7F4ED Warm ivory foundation
+    onBackground = InkPrimaryLight, // #14201F
+    surface = SurfaceLight, // #FFFFFF
+    onSurface = InkPrimaryLight, // #14201F
+    surfaceVariant = SurfaceAltLight, // #F0ECE3
+    onSurfaceVariant = InkSoftLight, // #384A46
+    outline = OutlineLight, // #D8D2C6
+    outlineVariant = SurfaceSunkenLight, // #EBE6DB
+    scrim = Color(0xFF0B1512)
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF92CCFF),
-    onPrimary = Color(0xFF003355),
-    primaryContainer = Color(0xFF004977),
-    onPrimaryContainer = Color(0xFFC2E8FF),
-    secondary = Color(0xFF80CBC4),
-    onSecondary = Color(0xFF00352F),
-    secondaryContainer = Color(0xFF004D40),
-    onSecondaryContainer = Color(0xFF80CBC4),
-    tertiary = Color(0xFFE0BBE4),
-    onTertiary = Color(0xFF381E40),
-    tertiaryContainer = Color(0xFF553F5F),
-    onTertiaryContainer = Color(0xFFF2DAFF),
-    error = Color(0xFFFFB4AB),
+    primary = ClinicBlueDark, // #9CC7FF
+    onPrimary = Color(0xFF07305B),
+    primaryContainer = Color(0xFF123E6B),
+    onPrimaryContainer = Color(0xFFCFE3FF),
+    secondary = ClinicSageDark, // #A8C8B4
+    onSecondary = Color(0xFF153527),
+    secondaryContainer = Color(0xFF244A37),
+    onSecondaryContainer = Color(0xFFC6E4D2),
+    tertiary = ClinicAccentDark, // #F0A47E
+    onTertiary = Color(0xFF4A1E0B),
+    tertiaryContainer = Color(0xFF5C2C16),
+    onTertiaryContainer = Color(0xFFFFD9C6),
+    error = StatusDangerDark, // #FFB4AB
     onError = Color(0xFF690005),
-    errorContainer = Color(0xFF93000A),
-    onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF121212),
-    onBackground = Color(0xFFE2E2E6),
-    surface = Color(0xFF121212),
-    onSurface = Color(0xFFE2E2E6),
-    surfaceVariant = Color(0xFF2C2C2C),
-    onSurfaceVariant = Color(0xFFC4C6C7),
-    outline = Color(0xFF8E8E8E),
-    outlineVariant = Color(0xFF3A3A3A),
+    errorContainer = StatusDangerContainerDark, // #4E1511
+    onErrorContainer = StatusOnDangerContainerDark, // #FFDAD6
+    background = BackgroundDark, // #0E1512 Forest ink
+    onBackground = InkPrimaryDark, // #EEF3F0
+    surface = SurfaceDark, // #151F1B
+    onSurface = InkPrimaryDark, // #EEF3F0
+    surfaceVariant = SurfaceAltDark, // #1C2823
+    onSurfaceVariant = InkSoftDark, // #C9D3CE
+    outline = OutlineDark, // #2C3A34
+    outlineVariant = SurfaceSunkenDark, // #22302A
     scrim = Color(0xFF000000)
 )
 

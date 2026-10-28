@@ -218,20 +218,79 @@ fun SyncScreen(
 
 @Composable
 private fun SyncSummary(total: Int, failed: Int) {
+    val pending = (total - failed).coerceAtLeast(0)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Total Queue", style = MaterialTheme.typography.labelMedium)
-                Text("$total Items", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Spacing.card, horizontal = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "$pending",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (pending > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Pending",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            if (failed > 0) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Failed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
-                    Text("$failed", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                }
+
+            VerticalDivider(
+                modifier = Modifier.height(36.dp),
+                color = MaterialTheme.colorScheme.outline
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "$total",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Total Queue",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            VerticalDivider(
+                modifier = Modifier.height(36.dp),
+                color = MaterialTheme.colorScheme.outline
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "$failed",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (failed > 0) MaterialTheme.colorScheme.error else Color(0xFF067647)
+                )
+                Text(
+                    text = "Failed",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (failed > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -252,23 +311,74 @@ private fun SyncItemCard(
                 onClick = { if (item.status == SyncStatus.FAILED) onToggleSelection() },
                 onLongClick = { if (item.status == SyncStatus.FAILED) onToggleSelection() }
             ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isSelected -> MaterialTheme.colorScheme.secondaryContainer
-                item.status == SyncStatus.FAILED -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-                item.status == SyncStatus.SYNCING -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                item.status == SyncStatus.FAILED -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                item.status == SyncStatus.SYNCING -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
                 else -> MaterialTheme.colorScheme.surface
             }
         ),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) 
+                 else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${item.entityName} Record", fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(Spacing.card)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        modifier = Modifier.size(32.dp),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = when (item.status) {
+                            SyncStatus.SYNCED -> Color(0xFFDCF4E4)
+                            SyncStatus.FAILED -> MaterialTheme.colorScheme.errorContainer
+                            SyncStatus.SYNCING -> MaterialTheme.colorScheme.primaryContainer
+                            SyncStatus.PENDING -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = when (item.status) {
+                                    SyncStatus.SYNCED -> Icons.Default.Check
+                                    SyncStatus.FAILED -> Icons.Default.ErrorOutline
+                                    SyncStatus.SYNCING -> Icons.Default.Sync
+                                    SyncStatus.PENDING -> Icons.Default.Schedule
+                                },
+                                contentDescription = null,
+                                tint = getStatusColor(item.status),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text("${item.entityName} Record", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                }
+
                 if (isSelected) {
                     Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
                 } else {
-                    Text(item.status.name, style = MaterialTheme.typography.labelSmall, color = getStatusColor(item.status))
+                    Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        color = when (item.status) {
+                            SyncStatus.SYNCED -> Color(0xFFDCF4E4)
+                            SyncStatus.FAILED -> MaterialTheme.colorScheme.errorContainer
+                            SyncStatus.SYNCING -> MaterialTheme.colorScheme.primaryContainer
+                            SyncStatus.PENDING -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ) {
+                        Text(
+                            text = item.status.name,
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = getStatusColor(item.status)
+                        )
+                    }
                 }
             }
             
@@ -278,7 +388,7 @@ private fun SyncItemCard(
             
             if (item.status == SyncStatus.FAILED) {
                 Spacer(Modifier.height(Spacing.sm))
-                HorizontalDivider(modifier = Modifier.alpha(0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 Spacer(Modifier.height(Spacing.sm))
                 val errorDetails = remember(item.lastError) {
                     SyncErrorDetails.fromStoredError(item.lastError)
@@ -330,9 +440,9 @@ private fun SyncItemCard(
 
 @Composable
 fun getStatusColor(status: SyncStatus): Color = when (status) {
-    SyncStatus.PENDING -> Color.Gray
+    SyncStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
     SyncStatus.SYNCING -> MaterialTheme.colorScheme.primary
-    SyncStatus.SYNCED -> Color(0xFF4CAF50)
+    SyncStatus.SYNCED -> Color(0xFF067647)
     SyncStatus.FAILED -> MaterialTheme.colorScheme.error
 }
 

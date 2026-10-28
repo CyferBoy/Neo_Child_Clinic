@@ -193,7 +193,7 @@ private fun CloudBackupSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                SettingsRow(Icons.Default.CloudUpload, "Backup Now", onBackupNow)
+                SettingsRow(Icons.Default.CloudUpload, "Backup Now", onClick = onBackupNow)
                 SettingsDivider()
                 if (state.cloudBackupsLoading) {
                     Box(Modifier.fillMaxWidth().padding(Spacing.lg), contentAlignment = Alignment.Center) {

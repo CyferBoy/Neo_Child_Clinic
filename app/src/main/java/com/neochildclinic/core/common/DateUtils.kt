@@ -202,6 +202,14 @@ object DateUtils {
             // the sync conflict check read a stale server row as newer and silently
             // revert local edits. Anything non-ISO still falls through unchanged.
             runCatching { Instant.parse(dateStr).toEpochMilli() }.getOrNull()
+                // Postgres text timestamps: "2026-08-22 03:48:08.105121+00" - a space and a
+                // two-digit offset, both of which Instant.parse rejects. Parse the offset
+                // instead of falling through to parseDate, which reads the wall time as IST
+                // and makes the row look 5.5 hours older than it is (SQL-030).
+                ?: runCatching {
+                    java.time.OffsetDateTime.parse(dateStr.replace(' ', 'T'))
+                        .toInstant().toEpochMilli()
+                }.getOrNull()
                 ?: parseDate(dateStr)?.time ?: dateStr.toLongOrNull() ?: 0L
         } catch (_: Exception) {
             dateStr.toLongOrNull() ?: 0L

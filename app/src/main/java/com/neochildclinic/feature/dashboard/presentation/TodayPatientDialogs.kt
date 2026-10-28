@@ -14,6 +14,8 @@ import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.core.ui.AvailableSlotDropdown
 import com.neochildclinic.core.ui.DoctorDropdown
 import com.neochildclinic.core.ui.SlotsUiState
+import com.neochildclinic.core.ui.StandardButton
+import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import com.neochildclinic.domain.model.AvailableSlot
@@ -67,22 +69,31 @@ internal fun AddTypeSelectionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
         title = { Text("Select Type", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Button(
                     onClick = { onSelect(TodayPatientTab.CONSULTATION) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = LocalCustomColors.current.softBlue, contentColor = LocalCustomColors.current.textBlue)
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 ) {
-                    Text("Consultation")
+                    Text("Consultation", fontWeight = FontWeight.Bold)
                 }
                 Button(
                     onClick = { onSelect(TodayPatientTab.VACCINATION) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = LocalCustomColors.current.softGreen, contentColor = LocalCustomColors.current.textGreen)
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 ) {
-                    Text("Vaccination")
+                    Text("Vaccination", fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -174,9 +185,6 @@ internal fun EnhancedAddTodoDialog(
         }
     }
 
-    // Loads (or reloads) availability whenever the selected doctor changes - covers both
-    // the edit-mode preselect (once allDoctors has loaded and the match is found) and a
-    // fresh manual pick from the dropdown below.
     LaunchedEffect(selectedDoctor?.id) {
         selectedDoctor?.let { onDoctorSelected(it.id) }
     }
@@ -189,32 +197,37 @@ internal fun EnhancedAddTodoDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
         title = {
             val prefix = if (initialItem == null) "Add" else "Edit"
-            Text(if (type == TodayPatientTab.CONSULTATION) "$prefix Consultation" else "$prefix Vaccination")
+            Text(
+                if (type == TodayPatientTab.CONSULTATION) "$prefix Consultation" else "$prefix Vaccination",
+                fontWeight = FontWeight.Bold
+            )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Column {
-                    OutlinedTextField(
+                    StandardTextField(
                         value = name,
                         onValueChange = {
                             name = it
-                            selectedPatientId = null // Reset if typing manually
+                            selectedPatientId = null
                         },
-                        label = { Text("Patient Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        label = "Patient Name"
                     )
                     if (suggestions.isNotEmpty() && selectedPatientId == null) {
                         Card(
-                            elevation = CardDefaults.cardElevation(defaultElevation = Spacing.xs),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs)
                         ) {
                             Column {
                                 suggestions.forEach { patient ->
                                     ListItem(
-                                        headlineContent = { Text(patient.name) },
+                                        headlineContent = { Text(patient.name, fontWeight = FontWeight.Bold) },
                                         supportingContent = { Text(patient.phone) },
                                         modifier = Modifier.clickable {
                                             name = patient.name
@@ -229,35 +242,28 @@ internal fun EnhancedAddTodoDialog(
                     }
                 }
 
-                OutlinedTextField(
+                StandardTextField(
                     value = mobile,
                     onValueChange = { mobile = it },
-                    label = { Text("Mobile Number") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    label = "Mobile Number"
                 )
 
-                OutlinedTextField(
+                StandardTextField(
                     value = address,
                     onValueChange = { address = it },
-                    label = { Text("Address") },
-                    modifier = Modifier.fillMaxWidth(),
+                    label = "Address",
                     minLines = 2
                 )
 
                 if (type == TodayPatientTab.VACCINATION) {
-                    OutlinedTextField(
+                    StandardTextField(
                         value = vaccineNames,
                         onValueChange = { vaccineNames = it },
-                        label = { Text("Vaccine Name(s)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. MMR, DPT") }
+                        label = "Vaccine Name(s)",
+                        placeholder = "e.g. MMR, DPT"
                     )
                 }
 
-                // Doctor assignment (req. 15/16) - optional at this quick-add stage.
-                // Leaving it unset keeps existing behavior (notification broadcasts to
-                // every doctor); picking one targets that doctor's device specifically.
                 DoctorDropdown(
                     doctors = allDoctors,
                     selectedDoctor = selectedDoctor,
@@ -278,7 +284,7 @@ internal fun EnhancedAddTodoDialog(
             }
         },
         confirmButton = {
-            Button(
+            StandardButton(
                 enabled = name.isNotBlank() && mobile.isNotBlank() && (type == TodayPatientTab.CONSULTATION || vaccineNames.isNotBlank()),
                 onClick = {
                     onConfirm(

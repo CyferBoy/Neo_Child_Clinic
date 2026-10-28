@@ -5,10 +5,14 @@ import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabase.JournalMode
 import androidx.room.TypeConverters
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.security.SecurityUtils
+import androidx.sqlite.db.SupportSQLiteDatabase
+import net.zetetic.database.sqlcipher.SQLiteConnection
+import net.zetetic.database.sqlcipher.SQLiteDatabaseHook
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
@@ -450,6 +454,19 @@ abstract class AppDatabase : RoomDatabase() {
                     throw IllegalStateException("Security keys could not be loaded. Please ensure your device is unlocked.", e)
                 }
 
+                val hook = object : SQLiteDatabaseHook {
+                    override fun preKey(connection: SQLiteConnection) {
+                        // No-op
+                    }
+                    override fun postKey(connection: SQLiteConnection) {
+                        // PRAGMA busy_timeout prevents SQLiteDatabaseLockedException (code 5)
+                        // when concurrent background tasks (sync, InvalidationTracker, repositories)
+                        // access the database simultaneously.
+                        connection.execute("PRAGMA busy_timeout = 30000;", null, null)
+                        connection.execute("PRAGMA synchronous = NORMAL;", null, null)
+                    }
+                }
+
                 // Verify if we can open the database with this passphrase
                 if (dbFile.exists()) {
                     try {
@@ -459,7 +476,7 @@ abstract class AppDatabase : RoomDatabase() {
                             passphrase, 
                             null, 
                             net.zetetic.database.sqlcipher.SQLiteDatabase.OPEN_READONLY,
-                            null
+                            hook
                         ).close()
                     } catch (e: Exception) {
                         // BUG-003: this branch is reached for a wrong passphrase (device
@@ -497,7 +514,10 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
 
-                val factory = SupportOpenHelperFactory(passphrase)
+                // SupportOpenHelperFactory with hook and enableWriteAheadLogging=true ensures
+                // WAL mode is enabled at the native SQLCipher helper level, and PRAGMA busy_timeout
+                // is applied to every connection in the pool, preventing database is locked (code 5).
+                val factory = SupportOpenHelperFactory(passphrase, hook, true)
 
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
@@ -505,8 +525,14 @@ abstract class AppDatabase : RoomDatabase() {
                     DB_NAME
                 )
                 .openHelperFactory(factory)
-                .setJournalMode(JournalMode.TRUNCATE)
+                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .addMigrations(*MIGRATIONS)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        super.onOpen(db)
+                        db.execSQL("PRAGMA busy_timeout = 30000;")
+                    }
+                })
                 // No destructive fallback: a future missing migration must crash loudly,
                 // never silently wipe a clinic's local patient data.
                 .build()

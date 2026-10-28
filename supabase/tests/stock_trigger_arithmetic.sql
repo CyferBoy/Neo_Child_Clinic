@@ -120,4 +120,35 @@ begin
 end
 $test$;
 
+-- SQL-006: a move must guard the OLD batch too. A holds a +10 purchase, its stock is then
+-- consumed down to 2, and the row is moved to B. The old function wrote A = -8 and
+-- committed it; the guarded function rejects the move and leaves both batches untouched.
+do $test_move$
+declare
+    a uuid := gen_random_uuid();
+    b uuid := gen_random_uuid();
+    purchase uuid := gen_random_uuid();
+    q integer;
+begin
+    insert into public.vaccine_batches(id, remaining_quantity) values (a, 0), (b, 50);
+    insert into public.inventory_transactions(id, batch_id, quantity, transaction_type)
+      values (purchase, a, 10, 'PURCHASE');
+    update public.vaccine_batches set remaining_quantity = 2 where id = a;
+
+    begin
+        update public.inventory_transactions set batch_id = b where id = purchase;
+        raise exception 'moved purchase did not hit the old-batch guard';
+    exception when check_violation then
+        null;
+    end;
+
+    select remaining_quantity into q from public.vaccine_batches where id = a;
+    if q <> 2 then raise exception 'moved guard: expected A=2, got %', q; end if;
+    select remaining_quantity into q from public.vaccine_batches where id = b;
+    if q <> 50 then raise exception 'moved guard: expected B=50, got %', q; end if;
+
+    raise notice 'PASS: moved-batch old-side guard';
+end
+$test_move$;
+
 rollback;

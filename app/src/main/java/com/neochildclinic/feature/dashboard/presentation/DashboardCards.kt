@@ -5,6 +5,7 @@ import com.neochildclinic.core.designsystem.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -16,8 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,36 +33,48 @@ fun DashboardCardSmall(
 ) {
     Box(
         modifier = modifier
-            .height(90.dp)
-            .shadow(
-                elevation = 1.dp,
-                shape = RoundedCornerShape(18.dp),
-                ambientColor = Color.Black.copy(alpha = 0.05f)
-            )
-            .clip(RoundedCornerShape(18.dp))
+            .height(84.dp)
+            .clip(CardShape)
             .background(containerColor)
             .clickable { onClick() }
-            .padding(Spacing.sm),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = contentColor,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.height(Spacing.xs))
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = contentColor
-            )
+        // Icon at top left
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = contentColor,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .size(22.dp)
+        )
+
+        // Badge at top right
+        if (!badge.isNullOrEmpty()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(22.dp)
+                    .background(Color.White.copy(alpha = 0.85f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+            }
         }
+
+        // Title at bottom left
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = contentColor,
+            modifier = Modifier.align(Alignment.BottomStart)
+        )
     }
 }
 
@@ -83,64 +94,58 @@ fun DashboardCard(
     Box(
         modifier = modifier
             .height(height)
-            .shadow(
-                elevation = 2.dp,
-                shape = ChartContainerShape,
-                ambientColor = Color.Black.copy(alpha = 0.05f)
-            )
-            .clip(ChartContainerShape)
+            .clip(CardShape)
             .background(if (isRestricted) containerColor.copy(alpha = 0.4f) else containerColor)
             .clickable(enabled = !isRestricted) { onClick() }
-            .padding(Spacing.lg)
+            .padding(Spacing.card)
     ) {
         // Optional top badge
         if (badge != null && !isRestricted) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .background(
-                        color = contentColor.copy(alpha = 0.25f),
-                        shape = MaterialTheme.shapes.medium
-                    )
-                    .padding(horizontal = Spacing.sm, vertical = 2.dp)
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd),
+                shape = PillShape,
+                color = contentColor.copy(alpha = 0.18f)
             ) {
                 Text(
                     text = badge,
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = contentColor
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp)
                 )
             }
         }
 
         // Card Content
         Column(
-            modifier = Modifier.fillMaxSize().alpha(if (isRestricted) 0.5f else 1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(if (isRestricted) 0.5f else 1f),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
                 tint = contentColor,
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.size(32.dp)
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = contentColor
-            )
-            if (subtitle != null) {
-                Spacer(modifier = Modifier.height(Spacing.xs))
+
+            Column {
                 Text(
-                    text = subtitle,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = contentColor.copy(alpha = 0.7f),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
                 )
+                if (subtitle != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
 
@@ -152,11 +157,11 @@ fun DashboardCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Don't have access",
+                    text = "Restricted",
                     modifier = Modifier.rotate(-20f),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Black,
-                    color = Color.Red.copy(alpha = 0.4f),
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
                     letterSpacing = 1.sp
                 )
             }

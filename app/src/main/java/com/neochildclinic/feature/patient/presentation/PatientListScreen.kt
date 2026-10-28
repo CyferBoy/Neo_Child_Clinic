@@ -1,5 +1,6 @@
 package com.neochildclinic.feature.patient.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,13 +24,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.UserRole
@@ -52,7 +52,7 @@ fun PatientListScreen(
     viewModel: PatientListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
     val searchQuery by viewModel.searchQuery.collectAsState()
     val role = viewModel.currentUserRole
     val isAdmin = role == UserRole.admin
@@ -132,94 +132,122 @@ private fun PatientListContent(
     onDeletePatient: (Patient) -> Unit,
     onToggleSelection: (Patient) -> Unit
 ) {
-    // Was Surface(bgOffWhite) wrapping Scaffold(containerColor = Color.Transparent):
-    // two stacked backgrounds that could not agree. bgOffWhite now equals
-    // colorScheme.background, so a single Scaffold on the role is enough.
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-                PatientListTopBar(
-                    uiState = uiState,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = onSearchQueryChange,
-                    onBack = onBack,
-                    onMergeClick = onMergeClick
-                )
-            },
-            floatingActionButton = {
-                if (!uiState.isMergeSelectionMode) {
-                    FloatingActionButton(
-                        onClick = onAddPatient,
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Patient")
-                    }
+            PatientListTopBar(
+                uiState = uiState,
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange,
+                onBack = onBack,
+                onMergeClick = onMergeClick
+            )
+        },
+        floatingActionButton = {
+            if (!uiState.isMergeSelectionMode) {
+                FloatingActionButton(
+                    onClick = onAddPatient,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Patient")
                 }
             }
-        ) { paddingValues ->
-            AppPullToRefresh(
-                isRefreshing = uiState.isRefreshing,
-                onRefresh = onRefresh,
-                modifier = Modifier.padding(paddingValues)
-            ) {
-                if (uiState.isLoading) {
-                    SkeletonList(
-                        modifier = Modifier.fillMaxSize(),
-                        count = 8,
-                        cardShaped = true,
-                        spacing = Spacing.sm,
-                        contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.sm)
-                    )
-                } else if (uiState.patients.isEmpty() && uiState.error != null) {
-                    // A failed load with nothing on screen needs a state, not a snackbar that
-                    // disappears: the user was left staring at "No patients found" with no way
-                    // back. Same shape as ExpenseListScreen.
-                    ErrorState(
-                        modifier = Modifier.fillMaxSize(),
-                        message = uiState.error,
-                        onRetry = onRefresh
-                    )
-                } else if (uiState.patients.isEmpty()) {
-                    EmptyState(
-                        modifier = Modifier.fillMaxSize(),
-                        icon = Icons.Default.People,
-                        title = "No patients found",
-                        message = if (uiState.totalCount > 0)
-                            "${uiState.totalCount} records are archived or hidden by the current filters."
-                        else "Add the first patient to start recording vaccinations.",
-                        actionLabel = if (uiState.totalCount > 0) null else "Add patient",
-                        onAction = onAddPatient
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = Spacing.screen),
-                        contentPadding = PaddingValues(bottom = 88.dp, top = Spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-                    ) {
-                        items(uiState.patients, key = { it.id }) { patient ->
-                            PatientCard(
-                                patient = patient,
-                                isSelected = uiState.selectedPatients.contains(patient),
-                                isMergeMode = uiState.isMergeSelectionMode,
-                                isAdmin = isAdmin,
-                                canEditOrDelete = canEditOrDelete,
-                                hasMissingPrice = uiState.patientsWithMissingPrice.contains(patient.id),
-                                onClick = { onPatientClick(patient) },
-                                onLongClick = { onPatientLongClick(patient) },
-                                onEdit = { onEditPatient(patient.id) },
-                                onDelete = { onDeletePatient(patient) },
-                                onToggleSelection = { onToggleSelection(patient) },
-                                modifier = Modifier.animateItem()
+        }
+    ) { paddingValues ->
+        AppPullToRefresh(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            if (uiState.isLoading) {
+                SkeletonList(
+                    modifier = Modifier.fillMaxSize(),
+                    count = 8,
+                    cardShaped = true,
+                    spacing = Spacing.sm,
+                    contentPadding = PaddingValues(horizontal = Spacing.screen, vertical = Spacing.sm)
+                )
+            } else if (uiState.patients.isEmpty() && uiState.error != null) {
+                ErrorState(
+                    modifier = Modifier.fillMaxSize(),
+                    message = uiState.error,
+                    onRetry = onRefresh
+                )
+            } else if (uiState.patients.isEmpty()) {
+                EmptyState(
+                    modifier = Modifier.fillMaxSize(),
+                    icon = Icons.Default.People,
+                    title = "No patients found",
+                    message = if (uiState.totalCount > 0)
+                        "${uiState.totalCount} records are archived or hidden by the current filters."
+                    else "Add the first patient to start recording vaccinations.",
+                    actionLabel = if (uiState.totalCount > 0) null else "Add patient",
+                    onAction = onAddPatient
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = Spacing.screen),
+                    contentPadding = PaddingValues(bottom = 88.dp, top = Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    // Header counter item
+                    item {
+                        Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
+                            Text(
+                                text = "${uiState.patients.size} patients",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Select a patient to manage medical hub or vaccines",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    items(uiState.patients, key = { it.id }) { patient ->
+                        PatientCard(
+                            patient = patient,
+                            isSelected = uiState.selectedPatients.contains(patient),
+                            isMergeMode = uiState.isMergeSelectionMode,
+                            isAdmin = isAdmin,
+                            canEditOrDelete = canEditOrDelete,
+                            hasMissingPrice = uiState.patientsWithMissingPrice.contains(patient.id),
+                            onClick = { onPatientClick(patient) },
+                            onLongClick = { onPatientLongClick(patient) },
+                            onEdit = { onEditPatient(patient.id) },
+                            onDelete = { onDeletePatient(patient) },
+                            onToggleSelection = { onToggleSelection(patient) },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+
+                    // Footer note matching patients_list_light.svg (y=764)
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = Spacing.md),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Showing ${uiState.patients.size} of ${uiState.totalCount.coerceAtLeast(uiState.patients.size)} · pull to refresh",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                     }
                 }
             }
         }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -243,8 +271,6 @@ private fun PatientListTopBar(
         actions = {
             if (uiState.selectedPatients.size == 2) {
                 IconButton(onClick = onMergeClick) {
-                    // Was hardcoded yellow: ~1.1:1 on the light app bar, effectively
-                    // invisible, and yellow carries no meaning for "merge".
                     Icon(
                         Icons.AutoMirrored.Filled.CallMerge,
                         contentDescription = "Merge Selected",
@@ -273,39 +299,25 @@ private fun PatientCard(
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val customColors = LocalCustomColors.current
-    val selectionEdge = MaterialTheme.colorScheme.primary
 
-    Box(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = Elevation.card,
-                shape = RoundedCornerShape(24.dp),
-                ambientColor = Color.Black.copy(alpha = 0.05f)
-            )
-            .clip(RoundedCornerShape(24.dp))
-            // Selection was two stacked alpha layers (softBlue@60% then
-            // primaryContainer@30%), which read as an ambiguous tint rather than a
-            // state. One unambiguous fill plus a leading edge marker instead.
-            // The edge is drawn rather than laid out: an absolutely positioned
-            // fillMaxHeight() inside this wrap-height Box would stretch the card.
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                else customColors.softBlue
-            )
-            .drawBehind {
-                if (isSelected) {
-                    drawRect(color = selectionEdge, size = Size(3.dp.toPx(), size.height))
-                }
-            }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
-            )
+            ),
+        shape = CardShape,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        )
     ) {
         Row(
-            modifier = Modifier.padding(Spacing.cardDense).fillMaxWidth(),
+            modifier = Modifier
+                .padding(Spacing.card)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isMergeMode) {
@@ -315,27 +327,45 @@ private fun PatientCard(
 
             PatientAvatar(name = patient.name, isSelected = isSelected)
 
-            Spacer(modifier = Modifier.width(Spacing.lg))
+            Spacer(modifier = Modifier.width(Spacing.md))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = patient.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                 )
                 val clinicIdDisplay = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
-                Text(
-                    text = "ID: $clinicIdDisplay",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                PatientInfoSubtitle(
+                    dob = patient.dob,
+                    gender = patient.gender,
+                    clinicId = clinicIdDisplay,
+                    isSelected = isSelected
                 )
-                PatientInfoSubtitle(dob = patient.dob, gender = patient.gender)
+
+                if (patient.phone.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = patient.phone,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             if (hasMissingPrice && !isMergeMode) {
-// Was a hardcoded red dot: colour-only signal, and raw red. An
-                    // icon carries the same meaning to a screen reader.
                 Icon(
                     imageVector = Icons.Default.WarningAmber,
                     contentDescription = "Vaccination price missing",
@@ -348,9 +378,17 @@ private fun PatientCard(
             if (!isMergeMode) {
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        shape = DialogShape,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
                         if (canEditOrDelete) {
                             DropdownMenuItem(
                                 text = { Text("Edit") },
@@ -365,7 +403,7 @@ private fun PatientCard(
                         )
                         if (canEditOrDelete) {
                             DropdownMenuItem(
-                                text = { Text("Delete") },
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                                 onClick = { menuExpanded = false; onDelete() },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                             )
@@ -379,37 +417,44 @@ private fun PatientCard(
 
 @Composable
 private fun PatientAvatar(name: String, isSelected: Boolean) {
+    val initials = remember(name) {
+        name.split(" ")
+            .mapNotNull { it.firstOrNull()?.toString() }
+            .take(2)
+            .joinToString("")
+            .uppercase()
+            .ifEmpty { "?" }
+    }
     Surface(
-        modifier = Modifier.size(52.dp),
+        modifier = Modifier.size(44.dp),
         shape = CircleShape,
-        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        shadowElevation = Elevation.card
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = name.firstOrNull()?.uppercase() ?: "?",
-                style = MaterialTheme.typography.titleLarge,
+                text = initials,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.primary
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
 }
 
 @Composable
-private fun PatientInfoSubtitle(dob: String, gender: String) {
+private fun PatientInfoSubtitle(dob: String, gender: String, clinicId: String, isSelected: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         val ageLabel = remember(dob) { if (dob.isNotBlank()) calculateAgeLabel(dob) else null }
-        val separatorColor = MaterialTheme.colorScheme.outline
-        if (ageLabel != null) {
-            Text(text = ageLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = " • ", style = MaterialTheme.typography.bodySmall, color = separatorColor)
-        }
+        val infoColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+        val items = mutableListOf<String>()
+        if (ageLabel != null) items.add(ageLabel)
+        if (gender.isNotBlank()) items.add(gender)
+        items.add("ID: $clinicId")
+
         Text(
-            text = gender.ifEmpty { "Unknown" },
+            text = items.joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = infoColor
         )
     }
 }
@@ -426,7 +471,8 @@ private fun ManualMergeDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isMerging) onDismiss() },
-        title = { Text("Manual Merge") },
+        shape = DialogShape,
+        title = { Text("Manual Merge", fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text("Select the patient profile you want to KEEP. The other will be deleted and its vaccinations moved.")
@@ -434,7 +480,10 @@ private fun ManualMergeDialog(
                 selectedPatients.forEach { p ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().combinedClickable { mergeMasterPatient = p }.padding(Spacing.sm)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable { mergeMasterPatient = p }
+                            .padding(Spacing.sm)
                     ) {
                         RadioButton(selected = mergeMasterPatient == p, onClick = { mergeMasterPatient = p })
                         Text("${p.name} (${p.id})")

@@ -30,6 +30,7 @@ import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.core.designsystem.NeoChildTheme
+import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonCard
@@ -141,49 +142,51 @@ private fun StatisticsContent(
         TabItem("Map", Icons.Default.Map)
     )
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            "Statistics",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
+    AppBackground {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = Color.Transparent,
+            topBar = {
+                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                "Statistics",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
                     )
-                )
-                
-                // Horizontal Tab Bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    tabs.forEachIndexed { index, tab ->
-                        TabIndicator(
-                            modifier = Modifier.weight(1f),
-                            title = tab.title,
-                            icon = tab.icon,
-                            isSelected = uiState.selectedTab == index,
-                            onClick = { onTabSelected(index) }
-                        )
+                    
+                    // Horizontal Tab Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        tabs.forEachIndexed { index, tab ->
+                            TabIndicator(
+                                modifier = Modifier.weight(1f),
+                                title = tab.title,
+                                icon = tab.icon,
+                                isSelected = uiState.selectedTab == index,
+                                onClick = { onTabSelected(index) }
+                            )
+                        }
                     }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            }
-        },
-    ) { paddingValues ->
+            },
+        ) { paddingValues ->
         AppPullToRefresh(
             isRefreshing = uiState.isRefreshing,
             onRefresh = onRefresh,
@@ -222,6 +225,7 @@ private fun StatisticsContent(
             }
         }
     }
+}
 }
 
 @Composable

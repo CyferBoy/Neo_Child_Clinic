@@ -278,6 +278,21 @@ class PatientRepositoryImpl @Inject constructor(
                 )
             }
 
+            // Delete Consultations BEFORE the visits they own. consultations.visit_id
+            // references patient_visits with no ON DELETE action, and the uploader sends a
+            // group in enqueue order, so deleting the visit first fails 23503 on the live
+            // consultation row and the whole patient delete never reaches its final DELETE.
+            consultationIds.forEach {
+                consultationDao.deleteConsultation(it)
+                syncRepository.enqueue(
+                    "CONSULTATION",
+                    it,
+                    SyncOperation.DELETE,
+                    SyncPriority.MEDIUM,
+                    deleteGroupId
+                )
+            }
+
             // Delete Vaccinations/Visits (deleteVaccination enqueues their own DELETEs).
             // Clear the local inventory_deductions ledger for these visits FIRST:
             // deleteVaccination replenishes stock from every COMPLETED ledger row, so
@@ -291,18 +306,6 @@ class PatientRepositoryImpl @Inject constructor(
             vaccinationIds.forEach { database.inventoryDeductionDao().deleteForVaccination(it) }
             vaccinationIds.forEach {
                 vaccinationRepository.get().deleteVaccination(it, deleteGroupId)
-            }
-
-            // Delete Consultations
-            consultationIds.forEach {
-                consultationDao.deleteConsultation(it)
-                syncRepository.enqueue(
-                    "CONSULTATION",
-                    it,
-                    SyncOperation.DELETE,
-                    SyncPriority.MEDIUM,
-                    deleteGroupId
-                )
             }
 
             // Audit row joins the same transaction and group, and is enqueued before the

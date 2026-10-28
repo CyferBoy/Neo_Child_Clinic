@@ -42,4 +42,15 @@ class PatientUtilsTest {
         // parsed on a UTC device must still be the same calendar day in IST.
         assertEquals("2026-05-09", PatientUtils.parseDate("2026-05-09")!!.toLocalDate().toString())
     }
+
+    // Postgres renders text timestamps as "2026-08-22 03:48:08.105121+00". Instant.parse
+    // rejects that form, and the old fallback parsed it as device/IST wall time, making a
+    // remote row look 5.5 hours older and letting a stale local edit win (SQL-030).
+    @Test
+    fun testPostgresTextTimestampWithOffsetIsParsedAsUtc() {
+        assertEquals(
+            Instant.parse("2026-08-22T03:48:08.105121Z").toEpochMilli(),
+            PatientUtils.isoToLong("2026-08-22 03:48:08.105121+00")
+        )
+    }
 }

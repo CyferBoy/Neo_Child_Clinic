@@ -2,12 +2,14 @@ package com.neochildclinic.feature.patient.presentation
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,11 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.unit.sp
 import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
@@ -51,11 +55,13 @@ fun PatientDetailsContent(
     onViewDocument: (String) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    viewModel: PatientViewModel
+    viewModel: PatientViewModel,
+    onEditPatient: () -> Unit = {},
+    onShowAudit: () -> Unit = {},
+    onReceiptAction: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
-    // One lookup per visible row instead of a linear scan: a long patient timeline turned the
-    // vaccination list into O(n^2) on every emission of the history flow.
+    val context = LocalContext.current
     val cardsByVaccinationId = remember(history.vaccinationCards) {
         history.vaccinationCards.associateBy { it.vaccination.id }
     }
@@ -80,184 +86,388 @@ fun PatientDetailsContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = Spacing.screen),
-            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
-            contentPadding = PaddingValues(bottom = 100.dp, top = Spacing.lg)
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            contentPadding = PaddingValues(bottom = 100.dp, top = Spacing.md)
         ) {
-            item { PatientInfoSection(patient) }
-
-        item {
-            HistorySegmentedButton(
-                selectedSegment = selectedSegment,
-                onSegmentSelected = onSegmentSelected
-            )
-        }
-
-        when (selectedSegment) {
-            0 -> {
-                // Vaccination segment: strictly show records where visitType is VACCINATION.
-                // !isLoaded means Room has not answered yet - show a skeleton, never
-                // "No vaccination records found." (the false empty state this replaced).
-                if (!history.isLoaded) {
-                    item { SkeletonList(count = 3) }
-                } else {
-                    val emptyMessage = history.segmentEmptyMessage(PatientHistoryUiState.SEGMENT_VACCINATIONS)
-                    if (emptyMessage != null) {
-                        item { EmptySectionText(emptyMessage) }
-                    } else {
-                        itemsIndexed(history.vaccinations, key = { _, v -> v.id }) { _, vaccination ->
-                            val cardData = cardsByVaccinationId[vaccination.id]
-                            VaccinationRecordCard(
-                                vaccination = vaccination,
-                                patient = patient,
-                                doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
-                                reminders = cardData?.reminders.orEmpty(),
-                                vaccineMap = vaccineMap,
-                                onClick = { onOpenVaccinationDetails(vaccination) },
-                                onLongClick = { onLongClickVaccination(vaccination) },
-                                onShowInventoryIssues = { id ->
-                                    selectedVisitForDeductions = id
-                                    scope.launch {
-                                        deductionsForVisit = viewModel.getInventoryDeductions(id)
-                                    }
-                                }
-                            )
+            item {
+                PatientInfoSection(
+                    patient = patient,
+                    onCall = {
+                        val phoneNumber = patient.phone.trim()
+                        if (phoneNumber.isNotBlank()) {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phoneNumber)}")))
                         }
-                    }
-                }
-            }
-            1 -> {
-                // Consultation segment uses the Consultation table/model only.
-                if (!history.isLoaded) {
-                    item { SkeletonList(count = 3) }
-                } else {
-                    val emptyMessage = history.segmentEmptyMessage(PatientHistoryUiState.SEGMENT_CONSULTATIONS)
-                    if (emptyMessage != null) {
-                        item { EmptySectionText(emptyMessage) }
-                    } else {
-                        items(history.consultations, key = { it.id }) { consultation ->
-                            ConsultationRecordCard(
-                                consultation = consultation,
-                                doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
-                                onLongClick = { onLongClickConsultation(consultation) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (history.isLoaded && history.notes.isNotEmpty()) {
-            item { SectionHeader("Clinical Notes") }
-            items(history.notes, key = { it.id }) { note ->
-                ClinicalNoteCard(note)
-            }
-        }
-
-        if (documents.isNotEmpty()) {
-            item { 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader("Documents")
-                    TextButton(onClick = onUploadDocument) {
-                        Icon(Icons.Default.Upload, null)
-                        Spacer(Modifier.width(Spacing.xs))
-                        Text("Upload")
-                    }
-                }
-            }
-            items(documents, key = { it.name }) { doc ->
-                DocumentCard(
-                    doc = doc,
-                    onView = { onViewDocument("${patient.id}/${doc.name}") },
-                    onDelete = { onDeleteDocument("${patient.id}/${doc.name}") }
+                    },
+                    onEdit = onEditPatient,
+                    onAudit = onShowAudit,
+                    onReceipt = onReceiptAction
                 )
             }
-        }
+
+            item {
+                HistorySegmentedButton(
+                    selectedSegment = selectedSegment,
+                    onSegmentSelected = onSegmentSelected
+                )
+            }
+
+            when (selectedSegment) {
+                0 -> {
+                    if (!history.isLoaded) {
+                        item { SkeletonList(count = 3) }
+                    } else {
+                        val emptyMessage = history.segmentEmptyMessage(PatientHistoryUiState.SEGMENT_VACCINATIONS)
+                        if (emptyMessage != null) {
+                            item { EmptySectionText(emptyMessage) }
+                        } else {
+                            itemsIndexed(history.vaccinations, key = { _, v -> v.id }) { _, vaccination ->
+                                val cardData = cardsByVaccinationId[vaccination.id]
+                                VaccinationRecordCard(
+                                    vaccination = vaccination,
+                                    patient = patient,
+                                    doctorName = doctorMap[vaccination.doctorId] ?: vaccination.performedBy,
+                                    reminders = cardData?.reminders.orEmpty(),
+                                    vaccineMap = vaccineMap,
+                                    onClick = { onOpenVaccinationDetails(vaccination) },
+                                    onLongClick = { onLongClickVaccination(vaccination) },
+                                    onShowInventoryIssues = { id ->
+                                        selectedVisitForDeductions = id
+                                        scope.launch {
+                                            deductionsForVisit = viewModel.getInventoryDeductions(id)
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Footer note matching patient_details_vaccination_light.svg (y=766)
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = Spacing.md),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Tap a record for doses, batch and inventory deductions.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> {
+                    if (!history.isLoaded) {
+                        item { SkeletonList(count = 3) }
+                    } else {
+                        val emptyMessage = history.segmentEmptyMessage(PatientHistoryUiState.SEGMENT_CONSULTATIONS)
+                        if (emptyMessage != null) {
+                            item { EmptySectionText(emptyMessage) }
+                        } else {
+                            items(history.consultations, key = { it.id }) { consultation ->
+                                ConsultationRecordCard(
+                                    consultation = consultation,
+                                    doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName,
+                                    onLongClick = { onLongClickConsultation(consultation) }
+                                )
+                            }
+
+                            // Footer note matching patient_details_vaccination_light.svg (y=766)
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = Spacing.md),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Tap a record for doses, batch and inventory deductions.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (history.isLoaded && history.notes.isNotEmpty()) {
+                item { SectionHeader("Clinical Notes") }
+                items(history.notes, key = { it.id }) { note ->
+                    ClinicalNoteCard(note)
+                }
+            }
+
+            if (documents.isNotEmpty()) {
+                item { 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SectionHeader("Documents")
+                        TextButton(onClick = onUploadDocument) {
+                            Icon(Icons.Default.Upload, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(Spacing.xs))
+                            Text("Upload", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                items(documents, key = { it.name }) { doc ->
+                    DocumentCard(
+                        doc = doc,
+                        onView = { onViewDocument("${patient.id}/${doc.name}") },
+                        onDelete = { onDeleteDocument("${patient.id}/${doc.name}") }
+                    )
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistorySegmentedButton(
     selectedSegment: Int,
     onSegmentSelected: (Int) -> Unit
 ) {
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        SegmentedButton(
-            selected = selectedSegment == 0,
-            onClick = { onSegmentSelected(0) },
-            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            icon = { SegmentedButtonDefaults.Icon(active = selectedSegment == 0) },
-            modifier = Modifier.weight(1f)
-        ) { Text("Vaccination") }
-        SegmentedButton(
-            selected = selectedSegment == 1,
-            onClick = { onSegmentSelected(1) },
-            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            icon = { SegmentedButtonDefaults.Icon(active = selectedSegment == 1) },
-            modifier = Modifier.weight(1f)
-        ) { Text("Consultation") }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Row(
+            modifier = Modifier.padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable { onSegmentSelected(0) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (selectedSegment == 0) MaterialTheme.colorScheme.surface else Color.Transparent,
+                border = if (selectedSegment == 0) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                shadowElevation = if (selectedSegment == 0) 1.dp else 0.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Vaccination",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selectedSegment == 0) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedSegment == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable { onSegmentSelected(1) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (selectedSegment == 1) MaterialTheme.colorScheme.surface else Color.Transparent,
+                border = if (selectedSegment == 1) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                shadowElevation = if (selectedSegment == 1) 1.dp else 0.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Consultation",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selectedSegment == 1) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedSegment == 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun PatientInfoSection(patient: Patient) {
-    val context = LocalContext.current
+fun PatientInfoSection(
+    patient: Patient,
+    onCall: () -> Unit = {},
+    onEdit: () -> Unit = {},
+    onAudit: () -> Unit = {},
+    onReceipt: () -> Unit = {}
+) {
+    val initials = remember(patient.name) {
+        patient.name.trim().split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .map { it.first().uppercase() }
+            .joinToString("")
+            .ifBlank { "P" }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(Spacing.card), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier.padding(Spacing.card),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Surface(
-                    modifier = Modifier.size(48.dp),
-                    // 48dp square with a 24dp radius is a circle; say so.
+                    modifier = Modifier.size(56.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = patient.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                            text = initials,
                             style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
                 Spacer(Modifier.width(Spacing.md))
-                Column {
-                    Text(text = patient.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = patient.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
                     val ageLabel = formatAgeYearsMonths(patient.dob)
-                    val subTitle = if (ageLabel != null) "Age: $ageLabel • ID: $clinicId" else "ID: $clinicId"
-                    Text(text = subTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val subTitle = listOfNotNull(
+                        ageLabel,
+                        patient.gender.takeIf { it.isNotBlank() },
+                        clinicId
+                    ).joinToString(" · ")
+                    Text(
+                        text = subTitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Active patient",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.alpha(0.3f))
+            // Quick Actions Row (Call, Edit, Audit, Receipt)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                PatientActionPill(
+                    icon = Icons.Default.Call,
+                    label = "Call",
+                    modifier = Modifier.weight(1f),
+                    onClick = onCall
+                )
+                PatientActionPill(
+                    icon = Icons.Default.Edit,
+                    label = "Edit",
+                    modifier = Modifier.weight(1f),
+                    onClick = onEdit
+                )
+                PatientActionPill(
+                    icon = Icons.Default.History,
+                    label = "Audit",
+                    modifier = Modifier.weight(1f),
+                    onClick = onAudit
+                )
+                PatientActionPill(
+                    icon = Icons.Default.Receipt,
+                    label = "Receipt",
+                    modifier = Modifier.weight(1f),
+                    onClick = onReceipt
+                )
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline,
+                thickness = 1.dp
+            )
 
             val dobDisplay = formatDateForDisplay(patient.dob)
 
             InfoGridRow(
-                Pair(Icons.Default.Cake, dobDisplay),
+                Pair(Icons.Default.Cake, "DOB: $dobDisplay"),
                 Pair(if (patient.gender == "Male") Icons.Default.Male else Icons.Default.Female, patient.gender)
             )
 
             InfoGridRow(
-                Pair(Icons.Default.Phone, patient.phone),
-                Pair(Icons.Default.CalendarToday, formatDateForDisplay(patient.registrationDate ?: "")),
+                Pair(Icons.Default.Phone, patient.phone.ifBlank { "No phone" }),
+                Pair(Icons.Default.CalendarToday, "Reg: " + formatDateForDisplay(patient.registrationDate ?: "")),
                 leftClickable = patient.phone.isNotBlank(),
-                onLeftClick = {
-                    val phoneNumber = patient.phone.trim()
-                    if (phoneNumber.isNotBlank()) {
-                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phoneNumber)}")))
-                    }
-                }
+                onLeftClick = onCall
             )
 
             if (patient.address?.isNotBlank() == true) {
                 InfoRow(Icons.Default.Home, patient.address ?: "")
             }
+        }
+    }
+}
+
+@Composable
+private fun PatientActionPill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(36.dp),
+        shape = RoundedCornerShape(11.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -269,11 +479,6 @@ private fun InfoGridRow(
     leftClickable: Boolean = false,
     onLeftClick: () -> Unit = {}
 ) {
-    // Two weighted columns so the row always fills the card: any width left over after
-    // both items' content is divided equally between the columns instead of sitting as
-    // dead space at the end of the row. Each column keeps its content left-aligned and
-    // lets long text (e.g. "DOB • Age: ...") wrap onto a second line within its half
-    // rather than clipping or forcing the other column into a squeezed box.
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.xl)
@@ -302,29 +507,41 @@ fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.width(Spacing.sm))
-        Text(text = text, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
 private fun SectionHeader(title: String) {
-    Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = Spacing.sm))
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = Spacing.sm)
+    )
 }
 
 @Composable
 private fun EmptySectionText(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 @Composable
 fun InventoryDeductionsDialog(deductions: List<InventoryDeduction>, onDismiss: () -> Unit) {
-    // Material 3 has no success role. CustomColors already carries the verified
-    // green pair (softGreen / textGreen), so reuse it rather than adding a new
-    // semantic layer for one call site.
     val customColors = LocalCustomColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Inventory Deduction Status") },
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Inventory Deduction Status", fontWeight = FontWeight.Bold) },
         text = {
             if (deductions.isEmpty()) {
                 Text("No detailed logs for this visit.")
@@ -340,14 +557,25 @@ fun InventoryDeductionsDialog(deductions: List<InventoryDeduction>, onDismiss: (
                                 style = MaterialTheme.typography.labelSmall
                             )
                             if (deduction.errorMessage != null) {
-                                Text(deduction.errorMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                Text(
+                                    deduction.errorMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             }
-                            HorizontalDivider(modifier = Modifier.padding(top = Spacing.xs).alpha(0.5f))
+                            HorizontalDivider(
+                                modifier = Modifier.padding(top = Spacing.xs),
+                                color = MaterialTheme.colorScheme.outline
+                            )
                         }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+        }
     )
 }

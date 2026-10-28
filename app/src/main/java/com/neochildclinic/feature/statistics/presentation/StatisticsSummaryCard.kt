@@ -151,9 +151,9 @@ fun SummaryCard(
     Box(
         modifier = modifier
             .clip(StatTileShape)
-            .background(MaterialTheme.colorScheme.background)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), StatTileShape)
-            .padding(Spacing.lg)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, StatTileShape)
+            .padding(Spacing.card)
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {

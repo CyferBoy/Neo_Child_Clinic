@@ -1,33 +1,38 @@
 package com.neochildclinic.feature.inventory.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.*
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import android.widget.Toast
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.core.ui.*
-import com.neochildclinic.core.designsystem.*
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.feature.inventory.domain.InventoryUtils
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.VaccineBatch
+import com.neochildclinic.feature.inventory.domain.InventoryUtils
+import kotlinx.coroutines.launch
 
 @Composable
 fun VaccineInventoryScreen(
@@ -41,12 +46,11 @@ fun VaccineInventoryScreen(
     viewModel: VaccineInventoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-val snackbarHostState = remember { SnackbarHostState() }
-val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val searchQuery by viewModel.searchQuery.collectAsState()
     var batchToDelete by remember { mutableStateOf<VaccineBatch?>(null) }
     var vaccineToDelete by remember { mutableStateOf<InventoryItem?>(null) }
-    val context = LocalContext.current
 
     DeleteConfirmationDialog(
         show = batchToDelete != null,
@@ -123,7 +127,7 @@ private fun VaccineInventoryContent(
 
     AppBackground {
         Scaffold(
-    snackbarHost = { SnackbarHost(snackbarHostState) },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 SearchTopAppBar(
@@ -135,9 +139,8 @@ private fun VaccineInventoryContent(
                     onBack = onBack,
                     actions = {
                         IconButton(onClick = onStockHistory) {
-                            Icon(Icons.Default.History, contentDescription = "Stock History")
+                            Icon(Icons.Default.History, contentDescription = "Stock History", tint = MaterialTheme.colorScheme.onSurface)
                         }
-                        FilterButton(currentFilter = uiState.filter, onFilterSelected = onFilterChange)
                         SortButton(currentSort = uiState.sort, onSortSelected = onSortChange)
                     }
                 )
@@ -164,7 +167,7 @@ private fun VaccineInventoryContent(
                                 ) {
                                     Icon(Icons.Default.Vaccines, "New Vaccine", modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(Spacing.sm))
-                                    Text("New Vaccine")
+                                    Text("New Vaccine", fontWeight = FontWeight.SemiBold)
                                 }
                             }
 
@@ -182,7 +185,7 @@ private fun VaccineInventoryContent(
                                 ) {
                                     Icon(Icons.Default.AddBusiness, "Add Stock", modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(Spacing.sm))
-                                    Text("Add Stock")
+                                    Text("Add Stock", fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
@@ -190,8 +193,8 @@ private fun VaccineInventoryContent(
 
                     FloatingActionButton(
                         onClick = { fabExpanded = !fabExpanded },
-                        containerColor = if (fabExpanded) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = if (fabExpanded) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
                         Icon(
                             if (fabExpanded) Icons.Default.Close else Icons.Default.Add,
@@ -211,30 +214,164 @@ private fun VaccineInventoryContent(
                         modifier = Modifier.fillMaxSize(),
                         count = 8,
                         cardShaped = true,
-                        contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.sm)
-                    )
-                } else if (uiState.inventory.isEmpty()) {
-                    EmptyState(
-                        icon = if (searchQuery.isEmpty()) Icons.Default.Inventory2 else Icons.Default.SearchOff,
-                        title = if (searchQuery.isEmpty()) "No inventory yet" else "No vaccines match \"$searchQuery\"",
-                        message = if (searchQuery.isEmpty()) "Add a vaccine definition and its first batch to start tracking stock."
-                        else "Try a different search term, or clear the filter."
+                        contentPadding = PaddingValues(horizontal = Spacing.screen, vertical = Spacing.md)
                     )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(Spacing.lg),
+                        contentPadding = PaddingValues(bottom = 100.dp, top = Spacing.sm),
                         verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        items(uiState.inventory, key = { it.id }) { item ->
-                            VaccineItemCard(
-                                item = item,
-                                onAddBatch = onAddBatch,
-                                onEditBatch = onEditBatch,
-                                onDeleteBatch = onDeleteBatch,
-                                onEditVaccine = onEditVaccine,
-                                onDeleteVaccine = onDeleteVaccine
+                        // 1. Filter Chips Row
+                        item {
+                            val filterOptions = listOf(
+                                InventoryFilter.ALL to "All",
+                                InventoryFilter.LOW_STOCK to "Low stock",
+                                InventoryFilter.NEAR_EXPIRY to "Near expiry",
+                                InventoryFilter.OUT_OF_STOCK to "Out of stock"
                             )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.screen)
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                            ) {
+                                filterOptions.forEach { (filter, label) ->
+                                    val isSelected = uiState.filter == filter
+                                    Surface(
+                                        onClick = { onFilterChange(filter) },
+                                        shape = RoundedCornerShape(15.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                                        ),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.padding(horizontal = 14.dp)
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Stats Strip Card
+                        item {
+                            val totalBatches = remember(uiState.inventory) {
+                                uiState.inventory.sumOf { it.batches.count { b -> b.remainingQuantity > 0 } }
+                            }
+                            val totalDoses = remember(uiState.inventory) {
+                                uiState.inventory.sumOf { it.stock }
+                            }
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.screen),
+                                shape = RoundedCornerShape(20.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = Spacing.md),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "${uiState.inventory.size}",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "vaccine types",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    VerticalDivider(
+                                        modifier = Modifier.height(36.dp),
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "$totalBatches",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "active batches",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    VerticalDivider(
+                                        modifier = Modifier.height(36.dp),
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "$totalDoses",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "doses in stock",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Vaccine List or Empty State
+                        if (uiState.inventory.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    icon = if (searchQuery.isEmpty()) Icons.Default.Inventory2 else Icons.Default.SearchOff,
+                                    title = if (searchQuery.isEmpty()) "No inventory yet" else "No vaccines match \"$searchQuery\"",
+                                    message = if (searchQuery.isEmpty()) "Add a vaccine definition and its first batch to start tracking stock."
+                                    else "Try a different search term, or clear the filter."
+                                )
+                            }
+                        } else {
+                            items(uiState.inventory, key = { it.id }) { item ->
+                                Box(modifier = Modifier.padding(horizontal = Spacing.screen)) {
+                                    VaccineItemCard(
+                                        item = item,
+                                        onAddBatch = onAddBatch,
+                                        onEditBatch = onEditBatch,
+                                        onDeleteBatch = onDeleteBatch,
+                                        onEditVaccine = onEditVaccine,
+                                        onDeleteVaccine = onDeleteVaccine
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -270,31 +407,107 @@ private fun VaccineItemCard(
                 onClick = { expanded = !expanded },
                 onLongClick = { menuExpanded = true }
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                // Was #FFEBEE / #FFF3E0 - light pastels that stayed light in dark
-                // mode, where onSurface is also light, so the card went blank.
-                item.hasExpired -> MaterialTheme.colorScheme.errorContainer
-                item.isLowStock -> LocalCustomColors.current.softOrange
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
+        Column(modifier = Modifier.padding(Spacing.card)) {
             Box {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(item.brandName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(item.company, style = MaterialTheme.typography.bodySmall)
-                        if (item.mrp > 0) {
-                            Text(
-                                text = "Standard MRP: ₹${item.mrp}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Status icon box
+                    val iconContainerColor = when {
+                        item.hasExpired || item.stock <= 0 -> MaterialTheme.colorScheme.errorContainer
+                        item.isLowStock -> MaterialTheme.colorScheme.tertiaryContainer
+                        else -> MaterialTheme.colorScheme.secondaryContainer
+                    }
+                    val iconContentColor = when {
+                        item.hasExpired || item.stock <= 0 -> MaterialTheme.colorScheme.onErrorContainer
+                        item.isLowStock -> MaterialTheme.colorScheme.onTertiaryContainer
+                        else -> MaterialTheme.colorScheme.onSecondaryContainer
+                    }
+
+                    Surface(
+                        modifier = Modifier.size(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = iconContainerColor
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Vaccines,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = iconContentColor
                             )
                         }
                     }
-                    StockStatusBadge(item)
+
+                    Spacer(Modifier.width(Spacing.md))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.brandName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = listOfNotNull(
+                                item.company.takeIf { it.isNotBlank() },
+                                "${item.batches.size} batches"
+                            ).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(Modifier.width(Spacing.sm))
+
+                    // Stock count & pill
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "${item.stock}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (item.stock <= 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.width(2.dp))
+                            Text(
+                                text = "doses",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(4.dp))
+
+                        val (statusText, statusBg, statusFg) = when {
+                            item.hasExpired -> Triple("Expired", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                            item.stock <= 0 -> Triple("Out of stock", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                            item.isLowStock -> Triple("Low stock", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                            else -> Triple("In stock", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = statusBg
+                        ) {
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = statusFg,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
 
                 DropdownMenu(
@@ -332,35 +545,55 @@ private fun VaccineItemCard(
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = Spacing.lg)) {
-                    HorizontalDivider()
+                Column(modifier = Modifier.padding(top = Spacing.md)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.sm),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Total Batches: ${item.batches.size}", style = MaterialTheme.typography.labelMedium)
-                            Text("Active Batches: ${item.activeBatchesCount}", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                "Total Batches: ${item.batches.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Active Batches: ${item.activeBatchesCount}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         TextButton(onClick = { onAddBatch(item.id, item.brandName) }) {
-                            Icon(Icons.Default.Add, null, modifier = Modifier.size(Spacing.lg))
-                            Spacer(Modifier.width(Spacing.xs))
-                            Text("Add Batch")
+                            Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Add Batch", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                         }
                     }
 
-                    HorizontalDivider()
-                    Spacer(Modifier.height(Spacing.sm))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    Spacer(Modifier.height(Spacing.xs))
 
                     visibleBatches.forEach { batch ->
                         BatchRow(batch, onEditBatch, onDeleteBatch, item.brandName)
                     }
 
                     if (visibleBatches.isEmpty() && item.batches.isNotEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(Spacing.lg), contentAlignment = Alignment.Center) {
-                            Text("No active batches. Long press to show hidden.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.md),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No active batches. Long press to show hidden.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -379,17 +612,32 @@ private fun BatchRow(
     var menuExpanded by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text("Batch: ${batch.batchNumber}", fontWeight = FontWeight.Bold)
-            Text("Exp: ${formatDateForDisplay(batch.expiryDate)} • Qty: ${batch.remainingQuantity}")
-            Text("MRP: ₹${batch.sellingPrice} • Net: ₹${batch.purchaseCost}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "Batch: ${batch.batchNumber}",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                "Exp: ${formatDateForDisplay(batch.expiryDate)} · Qty: ${batch.remainingQuantity}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "MRP: ₹${batch.sellingPrice} · Net: ₹${batch.purchaseCost}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
 
         IconButton(onClick = { menuExpanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "Batch actions")
+            Icon(Icons.Default.MoreVert, contentDescription = "Batch actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
                     text = { Text("Edit") },
@@ -405,51 +653,14 @@ private fun BatchRow(
 }
 
 @Composable
-private fun StockStatusBadge(item: InventoryItem) {
-    val customColors = LocalCustomColors.current
-    Column(horizontalAlignment = Alignment.End) {
-        Text(
-            text = "${item.stock}",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            color = if (item.isLowStock || item.hasExpired) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.primary
-        )
-        // Was raw red at labelSmall: 3.59:1, under the 4.5:1 AA floor for small text.
-        if (item.hasExpired) {
-            Text("EXPIRED", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-        } else if (item.isLowStock) {
-            Text("LOW STOCK", color = customColors.textOrange, style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
-
-@Composable
-private fun FilterButton(currentFilter: InventoryFilter, onFilterSelected: (InventoryFilter) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    IconButton(onClick = { expanded = true }) {
-        Icon(Icons.Default.FilterList, "Filter")
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            InventoryFilter.entries.forEach { filter ->
-                DropdownMenuItem(
-                    text = { Text(filter.name.replace("_", " ").lowercase().capitalize()) },
-                    onClick = { onFilterSelected(filter); expanded = false },
-                    trailingIcon = { if (currentFilter == filter) Icon(Icons.Default.Check, null) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun SortButton(currentSort: InventorySort, onSortSelected: (InventorySort) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
-        Icon(Icons.Default.Sort, "Sort")
+        Icon(Icons.Default.Sort, "Sort", tint = MaterialTheme.colorScheme.onSurface)
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             InventorySort.entries.forEach { sort ->
                 DropdownMenuItem(
-                    text = { Text(sort.name.replace("_", " ").lowercase().capitalize()) },
+                    text = { Text(sort.name.replace("_", " ").lowercase().replaceFirstChar { it.titlecase() }) },
                     onClick = { onSortSelected(sort); expanded = false },
                     trailingIcon = { if (currentSort == sort) Icon(Icons.Default.Check, null) }
                 )
@@ -457,5 +668,3 @@ private fun SortButton(currentSort: InventorySort, onSortSelected: (InventorySor
         }
     }
 }
-
-private fun String.capitalize() = this.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }

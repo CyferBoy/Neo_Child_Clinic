@@ -1,7 +1,6 @@
 package com.neochildclinic.feature.dashboard.presentation
 
-import com.neochildclinic.core.designsystem.*
-
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,14 +10,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neochildclinic.core.designsystem.LocalCustomColors
+import com.neochildclinic.core.designsystem.Spacing
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -28,7 +26,6 @@ internal fun HorizontalDateSelector(
     datesWithData: Set<String>,
     onDateSelected: (String) -> Unit
 ) {
-    
     val dayFormat = remember { DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH) }
     val dateFormat = remember { DateTimeFormatter.ofPattern("d", Locale.ENGLISH) }
 
@@ -54,7 +51,7 @@ internal fun HorizontalDateSelector(
     LaunchedEffect(selectedDate) {
         val selectedIdx = daysInMonth.indexOfFirst { it.toString() == selectedDate }
         if (selectedIdx >= 0) {
-            listState.animateScrollToItem(selectedIdx)
+            listState.animateScrollToItem((selectedIdx - 2).coerceAtLeast(0))
         }
     }
 
@@ -72,7 +69,7 @@ internal fun HorizontalDateSelector(
             val hasData = datesWithData.contains(dateStr)
 
             DateItem(
-                dayName = date.format(dayFormat),
+                dayName = date.format(dayFormat).uppercase(),
                 dayDate = date.format(dateFormat),
                 isSelected = isSelected,
                 hasData = hasData,
@@ -90,35 +87,57 @@ internal fun DateItem(
     hasData: Boolean,
     onClick: () -> Unit
 ) {
-    val customColors = LocalCustomColors.current
     Card(
         onClick = onClick,
-        modifier = Modifier.width(50.dp),
-        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .width(50.dp)
+            .height(66.dp),
+        shape = RoundedCornerShape(15.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        ),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
             contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) Spacing.xs else 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = Spacing.sm),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(dayName, fontSize = 10.sp, fontWeight = FontWeight.Normal)
-            Text(dayDate, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = dayName,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                color = if (isSelected) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = dayDate,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+            )
             Box(
-                modifier = Modifier.height(10.dp),
+                modifier = Modifier.size(5.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (hasData && !isSelected) {
+                if (isSelected) {
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
-                            // Was SuccessGreen #4CAF50 (2.71:1). This is the verified content token (7.68:1).
-                            .background(customColors.textGreen, CircleShape)
+                            .size(4.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                } else if (hasData) {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
                     )
                 }
             }

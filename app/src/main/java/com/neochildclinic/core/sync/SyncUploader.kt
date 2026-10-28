@@ -622,22 +622,18 @@ class SyncUploader @Inject constructor(
     // once again by the trigger reacting to the paired transaction row. So:
     //  - on CREATE, send remaining_quantity = 0 (satisfies any NOT NULL constraint) and
     //    let the paired PURCHASE transaction - inserted right after, same sync group -
-    //    bring it up to purchaseQuantity via the trigger.
+    //    bring it up to purchaseQuantity via the trigger. The insert is ON CONFLICT DO
+    //    NOTHING: a CREATE replayed after a lost response must not overwrite the stock
+    //    the PURCHASE already applied (SQL-008).
     //  - on every other operation, omit remaining_quantity entirely so the column is left
     //    untouched by this upsert; whatever accompanying transaction row was inserted for
     //    that change is what the trigger reacts to.
     // Room keeps computing remaining_quantity locally as before, for offline-first display.
     private suspend fun uploadBatch(table: String, localData: VaccineBatchEntity, isCreate: Boolean) {
-        val fullJson = kotlinx.serialization.json.Json.encodeToJsonElement(
-            VaccineBatchEntity.serializer(), localData
-        ) as JsonObject
-        val fields = fullJson.toMutableMap()
-        if (isCreate) {
-            fields["remaining_quantity"] = JsonPrimitive(0)
-        } else {
-            fields.remove("remaining_quantity")
+        val upsert = batchUpsert(localData, isCreate)
+        postgrest.from(table).upsert(upsert.fields) {
+            if (upsert.insertOnly) ignoreDuplicates = true
         }
-        postgrest.from(table).upsert(JsonObject(fields))
     }
 
     // Re-encodes with explicitNulls = true before upserting, so a Kotlin property that is
@@ -696,4 +692,27 @@ class SyncUploader @Inject constructor(
             android.util.Log.e("SyncRepositoryImpl", "Could not read back receipt number for ${localData.id}", e)
         }
     }
+}
+
+/**
+ * Payload and retry mode for a vaccine_batches write.
+ *
+ * CREATE must be INSERT ... ON CONFLICT DO NOTHING. The queue item is only deleted after a
+ * successful response, so a response lost after the INSERT committed replays the CREATE; a
+ * DO UPDATE would write remaining_quantity = 0 over the stock the paired PURCHASE already
+ * added, and the PURCHASE retry is insert-only, so nothing restores it (SQL-008).
+ */
+internal data class BatchUpsert(val fields: JsonObject, val insertOnly: Boolean)
+
+internal fun batchUpsert(localData: VaccineBatchEntity, isCreate: Boolean): BatchUpsert {
+    val fields = (kotlinx.serialization.json.Json.encodeToJsonElement(
+        VaccineBatchEntity.serializer(), localData
+    ) as JsonObject).toMutableMap()
+    if (isCreate) {
+        fields["remaining_quantity"] = JsonPrimitive(0)
+    } else {
+        // A plain upsert is correct here: the paired transaction row carries the change.
+        fields.remove("remaining_quantity")
+    }
+    return BatchUpsert(JsonObject(fields), insertOnly = isCreate)
 }

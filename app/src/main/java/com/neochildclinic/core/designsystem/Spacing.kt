@@ -3,42 +3,38 @@ package com.neochildclinic.core.designsystem
 import androidx.compose.ui.unit.dp
 
 /**
- * 4dp-based spacing scale. Replaces the 947 inline `.dp` literals.
- *
- * Plain object rather than a CompositionLocal: spacing is theme-independent, so
- * there is nothing to provide at the theme boundary and no @Composable needed
- * at the call site.
- *
- * Rule of thumb: 8/12dp inside components and list rows, 16dp at the screen
- * gutter, 24dp between sections. Anything else is probably a one-off - measure
- * it before adding to this scale.
+ * Neo Child Clinic — Warm Clinical System v2 Spacing Scale.
+ * 8-point / 4-point grid system.
+ * Reference: design_tokens.json (screenPadding: 20, cardPadding: 16, sectionGap: 24, listGap: 12)
  */
 object Spacing {
-    /** 4dp - gap between an icon and its label inside a chip. */
+    /** 2dp / 4dp minimal gap */
+    val xxs = 2.dp
     val xs = 4.dp
 
-    /** 8dp - gap between list items, chip internal padding. */
+    /** 8dp - gap between list items, chip internal padding */
     val sm = 8.dp
 
-    /** 12dp - dense card / list-row padding, gap inside a row. */
+    /** 12dp - dense card / list-row padding, gap inside a row */
     val md = 12.dp
 
-    /** 16dp - screen gutter, field gap. The default. */
+    /** 16dp - field gap, standard card padding */
     val lg = 16.dp
 
-    /** 24dp - gap between sections. */
-    val xl = 24.dp
+    /** 20dp - screen horizontal gutter inset */
+    val screen = 20.dp
 
-    /** 32dp - gap above a major section. */
+    /** 24dp - gap between sections */
+    val xl = 24.dp
+    val section = 24.dp
+
+    /** 32dp - major section header spacing */
     val xxl = 32.dp
 
-    /** Horizontal screen padding. */
-    val screen = 16.dp
-
-    /** Card padding. Use `cardDense` for list and statistics contexts. */
+    /** Card padding */
     val card = 16.dp
     val cardDense = 12.dp
 
-    /** Minimum size for any interactive target (Android/Material, not iOS's 44pt). */
+    /** Minimum size for any interactive target (48dp touch target) */
     val touchTarget = 48.dp
 }

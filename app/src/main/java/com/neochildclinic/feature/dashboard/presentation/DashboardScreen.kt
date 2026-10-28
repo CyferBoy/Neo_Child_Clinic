@@ -60,24 +60,12 @@ fun DashboardScreen(
     val uiState by dashboardViewModel.uiState.collectAsState()
     val authProfile by authViewModel.profile.collectAsState()
     val isProfileLoading by authViewModel.isProfileLoading.collectAsState()
-    // Invalidate this scope when the session (and app_metadata.role) changes —
-    // the role getter below is a plain read, so this collect is the only
-    // recomposition trigger for it.
     val sessionStatus by authViewModel.sessionStatus.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Hold the skeleton until the profile *display* data (name, etc.) has resolved;
-    // the authorization role no longer comes from it - see `role` below, sourced from
-    // the session's app_metadata instead of the old profile.role nurse-default.
     if (isProfileLoading && authProfile == null) {
-        // Skeleton shown while the profile (and therefore the real dashboard content) is
-        // still resolving - see the comment above for why this gate exists at all. It renders
-        // inside the same shell (background + top bar) and mirrors the real dashboard layout:
-        // logo header, the 2-column tile grid (210/150 and 150/210 heights, 16dp gaps), then
-        // the 3-tile Borrowed/Due/Waste row - so the loading state reads as the dashboard.
-        val customColors = LocalCustomColors.current
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
@@ -90,85 +78,70 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = Spacing.lg)
+                        .padding(horizontal = Spacing.screen)
                 ) {
-                    val isWideScreen = maxWidth > 600.dp
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Top
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        // ClinicLogo placeholder
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 20.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            SkeletonBox(
-                                modifier = Modifier.size(if (isWideScreen) 180.dp else 140.dp),
-                                shape = MaterialTheme.shapes.large
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(Spacing.sm))
-
-                        // DashboardMainGrid placeholder: same 2 columns, same tile heights
-                        Row(
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        SkeletonCard(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
-                            ) {
-                                SkeletonCard(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    height = 210.dp,
-                                    shape = ChartContainerShape
-                                )
-                                SkeletonCard(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    height = 150.dp,
-                                    shape = ChartContainerShape
-                                )
-                            }
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
-                            ) {
-                                SkeletonCard(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    height = 150.dp,
-                                    shape = ChartContainerShape
-                                )
-                                SkeletonCard(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    height = 210.dp,
-                                    shape = ChartContainerShape
-                                )
-                            }
-                        }
+                            height = 56.dp,
+                            shape = CardShape
+                        )
 
-                        Spacer(modifier = Modifier.height(Spacing.lg))
-
-                        // DashboardSmallActionsRow placeholder (Borrowed / Due / Waste)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(Spacing.md)
                         ) {
-                            repeat(3) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                            ) {
                                 SkeletonCard(
-                                    modifier = Modifier.weight(1f),
-                                    height = 90.dp,
-                                    shape = RoundedCornerShape(18.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 210.dp,
+                                    shape = CardShape
+                                )
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 150.dp,
+                                    shape = CardShape
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                            ) {
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 150.dp,
+                                    shape = CardShape
+                                )
+                                SkeletonCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    height = 210.dp,
+                                    shape = CardShape
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(Spacing.xl))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            repeat(3) {
+                                SkeletonCard(
+                                    modifier = Modifier.weight(1f),
+                                    height = 84.dp,
+                                    shape = CardShape
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -176,10 +149,6 @@ fun DashboardScreen(
         return
     }
 
-    // Authorization role: session app_metadata (via AuthViewModel), never profile.role.
-    // The `sessionStatus.let` is a deliberate State read: collecting alone does not
-    // subscribe this recompose scope — reading the value here is what re-runs this
-    // line when the session (and app_metadata.role) changes.
     val role = sessionStatus.let { authViewModel.currentUserRole }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -196,9 +165,6 @@ fun DashboardScreen(
         if (uiState.syncState == SyncState.ERROR) {
             snackbarHostState.showSnackbar("Working in offline mode.")
         }
-        // This branch was dead: errorMessage had no writer because DashboardUiState is
-        // derived from combine(). It is now fed by DashboardViewModel.refresh()'s catch
-        // (NCC-013), and cleared so a later failure re-shows it.
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             dashboardViewModel.clearError()
@@ -222,7 +188,7 @@ fun DashboardScreen(
                 onNavigate = { route: String ->
                     scope.launch { drawerState.close() }
                     when (route) {
-                        "dashboard" -> {} // Already here
+                        "dashboard" -> {}
                         "patient_list" -> onPatientList()
                         "due" -> onDue()
                         "vaccine_inventory" -> onAddVaccine()
@@ -236,15 +202,9 @@ fun DashboardScreen(
                 },
                 onLogout = {
                     scope.launch { drawerState.close() }
-                    // Navigation only fires after a real sign-out: if the safety gate
-                    // blocks (unsynced changes), the confirmation dialog appears first
-                    // and the callback runs after the user decides (see AppNavigation).
                     authViewModel.logout(onLogout)
                 },
                 onSyncClick = {
-                    // Close the drawer before navigating to Cloud Synchronization.
-                    // This ensures that returning from SyncScreen reveals the Dashboard
-                    // normally instead of reopening the drawer over it.
                     scope.launch { drawerState.close() }
                     if (uiState.isOnline) {
                         onSync()
@@ -259,7 +219,6 @@ fun DashboardScreen(
             )
         }
     ) {
-        val customColors = LocalCustomColors.current
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
@@ -269,7 +228,9 @@ fun DashboardScreen(
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 topBar = {
                     DashboardTopBar(
-                        onMenuClick = { scope.launch { drawerState.open() } }
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        userName = authProfile?.displayName,
+                        onSearchClick = onSearch
                     )
                 }
             ) { paddingValues ->
@@ -277,7 +238,7 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = Spacing.lg)
+                        .padding(horizontal = Spacing.screen)
                 ) {
                     val isWideScreen = maxWidth > 600.dp
                     val isRefreshing by dashboardViewModel.isRefreshing.collectAsState()
@@ -287,40 +248,61 @@ fun DashboardScreen(
                         onRefresh = dashboardViewModel::refresh,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Top
-                    ) {
-                        ClinicLogo(isWideScreen)
-                        
-                        Spacer(modifier = Modifier.height(Spacing.sm))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                        ) {
+                            Spacer(modifier = Modifier.height(Spacing.xs))
 
-                        DashboardMainGrid(
-                            isWideScreen = isWideScreen,
-                            uiState = uiState,
-                            onPatientList = onPatientList,
-                            onAddPatient = onAddPatient,
-                            onTodayPatients = onTodayPatients,
-                            dashboardAddConsultation = dashboardViewModel::addConsultation,
-                            dashboardAddVaccination = dashboardViewModel::addVaccination,
-                            onInventory = onAddVaccine,
-                            onStatistics = onStatistics
-                        )
+                            // Neo Child Clinic Brand & Online/Offline Status
+                            DashboardBrandBar(isOnline = uiState.isOnline)
 
-                        Spacer(modifier = Modifier.height(Spacing.lg))
+                            // Overdue Vaccinations Banner (if any overdue)
+                            DashboardOverdueBanner(
+                                overdueCount = uiState.dueTodayCount,
+                                onReview = onDue
+                            )
 
-                        DashboardSmallActionsRow(
-                            uiState = uiState,
-                            onBorrowed = onBorrowed,
-                            onDue = onDue,
-                            onWaste = onWaste
-                        )
-                        
-                        Spacer(modifier = Modifier.height(Spacing.xl))
-                    }
+                            // Main 2x2 Asymmetric Grid (Patient List, Statistics, Today's Queue, Inventory)
+                            DashboardMainGrid(
+                                isWideScreen = isWideScreen,
+                                uiState = uiState,
+                                onPatientList = onPatientList,
+                                onAddPatient = onAddPatient,
+                                onTodayPatients = onTodayPatients,
+                                dashboardAddConsultation = dashboardViewModel::addConsultation,
+                                dashboardAddVaccination = dashboardViewModel::addVaccination,
+                                onInventory = onAddVaccine,
+                                onStatistics = onStatistics
+                            )
+
+                            // 3-Card Small Actions Row (Borrowed, Due, Waste)
+                            DashboardSmallActionsRow(
+                                uiState = uiState,
+                                onBorrowed = onBorrowed,
+                                onDue = onDue,
+                                onWaste = onWaste
+                            )
+
+                            // Quick Actions Row (Patient, Vaccinate, Stock, Expense)
+                            DashboardQuickActionsRow(
+                                onAddPatient = onAddPatient,
+                                onVaccinate = onTodayPatients,
+                                onStock = onAddVaccine,
+                                onExpense = onExpenses
+                            )
+
+                            // Footer Status & Version
+                            DashboardFooter(
+                                isOnline = uiState.isOnline,
+                                appVersion = com.neochildclinic.BuildConfig.VERSION_NAME
+                            )
+
+                            Spacer(modifier = Modifier.height(Spacing.xl))
+                        }
                     }
                 }
             }

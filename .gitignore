@@ -93,3 +93,4 @@ graphify-out/
 # Python bytecode from scripts/validate_docs.py
 __pycache__/
 *.pyc
+*.deb

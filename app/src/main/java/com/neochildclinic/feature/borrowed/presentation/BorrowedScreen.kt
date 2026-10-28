@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.domain.model.BorrowedVaccine
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.InventoryItem
+import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
@@ -167,8 +168,10 @@ private fun BorrowedContent(
     val mainTabs = remember { listOf(BorrowMainTab.BORROWED to "Borrowed", BorrowMainTab.RETURNED to "Returned") }
     val mainTabIndex = mainTabs.indexOfFirst { it.first == uiState.mainTab }.coerceAtLeast(0)
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+    AppBackground {
+        Scaffold(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 BackTopAppBar(
@@ -277,6 +280,7 @@ private fun BorrowedContent(
         }
     }
 }
+}
 
 @Composable
 fun BorrowedEditDialog(
@@ -299,7 +303,8 @@ fun BorrowedEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (item == null) "Add Borrowed Vaccine" else "Edit Borrowed Vaccine") },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        title = { Text(if (item == null) "Add Borrowed Vaccine" else "Edit Borrowed Vaccine", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),

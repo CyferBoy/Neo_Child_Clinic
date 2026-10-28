@@ -19,6 +19,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.ui.StandardTextField
+import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.designsystem.LocalCustomColors
 import com.neochildclinic.domain.model.Patient
@@ -83,13 +85,14 @@ private fun AddTodoDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (tab == TodoTab.CONSULTATION) "Add Consultation" else "Add Vaccination") },
+        shape = RoundedCornerShape(24.dp),
+        title = { Text(if (tab == TodoTab.CONSULTATION) "Add Consultation" else "Add Vaccination", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                OutlinedTextField(
+                StandardTextField(
                     value = search, 
                     onValueChange = { search = it }, 
-                    label = { Text("Search patient") }, 
+                    label = "Search patient", 
                     singleLine = true, 
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -97,7 +100,7 @@ private fun AddTodoDialog(
                     LazyColumn(Modifier.heightIn(max = 180.dp)) {
                         items(filtered, key = { it.id }) { patient ->
                             ListItem(
-                                headlineContent = { Text(patient.name) },
+                                headlineContent = { Text(patient.name, fontWeight = FontWeight.Bold) },
                                 supportingContent = { Text(patient.phone) },
                                 modifier = Modifier.clickable { selected = patient }
                             )
@@ -111,11 +114,11 @@ private fun AddTodoDialog(
                     )
                 }
                 if (tab == TodoTab.VACCINATION) {
-                    OutlinedTextField(
+                    StandardTextField(
                         value = vaccines, 
                         onValueChange = { vaccines = it }, 
-                        label = { Text("Vaccine name(s)") }, 
-                        placeholder = { Text("e.g. MMR, DPT") }, 
+                        label = "Vaccine name(s)", 
+                        placeholder = "e.g. MMR, DPT", 
                         singleLine = false, 
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -123,7 +126,7 @@ private fun AddTodoDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            StandardButton(
                 enabled = selected != null && (tab == TodoTab.CONSULTATION || vaccines.isNotBlank()),
                 onClick = { if (tab == TodoTab.CONSULTATION) onAddConsultation(selected!!) else onAddVaccination(selected!!, vaccines.trim()) }
             ) { Text("Add") }

@@ -1,5 +1,6 @@
 package com.neochildclinic.feature.dashboard.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +8,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,9 +21,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.designsystem.Spacing
+import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.EmptyState
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import java.time.format.DateTimeFormatter
@@ -31,10 +36,6 @@ import java.util.Locale
 fun TodayPatientsScreen(
     viewModel: DashboardViewModel,
     onBack: () -> Unit,
-    // Set from a "New Consultation/Vaccination Patient" notification tap (req. 9), via
-    // Routes.TODAY_PATIENTS's optional ?tab=&highlightId= args. Both are null for every
-    // other entry point (the dashboard's own "Today's Patients" tile), so the default
-    // (CONSULTATION, no highlight) is unchanged for that path.
     initialTab: String? = null,
     highlightId: String? = null
 ) {
@@ -50,19 +51,12 @@ fun TodayPatientsScreen(
     var showAddDialogForType by remember { mutableStateOf<TodayPatientTab?>(null) }
     var editingTodo by remember { mutableStateOf<Any?>(null) }
     var showMonthYearPicker by remember { mutableStateOf(false) }
-    // Cleared once consumed so it only scrolls/highlights on the notification-driven
-    // arrival, not again on every later recomposition (e.g. after toggling an item's status).
     var pendingHighlightId by remember(highlightId) { mutableStateOf(highlightId) }
 
     val pendingList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.todayConsultations else uiState.todayVaccinations
     val visitedList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.visitedConsultations else uiState.visitedVaccinations
-    val customColors = LocalCustomColors.current
     val listState = rememberLazyListState()
 
-    // If possible, use the included todo ID to open the exact entry (req. 9). The item may
-    // be on this device's Room a moment later than the push itself (still mid-download via
-    // the realtime-triggered refresh()), so this simply does nothing until it appears -
-    // there is no separate fetch-by-id path to add here.
     LaunchedEffect(pendingHighlightId, pendingList, visitedList) {
         val targetId = pendingHighlightId ?: return@LaunchedEffect
         val pendingIndex = pendingList.indexOfFirst { item ->
@@ -83,7 +77,6 @@ fun TodayPatientsScreen(
                     else -> false
                 }
             }
-            // +1 for the "Visited" section header item emitted just before this list below.
             if (visitedIndex >= 0) {
                 listState.animateScrollToItem(pendingList.size + 1 + visitedIndex)
                 true
@@ -106,194 +99,288 @@ fun TodayPatientsScreen(
         date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH))
     }
 
-    Scaffold(
-        topBar = {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
-                BackTopAppBar(
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { showMonthYearPicker = true }
-                        ) {
-                            Text(
-                                displayMonthYear,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
-                            )
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+    AppBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                Column(modifier = Modifier.background(Color.Transparent)) {
+                    BackTopAppBar(
+                        title = {
+                            Column {
+                                Text(
+                                    text = "Today’s Patients",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp
+                                )
+                                Text(
+                                    text = displayMonthYear,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.clickable { showMonthYearPicker = true }
+                                )
+                            }
+                        },
+                        onBack = onBack,
+                        actions = {
+                            IconButton(onClick = { showMonthYearPicker = true }) {
+                                Icon(Icons.Default.CalendarMonth, contentDescription = "Change Month")
+                            }
+                            IconButton(onClick = {
+                                editingTodo = null
+                                showSelectionDialog = true
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Patient")
+                            }
                         }
-                    },
-                    onBack = onBack,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
-                )
+                }
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = {
+                        editingTodo = null
+                        showSelectionDialog = true
+                    },
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Patient Entry")
+                }
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = Spacing.lg)
+            ) {
+                // Segmented Consultation vs Vaccination Tab Row
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val consultCount = uiState.todayConsultations.size + uiState.visitedConsultations.size
+                        val vaccCount = uiState.todayVaccinations.size + uiState.visitedVaccinations.size
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable { selectedTab = TodayPatientTab.CONSULTATION },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (selectedTab == TodayPatientTab.CONSULTATION) MaterialTheme.colorScheme.surface else Color.Transparent,
+                            border = if (selectedTab == TodayPatientTab.CONSULTATION) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                            shadowElevation = if (selectedTab == TodayPatientTab.CONSULTATION) 1.dp else 0.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Consultation $consultCount",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == TodayPatientTab.CONSULTATION) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selectedTab == TodayPatientTab.CONSULTATION) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable { selectedTab = TodayPatientTab.VACCINATION },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (selectedTab == TodayPatientTab.VACCINATION) MaterialTheme.colorScheme.surface else Color.Transparent,
+                            border = if (selectedTab == TodayPatientTab.VACCINATION) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                            shadowElevation = if (selectedTab == TodayPatientTab.VACCINATION) 1.dp else 0.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Vaccination $vaccCount",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == TodayPatientTab.VACCINATION) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selectedTab == TodayPatientTab.VACCINATION) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.xs))
+
+                // Horizontal Day Tiles
                 HorizontalDateSelector(
                     selectedDate = selectedDate,
                     datesWithData = uiState.datesWithData,
                     onDateSelected = { viewModel.setSelectedDate(it) }
                 )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    editingTodo = null
-                    showSelectionDialog = true
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Patient Entry")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = Spacing.lg)
-        ) {
-            Spacer(modifier = Modifier.height(Spacing.sm))
 
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = selectedTab == TodayPatientTab.CONSULTATION,
-                    onClick = { selectedTab = TodayPatientTab.CONSULTATION },
-                    shape = SegmentedButtonDefaults.itemShape(0, 2),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Consultation") }
-                SegmentedButton(
-                    selected = selectedTab == TodayPatientTab.VACCINATION,
-                    onClick = { selectedTab = TodayPatientTab.VACCINATION },
-                    shape = SegmentedButtonDefaults.itemShape(1, 2),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Vaccination") }
-            }
-
-            // Dynamic slot filter: one segment per available slot for the selected date
-            // (0/1 slots -> hidden, 2+ -> shown). Labels and count come from existing
-            // availability/booking data; the row scrolls instead of shrinking/clipping
-            // when there are many segments.
-            if (uiState.slotSegments.size >= 2) {
-                Spacer(modifier = Modifier.height(Spacing.md))
-                SingleChoiceSegmentedButtonRow(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                ) {
-                    uiState.slotSegments.forEachIndexed { index, segment ->
-                        SegmentedButton(
-                            selected = uiState.selectedSlotKey == segment.key,
-                            onClick = { viewModel.setSelectedSlot(segment.key) },
-                            shape = SegmentedButtonDefaults.itemShape(index, uiState.slotSegments.size),
-                            modifier = Modifier.weight(1f)
-                        ) { Text(segment.label) }
+                // Dynamic slot filter
+                if (uiState.slotSegments.size >= 2) {
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    SingleChoiceSegmentedButtonRow(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    ) {
+                        uiState.slotSegments.forEachIndexed { index, segment ->
+                            SegmentedButton(
+                                selected = uiState.selectedSlotKey == segment.key,
+                                onClick = { viewModel.setSelectedSlot(segment.key) },
+                                shape = SegmentedButtonDefaults.itemShape(index, uiState.slotSegments.size),
+                                modifier = Modifier.weight(1f)
+                            ) { Text(segment.label) }
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(Spacing.lg))
-
-            AppPullToRefresh(
-                isRefreshing = isRefreshing,
-                onRefresh = viewModel::refresh,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                // Eyebrow summary matching today_patients_consultation_light.svg (y=252)
+                val totalCount = pendingList.size + visitedList.size
+                val tabName = if (selectedTab == TodayPatientTab.CONSULTATION) "consultations" else "vaccinations"
+                val dateFormatted = remember(selectedDate) {
+                    try {
+                        val d = java.time.LocalDate.parse(selectedDate)
+                        d.format(DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.ENGLISH))
+                    } catch (_: Exception) {
+                        selectedDate
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Spacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                if (pendingList.isEmpty() && visitedList.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(top = 64.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "No patients added for this date",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.Gray
-                            )
-                        }
-                    }
-                } else {
-                    itemsIndexed(
-                        items = pendingList,
-                        key = { _, item ->
-                            when (item) {
-                                is ConsultationTodo -> "c_${item.id}"
-                                is VaccinationTodo -> "v_${item.id}"
-                                else -> item.hashCode()
-                            }
-                        }
-                    ) { index, item ->
-                        val itemId = when (item) {
-                            is ConsultationTodo -> item.id
-                            is VaccinationTodo -> item.id
-                            else -> null
-                        }
-                        TodayPatientItem(
-                            index = index + 1,
-                            item = item,
-                            isHighlighted = itemId != null && itemId == pendingHighlightId,
-                            onStatusToggle = { viewModel.toggleTodoStatus(item) },
-                            onDelete = {
-                                when (item) {
-                                    is ConsultationTodo -> viewModel.deleteConsultation(item.id)
-                                    is VaccinationTodo -> viewModel.deleteVaccination(item.id)
-                                }
-                            },
-                            onEdit = { editingTodo = item }
-                        )
-                    }
+                    Text(
+                        text = "$totalCount $tabName · $dateFormatted",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Sorted by time",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
 
-                    if (visitedList.isNotEmpty()) {
-                        item {
-                            Text(
-                                "Visited",
-                                modifier = Modifier.padding(top = Spacing.lg, bottom = Spacing.sm),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Gray
-                            )
-                        }
-
-                        itemsIndexed(
-                            items = visitedList,
-                            key = { _, item ->
-                                when (item) {
-                                    is ConsultationTodo -> "cv_${item.id}"
-                                    is VaccinationTodo -> "vv_${item.id}"
-                                    else -> item.hashCode()
-                                }
+                AppPullToRefresh(
+                    isRefreshing = isRefreshing,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                        contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.xs)
+                    ) {
+                        if (pendingList.isEmpty() && visitedList.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                                    icon = Icons.Default.EventAvailable,
+                                    title = "No $tabName for this date",
+                                    message = "Tap + to add a patient to today’s queue."
+                                )
                             }
-                        ) { index, item ->
-                            val itemId = when (item) {
-                                is ConsultationTodo -> item.id
-                                is VaccinationTodo -> item.id
-                                else -> null
-                            }
-                            TodayPatientItem(
-                                index = index + 1,
-                                item = item,
-                                isHighlighted = itemId != null && itemId == pendingHighlightId,
-                                onStatusToggle = { viewModel.toggleTodoStatus(item) },
-                                onDelete = {
+                        } else {
+                            itemsIndexed(
+                                items = pendingList,
+                                key = { _, item ->
                                     when (item) {
-                                        is ConsultationTodo -> viewModel.deleteConsultation(item.id)
-                                        is VaccinationTodo -> viewModel.deleteVaccination(item.id)
+                                        is ConsultationTodo -> "c_${item.id}"
+                                        is VaccinationTodo -> "v_${item.id}"
+                                        else -> item.hashCode()
                                     }
-                                },
-                                onEdit = { editingTodo = item }
-                            )
+                                }
+                            ) { index, item ->
+                                val itemId = when (item) {
+                                    is ConsultationTodo -> item.id
+                                    is VaccinationTodo -> item.id
+                                    else -> null
+                                }
+                                TodayPatientItem(
+                                    index = index + 1,
+                                    item = item,
+                                    isHighlighted = itemId != null && itemId == pendingHighlightId,
+                                    onStatusToggle = { viewModel.toggleTodoStatus(item) },
+                                    onDelete = {
+                                        when (item) {
+                                            is ConsultationTodo -> viewModel.deleteConsultation(item.id)
+                                            is VaccinationTodo -> viewModel.deleteVaccination(item.id)
+                                        }
+                                    },
+                                    onEdit = { editingTodo = item }
+                                )
+                            }
+
+                            if (visitedList.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        "Visited",
+                                        modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xs),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                itemsIndexed(
+                                    items = visitedList,
+                                    key = { _, item ->
+                                        when (item) {
+                                            is ConsultationTodo -> "cv_${item.id}"
+                                            is VaccinationTodo -> "vv_${item.id}"
+                                            else -> item.hashCode()
+                                        }
+                                    }
+                                ) { index, item ->
+                                    val itemId = when (item) {
+                                        is ConsultationTodo -> item.id
+                                        is VaccinationTodo -> item.id
+                                        else -> null
+                                    }
+                                    TodayPatientItem(
+                                        index = pendingList.size + index + 1,
+                                        item = item,
+                                        isHighlighted = itemId != null && itemId == pendingHighlightId,
+                                        onStatusToggle = { viewModel.toggleTodoStatus(item) },
+                                        onDelete = {
+                                            when (item) {
+                                                is ConsultationTodo -> viewModel.deleteConsultation(item.id)
+                                                is VaccinationTodo -> viewModel.deleteVaccination(item.id)
+                                            }
+                                        },
+                                        onEdit = { editingTodo = item }
+                                    )
+                                }
+                            }
+
+                            // Footer scroll note matching today_patients_consultation_light.svg (y=758)
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = Spacing.md),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Showing $totalCount of $totalCount · scroll for more",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
             }
         }
     }

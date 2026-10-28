@@ -1,10 +1,10 @@
 package com.neochildclinic.feature.borrowed.presentation
 
-import com.neochildclinic.core.designsystem.*
-
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,28 +12,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
-
-private fun statusColor(status: BorrowStatus): Color = when (status) {
-    BorrowStatus.BORROWED -> Color(0xFFE65100)
-    BorrowStatus.PARTIALLY_RETURNED -> Color(0xFF1565C0)
-    BorrowStatus.RETURNED -> Color(0xFF2E7D32)
-}
-
-private fun statusLabel(status: BorrowStatus): String = when (status) {
-    BorrowStatus.BORROWED -> "Borrowed"
-    BorrowStatus.PARTIALLY_RETURNED -> "Partially Returned"
-    BorrowStatus.RETURNED -> "Returned"
-}
+import com.neochildclinic.core.designsystem.*
 
 /**
- * Borrowed Vaccine record card. Status/quantities are always derived from the
- * borrow record's quantity vs. the sum of its return transactions - never
- * stored as a single boolean, so partial returns render correctly.
+ * Borrowed Vaccine record card redesigned for Warm Clinical System v2.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -46,7 +35,33 @@ fun BorrowedRecordCard(
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val color = statusColor(item.status)
+
+    val (statusLabel, statusBg, statusFg) = when (item.status) {
+        BorrowStatus.BORROWED -> Triple(
+            "Borrowed",
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        BorrowStatus.PARTIALLY_RETURNED -> Triple(
+            "Partially returned",
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        BorrowStatus.RETURNED -> Triple(
+            "Returned",
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    }
+
+    val initials = remember(item.vaccineName) {
+        item.vaccineName.trim().split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .map { it.first().uppercase() }
+            .joinToString("")
+            .ifBlank { "V" }
+    }
 
     Card(
         modifier = modifier
@@ -55,122 +70,111 @@ fun BorrowedRecordCard(
                 onClick = onClick,
                 onLongClick = { menuExpanded = true }
             ),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
+        Column(modifier = Modifier.padding(Spacing.card)) {
+            // Row 1: Avatar + Vaccine Name + Status Pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = initials,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Column {
+                        Text(
+                            text = item.vaccineName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val providerText = "from ${item.doctorName.ifBlank { "External Clinic" }}"
+                        Text(
+                            text = "Batch ${item.batchNumber} · $providerText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
 
-            // Row 1: Vaccine Name | Status
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = statusBg
+                ) {
+                    Text(
+                        text = statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusFg,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.xs))
+
+            // Row 2: Borrowed Date
+            Text(
+                text = "Borrowed ${formatDateForDisplay(item.borrowedDate)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(Spacing.xs))
+
+            // Row 3: Quantities Summary & Action Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = item.vaccineName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    text = "${item.borrowedQuantity} borrowed · ${item.returnedQuantity} returned",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(Modifier.width(Spacing.sm))
-                Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
-                    Text(
-                        text = statusLabel(item.status),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = color,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
-                    )
-                }
-            }
 
-            // Row 2: Borrowed / Returned / Remaining
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                QuantityStat("Borrowed", item.borrowedQuantity)
-                QuantityStat("Returned", item.returnedQuantity)
-                QuantityStat("Remaining", item.remainingQuantity, highlight = item.remainingQuantity > 0)
-            }
-
-            // Row 3: Batch & Expiry on the right side
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "Batch: ${item.batchNumber}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End
-                    )
-                    Text(
-                        text = "Expiry: ${formatDateForDisplay(item.expiryDate)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End
-                    )
-                }
-            }
-
-            // Row 4: Dates
-            Spacer(modifier = Modifier.height(Spacing.xs))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "Borrowed: ${formatDateForDisplay(item.borrowedDate)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (item.status != BorrowStatus.BORROWED) {
-                    val returnDates = item.returns.map { it.returnedDate }.distinct()
-                    if (returnDates.size > 1) {
+                if (item.remainingQuantity > 0) {
+                    TextButton(
+                        onClick = onReturn,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
                         Text(
-                            text = "Returns: ${returnDates.joinToString(", ") { formatDateForDisplay(it) }}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = color,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                    } else {
-                        Text(
-                            text = "Returned: ${formatDateForDisplay(item.latestDate)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = color,
-                            fontWeight = FontWeight.Medium
+                            text = "Return",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-            }
-
-            // Row 5: Doctor / Source
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (item.type.equals("BY", ignoreCase = true)) Icons.Default.Person else Icons.Default.Business,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = item.doctorName,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
             }
 
             Box(modifier = Modifier.fillMaxWidth()) {
@@ -193,29 +197,12 @@ fun BorrowedRecordCard(
                         )
                     }
                     DropdownMenuItem(
-                        text = { Text("Delete") },
+                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuExpanded = false; onDelete() },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun QuantityStat(label: String, value: Int, highlight: Boolean = false) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }

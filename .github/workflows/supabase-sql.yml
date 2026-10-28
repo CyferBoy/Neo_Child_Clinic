@@ -64,7 +64,9 @@ jobs:
           SQL
 
       - name: Apply stock trigger migration
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022_fix_stock_trigger_update_arithmetic.sql
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022_fix_stock_trigger_update_arithmetic.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_stock_moved_batch_guard.sql
 
       - name: Run stock trigger regression test
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/stock_trigger_arithmetic.sql
@@ -78,15 +80,100 @@ jobs:
           );
           insert into public.audit_logs(timestamp) values
             (to_char(now() - interval '400 days', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
-            (to_char(now() - interval '2 days', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+            (to_char(now() - interval '2 days', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+            ('2025-13-45 99:99:99');
           SQL
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025_audit_log_retention.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_audit_prune_without_cast.sql
           psql -v ON_ERROR_STOP=1 <<'SQL'
           select public.prune_audit_logs();
           do $$
           begin
-            if (select count(*) from public.audit_logs) <> 1 then
-              raise exception 'audit retention: expected 1 row after prune';
+            -- One malformed timestamp must not abort the prune (SQL-020).
+            if (select count(*) from public.audit_logs) <> 2 then
+              raise exception 'audit retention: expected 2 rows after prune';
+            end if;
+          end $$;
+          SQL
+
+      - name: Test receipt numbers are server-allocated
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon;
+            end if;
+          end $$;
+          create table public.patient_visits (
+            id uuid primary key,
+            date_given text,
+            receipt_number text
+          );
+          SQL
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260824_receipt_numbering.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_receipt_number_server_allocated.sql
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.patient_visits(id, date_given, receipt_number)
+            values (gen_random_uuid(), '9 May 2026', 'FORGED-1');
+          do $$
+          declare v text;
+          begin
+            select receipt_number into v from public.patient_visits;
+            if v = 'FORGED-1' or v !~ '^NEO-[0-9]{2}/[0-9]{2}-[0-9]{6}$' then
+              raise exception 'client receipt number was not replaced: %', v;
+            end if;
+          end $$;
+          SQL
+
+      - name: Test parent delete keeps audit and ledger rows
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          -- Earlier steps created these with different shapes; start clean.
+          drop table if exists public.inventory_transactions cascade;
+          drop table if exists public.audit_logs cascade;
+          drop table if exists public.patient_visits cascade;
+
+          create table public.patients (id uuid primary key);
+          create table public.patient_visits (id uuid primary key, patient_id uuid references public.patients(id));
+          create table public.inventory_transactions (
+            id uuid primary key default gen_random_uuid(),
+            visit_id uuid references public.patient_visits(id),
+            patient_id uuid references public.patients(id)
+          );
+          create table public.audit_logs (
+            id uuid primary key default gen_random_uuid(),
+            patient_id uuid references public.patients(id)
+          );
+          SQL
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_child_refs_survive_parent_delete.sql
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.patients(id) values ('11111111-1111-1111-1111-111111111111');
+          insert into public.patient_visits(id, patient_id)
+            values ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111');
+          insert into public.inventory_transactions(id, visit_id, patient_id)
+            values ('33333333-3333-3333-3333-333333333333',
+                    '22222222-2222-2222-2222-222222222222',
+                    '11111111-1111-1111-1111-111111111111');
+          insert into public.audit_logs(id, patient_id)
+            values ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111');
+
+          delete from public.patient_visits where id = '22222222-2222-2222-2222-222222222222';
+          delete from public.patients where id = '11111111-1111-1111-1111-111111111111';
+
+          do $$
+          begin
+            if (select visit_id from public.inventory_transactions) is not null then
+              raise exception 'ledger visit_id was not nulled';
+            end if;
+            if (select patient_id from public.inventory_transactions) is not null then
+              raise exception 'ledger patient_id was not nulled';
+            end if;
+            if (select patient_id from public.audit_logs) is not null then
+              raise exception 'audit patient_id was not nulled';
             end if;
           end $$;
           SQL

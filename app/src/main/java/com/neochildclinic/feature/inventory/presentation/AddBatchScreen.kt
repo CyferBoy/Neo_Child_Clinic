@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -100,55 +102,97 @@ fun AddBatchScreen(
                     .padding(padding)
                     .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
-                Text("Adding batch for $brandName", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                
-                StandardTextField(
-                    value = batchNumber,
-                    onValueChange = { batchNumber = it },
-                    label = "Batch Number*"
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(Spacing.card),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        Text(
+                            text = "Batch details for $brandName",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        StandardTextField(
+                            value = batchNumber,
+                            onValueChange = { batchNumber = it },
+                            label = "Batch Number *"
+                        )
 
-                StandardTextField(
-                    value = quantity,
-                    onValueChange = { quantity = it },
-                    label = "Quantity*",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
+                        StandardTextField(
+                            value = quantity,
+                            onValueChange = { quantity = it },
+                            label = "Quantity *",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
 
-                DateDropdownPicker(
-                    label = "Expiry Date*",
-                    currentDate = expiryDate,
-                    onDateSelected = { expiryDate = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                        DateDropdownPicker(
+                            label = "Expiry Date *",
+                            currentDate = expiryDate,
+                            onDateSelected = { expiryDate = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    StandardTextField(
-                        value = mrp,
-                        onValueChange = { mrp = it },
-                        label = "MRP*",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    StandardTextField(
-                        value = netRate,
-                        onValueChange = { netRate = it },
-                        label = "Net Rate*",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            StandardTextField(
+                                value = mrp,
+                                onValueChange = { mrp = it },
+                                label = "MRP *",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            StandardTextField(
+                                value = netRate,
+                                onValueChange = { netRate = it },
+                                label = "Net Rate *",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        StandardTextField(
+                            value = manufacturer,
+                            onValueChange = { manufacturer = it },
+                            label = "Batch Manufacturer (if different)",
+                            placeholder = "e.g. Sanofi"
+                        )
+                    }
                 }
 
-                StandardTextField(
-                    value = manufacturer,
-                    onValueChange = { manufacturer = it },
-                    label = "Batch Manufacturer (if different)",
-                    placeholder = "e.g. Sanofi"
-                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.card),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            androidx.compose.material.icons.Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.md))
+                        Text(
+                            "Saved offline first — Syncs automatically with clinic cloud.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(Spacing.xl))
+                Spacer(modifier = Modifier.height(Spacing.sm))
 
                 StandardButton(
                     onClick = {

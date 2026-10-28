@@ -1,13 +1,15 @@
 package com.neochildclinic.feature.profile.presentation
 
-import com.neochildclinic.core.designsystem.*
-
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,13 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.designsystem.Spacing
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.ShowSnackbar
+import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.Profile
 
@@ -34,8 +38,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
-val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
     var showEditDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -70,7 +73,8 @@ val snackbarHostState = remember { SnackbarHostState() }
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Logout") },
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Logout", fontWeight = FontWeight.Bold) },
             text = { Text("Are you sure you want to logout from this device?") },
             confirmButton = {
                 Button(
@@ -78,6 +82,7 @@ val snackbarHostState = remember { SnackbarHostState() }
                         showLogoutDialog = false
                         onLogout() 
                     },
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("Logout") }
             },
@@ -89,7 +94,7 @@ val snackbarHostState = remember { SnackbarHostState() }
 
     AppBackground {
         Scaffold(
-    snackbarHost = { SnackbarHost(snackbarHostState) },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -117,29 +122,104 @@ val snackbarHostState = remember { SnackbarHostState() }
                     ) {
                         ProfileHeaderSection(profile)
                         
-                        InfoSection(title = "Personal Information") {
-                            InfoRow(Icons.Default.Person, "Full Name", profile.displayName)
-                            InfoRow(Icons.Default.Email, "Email Address", profile.email)
-                            InfoRow(Icons.Default.Phone, "Phone Number", profile.phoneNumber.ifBlank { "Not set" })
+                        Text(
+                            text = "Personal information",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = Spacing.card, vertical = Spacing.xs)) {
+                                ProfileDetailRow("Full name", profile.displayName)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                                ProfileDetailRow("Email", profile.email)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                                ProfileDetailRow("Phone", profile.phoneNumber.ifBlank { "Not set" })
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                                ProfileDetailRow("Employee ID", profile.employeeId ?: "Not assigned")
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                                ProfileDetailRow("Role", profile.role.name.replace("_", " ").uppercase())
+                            }
                         }
 
-                        InfoSection(title = "Account Information") {
-                            InfoRow(Icons.Default.Work, "Employee ID", profile.employeeId ?: "Not assigned")
-                            InfoRow(Icons.Default.Badge, "Role", profile.role.name.uppercase())
-                            InfoRow(Icons.Default.CalendarToday, "Created At", com.neochildclinic.core.common.PatientUtils.formatDateTimeForDisplay(profile.createdAt))
-                            InfoRow(Icons.Default.Login, "Last Login", profile.lastLogin?.let { com.neochildclinic.core.common.PatientUtils.formatDateTimeForDisplay(it) } ?: "Never")
+                        Text(
+                            text = "Account & Security",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
+                                ActionRow(
+                                    icon = Icons.Default.Lock,
+                                    label = "Change Password",
+                                    onClick = { showPasswordDialog = true }
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                                ActionRow(
+                                    icon = Icons.AutoMirrored.Filled.Logout,
+                                    label = "Logout",
+                                    color = MaterialTheme.colorScheme.error,
+                                    onClick = { showLogoutDialog = true }
+                                )
+                            }
                         }
 
-                        InfoSection(title = "Security") {
-                            ActionRow(Icons.Default.Lock, "Change Password") { showPasswordDialog = true }
-                            ActionRow(Icons.Default.Logout, "Logout", MaterialTheme.colorScheme.error) { showLogoutDialog = true }
+                        // Audit trust note
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(Spacing.card),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.VerifiedUser,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(Spacing.md))
+                                Column {
+                                    Text(
+                                        "Profile changes are audited",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        "Your name appears on receipts, vaccination logs, and clinical records you sign.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
 
-                        InfoSection(title = "About") {
-                            InfoRow(Icons.Default.Info, "App Version", "1.0.0")
-                            InfoRow(Icons.Default.Cloud, "Database Status", "Connected")
-                        }
-                        
                         Spacer(Modifier.height(Spacing.xl))
                     }
                 }
@@ -152,40 +232,53 @@ val snackbarHostState = remember { SnackbarHostState() }
 private fun ProfileHeaderSection(profile: Profile) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.xl).fillMaxWidth(),
+            modifier = Modifier
+                .padding(Spacing.xl)
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
-                modifier = Modifier.size(100.dp),
+                modifier = Modifier.size(68.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = profile.displayName.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.displayMedium,
+                        text = profile.displayName.split(" ")
+                            .mapNotNull { it.firstOrNull()?.toString() }
+                            .take(2)
+                            .joinToString("")
+                            .uppercase()
+                            .ifEmpty { "?" },
+                        style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-            Spacer(Modifier.height(Spacing.lg))
-            Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(profile.role.name.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            
+            Spacer(Modifier.height(Spacing.md))
+            Text(
+                text = profile.displayName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.height(Spacing.xs))
             Surface(
-                color = if (profile.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                shape = CircleShape,
-                modifier = Modifier.padding(top = Spacing.sm)
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = if (profile.isActive) "Active" else "Inactive",
-                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                    text = "${profile.role.name.uppercase()} · ${if (profile.isActive) "ACTIVE" else "INACTIVE"}",
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (profile.isActive) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
@@ -193,47 +286,65 @@ private fun ProfileHeaderSection(profile: Profile) {
 }
 
 @Composable
-private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = Spacing.sm, bottom = Spacing.sm)
-        )
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-        ) {
-            Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-                content()
-            }
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Spacing.lg))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyLarge)
-        }
-    }
-}
-
-@Composable
-private fun ActionRow(icon: ImageVector, label: String, color: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit) {
+private fun ProfileDetailRow(label: String, value: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.md),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Spacing.lg))
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
-        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ActionRow(
+    icon: ImageVector,
+    label: String,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.card, vertical = Spacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(36.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(Spacing.md))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = color,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            Icons.Default.ChevronRight,
+            null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 
@@ -249,7 +360,8 @@ private fun EditProfileDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Profile") },
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Edit Profile", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 StandardTextField(value = name, onValueChange = { name = it }, label = "Display Name")
@@ -257,9 +369,8 @@ private fun EditProfileDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(name, phone) }, enabled = !isLoading) {
-                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
-                else Text("Save")
+            StandardButton(onClick = { onSave(name, phone) }, isLoading = isLoading) {
+                Text("Save")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
@@ -278,7 +389,8 @@ private fun ChangePasswordDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change Password") },
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Change Password", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 StandardTextField(
@@ -304,12 +416,12 @@ private fun ChangePasswordDialog(
             }
         },
         confirmButton = {
-            Button(
+            StandardButton(
                 onClick = { onConfirm(newPassword) },
+                isLoading = isLoading,
                 enabled = !isLoading && newPassword.isNotBlank() && newPassword == confirmPassword
             ) {
-                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
-                else Text("Update")
+                Text("Update")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

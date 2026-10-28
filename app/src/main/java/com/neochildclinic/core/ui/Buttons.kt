@@ -1,5 +1,6 @@
 package com.neochildclinic.core.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,24 +10,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import com.neochildclinic.core.designsystem.ButtonShape
 
 /**
  * Shows a one-off message in the nearest Scaffold's Snackbar.
- *
- * Replaces the old `MessageEffect`, which used [Toast]. A Toast is the wrong
- * surface here: it auto-dismisses on a timer, so a failed save or a dropped
- * upload can vanish before a clinician reads it, it is unstyled in dark mode, and
- * it carries no severity. A Snackbar is an announced live region that respects
- * the theme and can be held for as long as the message needs.
- *
- * Requires a `SnackbarHost(snackbarHostState)` on the screen's Scaffold -
- * without one `showSnackbar` is a no-op and the message is silently dropped.
- *
- * [duration] defaults to [SnackbarDuration.Long]: pass [SnackbarDuration.Short]
- * for routine success confirmations, and keep the default for errors.
  */
 @Composable
 fun ShowSnackbar(
@@ -72,16 +64,17 @@ fun BackTopAppBar(
 }
 
 /**
- * Standardized Button with width constraints for better UI on large screens.
+ * Standardized Button following Neo Child Clinic Warm Clinical System v2 (height 52dp, radius 14dp).
  */
 @Composable
 fun StandardButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    height: Dp = 52.dp,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
-    shape: Shape = MaterialTheme.shapes.medium,
+    shape: Shape = ButtonShape,
     isLoading: Boolean = false,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -89,11 +82,53 @@ fun StandardButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(height),
         enabled = enabled && !isLoading,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
-            contentColor = contentColor
+            contentColor = contentColor,
+            disabledContainerColor = containerColor.copy(alpha = 0.4f),
+            disabledContentColor = contentColor.copy(alpha = 0.5f)
+        ),
+        shape = shape
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = contentColor,
+                strokeWidth = 2.dp
+            )
+        } else {
+            content()
+        }
+    }
+}
+
+/**
+ * Outlined Standard Button for secondary actions.
+ */
+@Composable
+fun OutlinedStandardButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    height: Dp = 52.dp,
+    borderColor: Color = MaterialTheme.colorScheme.outline,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    shape: Shape = ButtonShape,
+    isLoading: Boolean = false,
+    content: @Composable RowScope.() -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height),
+        enabled = enabled && !isLoading,
+        border = BorderStroke(1.dp, if (enabled) borderColor else borderColor.copy(alpha = 0.4f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = contentColor,
+            disabledContentColor = contentColor.copy(alpha = 0.4f)
         ),
         shape = shape
     ) {

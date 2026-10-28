@@ -1,26 +1,31 @@
 package com.neochildclinic.feature.reminder.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import com.neochildclinic.core.ui.EmptyState
 import androidx.compose.material.icons.filled.CheckCircleOutline
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.VaccinationItem
-import com.neochildclinic.domain.model.ReminderStatus
-import com.neochildclinic.domain.model.ReminderStats
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.designsystem.Spacing
+import com.neochildclinic.core.ui.EmptyState
+import com.neochildclinic.core.ui.StandardButton
+import com.neochildclinic.core.ui.StandardTextField
+import com.neochildclinic.domain.model.Patient
+import com.neochildclinic.domain.model.ReminderStats
+import com.neochildclinic.domain.model.ReminderStatus
+import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.domain.model.VaccinationItem
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -47,9 +52,123 @@ fun DueTab(
     var showDismissDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
-        contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.lg)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = Spacing.screen),
+        contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
+        // 1. Search Bar
+        item {
+            StandardTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    onSearchQueryChanged(it)
+                },
+                label = "",
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = "Search due patients or vaccine...",
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            )
+        }
+
+        // 2. Filter Pills Row
+        item {
+            FilterTabRow(
+                filters = filters,
+                selectedFilter = initialFilter,
+                onFilterChanged = onFilterChanged
+            )
+        }
+
+        // 3. Status Summary Cards Row (Overdue, Today, This Week)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                // OVERDUE Card
+                Surface(
+                    modifier = Modifier.weight(1f).height(76.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "OVERDUE",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "$overdueCount",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                // TODAY Card
+                Surface(
+                    modifier = Modifier.weight(1f).height(76.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "TODAY",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "${filteredVaccinations.count { com.neochildclinic.core.common.DateClassifier.classify(it.nextDueDate) is com.neochildclinic.core.common.DateCategory.Today }}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
+
+                // THIS WEEK Card
+                Surface(
+                    modifier = Modifier.weight(1f).height(76.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "THIS WEEK",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "${filteredVaccinations.size}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. Completed & Dismissed Quick Links
         item {
             CompletedDismissedSummaryCards(
                 completedCount = stats.completedToday,
@@ -57,37 +176,51 @@ fun DueTab(
                 onCompletedClick = onNavigateToCompleted,
                 onDismissedClick = onNavigateToDismissed
             )
-            Spacer(modifier = Modifier.height(Spacing.lg))
         }
 
-        item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                    onSearchQueryChanged(it)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search by name or phone...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = MaterialTheme.shapes.medium
-            )
-            Spacer(modifier = Modifier.height(Spacing.lg))
+        // 5. Section Header Eyebrow
+        if (filteredVaccinations.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.xs, bottom = Spacing.xxs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val overdueList = filteredVaccinations.filter { com.neochildclinic.core.common.DateClassifier.classify(it.nextDueDate) is com.neochildclinic.core.common.DateCategory.Overdue }
+                    val maxOverdueDays = overdueList.mapNotNull { 
+                        (com.neochildclinic.core.common.DateClassifier.classify(it.nextDueDate) as? com.neochildclinic.core.common.DateCategory.Overdue)?.days 
+                    }.maxOrNull()
+
+                    val headerText = if (initialFilter.equals("Overdue", ignoreCase = true)) {
+                        "${filteredVaccinations.size} overdue vaccinations"
+                    } else {
+                        "${filteredVaccinations.size} vaccinations due"
+                    }
+
+                    Text(
+                        text = headerText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    if (maxOverdueDays != null && maxOverdueDays > 0) {
+                        Text(
+                            text = "Oldest $maxOverdueDays days",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
         }
 
-        item {
-            FilterTabRow(
-                filters = filters,
-                selectedFilter = initialFilter,
-                onFilterChanged = onFilterChanged
-            )
-            Spacer(modifier = Modifier.height(Spacing.lg))
-        }
-
+        // 6. Vaccine List or Empty State
         if (filteredVaccinations.isEmpty()) {
             item {
-                // Shared EmptyState, not a bare Text: this is the screen a receptionist opens
-                // first thing, and a plain sentence gave no icon and no sense of "all clear".
                 EmptyState(
                     modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xl),
                     icon = Icons.Default.CheckCircleOutline,
@@ -111,7 +244,22 @@ fun DueTab(
                     onClick = { onPatientClick(v.patientId) },
                     modifier = Modifier.animateItem()
                 )
-                Spacer(modifier = Modifier.height(Spacing.md))
+            }
+
+            // Footer note matching due_vaccinations_all_light.svg (y=760)
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Spacing.md),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Showing ${filteredVaccinations.size} of ${filteredVaccinations.size} · tap a patient for actions",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }
@@ -138,20 +286,25 @@ fun DueTab(
         var reason by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showDismissDialog = false },
-            title = { Text("Dismiss Reminder") },
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Dismiss Reminder", fontWeight = FontWeight.Bold) },
             text = {
-                OutlinedTextField(
+                StandardTextField(
                     value = reason,
                     onValueChange = { reason = it },
-                    label = { Text("Reason for dismissal") },
+                    label = "Reason for dismissal",
+                    placeholder = "e.g. Taken elsewhere",
                     modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    selectedVaccination?.let { onDismissReminder(it, reason) }
-                    showDismissDialog = false
-                }) { Text("Dismiss") }
+                Button(
+                    onClick = {
+                        selectedVaccination?.let { onDismissReminder(it, reason) }
+                        showDismissDialog = false
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Dismiss") }
             },
             dismissButton = {
                 TextButton(onClick = { showDismissDialog = false }) { Text("Cancel") }
@@ -168,7 +321,6 @@ fun DueTab(
             }
         )
     }
-
 }
 
 @Preview(showBackground = true)
@@ -176,7 +328,7 @@ fun DueTab(
 private fun DueTabPreview() {
     NeoChildTheme {
         DueTab(
-            patients = listOf(Patient("1", "John Doe", "1234567890", "", "2020-01-01", "Male", "", "")),
+            patients = listOf(Patient("1", "Aarav Sharma", "9876543210", "", "2022-01-01", "Male", "", "")),
             filteredVaccinations = listOf(
                 Vaccination(
                     id = "1",
@@ -185,9 +337,9 @@ private fun DueTabPreview() {
                     nextVaccinations = listOf(com.neochildclinic.domain.model.NextVaccinationSummary(
                         type = "Booster",
                         vaccineNames = listOf("HepB"),
-                        dueDate = "1 Feb 2024"
+                        dueDate = "1 Feb 2026"
                     )),
-                    dateGiven = "1 Jan 2024",
+                    dateGiven = "1 Jan 2026",
                     cashAmount = 500.0,
                     onlineAmount = 0.0,
                     totalPaid = 500.0,

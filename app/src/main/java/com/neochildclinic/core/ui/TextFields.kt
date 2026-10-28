@@ -1,9 +1,7 @@
 package com.neochildclinic.core.ui
 
 import androidx.compose.ui.graphics.Shape
-
 import com.neochildclinic.core.designsystem.*
-
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,8 +33,9 @@ fun StandardTextField(
     readOnly: Boolean = false,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
-    shape: Shape = MaterialTheme.shapes.medium,
+    shape: Shape = FieldShape,
     minLines: Int = 1,
     singleLine: Boolean = minLines == 1,
     isError: Boolean = false,
@@ -47,20 +46,28 @@ fun StandardTextField(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
+                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
             )
         }
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
+            placeholder = {
+                if (placeholder.isNotEmpty()) {
+                    Text(
+                        placeholder,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             readOnly = readOnly,
             keyboardOptions = keyboardOptions,
             visualTransformation = visualTransformation,
+            leadingIcon = leadingIcon,
             trailingIcon = trailingIcon,
             shape = shape,
             minLines = minLines,
@@ -75,7 +82,9 @@ fun StandardTextField(
                 focusedLabelColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 cursorColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                focusedTrailingIconColor = MaterialTheme.colorScheme.primary
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.primary,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
         if (errorText != null) {
@@ -91,7 +100,7 @@ fun StandardTextField(
 
 /**
  * Standardized AutoComplete/Dropdown field for the app.
- * Combines a TextField with a suggestions' menu.
+ * Combines a TextField with a suggestions menu.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

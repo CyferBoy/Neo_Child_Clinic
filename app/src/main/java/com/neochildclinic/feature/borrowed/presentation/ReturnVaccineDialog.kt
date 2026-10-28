@@ -65,7 +65,8 @@ fun ReturnVaccineDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Return Vaccine") },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        title = { Text("Return Vaccine", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
