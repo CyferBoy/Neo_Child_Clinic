@@ -1,7 +1,4 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.feature.statistics.domain.FinanceStatsData
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,20 +6,30 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.core.designsystem.*
-import java.util.*
 import com.neochildclinic.feature.statistics.domain.ExpenseCalculator
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.FinanceStatsData
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun FinanceTab(
@@ -55,7 +62,7 @@ fun FinanceTab(
             transactionsWithDates.map { it.second } + vaccinations.map { it.dateGiven }
         )
     }
-    
+
     // Current period
     val filteredTransactions = remember(transactionsWithDates, filterMode, fyQuarter, selectedMonth) {
         transactionsWithDates.filter {
@@ -65,7 +72,7 @@ fun FinanceTab(
     val filteredVaccinations = remember(validVaccinations, filterMode, fyQuarter, selectedMonth) {
         validVaccinations.filter { StatisticsUtils.isDateInFilter(it.dateGiven, filterMode, fyQuarter, selectedMonth) }
     }
-    
+
     // Previous period
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
@@ -146,8 +153,24 @@ private fun FinanceContent(
     expenses: List<Expense> = emptyList()
 ) {
     val customColors = LocalCustomColors.current
+    val overall = filterMode == "Overall"
+    val cashShare = if (currentStats.totalRevenue == 0.0) {
+        null
+    } else {
+        (currentStats.cashTotal / currentStats.totalRevenue * 100).roundToInt()
+    }
+    val onlineShare = if (currentStats.totalRevenue == 0.0) {
+        null
+    } else {
+        (currentStats.onlineTotal / currentStats.totalRevenue * 100).roundToInt()
+    }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(Spacing.lg)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.screen, vertical = Spacing.lg)
+    ) {
         FilterSection(
             availableYears = availableYears.reversed().map { "20$it" },
             filterMode = filterMode,
@@ -155,11 +178,10 @@ private fun FinanceContent(
             selectedMonth = selectedMonth,
             onFilterModeChange = onFilterModeChange,
             onQuarterChange = onQuarterChange,
-            onMonthChange = onMonthChange,
-            modifier = Modifier.padding(bottom = Spacing.sm)
+            onMonthChange = onMonthChange
         )
 
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         // Surfaces FinanceStatsData.invalidTransactionDateCount, which was already being
         // computed but never shown anywhere - a transaction whose date/timestamp genuinely
@@ -167,125 +189,136 @@ private fun FinanceContent(
         // indication to the user. This makes that visible instead of leaving totals looking
         // mysteriously low with no way to tell why.
         if (currentStats.invalidTransactionDateCount > 0) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                modifier = Modifier.fillMaxWidth()
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.errorContainer
             ) {
-                Text(
-                    "${currentStats.invalidTransactionDateCount} transaction(s) have a date that couldn't be read and are excluded from every total shown here.",
+                Row(
                     modifier = Modifier.padding(Spacing.cardDense),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text(
+                        text = "${currentStats.invalidTransactionDateCount} transaction(s) have a date that couldn't be read and are excluded from every total shown here.",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(Spacing.lg))
         }
 
-        Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        SummaryCard(
-            modifier = Modifier.fillMaxWidth(),
-            title = "Total Revenue",
-            value = StatisticsUtils.formatRupees(currentStats.totalRevenue),
-            icon = Icons.Default.CurrencyRupee,
-            iconColor = customColors.textBlue,
-            iconBackground = customColors.softBlue,
-            growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
+        NetProfitHero(
+            stats = currentStats,
+            previousStats = prevStats,
+            filterMode = filterMode
         )
-        
+
         Spacer(modifier = Modifier.height(Spacing.md))
-        
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
             SummaryCard(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Cash",
                 value = StatisticsUtils.formatRupees(currentStats.cashTotal),
-                icon = Icons.Default.Payments,
-                iconColor = customColors.textGreen,
-                iconBackground = customColors.softGreen,
-                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
+                accentColor = customColors.textSuccess,
+                supportingText = cashShare?.let { "$it% of revenue" } ?: "cash payments",
+                growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
             )
             SummaryCard(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Online",
                 value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
-                icon = Icons.Default.CreditCard,
-                iconColor = customColors.textBlue,
-                iconBackground = customColors.softBlue,
-                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.md))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            SummaryCard(
-                modifier = Modifier.weight(1f),
-                title = "COGS + Expense",
-                value = StatisticsUtils.formatRupees(currentStats.vaccineCost + currentStats.totalExpenses),
-                icon = Icons.Default.RemoveCircle,
-                iconColor = customColors.textPink,
-                iconBackground = customColors.softPink,
-                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.vaccineCost + currentStats.totalExpenses, prevStats.vaccineCost + prevStats.totalExpenses)
-            )
-            SummaryCard(
-                modifier = Modifier.weight(1f),
-                title = "Net Profit",
-                value = if (currentStats.isProfitComplete) StatisticsUtils.formatRupees(currentStats.netProfit) else "Unavailable",
-                icon = Icons.Default.TrendingUp,
-                iconColor = customColors.textCyan,
-                iconBackground = customColors.softCyan,
-                growthPercentage = if (filterMode == "Overall" || !currentStats.isProfitComplete || !prevStats.isProfitComplete) null else StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit)
+                accentColor = customColors.textBlue,
+                supportingText = onlineShare?.let { "$it% of revenue" } ?: "online payments",
+                growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
             )
         }
 
         if (!currentStats.isProfitComplete) {
             Spacer(modifier = Modifier.height(Spacing.md))
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
-                shape = MaterialTheme.shapes.large
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.errorContainer
             ) {
-                Column(modifier = Modifier.padding(Spacing.lg)) {
-                    Text("Incomplete Profit Calculation", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                    Spacer(modifier = Modifier.height(Spacing.xs))
-                    Text("Some vaccination records are missing historical cost data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                Row(
+                    modifier = Modifier.padding(Spacing.cardDense),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Column {
+                        Text(
+                            "Incomplete profit calculation",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            "Some vaccination records are missing historical stock cost data.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(Spacing.xl))
-        Text("Expenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+        StatisticsSectionHeader(
+            title = "Expenses",
+            subtitle = "Separate expense records and net income"
+        )
         Spacer(modifier = Modifier.height(Spacing.md))
-        // Additive section (task section 7): sourced from the separate `expenses` table,
-        // not merged into currentStats/prevStats above (which remain finance_transactions-
-        // only, unchanged). Total Income here is currentStats.totalRevenue (vaccination +
-        // consultation income, already computed by FinanceCalculator).
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
             SummaryCard(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Total Expenses",
                 value = StatisticsUtils.formatRupees(currentExpensesRupees),
-                icon = Icons.Default.Receipt,
-                iconColor = customColors.textPink,
-                iconBackground = customColors.softPink,
-                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentExpensesRupees, prevExpensesRupees)
+                accentColor = customColors.textPink,
+                supportingText = "expense records",
+                growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentExpensesRupees, prevExpensesRupees)
             )
             SummaryCard(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Net Income",
                 value = StatisticsUtils.formatRupees(netIncome),
-                icon = Icons.Default.TrendingUp,
-                iconColor = customColors.textCyan,
-                iconBackground = customColors.softCyan,
-                growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(netIncome, prevNetIncome)
+                accentColor = if (netIncome >= 0) customColors.textSuccess else MaterialTheme.colorScheme.error,
+                supportingText = "revenue minus expenses",
+                growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(netIncome, prevNetIncome)
             )
         }
 
         Spacer(modifier = Modifier.height(Spacing.xl))
-        Text("Financial Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+        StatisticsSectionHeader(
+            title = "Monthly performance",
+            subtitle = "Tap a month for its transactions"
+        )
         Spacer(modifier = Modifier.height(Spacing.md))
-        
+
         FinanceTable(
             transactions = filteredTransactions,
             vaccinations = vaccinations,
@@ -297,7 +330,118 @@ private fun FinanceContent(
             expenses = expenses
         )
 
-        Spacer(modifier = Modifier.height(Spacing.xl))
+        Spacer(modifier = Modifier.height(Spacing.xxl))
+    }
+}
+
+@Composable
+private fun NetProfitHero(
+    stats: FinanceStatsData,
+    previousStats: FinanceStatsData,
+    filterMode: String
+) {
+    val growth = if (
+        filterMode == "Overall" ||
+        !stats.isProfitComplete ||
+        !previousStats.isProfitComplete
+    ) {
+        null
+    } else {
+        StatisticsUtils.calculateGrowth(stats.netProfit, previousStats.netProfit)
+    }
+    val revenue = StatisticsUtils.formatRupees(stats.totalRevenue)
+    val costs = StatisticsUtils.formatRupees(stats.vaccineCost + stats.totalExpenses)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ChartContainerShape,
+        color = ClinicBlue,
+        contentColor = Color.White
+    ) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
+            Text(
+                text = "NET PROFIT",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 1.sp),
+                color = Color.White.copy(alpha = 0.78f)
+            )
+            Spacer(modifier = Modifier.height(Spacing.xs))
+            Text(
+                text = if (stats.isProfitComplete) StatisticsUtils.formatRupees(stats.netProfit) else "Unavailable",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                maxLines = 1
+            )
+            if (growth != null) {
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = Color.White.copy(alpha = 0.14f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (growth >= 0) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = String.format(Locale.US, "%.1f%% vs previous period", kotlin.math.abs(growth)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(Spacing.lg))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+            Spacer(modifier = Modifier.height(Spacing.md))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                HeroMetric(
+                    label = "Revenue",
+                    value = revenue,
+                    modifier = Modifier.weight(1f)
+                )
+                HeroMetric(
+                    label = "COGS + expense",
+                    value = costs,
+                    modifier = Modifier.weight(1f),
+                    alignEnd = true
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    alignEnd: Boolean = false
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
+    ) {
+        Text(
+            text = label.uppercase(Locale.getDefault()),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.7.sp),
+            color = Color.White.copy(alpha = 0.72f),
+            maxLines = 1
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
+            maxLines = 1
+        )
     }
 }
 

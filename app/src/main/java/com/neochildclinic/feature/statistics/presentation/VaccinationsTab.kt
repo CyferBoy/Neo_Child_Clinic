@@ -1,31 +1,31 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.Reminder
-import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.core.common.PatientUtils
-import java.util.*
+import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import java.util.Locale
 
 // A single administered dose, sourced from vaccination_items. The parent visit IS status-gated
 // (StatisticsUtils.filterValidVaccinations): only COMPLETED/EXTERNAL visits count as
@@ -42,7 +42,12 @@ private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: 
     }
 
 @Composable
-fun VaccinationsTab(vaccinations: List<Vaccination>, vaccinationReminders: List<Reminder> = emptyList(), vaccines: List<InventoryItem> = emptyList(), onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }) {
+fun VaccinationsTab(
+    vaccinations: List<Vaccination>,
+    vaccinationReminders: List<Reminder> = emptyList(),
+    vaccines: List<InventoryItem> = emptyList(),
+    onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
+) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
@@ -104,7 +109,12 @@ private fun VaccinationsContent(
 ) {
     var selectedSection by rememberSaveable { mutableIntStateOf(0) }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).verticalScroll(rememberScrollState()).padding(Spacing.lg)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.screen, vertical = Spacing.lg)
+    ) {
         FilterSection(
             availableYears = availableYears.reversed().map { "20$it" },
             filterMode = filterMode,
@@ -112,14 +122,16 @@ private fun VaccinationsContent(
             selectedMonth = selectedMonth,
             onFilterModeChange = onFilterModeChange,
             onQuarterChange = onQuarterChange,
-            onMonthChange = onMonthChange,
-            modifier = Modifier.padding(bottom = Spacing.sm)
+            onMonthChange = onMonthChange
         )
 
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
-        Text("Summary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        StatisticsSectionHeader(
+            title = "Vaccination summary",
+            subtitle = "Administered doses in the selected period"
+        )
+        Spacer(modifier = Modifier.height(Spacing.md))
 
         SummaryCards(
             doses = doses,
@@ -141,8 +153,14 @@ private fun VaccinationsContent(
         if (selectedSection == 0) {
             VaccineStatsSection(stats = stats)
         } else {
-            UpcomingVaccineNeedSection(reminders = vaccinationReminders, validVaccineIds = validVaccineIds, onVaccineTypeClick = onVaccineTypeClick)
+            UpcomingVaccineNeedSection(
+                reminders = vaccinationReminders,
+                validVaccineIds = validVaccineIds,
+                onVaccineTypeClick = onVaccineTypeClick
+            )
         }
+
+        Spacer(modifier = Modifier.height(Spacing.xxl))
     }
 }
 
@@ -168,51 +186,97 @@ private fun SummaryCards(
     // than show a misleading 0%.
     val growth = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(totalDoses.toDouble(), prevTotalDoses.toDouble())
 
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
         SummaryCard(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             title = "Total Doses",
             value = totalDoses.toString(),
-            icon = Icons.Default.FactCheck,
-            iconColor = customColors.textGreen,
-            iconBackground = customColors.softGreen,
+            accentColor = customColors.textSuccess,
+            supportingText = "doses administered",
             growthPercentage = growth
         )
         SummaryCard(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             title = "Avg / Month",
             value = String.format(Locale.US, "%.1f", avg),
-            icon = Icons.Default.Timeline,
-            iconColor = customColors.textBlue,
-            iconBackground = customColors.softBlue
+            accentColor = MaterialTheme.colorScheme.primary,
+            supportingText = "doses per month"
         )
     }
 }
 
 @Composable
 private fun VaccineStatsSection(stats: List<Pair<String, Int>>) {
-    Text("All Administered Vaccines", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(Spacing.lg))
+    StatisticsSectionHeader(
+        title = "Administered vaccines",
+        subtitle = if (stats.isEmpty()) "No vaccine doses in this period" else "${stats.size} vaccine types"
+    )
+    Spacer(modifier = Modifier.height(Spacing.md))
 
     if (stats.isEmpty()) {
-        Text("No vaccinations in this period", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        StatisticsEmptyState(
+            icon = Icons.Default.Vaccines,
+            title = "No vaccinations",
+            message = "No administered doses match the selected period."
+        )
         return
     }
 
-    val maxCount = remember(stats) { stats.firstOrNull()?.second ?: 1 }
-    stats.forEach { (name, count) ->
-        Column(modifier = Modifier.padding(vertical = Spacing.sm)) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(name, style = MaterialTheme.typography.bodyMedium)
-                Text("$count", fontWeight = FontWeight.Bold)
+    val maxCount = remember(stats) { stats.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1 }
+    val totalCount = remember(stats) { stats.sumOf { it.second }.coerceAtLeast(1) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        stats.forEach { (name, count) ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = StatTileShape,
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.75f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(Spacing.card)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = count.toString(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "${count * 100 / totalCount}% of doses",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    LinearProgressIndicator(
+                        progress = { count.toFloat() / maxCount },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            LinearProgressIndicator(
-                progress = { count.toFloat() / maxCount },
-                modifier = Modifier.fillMaxWidth().height(10.dp).clip(CircleShape),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
         }
     }
 }
@@ -242,98 +306,140 @@ private fun VaccinationSectionSelector(
 }
 
 @Composable
-private fun UpcomingVaccineNeedSection(reminders: List<Reminder>, validVaccineIds: Set<String>, onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }) {
+private fun UpcomingVaccineNeedSection(
+    reminders: List<Reminder>,
+    validVaccineIds: Set<String>,
+    onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
+) {
     val stats = remember(reminders, validVaccineIds) {
         calculateUpcomingVaccineNeeds(reminders, validVaccineIds)
     }
     var expandedType by rememberSaveable { mutableStateOf<String?>(null) }
 
-    Text(
-        "Upcoming Vaccine Need",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
+    StatisticsSectionHeader(
+        title = "Upcoming vaccine need",
+        subtitle = if (stats.isEmpty()) "No upcoming vaccine needs" else "${stats.size} vaccine types due"
     )
     Spacer(modifier = Modifier.height(Spacing.md))
 
     if (stats.isEmpty()) {
-        Text(
-            "No upcoming vaccine needs found.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        StatisticsEmptyState(
+            icon = Icons.Default.Vaccines,
+            title = "Nothing due",
+            message = "No upcoming vaccine needs were found."
         )
         return
     }
 
-    stats.forEach { stat ->
-        val expanded = expandedType == stat.type
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = Spacing.sm),
-            shape = StatTileShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        ) {
-            Column(modifier = Modifier.padding(Spacing.lg)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        stat.type,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable {
-                            // A type tap always opens the drill-down. It used to navigate
-                            // only when the type had exactly one brand and merely expanded
-                            // otherwise, so the same gesture meant two different things.
-                            onVaccineTypeClick(stat.type, null)
-                        },
-                        color = MaterialTheme.colorScheme.primary
-                    )
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        stats.forEach { stat ->
+            val expanded = expandedType == stat.type
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = StatTileShape,
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.75f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(Spacing.card)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stat.count.toString(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(Spacing.sm))
-                        Icon(
-                            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (expanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.clickable {
-                                expandedType = if (expanded) null else stat.type
-                            }
-                        )
-                    }
-                }
-
-                if (expanded) {
-                    Spacer(modifier = Modifier.height(Spacing.md))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                    Spacer(modifier = Modifier.height(Spacing.sm))
-                    stat.brands.forEach { brand ->
-                        Row(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = Spacing.xs)
-                                .clickable { onVaccineTypeClick(stat.type, brand.vaccineId) },
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Vaccines,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Spacing.md))
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    // A type tap always opens the drill-down. It used to navigate
+                                    // only when the type had exactly one brand and merely expanded
+                                    // otherwise, so the same gesture meant two different things.
+                                    onVaccineTypeClick(stat.type, null)
+                                }
                         ) {
                             Text(
-                                brand.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
+                                text = stat.type,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${stat.count} patients due",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "View patients",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            Text(
-                                brand.count.toString(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                        }
+                        IconButton(
+                            onClick = { expandedType = if (expanded) null else stat.type },
+                            modifier = Modifier.size(Spacing.touchTarget)
+                        ) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (expanded) "Collapse ${stat.type}" else "Expand ${stat.type}",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+
+                    if (expanded) {
+                        Spacer(modifier = Modifier.height(Spacing.sm))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        if (stat.brands.isEmpty()) {
+                            Text(
+                                text = "No brand breakdown is available for these legacy records.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = Spacing.sm)
+                            )
+                        } else {
+                            stat.brands.forEach { brand ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(MaterialTheme.shapes.small)
+                                        .clickable { onVaccineTypeClick(stat.type, brand.vaccineId) }
+                                        .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = brand.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = brand.count.toString(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }

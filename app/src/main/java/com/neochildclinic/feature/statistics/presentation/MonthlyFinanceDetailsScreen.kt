@@ -1,30 +1,36 @@
 package com.neochildclinic.feature.statistics.presentation
 
-import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
-
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.core.designsystem.NeoChildTheme
-import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.BackTopAppBar
-import com.neochildclinic.core.ui.AppPullToRefresh
-import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.util.Calendar
 import java.util.Locale
 
@@ -100,7 +106,12 @@ fun MonthlyFinanceDetailsScreen(
             topBar = {
                 BackTopAppBar(
                     title = { Text(title, fontWeight = FontWeight.SemiBold) },
-                    onBack = onBack
+                    onBack = onBack,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
             }
         ) { padding ->
@@ -115,66 +126,71 @@ fun MonthlyFinanceDetailsScreen(
                         count = 5,
                         cardShaped = true,
                         spacing = Spacing.md,
-                        contentPadding = PaddingValues(Spacing.lg)
+                        contentPadding = PaddingValues(Spacing.screen)
                     )
                 } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(Spacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
-                ) {
-                    item {
-                        FinanceMonthSummary(
-                            revenue = monthStats.totalRevenue,
-                            cash = monthStats.cashTotal,
-                            online = monthStats.onlineTotal,
-                            cogsAndExpenses = monthStats.vaccineCost + monthStats.totalExpenses,
-                            netProfit = monthStats.netProfit,
-                            profitAvailable = monthStats.isProfitComplete
-                        )
-                    }
-
-                    if (!monthStats.isProfitComplete) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = Spacing.screen,
+                            end = Spacing.screen,
+                            top = Spacing.lg,
+                            bottom = Spacing.xxl
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
                         item {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                )
-                            ) {
-                                Text(
-                                    "Net profit is unavailable because ${monthStats.missingCogsSnapshotCount} vaccination income transaction(s) are missing historical COGS data.",
-                                    modifier = Modifier.padding(Spacing.cardDense),
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
+                            FinanceMonthSummary(
+                                revenue = monthStats.totalRevenue,
+                                cash = monthStats.cashTotal,
+                                online = monthStats.onlineTotal,
+                                cogsAndExpenses = monthStats.vaccineCost + monthStats.totalExpenses,
+                                netProfit = monthStats.netProfit,
+                                profitAvailable = monthStats.isProfitComplete
+                            )
                         }
-                    }
 
-                    if (filtered.isEmpty()) {
-                        item {
-                            Card(Modifier.fillMaxWidth()) {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(28.dp),
-                                    contentAlignment = Alignment.Center
+                        if (!monthStats.isProfitComplete) {
+                            item {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.errorContainer
                                 ) {
                                     Text(
-                                        "No financial transactions found for this month",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = "Net profit is unavailable because ${monthStats.missingCogsSnapshotCount} vaccination income transaction(s) are missing historical COGS data.",
+                                        modifier = Modifier.padding(Spacing.cardDense),
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                             }
                         }
-                    } else {
-                        items(filtered, key = { it.id }) { transaction ->
-                            FinanceTransactionCard(
-                                transaction = transaction,
-                                vaccination = transaction.visitId?.let { vaccinationById[it] },
-                                patient = transaction.patientId?.let { patientById[it] }
-                            )
+
+                        if (filtered.isEmpty()) {
+                            item {
+                                StatisticsEmptyState(
+                                    icon = Icons.Default.ReceiptLong,
+                                    title = "No transactions",
+                                    message = "No financial transactions were found for this month."
+                                )
+                            }
+                        } else {
+                            item {
+                                StatisticsSectionHeader(
+                                    title = "Transactions",
+                                    subtitle = "${filtered.size} entries"
+                                )
+                            }
+                            items(filtered, key = { it.id }) { transaction ->
+                                FinanceTransactionCard(
+                                    transaction = transaction,
+                                    vaccination = transaction.visitId?.let { vaccinationById[it] },
+                                    patient = transaction.patientId?.let { patientById[it] }
+                                )
+                            }
                         }
                     }
-                }
                 }
             }
         }
@@ -190,64 +206,40 @@ private fun FinanceMonthSummary(
     netProfit: Double,
     profitAvailable: Boolean
 ) {
+    val customColors = LocalCustomColors.current
+
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        SummaryAmountCard(
+        SummaryCard(
+            modifier = Modifier.fillMaxWidth(),
             title = "Revenue",
-            amount = revenue,
-            modifier = Modifier.fillMaxWidth()
+            value = StatisticsUtils.formatRupees(revenue),
+            accentColor = MaterialTheme.colorScheme.primary,
+            supportingText = "Cash ${StatisticsUtils.formatRupees(cash)}  \u00b7  Online ${StatisticsUtils.formatRupees(online)}"
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                PaymentSummary("Cash", cash, Modifier.weight(1f))
-                PaymentSummary("Online", online, Modifier.weight(1f))
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            SummaryAmountCard(
+            SummaryCard(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "COGS + Expenses",
-                amount = cogsAndExpenses,
-                modifier = Modifier.weight(1f)
+                value = StatisticsUtils.formatRupees(cogsAndExpenses),
+                accentColor = customColors.textPink,
+                supportingText = "cost of goods + expenses"
             )
-            SummaryAmountCard(
+            SummaryCard(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Net Profit",
-                amount = netProfit,
-                modifier = Modifier.weight(1f),
-                valueAvailable = profitAvailable
+                value = if (profitAvailable) StatisticsUtils.formatRupees(netProfit) else "Unavailable",
+                accentColor = when {
+                    !profitAvailable -> MaterialTheme.colorScheme.onSurfaceVariant
+                    netProfit >= 0 -> customColors.textSuccess
+                    else -> MaterialTheme.colorScheme.error
+                },
+                supportingText = if (profitAvailable) "after COGS and expenses" else "missing stock cost history"
             )
         }
-    }
-}
-
-@Composable
-private fun SummaryAmountCard(
-    title: String,
-    amount: Double,
-    modifier: Modifier,
-    valueAvailable: Boolean = true,
-    content: @Composable (() -> Unit)? = null
-) {
-    Card(modifier = modifier) {
-        Column(Modifier.padding(Spacing.cardDense), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                if (valueAvailable) formatCurrency(amount) else "Unavailable",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            content?.invoke()
-        }
-    }
-}
-
-@Composable
-private fun PaymentSummary(label: String, amount: Double, modifier: Modifier) {
-    Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(formatCurrency(amount), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -257,8 +249,10 @@ private fun FinanceTransactionCard(
     vaccination: Vaccination?,
     patient: Patient?
 ) {
+    val customColors = LocalCustomColors.current
     val isIncome = transaction.type.equals("INCOME", ignoreCase = true)
-    val accent = MaterialTheme.colorScheme.primary
+    val accent = if (isIncome) customColors.textSuccess else customColors.textPink
+    val iconContainer = if (isIncome) customColors.successContainer else customColors.softPink
     val category = categoryLabel(transaction.category)
     val patientName = patient?.name?.takeIf { it.isNotBlank() }
         ?: vaccination?.patientName?.takeIf { it.isNotBlank() }
@@ -285,47 +279,85 @@ private fun FinanceTransactionCard(
     val amountText = if (isIncome) formatCurrency(transaction.amount) else "-${formatCurrency(transaction.amount)}"
     val date = FinanceCalculator.resolveReportingDate(transaction)
 
-    Card(Modifier.fillMaxWidth()) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = StatTileShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.75f)
+        )
+    ) {
         Row(
-            Modifier.fillMaxWidth().padding(Spacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.card),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    "${if (isIncome) "INCOME" else "EXPENSE"} • $category",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = accent,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    patientName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Given date: ${PatientUtils.formatDateForDisplay(date)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isIncome) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Spacer(Modifier.width(Spacing.md))
+            Spacer(modifier = Modifier.width(Spacing.md))
 
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    amountText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = patientName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${if (isIncome) "Income" else "Expense"} \u00b7 $category",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "  \u00b7  ${PatientUtils.formatDateForDisplay(date)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(Spacing.sm))
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = amountText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isIncome) customColors.textSuccess else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
                 )
                 Text(
-                    paymentModeLabel(transaction),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = paymentModeLabel(transaction),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
         }
@@ -343,7 +375,7 @@ private fun paymentModeLabel(transaction: FinanceTransaction): String {
         transaction.paymentMethod.equals("CASH", true) || transaction.cashAmount > 0 -> "Cash"
         transaction.paymentMethod.equals("ONLINE", true) || transaction.onlineAmount > 0 -> "Online"
         transaction.paymentMethod.isNotBlank() -> categoryLabel(transaction.paymentMethod)
-        else -> "—"
+        else -> "\u2014"
     }
 }
 

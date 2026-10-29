@@ -1,27 +1,32 @@
 package com.neochildclinic.feature.statistics.presentation
 
-import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.BackTopAppBar
-import com.neochildclinic.core.ui.AppPullToRefresh
-import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.ui.AppBackground
+import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.SkeletonList
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
@@ -71,8 +76,13 @@ fun MilestonePatientsScreen(
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
-                    title = { Text(label) },
-                    onBack = onBack
+                    title = { Text("$label milestone", fontWeight = FontWeight.SemiBold) },
+                    onBack = onBack,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
             }
         ) { padding ->
@@ -81,59 +91,208 @@ fun MilestonePatientsScreen(
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize().padding(padding)
             ) {
-                if (isLoading) {
-                    SkeletonList(
-                        modifier = Modifier.fillMaxSize(),
-                        count = 8,
-                        cardShaped = true,
-                        spacing = Spacing.sm,
-                        contentPadding = PaddingValues(Spacing.lg)
-                    )
-                } else if (entries.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "No patients reaching this milestone in the next 2 months.",
-                            modifier = Modifier.padding(Spacing.xl),
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                when {
+                    isLoading -> {
+                        SkeletonList(
+                            modifier = Modifier.fillMaxSize(),
+                            count = 8,
+                            cardShaped = true,
+                            spacing = Spacing.sm,
+                            contentPadding = PaddingValues(Spacing.screen)
                         )
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(Spacing.lg),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(entries, key = { it.first.id }) { (patient, _, milestoneLabel, milestoneDate) ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().clickable { onPatientClick(patient.id) },
-                                shape = MaterialTheme.shapes.large,
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            ) {
-                                Column(modifier = Modifier.padding(Spacing.lg)) {
-                                    Text(patient.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(Spacing.xs))
-                                    Text(
-                                        "DOB: ${PatientUtils.formatDateForDisplay(patient.dob)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    if (milestoneDate != null) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            "Milestone: $milestoneLabel — $milestoneDate",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
+
+                    entries.isEmpty() -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(Spacing.screen),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            StatisticsEmptyState(
+                                icon = Icons.Default.CalendarMonth,
+                                title = "No patients",
+                                message = if (milestoneKey == "older") {
+                                    "No patients are older than 19 months."
+                                } else {
+                                    "No patients are reaching this milestone in the next 2 months."
                                 }
+                            )
+                        }
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = Spacing.screen,
+                                end = Spacing.screen,
+                                top = Spacing.lg,
+                                bottom = Spacing.xxl
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            item {
+                                MilestoneSummaryBanner(
+                                    label = label,
+                                    count = entries.size,
+                                    older = milestoneKey == "older"
+                                )
+                            }
+
+                            item {
+                                StatisticsSectionHeader(
+                                    title = "Patients",
+                                    subtitle = "${entries.size} in this milestone"
+                                )
+                                Spacer(modifier = Modifier.height(Spacing.xs))
+                            }
+
+                            items(entries, key = { it.first.id }) { (patient, _, milestoneLabel, milestoneDate) ->
+                                MilestonePatientCard(
+                                    patient = patient,
+                                    milestoneLabel = milestoneLabel,
+                                    milestoneDate = milestoneDate,
+                                    onClick = { onPatientClick(patient.id) }
+                                )
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MilestoneSummaryBanner(label: String, count: Int, older: Boolean) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ChartContainerShape,
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.xl),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(Spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "$label milestone",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (older) {
+                        "$count patients older than 19 months"
+                    } else {
+                        "$count patients reaching this milestone in the next 2 months"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MilestonePatientCard(
+    patient: com.neochildclinic.domain.model.Patient,
+    milestoneLabel: String,
+    milestoneDate: String?,
+    onClick: () -> Unit
+) {
+    val customColors = LocalCustomColors.current
+    val age = remember(patient.dob) { PatientUtils.formatAgeYearsMonths(patient.dob) }
+    val dob = remember(patient.dob) { PatientUtils.formatDateForDisplay(patient.dob) }
+    val milestoneColor = if (milestoneDate == null) {
+        customColors.textOrange
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val milestoneContainer = if (milestoneDate == null) {
+        customColors.softOrange
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = StatTileShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.75f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.card),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PatientAvatar(name = patient.name)
+            Spacer(modifier = Modifier.width(Spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = patient.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = listOfNotNull(
+                        "DOB $dob",
+                        age?.let { "$it old" }
+                    ).joinToString("  \u00b7  "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(Spacing.xs))
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = milestoneContainer
+                ) {
+                    Text(
+                        text = if (milestoneDate != null) {
+                            "$milestoneLabel \u00b7 $milestoneDate"
+                        } else {
+                            "$milestoneLabel \u00b7 older than 19 months"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = milestoneColor,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(Spacing.xs))
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

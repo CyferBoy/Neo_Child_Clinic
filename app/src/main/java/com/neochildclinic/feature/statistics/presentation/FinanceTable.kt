@@ -1,26 +1,27 @@
 package com.neochildclinic.feature.statistics.presentation
 
-import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.util.Locale
 
 @Composable
@@ -46,57 +47,220 @@ fun FinanceTable(
         )
     }
 
+    if (displayData.isEmpty()) {
+        StatisticsEmptyState(
+            icon = Icons.Default.ReceiptLong,
+            title = "No monthly data",
+            message = "No financial records match the selected period."
+        )
+        return
+    }
+
+    val reversed = displayData.asReversed()
+    val customColors = LocalCustomColors.current
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = StatTileShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.75f)
+        )
+    ) {
+        Column {
+            reversed.forEachIndexed { index, data ->
+                val previous = reversed.getOrNull(index + 1)
+                FinanceMonthRow(
+                    data = data,
+                    previous = previous,
+                    onMonthClick = onMonthClick
+                )
+                if (index < reversed.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = Spacing.card),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+            }
+
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline
+            )
+            FinanceTotalRow(
+                dataList = displayData,
+                positiveColor = customColors.textSuccess
+            )
+        }
+    }
+}
+
+@Composable
+private fun FinanceMonthRow(
+    data: FinanceSummaryItem,
+    previous: FinanceSummaryItem?,
+    onMonthClick: (String) -> Unit
+) {
+    val customColors = LocalCustomColors.current
+    val improvement = if (data.isProfitComplete && (previous?.isProfitComplete != false)) {
+        FinanceCalculator.calculateImprovement(data.netProfit, previous?.netProfit ?: 0.0)
+    } else {
+        null
+    }
+    val netColor = when {
+        !data.isProfitComplete -> MaterialTheme.colorScheme.onSurfaceVariant
+        data.netProfit >= 0 -> customColors.textSuccess
+        else -> MaterialTheme.colorScheme.error
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), MaterialTheme.shapes.small)
-            .padding(Spacing.sm)
+            .clickable { onMonthClick(data.key) }
+            .padding(Spacing.card)
     ) {
-        FinanceTableHeader()
-        HorizontalDivider()
-        displayData.asReversed().forEachIndexed { index, data ->
-            val previous = displayData.asReversed().getOrNull(index + 1)
-            FinanceTableRow(data, previous, onMonthClick)
-            if (index < displayData.lastIndex) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = data.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (improvement != null) {
+                        "${improvementLabel(improvement)} vs previous month"
+                    } else {
+                        "No comparison available"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = when {
+                        improvement == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                        improvement >= 0 -> customColors.textSuccess
+                        else -> MaterialTheme.colorScheme.error
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = if (data.isProfitComplete) StatisticsUtils.formatRupees(data.netProfit) else "Unavailable",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = netColor
+                )
+                Text(
+                    text = "net",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(Spacing.xs))
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
         }
-        FinanceTableTotalRow(displayData)
+
+        Spacer(modifier = Modifier.height(Spacing.sm))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            FinanceMiniMetric(
+                label = "Revenue",
+                value = StatisticsUtils.formatRupees(data.revenue),
+                modifier = Modifier.weight(1f)
+            )
+            FinanceMiniMetric(
+                label = "COGS",
+                value = if (data.isProfitComplete) StatisticsUtils.formatRupees(data.vaccineCost) else "Unavailable",
+                modifier = Modifier.weight(1f)
+            )
+            FinanceMiniMetric(
+                label = "Expense",
+                value = StatisticsUtils.formatRupees(data.expenses),
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
 @Composable
-private fun FinanceTableHeader() {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm)) {
-        Text("Month", Modifier.weight(1.15f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-        Text("Revenue", Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
-        Text("COGS", Modifier.weight(0.9f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
-        Text("Expense", Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
-        Text("Net", Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
+private fun FinanceMiniMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label.uppercase(Locale.getDefault()),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.6.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Spacer(modifier = Modifier.height(1.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
 @Composable
-private fun FinanceTableRow(data: FinanceSummaryItem, previous: FinanceSummaryItem?, onMonthClick: (String) -> Unit) {
-    val improvement = if (data.isProfitComplete && (previous?.isProfitComplete != false)) FinanceCalculator.calculateImprovement(data.netProfit, previous?.netProfit ?: 0.0) else null
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable { onMonthClick(data.key) }.padding(vertical = Spacing.md),
-        verticalAlignment = Alignment.CenterVertically
+private fun FinanceTotalRow(dataList: List<FinanceSummaryItem>, positiveColor: androidx.compose.ui.graphics.Color) {
+    val totalRevenue = dataList.sumOf { it.revenue }
+    val totalCogs = dataList.sumOf { it.vaccineCost }
+    val totalExpenses = dataList.sumOf { it.expenses }
+    val allProfitComplete = dataList.all { it.isProfitComplete }
+    val totalNet = dataList.sumOf { it.netProfit }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(Spacing.card)
     ) {
-        Text(data.label, Modifier.weight(1.15f), style = MaterialTheme.typography.bodySmall)
-        Text(StatisticsUtils.formatRupees(data.revenue), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(if (data.isProfitComplete) StatisticsUtils.formatRupees(data.vaccineCost) else "Unavailable", Modifier.weight(0.9f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(StatisticsUtils.formatRupees(data.expenses), Modifier.weight(0.95f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Column(Modifier.weight(0.95f), horizontalAlignment = Alignment.End) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (data.isProfitComplete) StatisticsUtils.formatRupees(data.netProfit) else "Unavailable",
+                text = "Total",
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.End,
-                color = if (data.netProfit >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                modifier = Modifier.weight(1f)
             )
             Text(
-                improvement?.let { improvementLabel(it) } ?: "N/A",
-                style = MaterialTheme.typography.labelSmall,
-                color = if ((improvement ?: 0.0) >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                text = if (allProfitComplete) StatisticsUtils.formatRupees(totalNet) else "Unavailable",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    !allProfitComplete -> MaterialTheme.colorScheme.onSurfaceVariant
+                    totalNet >= 0 -> positiveColor
+                    else -> MaterialTheme.colorScheme.error
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(Spacing.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            FinanceMiniMetric(
+                label = "Revenue",
+                value = StatisticsUtils.formatRupees(totalRevenue),
+                modifier = Modifier.weight(1f)
+            )
+            FinanceMiniMetric(
+                label = "COGS",
+                value = if (allProfitComplete) StatisticsUtils.formatRupees(totalCogs) else "Unavailable",
+                modifier = Modifier.weight(1f)
+            )
+            FinanceMiniMetric(
+                label = "Expense",
+                value = StatisticsUtils.formatRupees(totalExpenses),
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -104,23 +268,3 @@ private fun FinanceTableRow(data: FinanceSummaryItem, previous: FinanceSummaryIt
 
 private fun improvementLabel(value: Double): String =
     String.format(Locale.getDefault(), "%+.1f%%", value)
-
-@Composable
-private fun FinanceTableTotalRow(dataList: List<FinanceSummaryItem>) {
-    val totalRevenue = dataList.sumOf { it.revenue }
-    val totalCogs = dataList.sumOf { it.vaccineCost }
-    val totalExpenses = dataList.sumOf { it.expenses }
-    val allProfitComplete = dataList.all { it.isProfitComplete }
-    val totalNet = dataList.sumOf { it.netProfit }
-    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("TOTAL", Modifier.weight(1.15f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-        Text(StatisticsUtils.formatRupees(totalRevenue), Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(if (allProfitComplete) StatisticsUtils.formatRupees(totalCogs) else "Unavailable", Modifier.weight(0.9f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(StatisticsUtils.formatRupees(totalExpenses), Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-        Text(if (allProfitComplete) StatisticsUtils.formatRupees(totalNet) else "Unavailable", Modifier.weight(0.95f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-    }
-}

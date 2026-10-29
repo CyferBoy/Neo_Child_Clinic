@@ -1,31 +1,29 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.feature.statistics.domain.FinanceStatsData
-import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
-import com.neochildclinic.feature.statistics.domain.VisitTypeStats
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.FinanceTransaction
-import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.FinanceStatsData
+import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import com.neochildclinic.feature.statistics.domain.VisitTypeStats
 import java.time.YearMonth
-import java.util.*
+import java.util.Locale
 
 @Composable
 fun OverviewTab(
@@ -52,7 +50,7 @@ fun OverviewTab(
         StatisticsDateUtils.computeEffectiveRegistrationDates(patients, vaccinations)
     }
 
-    // Current period data — patients use effective registration date
+    // Current period data - patients use effective registration date
     val filteredPatients = remember(patients, effectiveRegDates, filterMode, fyQuarter, selectedMonth) {
         patients.filter { StatisticsUtils.isEffectiveDateInFilter(effectiveRegDates[it.id], filterMode, fyQuarter, selectedMonth) }
     }
@@ -63,7 +61,7 @@ fun OverviewTab(
         financeTransactions.filter { StatisticsUtils.isDateInFilter(FinanceCalculator.resolveReportingDate(it), filterMode, fyQuarter, selectedMonth) }
     }
 
-    // Previous period data for growth calculation — skipped when Overall (no meaningful comparison)
+    // Previous period data for growth calculation - skipped when Overall (no meaningful comparison)
     val isOverall = filterMode == "Overall"
     val (prevFilter, prevQuarter, prevMonth) = remember(filterMode, fyQuarter, selectedMonth) {
         StatisticsUtils.getPreviousPeriodFilter(filterMode, fyQuarter, selectedMonth)
@@ -86,7 +84,7 @@ fun OverviewTab(
         if (isOverall) VisitTypeStats(0, 0, 0) else StatisticsUtils.visitTypeStatsForFilter(vaccinations, prevFilter, prevQuarter, prevMonth)
     }
 
-    // Quick Overview Chart Data — Patient Activity (last 6 months, filter-aware)
+    // Quick Overview Chart Data - Patient Activity (last 6 months, filter-aware)
     val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
 
     val currentFinanceStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
@@ -128,7 +126,7 @@ fun OverviewTab(
         }
     }
 
-    // Quick Overview Chart Data — Financial Trend (last 6 months, filter-aware)
+    // Quick Overview Chart Data - Financial Trend (last 6 months, filter-aware)
     val financialTrendData = remember(financeTransactions, filterMode, fyQuarter, selectedMonth) {
         val months = StatisticsDateUtils.lastNMonths(6)
         val monthKeys = months.toSet()
@@ -200,8 +198,8 @@ private fun OverviewContent(
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
-    currentStats: com.neochildclinic.feature.statistics.domain.FinanceStatsData,
-    prevStats: com.neochildclinic.feature.statistics.domain.FinanceStatsData,
+    currentStats: FinanceStatsData,
+    prevStats: FinanceStatsData,
     patientsCount: Int,
     prevPatientsCount: Int,
     vaccPatientsCount: Int,
@@ -219,12 +217,26 @@ private fun OverviewContent(
     onFullReportClick: () -> Unit
 ) {
     val customColors = LocalCustomColors.current
+    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val fyOptions = remember(availableYears) { availableYears.reversed().map { "20$it" } }
+    val overall = filterMode == "Overall"
+
+    val patientColor = if (darkTheme) ChartPatientsDark else ChartPatients
+    val consultationColor = if (darkTheme) ChartConsultationsDark else ChartConsultations
+    val vaccinationColor = if (darkTheme) ChartVaccinationsDark else ChartVaccinations
+    val revenueColor = if (darkTheme) ChartRevenueDark else ChartRevenue
+    val onlineColor = if (darkTheme) ChartOnlineDark else ChartOnline
+    val cashColor = if (darkTheme) ChartCashDark else ChartCash
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)).padding(horizontal = Spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
-        contentPadding = PaddingValues(bottom = Spacing.xl)
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = Spacing.screen,
+            end = Spacing.screen,
+            top = Spacing.lg,
+            bottom = Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xl)
     ) {
         item {
             FilterSection(
@@ -232,194 +244,214 @@ private fun OverviewContent(
                 filterMode = filterMode,
                 fyQuarter = fyQuarter,
                 selectedMonth = selectedMonth,
-                onFilterModeChange = { onFilterModeChange(it) },
+                onFilterModeChange = onFilterModeChange,
                 onQuarterChange = onQuarterChange,
-                onMonthChange = onMonthChange,
-                modifier = Modifier.padding(top = Spacing.lg)
+                onMonthChange = onMonthChange
             )
+        }
+
+        item {
+            StatisticsSectionHeader(
+                title = "Summary",
+                subtitle = "Selected period at a glance"
+            )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                MetricRow {
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Total Patients",
+                        value = String.format(Locale.US, "%,d", patientsCount),
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        supportingText = "in selected period",
+                        growthPercentage = StatisticsUtils.calculateGrowth(patientsCount.toDouble(), prevPatientsCount.toDouble())
+                    )
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "New Registrations",
+                        value = String.format(Locale.US, "%,d", patientsCount),
+                        accentColor = customColors.textSuccess,
+                        supportingText = "effective registration date",
+                        growthPercentage = StatisticsUtils.calculateGrowth(patientsCount.toDouble(), prevPatientsCount.toDouble())
+                    )
+                }
+                MetricRow {
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Consulted Patients",
+                        value = String.format(Locale.US, "%,d", consultedPatientsCount),
+                        accentColor = customColors.textPurple,
+                        supportingText = "unique patients",
+                        growthPercentage = StatisticsUtils.calculateGrowth(consultedPatientsCount.toDouble(), prevConsultedPatientsCount.toDouble())
+                    )
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Vaccinated Patients",
+                        value = String.format(Locale.US, "%,d", vaccPatientsCount),
+                        accentColor = customColors.textOrange,
+                        supportingText = "unique patients",
+                        growthPercentage = StatisticsUtils.calculateGrowth(vaccPatientsCount.toDouble(), prevVaccPatientsCount.toDouble())
+                    )
+                }
+                MetricRow {
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Total Consultation",
+                        value = String.format(Locale.US, "%,d", totalConsultationCount),
+                        accentColor = customColors.textBlue,
+                        supportingText = "consultation visits",
+                        growthPercentage = StatisticsUtils.calculateGrowth(totalConsultationCount.toDouble(), prevTotalConsultationCount.toDouble())
+                    )
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Total Vaccination",
+                        value = String.format(Locale.US, "%,d", totalVaccinationCount),
+                        accentColor = customColors.textOrange,
+                        supportingText = "vaccination visits",
+                        growthPercentage = StatisticsUtils.calculateGrowth(totalVaccinationCount.toDouble(), prevTotalVaccinationCount.toDouble())
+                    )
+                }
+                SummaryCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = "Total Doses",
+                    value = String.format(Locale.US, "%,d", dosesCount),
+                    accentColor = MaterialTheme.colorScheme.primary,
+                    supportingText = "administered doses in the selected period",
+                    growthPercentage = StatisticsUtils.calculateGrowth(dosesCount.toDouble(), prevDosesCount.toDouble())
+                )
+            }
+        }
+
+        item {
+            StatisticsSectionHeader(
+                title = "Finance",
+                subtitle = "Payments and profitability"
+            )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                MetricRow {
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Revenue",
+                        value = StatisticsUtils.formatRupees(currentStats.totalRevenue),
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        supportingText = "vaccination + consultation",
+                        growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
+                    )
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Net Profit",
+                        value = if (currentStats.isProfitComplete) StatisticsUtils.formatRupees(currentStats.netProfit) else "Unavailable",
+                        accentColor = when {
+                            !currentStats.isProfitComplete -> MaterialTheme.colorScheme.onSurfaceVariant
+                            currentStats.netProfit >= 0 -> customColors.textSuccess
+                            else -> MaterialTheme.colorScheme.error
+                        },
+                        supportingText = if (currentStats.isProfitComplete) "after COGS and expenses" else "missing stock cost history",
+                        growthPercentage = if (overall || !currentStats.isProfitComplete || !prevStats.isProfitComplete) {
+                            null
+                        } else {
+                            StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit)
+                        }
+                    )
+                }
+                MetricRow {
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Cash",
+                        value = StatisticsUtils.formatRupees(currentStats.cashTotal),
+                        accentColor = customColors.textSuccess,
+                        supportingText = "cash payments",
+                        growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
+                    )
+                    SummaryCard(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        title = "Online",
+                        value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
+                        accentColor = customColors.textBlue,
+                        supportingText = "online payments",
+                        growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
+                    )
+                }
+            }
+        }
+
+        item {
+            StatisticsSectionHeader(
+                title = "Trends",
+                subtitle = "Last 6 months"
+            )
+        }
+
+        item {
+            TrendChart(
+                title = "Financial trend",
+                subtitle = "Revenue, online and cash (\u20b9K)",
+                data = financialTrendData,
+                seriesLabels = listOf("Revenue", "Online", "Cash"),
+                seriesColors = listOf(revenueColor, onlineColor, cashColor)
+            )
+        }
+
+        item {
+            TrendChart(
+                title = "Patient activity",
+                subtitle = "Registrations, consultations and vaccinations",
+                data = patientActivityData,
+                seriesLabels = listOf("Patients", "Consultations", "Vaccinations"),
+                seriesColors = listOf(patientColor, consultationColor, vaccinationColor)
+            )
+        }
+
+        item {
+            OutlinedButton(
+                onClick = onFullReportClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            ) {
+                Text(
+                    text = "View full report",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
 
         item {
             Text(
-                "Summary",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = Spacing.sm)
+                text = "Data refreshes from local records. Offline changes are included.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
-        }
-
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Total Patients",
-                    value = String.format(Locale.US, "%,d", patientsCount),
-                    icon = Icons.Default.Person,
-                    iconColor = customColors.textBlue,
-                    iconBackground = customColors.softBlue,
-                    growthPercentage = StatisticsUtils.calculateGrowth(patientsCount.toDouble(), prevPatientsCount.toDouble())
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "New Patients",
-                    value = String.format(Locale.US, "%,d", patientsCount), // Assuming new patients = registered in period
-                    icon = Icons.Default.PersonAdd,
-                    iconColor = customColors.textGreen,
-                    iconBackground = customColors.softGreen,
-                    growthPercentage = StatisticsUtils.calculateGrowth(patientsCount.toDouble(), prevPatientsCount.toDouble())
-                )
-            }
-        }
-
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Consulted Patients",
-                    value = String.format(Locale.US, "%,d", consultedPatientsCount),
-                    icon = Icons.Default.Groups,
-                    iconColor = customColors.textPurple,
-                    iconBackground = customColors.softPurple,
-                    growthPercentage = StatisticsUtils.calculateGrowth(consultedPatientsCount.toDouble(), prevConsultedPatientsCount.toDouble())
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Vaccinated Patients",
-                    value = String.format(Locale.US, "%,d", vaccPatientsCount),
-                    icon = Icons.Default.VerifiedUser,
-                    iconColor = customColors.textCyan,
-                    iconBackground = customColors.softCyan,
-                    growthPercentage = StatisticsUtils.calculateGrowth(vaccPatientsCount.toDouble(), prevVaccPatientsCount.toDouble())
-                )
-            }
-        }
-
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Total Consultation",
-                    value = String.format(Locale.US, "%,d", totalConsultationCount),
-                    icon = Icons.Default.MedicalServices,
-                    iconColor = customColors.textPink,
-                    iconBackground = customColors.softPink,
-                    growthPercentage = StatisticsUtils.calculateGrowth(totalConsultationCount.toDouble(), prevTotalConsultationCount.toDouble())
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Total Vaccination",
-                    value = String.format(Locale.US, "%,d", totalVaccinationCount),
-                    icon = Icons.Default.Vaccines,
-                    iconColor = customColors.textOrange,
-                    iconBackground = customColors.softOrange,
-                    growthPercentage = StatisticsUtils.calculateGrowth(totalVaccinationCount.toDouble(), prevTotalVaccinationCount.toDouble())
-                )
-            }
-        }
-
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Total Doses",
-                    value = String.format(Locale.US, "%,d", dosesCount),
-                    icon = Icons.Default.Vaccines,
-                    iconColor = customColors.textOrange,
-                    iconBackground = customColors.softOrange,
-                    growthPercentage = StatisticsUtils.calculateGrowth(dosesCount.toDouble(), prevDosesCount.toDouble())
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Revenue",
-                    value = StatisticsUtils.formatRupees(currentStats.totalRevenue),
-                    icon = Icons.Default.CurrencyRupee,
-                    iconColor = customColors.textBlue,
-                    iconBackground = customColors.softBlue,
-                    growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
-                )
-            }
-        }
-
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Cash",
-                    value = StatisticsUtils.formatRupees(currentStats.cashTotal),
-                    icon = Icons.Default.Payments,
-                    iconColor = customColors.textGreen,
-                    iconBackground = customColors.softGreen,
-                    growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Online",
-                    value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
-                    icon = Icons.Default.CreditCard,
-                    iconColor = customColors.textBlue,
-                    iconBackground = customColors.softBlue,
-                    growthPercentage = if (filterMode == "Overall") null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
-                )
-            }
-        }
-
-        item {
-            SummaryCard(
-                modifier = Modifier.fillMaxWidth(),
-                title = "Net Profit",
-                value = if (currentStats.isProfitComplete) StatisticsUtils.formatRupees(currentStats.netProfit) else "Unavailable",
-                icon = Icons.Default.TrendingUp,
-                iconColor = customColors.textPink,
-                iconBackground = customColors.softPink,
-                growthPercentage = if (filterMode == "Overall" || !currentStats.isProfitComplete || !prevStats.isProfitComplete) null else StatisticsUtils.calculateGrowth(currentStats.netProfit, prevStats.netProfit)
-            )
-        }
-
-        item {
-            Column(modifier = Modifier.padding(vertical = Spacing.sm)) {
-                Text(
-                    "Quick Overview",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(Spacing.lg))
-                TrendChart(
-                    title = "Patient Activity (Last 6 Months)",
-                    data = patientActivityData,
-                    seriesLabels = listOf("Patients", "Consultations", "Vaccinations"),
-                    seriesColors = listOf(ChartPatients, ChartConsultations, ChartVaccinations)
-                )
-                Spacer(modifier = Modifier.height(Spacing.lg))
-                TrendChart(
-                    title = "Financial Trend (Last 6 Months, ₹K)",
-                    data = financialTrendData,
-                    seriesLabels = listOf("Revenue", "Online", "Cash"),
-                    seriesColors = listOf(ChartRevenue, ChartOnline, ChartCash)
-                )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm).clickable { onFullReportClick() },
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "View full report",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(Spacing.lg)
-                )
-            }
         }
     }
 }
 
-
+@Composable
+private fun MetricRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Max),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        content = content
+    )
+}
