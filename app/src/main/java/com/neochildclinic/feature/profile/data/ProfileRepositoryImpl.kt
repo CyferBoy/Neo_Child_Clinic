@@ -1,8 +1,7 @@
 package com.neochildclinic.feature.profile.data
 
 import com.neochildclinic.data.local.dao.ProfileDao
-import androidx.room.withTransaction
-import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
@@ -30,7 +29,7 @@ class ProfileRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val auth: Auth,
-    private val database: com.neochildclinic.data.local.database.AppDatabase
+    private val transactionRunner: TransactionRunner
 ) : ProfileRepository {
 
     override val allProfiles: Flow<List<Profile>> = 
@@ -103,7 +102,7 @@ class ProfileRepositoryImpl @Inject constructor(
         // profile and enqueueing in two separate statements let a kill between them lose the edit
         // silently (it was reverted by the next pull). One transaction, like every other
         // repository write path.
-        database.withTransaction {
+        transactionRunner.run {
             profileDao.insertProfile(profile.toEntity())
             syncRepository.enqueue(
                 entityName = "PROFILE",

@@ -451,6 +451,7 @@ class ReminderRepositoryImpl @Inject constructor(
                 }
                 transactionRunner.run {
                     val pendingReminderIds = syncQueueDao.unsyncedIdSet("REMINDERS")
+                    var skippedOrphanedCount = 0
                     for (remote in entities) {
                         // Guard against reminders whose parent visit no longer exists
                         // locally. A visit deletion that didn't (or hadn't yet) cleaned up
@@ -460,7 +461,8 @@ class ReminderRepositoryImpl @Inject constructor(
                         // with a foreign key violation. Skip it instead.
                         val visitExists = vaccinationDao.getVaccinationById(remote.originalVisitId) != null
                         if (!visitExists) {
-                            android.util.Log.e("ReminderRepo", "Skipping orphaned remote reminder for missing visit ${remote.originalVisitId}")
+                            skippedOrphanedCount++
+                            android.util.Log.d("ReminderRepo", "Skipping orphaned remote reminder for missing visit ${remote.originalVisitId}")
                             continue
                         }
 
@@ -509,6 +511,10 @@ class ReminderRepositoryImpl @Inject constructor(
                         remoteIds = entities.mapNotNull { it.id }.toSet(),
                         pendingIds = pendingReminderIds
                     ).flatten().forEach { dueReminderDao.deleteReminderById(it) }
+
+                    if (skippedOrphanedCount > 0) {
+                        android.util.Log.w("ReminderRepo", "Skipped $skippedOrphanedCount orphaned remote reminders for missing visits locally.")
+                    }
                 }
                 android.util.Log.d("ReminderRepo", "Refreshed ${entities.size} reminders")
     }

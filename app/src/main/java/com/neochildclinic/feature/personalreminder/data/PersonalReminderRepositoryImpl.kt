@@ -26,6 +26,9 @@ import com.neochildclinic.core.sync.RemotePrune
 @Singleton
 class PersonalReminderRepositoryImpl @Inject constructor(
     private val dao: PersonalReminderDao,
+    private val patientDao: com.neochildclinic.data.local.dao.PatientDao,
+    private val vaccineDao: com.neochildclinic.data.local.dao.VaccineDao,
+    private val transactionRunner: com.neochildclinic.core.database.TransactionRunner,
     private val syncRepository: SyncRepository,
     private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
     private val postgrest: Postgrest,
@@ -186,23 +189,43 @@ syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIU
         // One bulk queue read per refresh instead of one per row (SyncQueueDao.unsyncedIdSet
         // callers) - same semantics as the per-row isUnsynced call this replaces.
         val pendingReminderIds = syncQueueDao.unsyncedIdSet("PERSONAL_REMINDER")
-        remote.forEach { r ->
-            val local = dao.getById(r.id)
-            // Queue-aware guard: see FinanceRepositoryImpl - isSynced alone is not enough,
-            // a row edited during its own upload would be rolled back by this pull.
-            if (local == null || (local.isSynced && r.id !in pendingReminderIds)) {
-                dao.insert(r.copy(isSynced = true))
+        var skippedMissingPatient = 0
+
+        transactionRunner.run {
+            remote.forEach { r ->
+                val local = dao.getById(r.id)
+                // Queue-aware guard: see FinanceRepositoryImpl - isSynced alone is not enough,
+                // a row edited during its own upload would be rolled back by this pull.
+                if (local == null || (local.isSynced && r.id !in pendingReminderIds)) {
+                    // FOREIGN KEY CHECK 1: Ensure patient exists locally if patient_id is set
+                    if (!r.patientId.isNullOrBlank() && patientDao.getPatientById(r.patientId) == null) {
+                        skippedMissingPatient++
+                        return@forEach
+                    }
+                    // FOREIGN KEY CHECK 2: If vaccine_id is set but missing locally, null it out
+                    // (vaccine_id FK is SET NULL on delete; vaccineLabel retains the display text)
+                    val safeReminder = if (!r.vaccineId.isNullOrBlank() && vaccineDao.getVaccineById(r.vaccineId) == null) {
+                        r.copy(vaccineId = null, isSynced = true)
+                    } else {
+                        r.copy(isSynced = true)
+                    }
+                    dao.insert(safeReminder)
+                }
             }
+
+            // Remote-deletion propagation (NCC-023 / DA-01): synced reminders the remote set no
+            // longer lists and no queue entry claims leave this device (patient link cascades,
+            // vaccine reference is SET NULL).
+            RemotePrune.computeBatches(
+                localIds = dao.getPersonalReminderIds(),
+                syncedIds = dao.getSyncedPersonalReminderIds().toSet(),
+                remoteIds = remote.mapTo(HashSet()) { it.id },
+                pendingIds = pendingReminderIds
+            ).flatten().forEach { dao.delete(it) }
         }
 
-        // Remote-deletion propagation (NCC-023 / DA-01): synced reminders the remote set no
-        // longer lists and no queue entry claims leave this device (patient link cascades,
-        // vaccine reference is SET NULL).
-        RemotePrune.computeBatches(
-            localIds = dao.getPersonalReminderIds(),
-            syncedIds = dao.getSyncedPersonalReminderIds().toSet(),
-            remoteIds = remote.mapTo(HashSet()) { it.id },
-            pendingIds = pendingReminderIds
-        ).flatten().forEach { dao.delete(it) }
+        if (skippedMissingPatient > 0) {
+            Log.w("PersonalReminder", "Skipped $skippedMissingPatient personal reminders whose patient is not local yet (retried on next refresh)")
+        }
     }
 }

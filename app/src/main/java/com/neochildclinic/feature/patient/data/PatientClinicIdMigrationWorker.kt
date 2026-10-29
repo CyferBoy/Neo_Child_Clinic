@@ -3,7 +3,7 @@ package com.neochildclinic.feature.patient.data
 import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
-import androidx.room.withTransaction
+import com.neochildclinic.core.database.TransactionRunner
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.core.logger.AuditLogger
@@ -23,7 +23,8 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
     private val syncRepository: SyncRepositoryImpl,
     private val auditLogger: AuditLogger,
     private val preferenceManager: PreferenceManager,
-    private val idGenerator: PatientIdGenerator
+    private val idGenerator: PatientIdGenerator,
+    private val transactionRunner: TransactionRunner
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -40,7 +41,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                 return Result.success()
             }
 
-            database.withTransaction {
+            transactionRunner.run {
                 for (patient in patientsToMigrate) {
                     // Same generator as new patients, so legacy rows get the per-install
                     // suffix that prevents cross-device clinic-ID collisions.

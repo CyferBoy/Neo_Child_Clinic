@@ -92,14 +92,13 @@ class RefreshDataUseCase @Inject constructor(
         step("Today's Patient todos") { patientTodoRepository.refresh() }
         step("Reminders") { reminderRepository.refreshReminders() }
 
-        // 2. Inventory must land before vaccination_items. vaccination_items has Room
-        // foreign keys to vaccines and vaccine_batches, so importing items in parallel can
-        // otherwise permanently skip them on a fresh install.
-        // Parallel: waste and inventory have no FK dependency on each other.
-        kotlinx.coroutines.awaitAll(
-            async { step("Waste") { wasteRepository.refreshWaste() } },
-            async { step("Inventory") { inventoryRepository.refreshInventory() } }
-        )
+        // 2. Inventory must land before vaccination_items and personal reminders.
+        // vaccination_items has Room foreign keys to vaccines and vaccine_batches, and
+        // personal reminders can reference vaccine_id.
+        // Sequential: SQLite permits only one write transaction at a time; running
+        // them sequentially avoids database lock contention.
+        step("Inventory") { inventoryRepository.refreshInventory() }
+        step("Waste") { wasteRepository.refreshWaste() }
 
         // Personal Vaccine Reminders can reference a vaccine_id via a Room foreign key
         // (SET NULL on delete, but still enforced on insert) - must run after inventory

@@ -1,6 +1,7 @@
 package com.neochildclinic.data.backup
 
-import androidx.room.withTransaction
+import androidx.room.Transactor
+import androidx.room.useWriterConnection
 import com.neochildclinic.data.local.database.AppDatabase
 
 /**
@@ -12,7 +13,11 @@ class BackupCollector(private val database: AppDatabase) {
 
     /** Runs every table read in one transaction so an auto-backup racing a commit sees the
      * state either before or after it, never a half-written mix. */
-    suspend fun collect(): BackupPayloadV1 = database.withTransaction { snapshot() }
+    suspend fun collect(): BackupPayloadV1 = database.useWriterConnection { transactor ->
+        transactor.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
+            snapshot()
+        }
+    }
 
     private suspend fun snapshot(): BackupPayloadV1 {
         val backupDao = database.backupDao()

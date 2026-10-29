@@ -6,8 +6,10 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.util.Log
 import com.neochildclinic.core.notification.NotificationHelper
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 
 /**
  * Receives the asynchronous result from Android PackageInstaller.
@@ -16,11 +18,13 @@ import javax.inject.Inject
  * needs to actually reach the user rather than just sitting in Logcat - see
  * showUpdateInstallFailed().
  */
-@AndroidEntryPoint
 class AppUpdateInstallReceiver : BroadcastReceiver() {
 
-    @Inject
-    lateinit var notificationHelper: NotificationHelper
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface AppUpdateInstallReceiverEntryPoint {
+        fun notificationHelper(): NotificationHelper
+    }
 
     companion object {
         const val ACTION_INSTALL_STATUS = "com.neochildclinic.UPDATE_INSTALL_STATUS"
@@ -37,6 +41,12 @@ class AppUpdateInstallReceiver : BroadcastReceiver() {
         )
         val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
         val sessionId = intent.getIntExtra(EXTRA_SESSION_ID, -1)
+
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            AppUpdateInstallReceiverEntryPoint::class.java
+        )
+        val notificationHelper = entryPoint.notificationHelper()
 
         if (status == PackageInstaller.STATUS_SUCCESS) {
             Log.i(TAG, "Update installed successfully. sessionId=$sessionId")

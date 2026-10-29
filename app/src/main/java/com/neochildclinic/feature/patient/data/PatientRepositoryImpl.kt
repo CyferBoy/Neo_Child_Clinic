@@ -20,10 +20,10 @@ import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepos
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.feature.patient.data.PatientIdGenerator
 import com.neochildclinic.data.local.database.AppDatabase
 import androidx.room.InvalidationTracker
-import androidx.room.withTransaction
 import com.neochildclinic.core.preferences.PreferenceManager
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -55,7 +55,8 @@ class PatientRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val vaccinationRepository: dagger.Lazy<VaccinationRepository>,
     private val patientCache: PatientCache,
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    private val transactionRunner: TransactionRunner
 ) : PatientRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -198,7 +199,7 @@ class PatientRepositoryImpl @Inject constructor(
         // BUG-004: mint the clinic ID and insert inside one transaction so concurrent
         // saves cannot both land on the same ID; the create path uses the ABORT insert
         // so a collision fails loudly instead of REPLACE-deleting the other patient.
-        val entity = database.withTransaction {
+        val entity = transactionRunner.run {
             val finalClinicId = if (patient.patientClinicId.isNullOrBlank()) {
                 idGenerator.generateUniqueClinicId()
             } else {
@@ -248,7 +249,7 @@ class PatientRepositoryImpl @Inject constructor(
         // commit together - no partial state). Previously every deleteX() was followed by
         // its own enqueue outside any transaction, so a crash mid-way left deletes without
         // their queue rows (remote rows surviving) or queue rows without deletes.
-        database.withTransaction {
+        transactionRunner.run {
             val deleteGroupId = java.util.UUID.randomUUID().toString()
             val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
             val reminders = dueReminderDao.getDueRemindersForPatient(id).first()

@@ -462,8 +462,12 @@ abstract class AppDatabase : RoomDatabase() {
                         // PRAGMA busy_timeout prevents SQLiteDatabaseLockedException (code 5)
                         // when concurrent background tasks (sync, InvalidationTracker, repositories)
                         // access the database simultaneously.
-                        connection.execute("PRAGMA busy_timeout = 30000;", null, null)
-                        connection.execute("PRAGMA synchronous = NORMAL;", null, null)
+                        try {
+                            connection.execute("PRAGMA busy_timeout = 30000;", emptyArray<Any>(), null)
+                            connection.execute("PRAGMA synchronous = NORMAL;", emptyArray<Any>(), null)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to set pragmas in postKey", e)
+                        }
                     }
                 }
 
