@@ -462,12 +462,6 @@ abstract class AppDatabase : RoomDatabase() {
                         // PRAGMA busy_timeout prevents SQLiteDatabaseLockedException (code 5)
                         // when concurrent background tasks (sync, InvalidationTracker, repositories)
                         // access the database simultaneously.
-                        try {
-                            connection.execute("PRAGMA busy_timeout = 30000;", emptyArray<Any>(), null)
-                            connection.execute("PRAGMA synchronous = NORMAL;", emptyArray<Any>(), null)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to set pragmas in postKey", e)
-                        }
                     }
                 }
 
@@ -534,7 +528,11 @@ abstract class AppDatabase : RoomDatabase() {
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
-                        db.execSQL("PRAGMA busy_timeout = 30000;")
+                        try {
+                            db.query("PRAGMA busy_timeout = 30000;").close()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to set busy_timeout on open", e)
+                        }
                     }
                 })
                 // No destructive fallback: a future missing migration must crash loudly,
