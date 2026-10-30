@@ -36,9 +36,10 @@ fun FinanceTab(
     vaccinations: List<Vaccination>,
     transactions: List<FinanceTransaction>,
     expenses: List<Expense> = emptyList(),
+    showFilters: Boolean = false,
     onMonthClick: (String) -> Unit = {}
 ) {
-    var filterMode by rememberSaveable { mutableStateOf("Overall") }
+    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
@@ -125,7 +126,8 @@ fun FinanceTab(
         netIncome = netIncome,
         prevNetIncome = prevNetIncome,
         visitDatesById = visitDatesById,
-        expenses = expenses
+        expenses = expenses,
+        showFilters = showFilters
     )
 }
 
@@ -150,7 +152,8 @@ private fun FinanceContent(
     netIncome: Double = 0.0,
     prevNetIncome: Double = 0.0,
     visitDatesById: Map<String, String>? = null,
-    expenses: List<Expense> = emptyList()
+    expenses: List<Expense> = emptyList(),
+    showFilters: Boolean = false
 ) {
     val customColors = LocalCustomColors.current
     val overall = filterMode == "Overall"
@@ -171,17 +174,18 @@ private fun FinanceContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.screen, vertical = Spacing.lg)
     ) {
-        FilterSection(
-            availableYears = availableYears.reversed().map { "20$it" },
-            filterMode = filterMode,
-            fyQuarter = fyQuarter,
-            selectedMonth = selectedMonth,
-            onFilterModeChange = onFilterModeChange,
-            onQuarterChange = onQuarterChange,
-            onMonthChange = onMonthChange
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.xl))
+        if (showFilters) {
+            FilterSection(
+                availableYears = availableYears.reversed().map { "20$it" },
+                filterMode = filterMode,
+                fyQuarter = fyQuarter,
+                selectedMonth = selectedMonth,
+                onFilterModeChange = onFilterModeChange,
+                onQuarterChange = onQuarterChange,
+                onMonthChange = onMonthChange
+            )
+            Spacer(modifier = Modifier.height(Spacing.xl))
+        }
 
         // Surfaces FinanceStatsData.invalidTransactionDateCount, which was already being
         // computed but never shown anywhere - a transaction whose date/timestamp genuinely

@@ -47,18 +47,23 @@ object StatisticsUtils {
     fun filterValidVaccinations(vaccinations: List<Vaccination>): List<Vaccination> =
         vaccinations.filter(::isCountedVaccination)
 
+    fun getCurrentFinancialYear(): String {
+        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
+        val fyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
+        return "FY ${fyStart % 100}-${(fyStart + 1) % 100}"
+    }
+
     fun getAvailableFinancialYears(dates: List<String>): List<String> {
-        if (dates.isEmpty()) {
-            val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
-            val fyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
-            return listOf("${fyStart % 100}-${(fyStart + 1) % 100}")
-        }
+        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
+        val curFyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
 
         val uniqueDates = dates.distinct()
         val years = uniqueDates.mapNotNull { StatisticsDateUtils.parseToISTLocalDate(it) }
             .map { if (it.monthValue >= 4) it.year else it.year - 1 }
-            .distinct().sorted()
-        return years.map { "${it % 100}-${(it + 1) % 100}" }
+            .toMutableSet()
+        years.add(curFyStart)
+
+        return years.sorted().map { "${it % 100}-${(it + 1) % 100}" }
     }
 
     fun vaccineName(vaccination: Vaccination, itemIndex: Int): String {

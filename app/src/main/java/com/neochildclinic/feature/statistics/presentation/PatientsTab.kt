@@ -38,6 +38,7 @@ import java.util.Calendar
 fun PatientsTab(
     patients: List<Patient>,
     allVisits: List<Vaccination>,
+    showFilters: Boolean = false,
     onMilestoneClick: (String) -> Unit = {}
 ) {
     var filterMode by rememberSaveable { mutableStateOf("Overall") }
@@ -83,17 +84,18 @@ fun PatientsTab(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.screen, vertical = Spacing.lg)
     ) {
-        FilterSection(
-            availableYears = availableYears.reversed().map { "20$it" },
-            filterMode = filterMode,
-            fyQuarter = fyQuarter,
-            selectedMonth = selectedMonth,
-            onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
-            onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
-            onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } }
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.xl))
+        if (showFilters) {
+            FilterSection(
+                availableYears = availableYears.reversed().map { "20$it" },
+                filterMode = filterMode,
+                fyQuarter = fyQuarter,
+                selectedMonth = selectedMonth,
+                onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
+                onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
+                onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } }
+            )
+            Spacer(modifier = Modifier.height(Spacing.xl))
+        }
 
         PatientsContent(
             patients = filteredPatients,

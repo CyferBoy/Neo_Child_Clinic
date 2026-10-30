@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,6 +148,7 @@ private fun StatisticsContent(
     snackbarHostState: SnackbarHostState
 ) {
     val tabs = listOf("Overview", "Patients", "Vaccinations", "Finance", "Map")
+    var showFilters by rememberSaveable { mutableStateOf(false) }
 
     AppBackground {
         Scaffold(
@@ -162,6 +165,17 @@ private fun StatisticsContent(
                             )
                         },
                         onBack = onBack,
+                        actions = {
+                            if (uiState.selectedTab != 4) {
+                                IconButton(onClick = { showFilters = !showFilters }) {
+                                    Icon(
+                                        imageVector = Icons.Default.FilterList,
+                                        contentDescription = if (showFilters) "Hide filters" else "Show filters",
+                                        tint = if (showFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
+                        },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.background,
                             titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -208,6 +222,7 @@ private fun StatisticsContent(
                 } else {
                     StatisticsTabContent(
                         selectedTab = uiState.selectedTab,
+                        showFilters = showFilters,
                         patients = uiState.patients,
                         vaccinations = uiState.vaccinations,
                         inventory = uiState.inventory,
@@ -297,6 +312,7 @@ private fun StatisticsTabBar(
 @Composable
 private fun StatisticsTabContent(
     selectedTab: Int,
+    showFilters: Boolean,
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
     inventory: List<InventoryItem>,
@@ -309,10 +325,10 @@ private fun StatisticsTabContent(
     onVaccineTypeClick: (String, String?) -> Unit
 ) {
     when (selectedTab) {
-        0 -> OverviewTab(patients, vaccinations, financeTransactions, onFullReportClick = onFullReportClick)
-        1 -> PatientsTab(patients, vaccinations, onMilestoneClick)
-        2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory, onVaccineTypeClick = onVaccineTypeClick)
-        3 -> FinanceTab(vaccinations, financeTransactions, expenses, onMonthClick)
+        0 -> OverviewTab(patients, vaccinations, financeTransactions, showFilters = showFilters, onFullReportClick = onFullReportClick)
+        1 -> PatientsTab(patients, vaccinations, showFilters = showFilters, onMilestoneClick = onMilestoneClick)
+        2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory, showFilters = showFilters, onVaccineTypeClick = onVaccineTypeClick)
+        3 -> FinanceTab(vaccinations, financeTransactions, expenses, showFilters = showFilters, onMonthClick = onMonthClick)
         4 -> Box(
             modifier = Modifier
                 .fillMaxSize()

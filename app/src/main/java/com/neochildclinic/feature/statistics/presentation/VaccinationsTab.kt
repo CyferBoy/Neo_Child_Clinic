@@ -46,9 +46,10 @@ fun VaccinationsTab(
     vaccinations: List<Vaccination>,
     vaccinationReminders: List<Reminder> = emptyList(),
     vaccines: List<InventoryItem> = emptyList(),
+    showFilters: Boolean = false,
     onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
 ) {
-    var filterMode by rememberSaveable { mutableStateOf("Overall") }
+    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
@@ -86,6 +87,7 @@ fun VaccinationsTab(
         onFilterModeChange = { filterMode = it; fyQuarter = 0; selectedMonth = -1 },
         onQuarterChange = { if (filterMode != "Overall") { fyQuarter = if (fyQuarter == it) 0 else it; selectedMonth = -1 } },
         onMonthChange = { if (fyQuarter != 0 && filterMode != "Overall") { selectedMonth = if (selectedMonth == it) -1 else it } },
+        showFilters = showFilters,
         onVaccineTypeClick = onVaccineTypeClick
     )
 }
@@ -105,6 +107,7 @@ private fun VaccinationsContent(
     onFilterModeChange: (String) -> Unit,
     onQuarterChange: (Int) -> Unit,
     onMonthChange: (Int) -> Unit,
+    showFilters: Boolean = false,
     onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
 ) {
     var selectedSection by rememberSaveable { mutableIntStateOf(0) }
@@ -115,17 +118,18 @@ private fun VaccinationsContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.screen, vertical = Spacing.lg)
     ) {
-        FilterSection(
-            availableYears = availableYears.reversed().map { "20$it" },
-            filterMode = filterMode,
-            fyQuarter = fyQuarter,
-            selectedMonth = selectedMonth,
-            onFilterModeChange = onFilterModeChange,
-            onQuarterChange = onQuarterChange,
-            onMonthChange = onMonthChange
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.xl))
+        if (showFilters) {
+            FilterSection(
+                availableYears = availableYears.reversed().map { "20$it" },
+                filterMode = filterMode,
+                fyQuarter = fyQuarter,
+                selectedMonth = selectedMonth,
+                onFilterModeChange = onFilterModeChange,
+                onQuarterChange = onQuarterChange,
+                onMonthChange = onMonthChange
+            )
+            Spacer(modifier = Modifier.height(Spacing.xl))
+        }
 
         StatisticsSectionHeader(
             title = "Vaccination summary",

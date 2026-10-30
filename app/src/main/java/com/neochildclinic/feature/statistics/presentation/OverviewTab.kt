@@ -30,9 +30,10 @@ fun OverviewTab(
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
     financeTransactions: List<FinanceTransaction>,
+    showFilters: Boolean = false,
     onFullReportClick: () -> Unit = {}
 ) {
-    var filterMode by rememberSaveable { mutableStateOf("Overall") }
+    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
@@ -184,6 +185,7 @@ fun OverviewTab(
         prevDosesCount = prevVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } },
         patientActivityData = patientActivityData,
         financialTrendData = financialTrendData,
+        showFilters = showFilters,
         onFullReportClick = onFullReportClick
     )
 }
@@ -214,6 +216,7 @@ private fun OverviewContent(
     prevDosesCount: Int,
     patientActivityData: List<ChartDataPoint>,
     financialTrendData: List<ChartDataPoint>,
+    showFilters: Boolean = false,
     onFullReportClick: () -> Unit
 ) {
     val customColors = LocalCustomColors.current
@@ -238,16 +241,18 @@ private fun OverviewContent(
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.xl)
     ) {
-        item {
-            FilterSection(
-                availableYears = fyOptions,
-                filterMode = filterMode,
-                fyQuarter = fyQuarter,
-                selectedMonth = selectedMonth,
-                onFilterModeChange = onFilterModeChange,
-                onQuarterChange = onQuarterChange,
-                onMonthChange = onMonthChange
-            )
+        if (showFilters) {
+            item {
+                FilterSection(
+                    availableYears = fyOptions,
+                    filterMode = filterMode,
+                    fyQuarter = fyQuarter,
+                    selectedMonth = selectedMonth,
+                    onFilterModeChange = onFilterModeChange,
+                    onQuarterChange = onQuarterChange,
+                    onMonthChange = onMonthChange
+                )
+            }
         }
 
         item {
