@@ -44,7 +44,8 @@ internal fun NavGraphBuilder.statisticsGraph(
         val monthKey = backStackEntry.stringArg("monthKey")
         MonthlyFinanceDetailsScreen(
             monthKey = monthKey,
-            onBack = goBack
+            onBack = goBack,
+            onViewAllExpenses = { navController.navigate(Routes.EXPENSES) }
         )
     }
 

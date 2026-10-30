@@ -317,7 +317,7 @@ object FinanceCalculator {
     fun effectiveIncome(income: List<FinanceTransaction>): List<FinanceTransaction> =
         income.filterNot { it.category.equals(VACCINATION, true) } + deduplicateVaccinationIncome(income)
 
-    private fun deduplicateVaccinationIncome(income: List<FinanceTransaction>): List<FinanceTransaction> {
+    internal fun deduplicateVaccinationIncome(income: List<FinanceTransaction>): List<FinanceTransaction> {
         return income
             .filter { it.category.equals(VACCINATION, true) }
             .groupBy { it.visitId?.takeIf(String::isNotBlank) ?: it.id }
@@ -325,7 +325,7 @@ object FinanceCalculator {
             .map { group -> group.maxByOrNull { it.timestamp }!! }
     }
 
-    private fun paymentAmount(transactions: List<FinanceTransaction>, cash: Boolean): Double =
+    internal fun paymentAmount(transactions: List<FinanceTransaction>, cash: Boolean): Double =
         transactions.sumOf { tx ->
             val explicit = if (cash) tx.cashAmount else tx.onlineAmount
             if (explicit > 0.0) explicit else when {

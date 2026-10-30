@@ -1,8 +1,10 @@
 package com.neochildclinic.feature.statistics.presentation
 
 import androidx.lifecycle.ViewModel
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
@@ -24,6 +26,7 @@ class FinanceDetailsViewModel @Inject constructor(
     financeRepository: FinanceRepository,
     patientRepository: PatientRepository,
     vaccinationRepository: VaccinationRepository,
+    expenseRepository: ExpenseRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 
@@ -31,6 +34,7 @@ class FinanceDetailsViewModel @Inject constructor(
         .map { list -> list }
     private val patientsFlow = patientRepository.allPatients
     private val vaccinationsFlow = vaccinationRepository.allVaccinations
+    private val expensesFlow = expenseRepository.getAllExpenses()
 
     val transactions: StateFlow<List<FinanceTransaction>> = transactionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -39,6 +43,9 @@ class FinanceDetailsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val vaccinations: StateFlow<List<Vaccination>> = vaccinationsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val expenses: StateFlow<List<Expense>> = expensesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _isLoading = MutableStateFlow(true)
@@ -53,6 +60,7 @@ class FinanceDetailsViewModel @Inject constructor(
                 transactionsFlow.first()
                 patientsFlow.first()
                 vaccinationsFlow.first()
+                expensesFlow.first()
             } finally {
                 // Without this the spinner never clears if any Room flow throws (NCC-016).
                 _isLoading.value = false
