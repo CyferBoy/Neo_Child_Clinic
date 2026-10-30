@@ -53,13 +53,13 @@ class FinanceCalculatorTest {
             expenses = expenses
         )
 
-        // Keys are 0-based-Calendar months, the same key FinanceTable's onMonthClick
-        // hands to MonthlyFinanceDetailsScreen.
-        val may = rows.single { it.key == "2026-04" }
+        // Keys are 1-based ISO months (e.g. "2026-05" for May), matching YearMonth and
+        // the monthKey passed from FinanceTable to MonthlyFinanceDetailsScreen.
+        val may = rows.single { it.key == "2026-05" }
         assertEquals(750.0, may.expenses, 0.001)
         assertEquals(10000.0 - 750.0, may.netProfit, 0.001)
 
-        val june = rows.single { it.key == "2026-05" }
+        val june = rows.single { it.key == "2026-06" }
         assertEquals(9999.0, june.expenses, 0.001)
     }
 
@@ -74,8 +74,8 @@ class FinanceCalculatorTest {
             filterMode = "FY 26-27"
         )
 
-        assertEquals(10000.0, rows.single { it.key == "2026-04" }.revenue, 0.001)
-        assertEquals(0.0, rows.single { it.key == "2026-06" }.revenue, 0.001)
+        assertEquals(10000.0, rows.single { it.key == "2026-05" }.revenue, 0.001)
+        assertEquals(0.0, rows.single { it.key == "2026-07" }.revenue, 0.001)
     }
 
     private fun vaccinationIncome(id: String, visitId: String?, amount: Double, timestamp: String) =

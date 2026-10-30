@@ -340,10 +340,10 @@ object FinanceCalculator {
         set(Calendar.DAY_OF_MONTH, 1)
     }.startOfDay()
 
-    /** Shared "yyyy-MM" bucket key (0-based month, as FinanceTable's monthKey expects). */
+    /** Shared "yyyy-MM" bucket key (1-based month, matching standard ISO YearMonth). */
     private fun monthKey(date: Date): String {
         val cal = Calendar.getInstance().apply { time = date }
-        return String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+        return String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
     }
 }
 

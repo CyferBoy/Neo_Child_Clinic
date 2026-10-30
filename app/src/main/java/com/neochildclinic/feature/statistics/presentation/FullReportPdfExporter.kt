@@ -9,7 +9,6 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.Environment
@@ -24,8 +23,8 @@ import android.widget.Toast
 import com.neochildclinic.core.common.CurrencyUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -113,24 +112,19 @@ object FullReportPdfExporter {
 
     private suspend fun writePdfToStorage(context: Context, pdfDocument: PdfDocument, fileName: String) {
         try {
-            val outputStream: OutputStream? = withContext(Dispatchers.IO) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val contentValues = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    }
-                    val uri: Uri? = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                    uri?.let { context.contentResolver.openOutputStream(it) }
-                } else {
-                    @Suppress("DEPRECATION")
-                    val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                    val file = File(downloadsDir, fileName)
-                    FileOutputStream(file)
+            val outputStream: OutputStream = withContext(Dispatchers.IO) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
+                val uri: Uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                    ?: throw IOException("Could not create download entry in MediaStore")
+                context.contentResolver.openOutputStream(uri)
+                    ?: throw IOException("Could not open output stream for download entry")
             }
 
-            outputStream?.use { out ->
+            outputStream.use { out ->
                 pdfDocument.writeTo(out)
             }
 

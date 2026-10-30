@@ -17,6 +17,7 @@ import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import com.neochildclinic.core.common.PatientUtils
 import java.util.Calendar
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
@@ -28,6 +29,7 @@ import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 import com.neochildclinic.domain.model.Patient
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.neochildclinic.core.network.NetworkMonitor
@@ -232,25 +234,19 @@ class DashboardViewModel @Inject constructor(
             val income = transactions.filter { it.type.equals("INCOME", ignoreCase = true) }
             val effective = FinanceCalculator.effectiveIncome(income)
 
-            val now = LocalDate.now()
-            val curYear = now.year
-            val curMonth = now.monthValue
-            val prevDate = now.minusMonths(1)
-            val prevYear = prevDate.year
-            val prevMonth = prevDate.monthValue
+            val curYearMonth = StatisticsDateUtils.currentISTYearMonthObj()
+            val prevYearMonth = curYearMonth.minusMonths(1)
 
             var curRevenue = 0.0
             var prevRevenue = 0.0
 
             effective.forEach { tx ->
                 val reportingDate = FinanceCalculator.resolveReportingDate(tx)
-                val parsed = PatientUtils.parseDate(reportingDate) ?: return@forEach
-                val cal = Calendar.getInstance().apply { time = parsed }
-                val year = cal.get(Calendar.YEAR)
-                val month = cal.get(Calendar.MONTH) + 1
-                if (year == curYear && month == curMonth) {
+                val localDate = StatisticsDateUtils.parseToISTLocalDate(reportingDate) ?: return@forEach
+                val txYearMonth = YearMonth.from(localDate)
+                if (txYearMonth == curYearMonth) {
                     curRevenue += tx.amount.coerceAtLeast(0.0)
-                } else if (year == prevYear && month == prevMonth) {
+                } else if (txYearMonth == prevYearMonth) {
                     prevRevenue += tx.amount.coerceAtLeast(0.0)
                 }
             }

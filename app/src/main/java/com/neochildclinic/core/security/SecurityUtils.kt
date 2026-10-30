@@ -14,6 +14,17 @@ object SecurityUtils {
     private const val PREFS_NAME = "secure_prefs"
     private const val DB_PASSPHRASE_KEY = "db_passphrase"
 
+    @Volatile
+    private var cachedMasterKey: MasterKey? = null
+
+    private fun getMasterKey(context: Context): MasterKey {
+        return cachedMasterKey ?: synchronized(this) {
+            cachedMasterKey ?: MasterKey.Builder(context.applicationContext)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build().also { cachedMasterKey = it }
+        }
+    }
+
     /**
      * Retrieves the secure random passphrase for the database.
      * If it doesn't exist, it generates it only if the database doesn't exist yet (handled by AppDatabase).
@@ -23,9 +34,7 @@ object SecurityUtils {
     fun getDatabasePassphrase(context: Context): ByteArray {
         Log.d(TAG, "Loading database passphrase...")
         
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        val masterKey = getMasterKey(context)
 
         val sharedPreferences = try {
             createEncryptedPrefs(context, masterKey)
@@ -64,10 +73,7 @@ object SecurityUtils {
      * supabase-kt's default plaintext SharedPreferences - see SupabaseModule.
      */
     fun getSecurePrefs(context: Context): SharedPreferences =
-        createEncryptedPrefs(
-            context,
-            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-        )
+        createEncryptedPrefs(context, getMasterKey(context))
 
     // ---- Backup & Restore: automatic-backup password storage ----
     //
@@ -81,7 +87,7 @@ object SecurityUtils {
     private const val BACKUP_PASSWORD_KEY = "backup_password"
 
     fun saveBackupPassword(context: Context, password: String) {
-        val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val masterKey = getMasterKey(context)
         val prefs = EncryptedSharedPreferences.create(
             context, BACKUP_PREFS_NAME, masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
@@ -91,7 +97,7 @@ object SecurityUtils {
     }
 
     fun getBackupPassword(context: Context): String? {
-        val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val masterKey = getMasterKey(context)
         val prefs = EncryptedSharedPreferences.create(
             context, BACKUP_PREFS_NAME, masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
@@ -101,7 +107,7 @@ object SecurityUtils {
     }
 
     fun clearBackupPassword(context: Context) {
-        val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val masterKey = getMasterKey(context)
         val prefs = EncryptedSharedPreferences.create(
             context, BACKUP_PREFS_NAME, masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,

@@ -171,8 +171,12 @@ class PatientViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 refreshDataUseCase()
-            } catch (_: Exception) {}
-            _isRefreshing.value = false
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                android.util.Log.e("PatientVM", "Refresh failed", e)
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

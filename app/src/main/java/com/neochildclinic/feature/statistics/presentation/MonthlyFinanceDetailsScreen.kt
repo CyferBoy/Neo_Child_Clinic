@@ -59,9 +59,10 @@ fun MonthlyFinanceDetailsScreen(
 
     var showTransactions by rememberSaveable { mutableStateOf(false) }
 
-    // Parse monthKey (e.g., "2026-09" for October 2026)
+    // Parse monthKey (e.g., "2026-10" for October 2026)
     val year = remember(monthKey) { monthKey.substringBefore("-").toIntOrNull() ?: 2026 }
-    val month = remember(monthKey) { monthKey.substringAfter("-").toIntOrNull() ?: 0 }
+    val month1Based = remember(monthKey) { monthKey.substringAfter("-").toIntOrNull() ?: 1 }
+    val monthIndex = (month1Based - 1).coerceIn(0, 11)
 
     val monthNames = remember {
         listOf(
@@ -69,16 +70,17 @@ fun MonthlyFinanceDetailsScreen(
             "July", "August", "September", "October", "November", "December"
         )
     }
-    val title = remember(year, month) {
-        "${monthNames.getOrElse(month) { "Month" }} $year"
+    val title = remember(year, monthIndex) {
+        "${monthNames.getOrElse(monthIndex) { "Month" }} $year"
     }
 
-    val prevMonth = remember(month) { if (month == 0) 11 else month - 1 }
-    val prevYear = remember(year, month) { if (month == 0) year - 1 else year }
-    val prevMonthKey = remember(prevYear, prevMonth) {
-        String.format(Locale.US, "%04d-%02d", prevYear, prevMonth)
+    val (prevYear, prevMonth1Based) = remember(year, month1Based) {
+        if (month1Based <= 1) (year - 1) to 12 else year to (month1Based - 1)
     }
-    val prevMonthName = remember(prevMonth) { monthNames[prevMonth] }
+    val prevMonthKey = remember(prevYear, prevMonth1Based) {
+        String.format(Locale.US, "%04d-%02d", prevYear, prevMonth1Based)
+    }
+    val prevMonthName = remember(prevMonth1Based) { monthNames[(prevMonth1Based - 1).coerceIn(0, 11)] }
 
     // 1. Filter valid vaccinations (strictly excludes cancelled / dismissed / soft-deleted visits)
     val validVaccinations = remember(allVaccinations) {
@@ -135,7 +137,7 @@ fun MonthlyFinanceDetailsScreen(
             val date = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(tx))
                 ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
-            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
             key == monthKey
         }.sortedWith(
             compareByDescending<FinanceTransaction> { FinanceCalculator.resolveReportingDate(it) }
@@ -147,7 +149,7 @@ fun MonthlyFinanceDetailsScreen(
         cleanExpenses.filter { exp ->
             val date = PatientUtils.parseDate(exp.expenseDate) ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
-            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
             key == monthKey
         }
     }
@@ -229,7 +231,7 @@ fun MonthlyFinanceDetailsScreen(
             val date = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(tx))
                 ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
-            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
             key == prevMonthKey
         }
     }
@@ -237,7 +239,7 @@ fun MonthlyFinanceDetailsScreen(
         cleanExpenses.filter { exp ->
             val date = PatientUtils.parseDate(exp.expenseDate) ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
-            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+            val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
             key == prevMonthKey
         }
     }
@@ -992,7 +994,7 @@ private fun paymentModeLabel(transaction: FinanceTransaction): String {
 private fun MonthlyFinancePreview() {
     NeoChildTheme {
         MonthlyFinanceDetailsScreen(
-            monthKey = "2026-09",
+            monthKey = "2026-10",
             onBack = {}
         )
     }

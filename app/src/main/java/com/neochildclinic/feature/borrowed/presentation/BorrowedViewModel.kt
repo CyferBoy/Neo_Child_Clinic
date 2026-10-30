@@ -173,8 +173,12 @@ class BorrowedViewModel @Inject constructor(
             try {
                 borrowRepository.refreshBorrows()
                 inventoryRepository.refreshInventory()
-            } catch (_: Exception) {}
-            _isRefreshing.value = false
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.e("BorrowedViewModel", "Refresh failed", e)
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

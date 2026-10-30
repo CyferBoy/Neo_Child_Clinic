@@ -7,6 +7,7 @@ import com.neochildclinic.feature.inventory.domain.repository.InventoryRepositor
 import com.neochildclinic.feature.waste.domain.repository.WasteRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -78,8 +79,12 @@ class WasteViewModel @Inject constructor(
             try {
                 wasteRepository.refreshWaste()
                 inventoryRepository.refreshInventory()
-            } catch (_: Exception) {}
-            _isRefreshing.value = false
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                android.util.Log.e("WasteViewModel", "Refresh failed", e)
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

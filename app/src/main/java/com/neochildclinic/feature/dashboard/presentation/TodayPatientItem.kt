@@ -68,8 +68,8 @@ internal fun TodayPatientItem(
         else -> ""
     }
     val doctorOrStaff = when (item) {
-        is ConsultationTodo -> item.doctorName?.takeIf { it.isNotBlank() }?.let { "Dr. $it" } ?: "Dr. Meera"
-        is VaccinationTodo -> item.doctorName?.takeIf { it.isNotBlank() }?.let { "Nurse $it" } ?: "Nurse Riya"
+        is ConsultationTodo -> item.doctorName?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("Dr.", ignoreCase = true)) it else "Dr. $it" }
+        is VaccinationTodo -> item.doctorName?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("Dr.", ignoreCase = true) || it.startsWith("Nurse", ignoreCase = true) || it.startsWith("Staff", ignoreCase = true)) it else "Staff $it" }
         else -> null
     }
     val phoneNumber = when (item) {
@@ -78,14 +78,16 @@ internal fun TodayPatientItem(
         else -> ""
     }
 
-    // Time slot computed time (matching prototype: 10:00, 10:30, 11:00, etc.)
-    val timeSlotText = remember(index) {
-        val baseHour = 9
-        val baseMinute = 30
-        val totalMinutes = baseHour * 60 + baseMinute + (index - 1).coerceAtLeast(0) * 30
-        val h = totalMinutes / 60
-        val m = totalMinutes % 60
-        String.format("%02d:%02d", h, m)
+    // Time slot from scheduled time if available, otherwise unassigned indicator
+    val timeSlotText = remember(item) {
+        val dateStr = when (item) {
+            is ConsultationTodo -> item.todoDate
+            is VaccinationTodo -> item.todoDate
+            else -> ""
+        }
+        val timeRegex = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
+        val match = timeRegex.find(dateStr)
+        match?.value ?: "--:--"
     }
 
     // Soft palette for avatar container based on name hash

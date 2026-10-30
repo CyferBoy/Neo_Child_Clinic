@@ -118,7 +118,7 @@ object DateUtils {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
         return DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm:ss", Locale.getDefault())
-            .withZone(ZoneId.systemDefault())
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
 
@@ -133,7 +133,7 @@ object DateUtils {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
         val formatted = DateTimeFormatter.ofPattern("MMM d, yyyy hh:mm:ss a", Locale.ENGLISH)
-            .withZone(ZoneId.of("Asia/Kolkata"))
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
         return "$formatted IST"
     }
@@ -143,7 +143,7 @@ object DateUtils {
      */
     fun formatDate(date: Date): String {
         return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
 
@@ -152,7 +152,7 @@ object DateUtils {
      */
     fun formatDateTime(date: Date): String {
         return DateTimeFormatter.ofPattern("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
 
@@ -162,7 +162,7 @@ object DateUtils {
     fun formatDateForDisplay(dateStr: String): String {
         val date = parseDate(dateStr) ?: return dateStr
         return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
 
