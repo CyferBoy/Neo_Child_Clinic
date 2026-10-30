@@ -81,8 +81,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        supabaseClient.handleDeeplinks(intent)
-        logSigningFingerprint()
+        handleAuthDeeplink(intent)
         handleIntent(intent)
         
         notificationHelper.cancelSummaryNotification()
@@ -300,8 +299,18 @@ class MainActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        supabaseClient.handleDeeplinks(intent)
+        setIntent(intent)
+        handleAuthDeeplink(intent)
         handleIntent(intent)
+    }
+
+    private fun handleAuthDeeplink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme.equals("neochild", ignoreCase = true) &&
+            uri.host.equals("auth-callback", ignoreCase = true)
+        ) {
+            supabaseClient.handleDeeplinks(intent)
+        }
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -319,22 +328,6 @@ class MainActivity : FragmentActivity() {
                 // from a plain app launch/resume, so this is a manual check, not silent.
                 appUpdateViewModel.checkForUpdates(isManual = true)
             }
-        }
-    }
-
-    private fun logSigningFingerprint() {
-        try {
-            val packageInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-            val signatures = packageInfo.signingInfo?.apkContentsSigners
-
-            signatures?.forEach { signature ->
-                val md = MessageDigest.getInstance("SHA-1")
-                md.update(signature.toByteArray())
-                val sha1 = md.digest().joinToString(":") { "%02X".format(it) }
-                Log.d("DIAGNOSTIC", "App SHA-1: $sha1")
-            }
-        } catch (e: Exception) {
-            Log.e("DIAGNOSTIC", "Failed to log SHA-1", e)
         }
     }
 }

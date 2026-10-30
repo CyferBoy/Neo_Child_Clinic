@@ -262,6 +262,12 @@ class AppUpdateManager @Inject constructor(
             if (uri == null || uri.protocol != "https") {
                 error("Refusing to download from a non-HTTPS URL.")
             }
+            val host = uri.host?.lowercase(java.util.Locale.ROOT).orEmpty()
+            val isGitHubHost = host == "github.com" || host.endsWith(".github.com") ||
+                host == "githubusercontent.com" || host.endsWith(".githubusercontent.com")
+            if (!isGitHubHost) {
+                error("Refusing to download update from an untrusted host: $host")
+            }
 
             val apkFile = File(context.cacheDir, APK_FILE)
             val partFile = File(context.cacheDir, APK_PART_FILE)

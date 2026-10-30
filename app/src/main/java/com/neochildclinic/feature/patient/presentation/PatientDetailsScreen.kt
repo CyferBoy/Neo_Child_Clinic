@@ -401,8 +401,20 @@ val snackbarHostState = remember { SnackbarHostState() }
                     onDeleteDocument = { documentToDelete = it },
                     onViewDocument = { path ->
                         scope.launch {
-                            val url = viewModel.getDocumentUrl(path)
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            try {
+                                val url = viewModel.getDocumentUrl(path)
+                                val uri = Uri.parse(url)
+                                if (uri.scheme.equals("https", ignoreCase = true)) {
+                                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    snackbarHostState.showSnackbar("Invalid or insecure document URL")
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Unable to open document: ${e.localizedMessage ?: "No supported application found"}")
+                            }
                         }
                     },
                     isRefreshing = isRefreshing,

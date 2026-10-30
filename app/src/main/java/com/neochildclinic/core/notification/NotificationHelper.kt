@@ -170,12 +170,23 @@ class NotificationHelper @Inject constructor(
             else -> "Today's follow-up reminder"
         }
         val contact = if (phone.isNotBlank()) " • $phone" else ""
+        val publicNotification = NotificationCompat.Builder(context, CHANNEL_PERSONAL_REMINDERS)
+            .setSmallIcon(R.drawable.app_logo)
+            .setContentTitle("Personal Vaccine Reminder")
+            .setContentText("You have a follow-up reminder")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
         val builder = NotificationCompat.Builder(context, CHANNEL_PERSONAL_REMINDERS)
             .setSmallIcon(R.drawable.app_logo)
             .setContentTitle("Personal Vaccine Reminder")
             .setContentText("$vaccineName — $patientName$contact")
             .setStyle(NotificationCompat.BigTextStyle().bigText("$dateText\n$vaccineName — $patientName$contact"))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicNotification)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
                 // Parenthesised: an infix function call binds looser than `%`, so the previous

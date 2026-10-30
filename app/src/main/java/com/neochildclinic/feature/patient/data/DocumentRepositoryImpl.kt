@@ -17,7 +17,9 @@ class DocumentRepositoryImpl @Inject constructor(
     private val bucket = storage.from("patient-docs")
 
     override suspend fun uploadDocument(patientId: String, fileName: String, bytes: ByteArray): String {
-        val path = "$patientId/$fileName"
+        val safeFileName = java.io.File(fileName).name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val safePatientId = patientId.trim().replace(Regex("[^a-zA-Z0-9_-]"), "_")
+        val path = "$safePatientId/$safeFileName"
         bucket.upload(path, bytes) {
             upsert = true
         }

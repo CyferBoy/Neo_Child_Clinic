@@ -27,7 +27,10 @@ object ReceiptGenerator {
                 
                 pdfDocument.finishPage(page)
 
-                val fileName = "Receipt_${patient.name.replace(" ", "_")}_${System.currentTimeMillis()}.pdf"
+                val safePatientName = patient.name.trim()
+                    .replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                    .ifBlank { "patient" }
+                val fileName = "Receipt_${safePatientName}_${System.currentTimeMillis()}.pdf"
                 writePdfToStorage(context, pdfDocument, fileName, "Receipt downloaded to Downloads folder")
             } finally {
                 pdfDocument.close()

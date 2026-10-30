@@ -37,10 +37,8 @@ object FullReportPdfExporter {
 
     fun getFileName(periodLabel: String): String {
         val safePeriod = periodLabel.trim()
-            .replace(" · ", "_")
-            .replace(" ", "_")
-            .replace("/", "_")
-            .replace("-", "_")
+            .replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            .ifBlank { "report" }
         return "${safePeriod}_full_report.pdf"
     }
 
