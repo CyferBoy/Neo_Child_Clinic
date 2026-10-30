@@ -156,7 +156,7 @@ fun VaccinationRecordCard(
 
                     Spacer(Modifier.width(Spacing.sm))
                     Text(
-                        text = "₹${vaccination.totalPaid.toInt()}",
+                        text = com.neochildclinic.core.common.CurrencyUtils.formatInr(vaccination.totalPaid),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -187,9 +187,9 @@ fun VaccinationRecordCard(
                     }
 
                     val paymentInfo = buildString {
-                        if (vaccination.cashAmount > 0) append("Cash: ₹${vaccination.cashAmount.toInt()}")
+                        if (vaccination.cashAmount > 0) append("Cash: ${com.neochildclinic.core.common.CurrencyUtils.formatInr(vaccination.cashAmount)}")
                         if (vaccination.cashAmount > 0 && vaccination.onlineAmount > 0) append(" · ")
-                        if (vaccination.onlineAmount > 0) append("Online: ₹${vaccination.onlineAmount.toInt()}")
+                        if (vaccination.onlineAmount > 0) append("Online: ${com.neochildclinic.core.common.CurrencyUtils.formatInr(vaccination.onlineAmount)}")
                     }
                     if (paymentInfo.isNotEmpty()) {
                         Text(

@@ -97,11 +97,11 @@ fun AppDrawer(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${userRole?.name?.replace("_", " ")?.uppercase() ?: "STAFF"} · Pediatrician",
+                            text = userRole?.name?.replace("_", " ")?.uppercase() ?: "STAFF",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                         )
                     }
                 }

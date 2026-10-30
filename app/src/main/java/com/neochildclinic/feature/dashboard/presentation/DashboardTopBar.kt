@@ -1,24 +1,21 @@
 package com.neochildclinic.feature.dashboard.presentation
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.R
-import com.neochildclinic.core.designsystem.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -94,17 +91,32 @@ fun DashboardTopBar(
 
 @Composable
 fun ClinicLogo(isWideScreen: Boolean) {
-    // Kept for backward compatibility if referenced elsewhere
-    Box(
+    // Aligned to dashboard_light.svg: transparent brand mark with clinic title and subtitle
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
-            painter = painterResource(id = R.drawable.logo),
+            painter = painterResource(id = R.drawable.app_logo),
             contentDescription = "Clinic Logo",
-            modifier = Modifier.size(if (isWideScreen) 160.dp else 120.dp)
+            modifier = Modifier.size(if (isWideScreen) 54.dp else 44.dp)
         )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = "Neo Child Clinic",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Pediatric vaccination & care",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

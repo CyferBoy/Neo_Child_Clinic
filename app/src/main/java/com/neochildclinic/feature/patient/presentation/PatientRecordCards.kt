@@ -120,7 +120,7 @@ fun ConsultationRecordCard(
 
                     Spacer(Modifier.width(Spacing.sm))
                     Text(
-                        text = "₹${consultation.amount.toInt()}",
+                        text = com.neochildclinic.core.common.CurrencyUtils.formatInr(consultation.amount),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -151,13 +151,13 @@ fun ConsultationRecordCard(
                     }
 
                     val paymentInfo = buildString {
-                        if (consultation.cashAmount > 0) append("Cash: ₹${consultation.cashAmount.toInt()}")
+                        if (consultation.cashAmount > 0) append("Cash: ${com.neochildclinic.core.common.CurrencyUtils.formatInr(consultation.cashAmount)}")
                         if (consultation.cashAmount > 0 && consultation.onlineAmount > 0) append(" · ")
-                        if (consultation.onlineAmount > 0) append("Online: ₹${consultation.onlineAmount.toInt()}")
+                        if (consultation.onlineAmount > 0) append("Online: ${com.neochildclinic.core.common.CurrencyUtils.formatInr(consultation.onlineAmount)}")
                         val pending = consultation.amount - (consultation.cashAmount + consultation.onlineAmount)
                         if (pending > 0) {
                             if (isNotEmpty()) append(" · ")
-                            append("Pending: ₹${pending.toInt()}")
+                            append("Pending: ${com.neochildclinic.core.common.CurrencyUtils.formatInr(pending)}")
                         }
                     }
                     if (paymentInfo.isNotEmpty()) {

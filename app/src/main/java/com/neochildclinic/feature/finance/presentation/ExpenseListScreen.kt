@@ -264,7 +264,7 @@ private fun ExpenseCard(expense: Expense, onClick: () -> Unit) {
                     Text(expense.category.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(
-                    "\u20B9${"%.2f".format(expense.amountRupees)}",
+                    com.neochildclinic.core.common.CurrencyUtils.formatInr(expense.amountRupees),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -297,7 +297,7 @@ fun ExpenseDetailSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(expense.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text(
-                "\u20B9${"%.2f".format(expense.amountRupees)}",
+                com.neochildclinic.core.common.CurrencyUtils.formatInr(expense.amountRupees),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold

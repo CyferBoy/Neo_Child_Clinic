@@ -1,18 +1,14 @@
 package com.neochildclinic.feature.auth.presentation
 
-import com.neochildclinic.core.designsystem.*
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -21,8 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,19 +24,23 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neochildclinic.BuildConfig
 import com.neochildclinic.R
+import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
-import com.neochildclinic.core.security.AuthViewModel
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    viewModel: AuthViewModel
+    viewModel: AuthViewModel,
+    onUnlockWithFingerprint: (() -> Unit)? = null
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    
+
     val isLoading by viewModel.isLoading
     val error by viewModel.error
 
@@ -53,7 +51,8 @@ fun LoginScreen(
         onPasswordChange = { password = it },
         isLoading = isLoading,
         error = error,
-        onLoginClick = { viewModel.login(email, password, onLoginSuccess) }
+        onLoginClick = { viewModel.login(email, password, onLoginSuccess) },
+        onUnlockWithFingerprint = onUnlockWithFingerprint
     )
 }
 
@@ -65,241 +64,260 @@ private fun LoginContent(
     onPasswordChange: (String) -> Unit,
     isLoading: Boolean,
     error: String?,
-    onLoginClick: () -> Unit
+    onLoginClick: () -> Unit,
+    onUnlockWithFingerprint: (() -> Unit)?
 ) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    AppBackground {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .imePadding(),
+            contentAlignment = Alignment.Center
         ) {
-            // Top Hero Banner with Primary Brand Styling
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .padding(horizontal = Spacing.xl, vertical = Spacing.xl)
-            ) {
-                // Subtle decorative background circles
-                Box(
-                    modifier = Modifier
-                        .size(160.dp)
-                        .align(Alignment.TopEnd)
-                        .offset(x = 40.dp, y = (-20).dp)
-                        .background(Color.White.copy(alpha = 0.06f), CircleShape)
-                )
-
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Clinic Brand Tag
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(38.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.White.copy(alpha = 0.16f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.app_logo),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "NEO CHILD CLINIC",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                letterSpacing = 1.2.sp
-                            )
-                            Text(
-                                text = "Pediatric vaccination & care",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
-                            )
-                        }
-                    }
-
-                    // Welcome Headline
-                    Column {
-                        Text(
-                            text = "Welcome back",
-                            fontSize = 30.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            lineHeight = 36.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Sign in to continue to your clinic workspace.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
-                        )
-                    }
-                }
-            }
-
-            // Form Card
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = (-20).dp)
-                    .padding(horizontal = Spacing.screen),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(Spacing.card),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
-                ) {
-                    Column {
-                        Text(
-                            text = "Sign in",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Use the email linked to your staff account.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    StandardTextField(
-                        value = email,
-                        onValueChange = onEmailChange,
-                        label = "Email",
-                        placeholder = "Enter your email",
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Email,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-
-                    var passwordVisible by remember { mutableStateOf(false) }
-                    StandardTextField(
-                        value = password,
-                        onValueChange = onPasswordChange,
-                        label = "Password",
-                        placeholder = "Enter your password",
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingIcon = {
-                            val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = image,
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                )
-                            }
-                        }
-                    )
-
-                    if (error != null) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.errorContainer
-                        ) {
-                            Text(
-                                text = error,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(Spacing.sm)
-                            )
-                        }
-                    }
-
-                    StandardButton(
-                        onClick = onLoginClick,
-                        isLoading = isLoading,
-                        height = 52.dp,
-                        modifier = Modifier.padding(top = Spacing.xs)
-                    ) {
-                        Text(
-                            text = if (isLoading) "Signing in…" else "Login",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Trust Note Card
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(Spacing.md),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "Offline-first and private",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Clinic data stays on this device and syncs to your workspace when online.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Footer
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = Spacing.md),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .widthIn(max = 440.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screen, vertical = Spacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
+                // Clinic Brand Mark (56dp rounded badge with clinic logo)
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 2.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_logo),
+                            contentDescription = "Clinic Logo",
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.md))
+
+                // Brand Wordmark & Tagline
                 Text(
-                    text = "Neo Child Clinic · v2.4.0",
+                    text = "NEO CHILD CLINIC",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = "Offering nurturing care...",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Spacer(modifier = Modifier.height(Spacing.xl))
+
+                // Welcome Header
+                Text(
+                    text = "Welcome back",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = "Sign in to continue to your clinic workspace.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(Spacing.xl))
+
+                // Main Form Card (Warm Clinical 24dp card)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(Spacing.xl),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        Column {
+                            Text(
+                                text = "Sign in",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Use the email linked to your staff account.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Email Field
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            Text(
+                                text = "Email",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            StandardTextField(
+                                value = email,
+                                onValueChange = onEmailChange,
+                                label = "",
+                                placeholder = "meera.sharma@neoclinic.in",
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Mail,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            )
+                        }
+
+                        // Password Field
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            Text(
+                                text = "Password",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            StandardTextField(
+                                value = password,
+                                onValueChange = onPasswordChange,
+                                label = "",
+                                placeholder = "Clinic@2026",
+                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    val icon = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            )
+                        }
+
+                        // Optional Biometric / Fingerprint Link
+                        if (onUnlockWithFingerprint != null) {
+                            TextButton(
+                                onClick = onUnlockWithFingerprint,
+                                modifier = Modifier.align(Alignment.Start),
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = Spacing.xs)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(Spacing.xs))
+                                Text(
+                                    text = "Unlock with fingerprint",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        // Error Banner
+                        if (error != null) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    text = error,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(Spacing.sm)
+                                )
+                            }
+                        }
+
+                        // Login Action Button
+                        StandardButton(
+                            onClick = onLoginClick,
+                            isLoading = isLoading,
+                            height = 50.dp,
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(
+                                text = if (isLoading) "Signing in…" else "Login",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Offline-First & Privacy Badge
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(Spacing.md),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Security,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Offline-first and private",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Clinic data stays here and syncs when online.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.xl))
+
+                // Footer Metadata
+                Text(
+                    text = "Neo Child Clinic · v${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(Spacing.xxs))
                 Text(
                     text = "Need access? Contact your clinic administrator.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
             }
         }

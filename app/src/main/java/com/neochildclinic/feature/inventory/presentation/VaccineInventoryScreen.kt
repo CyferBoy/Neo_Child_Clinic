@@ -270,8 +270,10 @@ private fun VaccineInventoryContent(
                             val totalBatches = remember(uiState.inventory) {
                                 uiState.inventory.sumOf { it.batches.count { b -> b.remainingQuantity > 0 } }
                             }
-                            val totalDoses = remember(uiState.inventory) {
-                                uiState.inventory.sumOf { it.stock }
+                            val totalStockValue = remember(uiState.inventory) {
+                                uiState.inventory.sumOf { item ->
+                                    item.batches.sumOf { b -> b.purchaseCost * b.remainingQuantity }
+                                }
                             }
 
                             Card(
@@ -334,13 +336,13 @@ private fun VaccineInventoryContent(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
-                                            text = "$totalDoses",
+                                            text = com.neochildclinic.core.common.CurrencyUtils.formatInr(totalStockValue),
                                             style = MaterialTheme.typography.titleLarge,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "doses in stock",
+                                            text = "stock value",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

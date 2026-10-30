@@ -5,6 +5,7 @@ import com.neochildclinic.core.designsystem.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.EventNote
@@ -12,7 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
@@ -38,7 +42,7 @@ fun PersonalReminderScreen(
         Scaffold(
             topBar = {
                 BackTopAppBar(
-                    title = { Text("Personal Vaccine Reminders") },
+                    title = { Text("Personal Reminders") },
                     onBack = onBack
                 )
             },
@@ -54,18 +58,60 @@ fun PersonalReminderScreen(
                 modifier = Modifier.padding(paddingValues)
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    // Top Stat Summary Cards matching personal_reminders_light.svg
+                    val pendingCount = remember(uiState.active) {
+                        uiState.active.count { it.status.equals("PENDING", ignoreCase = true) }
+                    }
+                    val readyCount = remember(uiState.active) {
+                        uiState.active.count { it.status.equals("READY", ignoreCase = true) }
+                    }
+                    val completedCount = remember(uiState.completed) {
+                        uiState.completed.size
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        PersonalReminderStatCard(
+                            label = "PENDING",
+                            count = pendingCount,
+                            containerColor = Color(0xFFFFF0C9),
+                            contentColor = Color(0xFF563400),
+                            modifier = Modifier.weight(1f)
+                        )
+                        PersonalReminderStatCard(
+                            label = "READY",
+                            count = readyCount,
+                            containerColor = Color(0xFFE4EDFD),
+                            contentColor = Color(0xFF0B357E),
+                            modifier = Modifier.weight(1f)
+                        )
+                        PersonalReminderStatCard(
+                            label = "COMPLETED",
+                            count = completedCount,
+                            containerColor = Color(0xFFDCF4E4),
+                            contentColor = Color(0xFF054F31),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
                     val tabs = listOf(
                         PersonalReminderTab.ACTIVE to "Active",
                         PersonalReminderTab.COMPLETED to "Completed",
                         PersonalReminderTab.CANCELLED to "Cancelled"
                     )
-                    FilterTabRow(
-                        filters = tabs.map { it.second },
-                        selectedFilter = tabs.first { it.first == uiState.selectedTab }.second,
-                        onFilterChanged = { label ->
-                            tabs.firstOrNull { it.second == label }?.let { viewModel.selectTab(it.first) }
-                        }
-                    )
+                    Box(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs)) {
+                        FilterTabRow(
+                            filters = tabs.map { it.second },
+                            selectedFilter = tabs.first { it.first == uiState.selectedTab }.second,
+                            onFilterChanged = { label ->
+                                tabs.firstOrNull { it.second == label }?.let { viewModel.selectTab(it.first) }
+                            }
+                        )
+                    }
 
                     val list = when (uiState.selectedTab) {
                         PersonalReminderTab.ACTIVE -> uiState.active
@@ -134,5 +180,41 @@ fun PersonalReminderScreen(
             onCancel = { viewModel.cancel(reminder.id); selectedReminder = null },
             onDelete = { viewModel.delete(reminder.id); selectedReminder = null }
         )
+    }
+}
+
+@Composable
+private fun PersonalReminderStatCard(
+    label: String,
+    count: Int,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.height(68.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = containerColor
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = contentColor.copy(alpha = 0.85f),
+                letterSpacing = 0.5.sp
+            )
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+        }
     }
 }

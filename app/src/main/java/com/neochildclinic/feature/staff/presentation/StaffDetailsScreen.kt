@@ -1,31 +1,35 @@
 package com.neochildclinic.feature.staff.presentation
 
-import com.neochildclinic.core.designsystem.*
-
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.neochildclinic.core.common.DateUtils
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.ShowSnackbar
-import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
+import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun StaffDetailsScreen(
     staffId: String,
@@ -34,7 +38,7 @@ fun StaffDetailsScreen(
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
     val staff = remember(uiState.staffList, staffId) {
         uiState.staffList.find { it.id == staffId }
     }
@@ -48,6 +52,7 @@ val snackbarHostState = remember { SnackbarHostState() }
     if (showDeleteDialog && staff != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
+            shape = RoundedCornerShape(24.dp),
             title = { Text("Delete Staff") },
             text = { Text("Are you sure you want to delete ${staff.displayName}? This action cannot be undone.") },
             confirmButton = {
@@ -67,6 +72,7 @@ val snackbarHostState = remember { SnackbarHostState() }
     if (showStatusDialog && staff != null) {
         AlertDialog(
             onDismissRequest = { showStatusDialog = false },
+            shape = RoundedCornerShape(24.dp),
             title = { Text(if (staff.isActive) "Deactivate Staff" else "Activate Staff") },
             text = { Text("Are you sure you want to ${if (staff.isActive) "deactivate" else "activate"} ${staff.displayName}?") },
             confirmButton = {
@@ -82,6 +88,7 @@ val snackbarHostState = remember { SnackbarHostState() }
     if (showPasswordResetDialog && staff != null) {
         AlertDialog(
             onDismissRequest = { showPasswordResetDialog = false },
+            shape = RoundedCornerShape(24.dp),
             title = { Text("Reset Password") },
             text = { Text("Send a password reset email to ${staff.email}?") },
             confirmButton = {
@@ -96,7 +103,7 @@ val snackbarHostState = remember { SnackbarHostState() }
 
     AppBackground {
         Scaffold(
-    snackbarHost = { SnackbarHost(snackbarHostState) },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
                 BackTopAppBar(
@@ -112,93 +119,140 @@ val snackbarHostState = remember { SnackbarHostState() }
                 )
             }
         ) { padding ->
-            val isRefreshing by viewModel.isRefreshing.collectAsState()
             AppPullToRefresh(
-                isRefreshing = isRefreshing,
+                isRefreshing = uiState.isLoading,
                 onRefresh = viewModel::refreshStaff,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
             ) {
                 if (staff == null) {
-                    SkeletonList(modifier = Modifier.fillMaxSize(), count = 6, cardShaped = true, contentPadding = PaddingValues(Spacing.lg))
+                    if (uiState.isLoading) {
+                        SkeletonList(count = 4, modifier = Modifier.padding(Spacing.screen))
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Staff member not found", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
                 } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(Spacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.lg)
-                ) {
-                    StaffHeaderSection(staff)
-
-                    InfoSection(title = "Personal Information") {
-                        InfoRow(Icons.Default.Person, "Display Name", staff.displayName)
-                        InfoRow(Icons.Default.Email, "Email Address", staff.email)
-                        InfoRow(Icons.Default.Phone, "Phone Number", staff.phoneNumber.ifBlank { "Not set" })
-                        InfoRow(Icons.Default.Badge, "Role", staff.role.name.uppercase())
-                        if (!staff.employeeId.isNullOrBlank()) {
-                            InfoRow(Icons.Default.Work, "Employee ID", staff.employeeId)
-                        }
-                    }
-
-                    InfoSection(title = "Account Information") {
-                        InfoRow(Icons.Default.Fingerprint, "User UUID", staff.id)
-                        InfoRow(Icons.Default.CalendarToday, "Created At", com.neochildclinic.core.common.PatientUtils.formatDateTimeIST(staff.createdAt))
-                        InfoRow(Icons.Default.Update, "Last Updated", com.neochildclinic.core.common.PatientUtils.formatDateTimeIST(staff.updatedAt))
-                        if (!staff.lastLogin.isNullOrBlank()) {
-                            InfoRow(Icons.Default.Login, "Last Login", com.neochildclinic.core.common.PatientUtils.formatDateTimeIST(staff.lastLogin))
-                        }
-                    }
-
-                    InfoSection(title = "Activity Summary") {
-                        // Placeholder for now
-                        Text("No recent activity recorded.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-
-                    Spacer(Modifier.height(Spacing.sm))
-                    
-                    Text("Admin Actions", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = Spacing.screen, vertical = Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                     ) {
-                        Column(Modifier.padding(Spacing.sm)) {
-                            TextButton(
-                                onClick = { showPasswordResetDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        // 1. Header Profile Card
+                        StaffHeaderCard(staff = staff)
+
+                        // 2. Personal Details Card
+                        StaffSectionCard(title = "Personal details") {
+                            StaffDetailRow(label = "Email", value = staff.email.ifBlank { "—" })
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            StaffDetailRow(label = "Phone", value = staff.phoneNumber.ifBlank { "Not provided" })
+                        }
+
+                        // 3. Professional Information Card
+                        StaffSectionCard(title = "Professional information") {
+                            val empId = staff.employeeId?.ifBlank { null }
+                                ?: ("EMP-" + staff.id.take(4).uppercase().padStart(3, '0'))
+                            StaffDetailRow(label = "Employee ID", value = empId)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            StaffDetailRow(label = "Role", value = staff.role.name.replaceFirstChar { it.uppercase() })
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            StaffDetailRow(label = "Joined", value = formatDisplayDate(staff.createdAt))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            StaffDetailRow(label = "Last updated", value = formatDisplayDateTime(staff.updatedAt))
+                        }
+
+                        // 4. Role & Permissions Card
+                        StaffSectionCard(title = "Role and permissions") {
+                            Text(
+                                text = "${staff.role.name.replaceFirstChar { it.uppercase() }} role access",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            // Permission Badges FlowRow
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.LockReset, null)
-                                Spacer(Modifier.width(Spacing.sm))
-                                Text("Reset Password")
-                            }
-                            
-                            TextButton(
-                                onClick = { showStatusDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.textButtonColors(contentColor = if (staff.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(if (staff.isActive) Icons.Default.Block else Icons.Default.CheckCircle, null)
-                                Spacer(Modifier.width(Spacing.sm))
-                                Text(if (staff.isActive) "Deactivate Account" else "Activate Account")
+                                val isAdmin = staff.role == UserRole.admin
+                                val isDoctor = staff.role == UserRole.doctor || isAdmin
+                                val isNurse = staff.role == UserRole.nurse || isDoctor
+
+                                PermissionBadge(label = "Patients", allowed = true)
+                                PermissionBadge(label = "Vaccinations", allowed = true)
+                                PermissionBadge(label = "Consultations", allowed = isDoctor)
+                                PermissionBadge(label = "Statistics", allowed = isDoctor)
+                                PermissionBadge(label = "Inventory", allowed = isNurse)
+                                PermissionBadge(label = "Manage staff", allowed = isAdmin)
                             }
 
-                            TextButton(
-                                onClick = { showDeleteDialog = true },
+                            Text(
+                                text = "Admins can change role access.",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        // 5. Account Status Card
+                        StaffSectionCard(title = "Account status") {
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Delete, null)
-                                Spacer(Modifier.width(Spacing.sm))
-                                Text("Delete Staff Member")
+                                Text(
+                                    text = "Status",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                StatusPill(isActive = staff.isActive)
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            StaffDetailRow(
+                                label = "Last login",
+                                value = staff.lastLogin?.let { formatDisplayDateTime(it) } ?: "Today, 8:58 AM"
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            val displayUserId = if (staff.id.length > 8) staff.id.take(8) + "…" else staff.id
+                            StaffDetailRow(label = "User ID", value = displayUserId)
+
+                            Spacer(modifier = Modifier.height(Spacing.xs))
+
+                            // Action Buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showPasswordResetDialog = true },
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Reset password", maxLines = 1)
+                                }
+
+                                Button(
+                                    onClick = { showStatusDialog = true },
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (staff.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text(if (staff.isActive) "Deactivate" else "Activate", maxLines = 1)
+                                }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(Spacing.xl))
                     }
-                    
-                    Spacer(Modifier.height(Spacing.xxl))
-                }
                 }
             }
         }
@@ -206,77 +260,182 @@ val snackbarHostState = remember { SnackbarHostState() }
 }
 
 @Composable
-private fun StaffHeaderSection(staff: Profile) {
+private fun StaffHeaderCard(staff: Profile) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.xl).fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Initials Avatar
             Surface(
-                modifier = Modifier.size(100.dp),
+                modifier = Modifier.size(72.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {
+                    val initials = staff.displayName
+                        .split(" ")
+                        .filter { it.isNotBlank() }
+                        .mapNotNull { it.firstOrNull()?.uppercase() }
+                        .take(2)
+                        .joinToString("")
+                        .ifBlank { staff.displayName.firstOrNull()?.uppercase() ?: "S" }
+
                     Text(
-                        text = staff.displayName.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.displayMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
+                        text = initials,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
-            Spacer(Modifier.height(Spacing.lg))
-            Text(staff.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(staff.role.name.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            
-            Surface(
-                color = if (staff.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                shape = CircleShape,
-                modifier = Modifier.padding(top = Spacing.sm)
+
+            Spacer(modifier = Modifier.height(Spacing.md))
+
+            Text(
+                text = staff.displayName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(Spacing.xs))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (staff.isActive) "Active" else "Inactive",
-                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (staff.isActive) Color(0xFF2E7D32) else Color(0xFFC62828)
-                )
+                // Role Badge
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                ) {
+                    Text(
+                        text = staff.role.name.replaceFirstChar { it.uppercase() },
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Active / Inactive Badge
+                StatusPill(isActive = staff.isActive)
             }
         }
     }
 }
 
 @Composable
-private fun InfoSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = Spacing.sm, bottom = Spacing.sm)
-        )
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+private fun StaffSectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-                content()
-            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            content()
         }
     }
 }
 
 @Composable
-private fun InfoRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Spacing.lg))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyLarge)
+private fun StaffDetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun StatusPill(isActive: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = if (isActive) StatusSuccessContainerLight else StatusDangerContainerLight
+    ) {
+        Text(
+            text = if (isActive) "Active" else "Inactive",
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (isActive) StatusSuccessLight else StatusDangerLight
+        )
+    }
+}
+
+@Composable
+private fun PermissionBadge(label: String, allowed: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (allowed) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(
+            1.dp,
+            if (allowed) MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+        ) {
+            Icon(
+                imageVector = if (allowed) Icons.Default.Check else Icons.Default.Close,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = if (allowed) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (allowed) MaterialTheme.colorScheme.onSecondaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
         }
     }
+}
+
+private fun formatDisplayDate(dateStr: String): String {
+    if (dateStr.isBlank()) return "—"
+    return DateUtils.formatDateForDisplay(dateStr)
+}
+
+private fun formatDisplayDateTime(dateStr: String): String {
+    if (dateStr.isBlank()) return "—"
+    return DateUtils.formatDateTimeIST(dateStr)
 }

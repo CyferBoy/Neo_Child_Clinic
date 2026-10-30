@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.common.CurrencyUtils
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.designsystem.*
@@ -111,7 +112,7 @@ fun PersonalReminderCard(
                 if (reminder.advanceReceived && reminder.advanceAmount != null) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Advance: " + StatisticsUtils.formatRupees(reminder.advanceAmount),
+                        text = "Advance: " + CurrencyUtils.formatInr(reminder.advanceAmount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold

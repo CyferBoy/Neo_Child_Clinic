@@ -43,20 +43,12 @@ fun DashboardBrandBar(isOnline: Boolean) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.app_logo),
-                        contentDescription = "Clinic Logo",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(Spacing.sm))
+                Image(
+                    painter = painterResource(id = R.drawable.app_logo),
+                    contentDescription = "Clinic Logo",
+                    modifier = Modifier.size(38.dp)
+                )
+                Spacer(modifier = Modifier.width(Spacing.md))
                 Column {
                     Text(
                         text = "Neo Child Clinic",

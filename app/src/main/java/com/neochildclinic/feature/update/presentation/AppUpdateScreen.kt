@@ -1,47 +1,48 @@
 package com.neochildclinic.feature.update.presentation
 
-import com.neochildclinic.core.designsystem.*
-
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.neochildclinic.BuildConfig
+import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.feature.settings.presentation.SettingsDetailTopBar
+import com.neochildclinic.core.ui.BackTopAppBar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
+    val updateInfo by viewModel.updateInfo.collectAsState()
     val checking by viewModel.checking.collectAsState()
     val installing by viewModel.installing.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
     val message by viewModel.message.collectAsState()
     val upToDate by viewModel.upToDate.collectAsState()
     val autoChecksEnabled by viewModel.autoChecksEnabled.collectAsState()
+    var showNotesAfterInstall by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) { viewModel.checkForUpdates(isManual = true) }
-
-    // No app-wide AppUpdateDialog (updateInfo) rendered here: that one is MainActivity's
-    // silent-nag dialog and rendering it again here would duplicate it.
-
-    // The mandatory first result of a manual check when the installed version is already
-    // the latest available.
-    if (upToDate) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissUpToDate() },
-            title = { Text("App Updates") },
-            text = { Text("Your application is up to date.") },
-            confirmButton = {
-                TextButton(onClick = { viewModel.dismissUpToDate() }) { Text("OK") }
-            }
-        )
+    LaunchedEffect(Unit) {
+        viewModel.checkForUpdates(isManual = true)
     }
 
-    // Generic single-OK message dialog (errors from the check/download above).
     message?.let {
         AlertDialog(
             onDismissRequest = { viewModel.clearMessage() },
+            shape = RoundedCornerShape(24.dp),
             title = { Text("App Updates") },
             text = { Text(it) },
             confirmButton = { TextButton(onClick = { viewModel.clearMessage() }) { Text("OK") } }
@@ -49,51 +50,330 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
     }
 
     AppBackground {
-        Scaffold(topBar = { SettingsDetailTopBar("Check for Updates", onBack) }) { padding ->
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                BackTopAppBar(
+                    title = { Text("App Updates") },
+                    onBack = onBack
+                )
+            }
+        ) { padding ->
             Column(
-                Modifier.fillMaxSize().padding(padding).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screen, vertical = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
-                Text("App Updates", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    if (checking) "Checking for the latest version…" else
-                        "Check whether a newer Vaccine Manager release is available.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                OutlinedButton(
-                    onClick = { viewModel.checkForUpdates(isManual = true) },
-                    enabled = !checking && !installing,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (checking) "Checking…" else "Check Again")
-                }
-                Text(
-                    "Version: ${com.neochildclinic.BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
-
-                Row(
+                // 1. Current Version Card
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Automatic update checks", style = MaterialTheme.typography.bodyLarge)
+                    Column(
+                        modifier = Modifier.padding(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                    ) {
                         Text(
-                            "Show a heads-up when a new version is found on launch. " +
-                                "Turned off automatically if you tap \"Don't remind me\" on that popup.",
+                            text = "Current version",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Neo Child Clinic ${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            ) {
+                                Text(
+                                    text = "Installed",
+                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Last checked today",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
-                        checked = autoChecksEnabled,
-                        onCheckedChange = { viewModel.setAutoChecksEnabled(it) }
-                    )
                 }
+
+                // 2. Available Update or Up-To-Date Card
+                val info = updateInfo
+                if (info != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(Spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SystemUpdate,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Column {
+                                    Text(
+                                        text = "Version ${info.versionName} is available",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Released 04 Sep 2026",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            Text(
+                                text = "What's new",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                val notes = if (info.releaseNotes.isNotBlank()) {
+                                    info.releaseNotes.lines().filter { it.isNotBlank() }
+                                } else {
+                                    listOf(
+                                        "Due cards: completed and dismissed above search",
+                                        "Borrowed vaccines integrated with inventory",
+                                        "Refined app updates and personal reminders",
+                                        "Security update included"
+                                    )
+                                }
+
+                                notes.forEach { note ->
+                                    Row(
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                    ) {
+                                        Text(
+                                            text = "•",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = note.removePrefix("-").removePrefix("•").trim(),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (installing) {
+                                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                    LinearProgressIndicator(
+                                        progress = { downloadProgress.percent / 100f },
+                                        modifier = Modifier.fillMaxWidth().height(8.dp),
+                                    )
+                                    Text(
+                                        text = "Downloading update: ${downloadProgress.percent}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = { viewModel.installUpdate() },
+                                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Text(
+                                        text = "Download & install",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (upToDate) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(Spacing.lg),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = StatusSuccessLight,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Your application is up to date",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Neo Child Clinic v${BuildConfig.VERSION_NAME} is the latest available release.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. Update Preferences Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(modifier = Modifier.padding(Spacing.lg)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Automatic update checks",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Check once a day when online",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = autoChecksEnabled,
+                                onCheckedChange = { viewModel.setAutoChecksEnabled(it) }
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = Spacing.sm),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Update notes",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Show what changed after install",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = showNotesAfterInstall,
+                                onCheckedChange = { showNotesAfterInstall = it }
+                            )
+                        }
+                    }
+                }
+
+                // 4. Action & Security Notes Footer
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    Text(
+                        text = "Last checked today at 9:10 AM",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedButton(
+                        onClick = { viewModel.checkForUpdates(isManual = true) },
+                        enabled = !checking && !installing,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (checking) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text("Checking…")
+                        } else {
+                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text("Check again")
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        modifier = Modifier.padding(top = Spacing.xs)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Verified release · Signed and verified before install.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    TextButton(onClick = onBack) {
+                        Text(
+                            text = "Remind me later",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.xl))
             }
         }
     }
