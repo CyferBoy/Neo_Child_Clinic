@@ -127,10 +127,15 @@ fun AppDrawer(
                             color = if (isOnline) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
                         ) {}
 
-                        val syncText = when {
-                            !isOnline -> "Offline · $pendingSyncCount pending sync"
-                            pendingSyncCount > 0 -> "Online · $pendingSyncCount change${if (pendingSyncCount > 1) "s" else ""} pending sync"
-                            else -> "Online · All synced"
+                        val syncStatusText = if (pendingSyncCount > 0) {
+                            "$pendingSyncCount remains to sync"
+                        } else {
+                            "Synced with cloud"
+                        }
+                        val syncText = if (isOnline) {
+                            "Online · $syncStatusText"
+                        } else {
+                            if (pendingSyncCount > 0) "Offline · $syncStatusText" else "Offline · Local storage active"
                         }
 
                         Text(

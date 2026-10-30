@@ -385,8 +385,27 @@ private fun QuickActionButton(
 @Composable
 fun DashboardFooter(
     isOnline: Boolean,
+    pendingSyncCount: Int = 0,
     appVersion: String
 ) {
+    val statusText = if (pendingSyncCount > 0) {
+        "$pendingSyncCount remains to sync"
+    } else {
+        "Synced with cloud"
+    }
+
+    val displayText = if (isOnline) {
+        "Online · $statusText"
+    } else {
+        if (pendingSyncCount > 0) "Offline · $statusText" else "Offline · Local storage active"
+    }
+
+    val dotColor = when {
+        !isOnline -> Color(0xFF5F6D68)
+        pendingSyncCount > 0 -> Color(0xFF8A5300)
+        else -> Color(0xFF067647)
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -402,12 +421,12 @@ fun DashboardFooter(
                 modifier = Modifier
                     .size(8.dp)
                     .background(
-                        color = if (isOnline) Color(0xFF067647) else Color(0xFF5F6D68),
+                        color = dotColor,
                         shape = CircleShape
                     )
             )
             Text(
-                text = if (isOnline) "Online · Synced with cloud" else "Offline · Local storage active",
+                text = displayText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -292,6 +292,7 @@ fun DashboardScreen(
                             // Footer Status & Version
                             DashboardFooter(
                                 isOnline = uiState.isOnline,
+                                pendingSyncCount = uiState.pendingSyncCount,
                                 appVersion = com.neochildclinic.BuildConfig.VERSION_NAME
                             )
 
