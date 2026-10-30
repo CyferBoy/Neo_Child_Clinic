@@ -85,37 +85,11 @@ private fun LoginContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Clinic Brand Mark (56dp rounded badge with clinic logo)
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    shadowElevation = 2.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Image(
-                            painter = painterResource(id = R.drawable.app_logo),
-                            contentDescription = "Clinic Logo",
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(Spacing.md))
-
-                // Brand Wordmark & Tagline
-                Text(
-                    text = "NEO CHILD CLINIC",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = "Offering nurturing care...",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Clinic Logo from drawable (no border or container)
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Neo Child Clinic Logo",
+                    modifier = Modifier.height(110.dp)
                 )
 
                 Spacer(modifier = Modifier.height(Spacing.xl))
