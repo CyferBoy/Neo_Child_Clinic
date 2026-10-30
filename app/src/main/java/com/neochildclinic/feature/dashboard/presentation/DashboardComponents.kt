@@ -96,61 +96,6 @@ fun DashboardBrandBar(isOnline: Boolean) {
 }
 
 @Composable
-fun DashboardOverdueBanner(
-    overdueCount: Int,
-    onReview: () -> Unit
-) {
-    if (overdueCount <= 0) return
-    val customColors = LocalCustomColors.current
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = customColors.warningContainer
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.card, vertical = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = "Overdue alert",
-                    tint = customColors.textWarning,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(Spacing.sm))
-                Column {
-                    Text(
-                        text = "$overdueCount vaccinations are overdue",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = customColors.textWarning
-                    )
-                    Text(
-                        text = "Review the due list to schedule reminders",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = customColors.textWarning.copy(alpha = 0.85f)
-                    )
-                }
-            }
-            TextButton(onClick = onReview) {
-                Text(
-                    text = "Review",
-                    fontWeight = FontWeight.Bold,
-                    color = customColors.textWarning
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun DashboardPatientCard(
     modifier: Modifier,
     count: Int,

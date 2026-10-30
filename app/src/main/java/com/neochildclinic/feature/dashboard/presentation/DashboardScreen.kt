@@ -260,12 +260,6 @@ fun DashboardScreen(
                             // Neo Child Clinic Brand & Online/Offline Status
                             DashboardBrandBar(isOnline = uiState.isOnline)
 
-                            // Overdue Vaccinations Banner (if any overdue)
-                            DashboardOverdueBanner(
-                                overdueCount = uiState.dueTodayCount,
-                                onReview = onDue
-                            )
-
                             // Main 2x2 Asymmetric Grid (Patient List, Statistics, Today's Queue, Inventory)
                             DashboardMainGrid(
                                 isWideScreen = isWideScreen,
