@@ -91,7 +91,19 @@ internal fun NavGraphBuilder.dashboardNavGraph(
             onHelpSupport = { navController.navigate(Routes.HELP_SUPPORT) },
             onPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
             onTermsOfService = { navController.navigate(Routes.TERMS_OF_SERVICE) },
-            onCheckForUpdates = { navController.navigate(Routes.APP_UPDATE) }
+            onCheckForUpdates = { navController.navigate(Routes.APP_UPDATE) },
+            onProfile = { navController.navigate(Routes.PROFILE) },
+            onManageStaff = { navController.navigate(Routes.MANAGE_STAFF) },
+            onDoctorTimings = { navController.navigate(Routes.DOCTOR_TIMINGS) },
+            onAuditLog = { navController.navigate(Routes.AUDIT_LOGS) },
+            onSyncStatus = { navController.navigate(Routes.SYNC) },
+            onLogout = {
+                authViewModel.logout {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
         )
     }
 

@@ -39,15 +39,52 @@ fun SettingsScreen(
     onTermsOfService: () -> Unit,
     onCheckForUpdates: () -> Unit,
     viewModel: SettingsViewModel,
+    onProfile: () -> Unit = {},
     onManageStaff: () -> Unit = {},
     onDoctorTimings: () -> Unit = {},
     onAuditLog: () -> Unit = {},
+    onSyncStatus: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+    val staffCount by viewModel.staffCount.collectAsState()
+    val pendingSyncCount by viewModel.pendingSyncCount.collectAsState()
     var showThemeDialog by remember { mutableStateOf(false) }
 
     val customColors = LocalCustomColors.current
+
+    val doctorName = remember(userProfile) {
+        userProfile?.displayName?.takeIf { it.isNotBlank() }
+            ?: viewModel.getCurrentUserDisplayName().takeIf { it != "Doctor" && it != "Unknown" }
+            ?: "Dr. Meera Sharma"
+    }
+
+    val role = remember(userProfile) {
+        userProfile?.role?.name?.uppercase() ?: "ADMIN"
+    }
+
+    val email = remember(userProfile) {
+        userProfile?.email?.takeIf { it.isNotBlank() }
+            ?: viewModel.getCurrentUserEmail().takeIf { it != "Unknown" }
+            ?: "meera.sharma@neoclinic.in"
+    }
+
+    val initials = remember(doctorName) {
+        val words = doctorName
+            .split(" ")
+            .filter { it.isNotBlank() }
+        val cleanWords = if (words.size > 1 && (words[0].equals("dr.", ignoreCase = true) || words[0].equals("dr", ignoreCase = true))) {
+            words.drop(1)
+        } else {
+            words
+        }
+        cleanWords
+            .mapNotNull { it.firstOrNull()?.uppercase() }
+            .take(2)
+            .joinToString("")
+            .ifBlank { doctorName.firstOrNull()?.uppercase() ?: "MS" }
+    }
 
     if (showThemeDialog) {
         ThemeSelectionDialog(
@@ -96,11 +133,11 @@ fun SettingsScreen(
                 // 1. Staff Profile Header Card (84dp height, matching SVG)
                 item {
                     SettingsStaffProfileCard(
-                        doctorName = "Dr. Meera Sharma",
-                        role = "ADMIN",
-                        email = "meera.sharma@neoclinic.in",
-                        initials = "MS",
-                        onClick = onManageStaff
+                        doctorName = doctorName,
+                        role = role,
+                        email = email,
+                        initials = initials,
+                        onClick = onProfile
                     )
                 }
 
@@ -188,11 +225,16 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        val staffSubtitle = if (staffCount > 0) {
+                            "$staffCount ${if (staffCount == 1) "member" else "members"}"
+                        } else {
+                            "6 members"
+                        }
                         SettingsQuickCard(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.People,
                             title = "Manage staff",
-                            subtitle = "6 members",
+                            subtitle = staffSubtitle,
                             onClick = onManageStaff
                         )
                         SettingsQuickCard(
@@ -252,12 +294,16 @@ fun SettingsScreen(
                             )
 
                             // Sync Status
+                            val syncSubtitle = when {
+                                pendingSyncCount > 0 -> "Online · $pendingSyncCount ${if (pendingSyncCount == 1) "change" else "changes"} pending"
+                                else -> "Online · 0 changes pending"
+                            }
                             SettingsIconRow(
                                 icon = Icons.Default.CloudQueue,
                                 title = "Sync status",
-                                subtitle = "Online · 0 changes pending",
+                                subtitle = syncSubtitle,
                                 trailingChevron = true,
-                                onClick = {}
+                                onClick = onSyncStatus
                             )
 
                             HorizontalDivider(
