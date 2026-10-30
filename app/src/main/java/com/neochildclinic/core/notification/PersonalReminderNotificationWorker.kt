@@ -9,6 +9,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -22,7 +23,7 @@ class PersonalReminderNotificationWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val reminders = database.personalReminderDao().getActiveReminders().first()
-        val today = LocalDate.now().toString()
+        val today = LocalDate.now(ZoneId.of("Asia/Kolkata")).toString()
         for (r in reminders) {
             val date = r.reminderDate
             if (date.isNullOrBlank()) {

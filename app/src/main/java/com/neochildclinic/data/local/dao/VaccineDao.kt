@@ -112,7 +112,7 @@ interface VaccineDao {
     @Query("SELECT COUNT(*) FROM vaccine_batches WHERE vaccineId = :vaccineId")
     suspend fun getBatchCountForVaccine(vaccineId: String): Int
 
-    @Query("SELECT COUNT(*) FROM patient_visits WHERE vaccineIds LIKE '%' || :vaccineId || '%'")
+    @Query("SELECT COUNT(*) FROM vaccination_items WHERE vaccineId = :vaccineId")
     suspend fun getVaccinationCountForVaccine(vaccineId: String): Int
 
     @Query("SELECT COUNT(*) FROM waste_records WHERE vaccineId = :vaccineId")

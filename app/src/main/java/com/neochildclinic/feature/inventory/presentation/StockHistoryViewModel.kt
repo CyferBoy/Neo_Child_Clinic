@@ -194,7 +194,7 @@ class StockHistoryViewModel @Inject constructor(
     private fun toIsoDateOnly(displayDate: String): String? {
         if (displayDate.isBlank()) return null
         val date = PatientUtils.parseDate(displayDate) ?: return null
-        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().toString()
+        return date.toInstant().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate().toString()
     }
 
     fun clearError() {

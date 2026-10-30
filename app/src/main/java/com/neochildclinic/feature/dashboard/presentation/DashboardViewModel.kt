@@ -129,7 +129,7 @@ class DashboardViewModel @Inject constructor(
 
     private var todoSlotLoadToken = 0
 
-    private val todayStr = LocalDate.now().toString()
+    private val todayStr = LocalDate.now(StatisticsDateUtils.IST).toString()
     private val _selectedDate = MutableStateFlow(todayStr)
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
@@ -308,7 +308,7 @@ class DashboardViewModel @Inject constructor(
                 val selected = try {
                     java.time.LocalDate.parse(date)
                 } catch (_: java.time.format.DateTimeParseException) {
-                    java.time.LocalDate.now()
+                    java.time.LocalDate.now(StatisticsDateUtils.IST)
                 }
                 val start = selected.withDayOfMonth(1)
                 val end = start.plusMonths(1).minusDays(1)

@@ -95,8 +95,7 @@ fun AddPatientScreen(
                 "Months" -> cal.add(Calendar.MONTH, -value)
                 "Weeks" -> cal.add(Calendar.WEEK_OF_YEAR, -value)
             }
-            dob = cal.toInstant().atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
+            dob = com.neochildclinic.core.common.DateUtils.formatDate(cal.time)
         },
         ageUnit = ageUnit,
         onAgeUnitChange = { newUnit ->
@@ -108,8 +107,7 @@ fun AddPatientScreen(
                 "Months" -> cal.add(Calendar.MONTH, -value)
                 "Weeks" -> cal.add(Calendar.WEEK_OF_YEAR, -value)
             }
-            dob = cal.toInstant().atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
+            dob = com.neochildclinic.core.common.DateUtils.formatDate(cal.time)
         },
         gender = gender,
         onGenderChange = { gender = it },

@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.neochildclinic.app.MainActivity
@@ -39,50 +38,48 @@ class NotificationHelper @Inject constructor(
     }
 
     private fun createNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channels = listOf(
-                NotificationChannel(
-                    CHANNEL_DAILY_SUMMARY,
-                    "Daily Summary",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = "Summary of today's work and upcoming vaccinations"
-                },
-                NotificationChannel(
-                    CHANNEL_LOW_STOCK,
-                    "Low Stock Alerts",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Alerts when vaccine stock falls below threshold"
-                },
-                NotificationChannel(
-                    CHANNEL_SYNC_BACKUP,
-                    "Sync & Backup Alerts",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Critical alerts for data synchronization failures"
-                },
-                NotificationChannel(
-                    CHANNEL_APP_UPDATES,
-                    "App Updates",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Notifications about new Vaccine Manager releases"
-                },
-                NotificationChannel(
-                    CHANNEL_PERSONAL_REMINDERS,
-                    "Personal Vaccine Reminders",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Daily and scheduled personal vaccine follow-up reminders"
-                    // Content carries patient name + phone. FLAG_SECURE covers the app
-                    // window, not the lock screen, so this is the only thing keeping it
-                    // out of the shade. Channel-level so it covers every reminder here.
-                    lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
-                }
-            )
-            notificationManager.createNotificationChannels(channels)
-        }
+        val channels = listOf(
+            NotificationChannel(
+                CHANNEL_DAILY_SUMMARY,
+                "Daily Summary",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Summary of today's work and upcoming vaccinations"
+            },
+            NotificationChannel(
+                CHANNEL_LOW_STOCK,
+                "Low Stock Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Alerts when vaccine stock falls below threshold"
+            },
+            NotificationChannel(
+                CHANNEL_SYNC_BACKUP,
+                "Sync & Backup Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Critical alerts for data synchronization failures"
+            },
+            NotificationChannel(
+                CHANNEL_APP_UPDATES,
+                "App Updates",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications about new Vaccine Manager releases"
+            },
+            NotificationChannel(
+                CHANNEL_PERSONAL_REMINDERS,
+                "Personal Vaccine Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Daily and scheduled personal vaccine follow-up reminders"
+                // Content carries patient name + phone. FLAG_SECURE covers the app
+                // window, not the lock screen, so this is the only thing keeping it
+                // out of the shade. Channel-level so it covers every reminder here.
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
+            }
+        )
+        notificationManager.createNotificationChannels(channels)
     }
 
     private fun notify(id: Int, notification: android.app.Notification) {

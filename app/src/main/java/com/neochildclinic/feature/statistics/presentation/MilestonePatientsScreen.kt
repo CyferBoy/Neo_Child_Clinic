@@ -66,7 +66,7 @@ fun MilestonePatientsScreen(
             patients.mapNotNull { patient ->
                 val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
                 if (milestone.label != label) return@mapNotNull null
-                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.systemDefault()).format(dateFormat))
+                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.of("Asia/Kolkata")).format(dateFormat))
             }.sortedBy { it.second }
         }
     }

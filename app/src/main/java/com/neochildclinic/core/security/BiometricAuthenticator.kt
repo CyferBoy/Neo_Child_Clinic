@@ -123,7 +123,7 @@ object BiometricAuthenticator {
                 0,
                 KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
             )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        } else {
             @Suppress("DEPRECATION")
             builder.setUserAuthenticationValidityDurationSeconds(-1)
             @Suppress("DEPRECATION")

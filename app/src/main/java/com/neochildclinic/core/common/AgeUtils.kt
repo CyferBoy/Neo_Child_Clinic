@@ -50,7 +50,7 @@ object AgeUtils {
                 AgeMilestone(
                     label,
                     Calendar.getInstance().apply {
-                        timeInMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        timeInMillis = date.atStartOfDay(ZoneId.of(IST_ZONE_ID)).toInstant().toEpochMilli()
                     }
                 )
             } else {
@@ -107,7 +107,7 @@ object AgeUtils {
     fun calculateAgeLabel(dob: String): String? {
         try {
             val birthDate = PatientUtils.parseDate(dob) ?: return null
-            val today = LocalDate.now()
+            val today = LocalDate.now(ZoneId.of(IST_ZONE_ID))
             val birth = birthDate.toLocalDate()
 
             val period = Period.between(birth, today)
@@ -140,7 +140,7 @@ object AgeUtils {
     fun calculateDetailedAge(dob: String): Pair<Int, String> {
         try {
             val birthDate = PatientUtils.parseDate(dob) ?: return 0 to "Years"
-            val today = LocalDate.now()
+            val today = LocalDate.now(ZoneId.of(IST_ZONE_ID))
             val birth = birthDate.toLocalDate()
 
             val diffDays = ChronoUnit.DAYS.between(birth, today).toInt()

@@ -133,7 +133,7 @@ object ReceiptFormatter {
         canvas.drawText("Date: ${vaccination.dateGiven}", pageWidth - MARGIN, 87f, paint)
         
         val timeStr = DateTimeFormatter.ofPattern("hh:mm:ss a", Locale.getDefault())
-            .withZone(ZoneId.systemDefault())
+            .withZone(ZoneId.of("Asia/Kolkata"))
             .format(java.time.Instant.now())
         canvas.drawText("Time: $timeStr", pageWidth - MARGIN, 99f, paint)
         

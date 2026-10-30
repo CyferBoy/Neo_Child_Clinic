@@ -265,7 +265,7 @@ fun ClinicalNoteCard(note: PatientNote) {
     val dateDisplay = remember(note.timestamp) { 
         val date = com.neochildclinic.core.common.PatientUtils.parseDate(note.timestamp) ?: Date(0)
         DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", Locale.ENGLISH)
-            .withZone(ZoneId.systemDefault())
+            .withZone(ZoneId.of("Asia/Kolkata"))
             .format(date.toInstant())
     }
     Card(

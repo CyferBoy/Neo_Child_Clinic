@@ -476,12 +476,7 @@ class AppUpdateManager @Inject constructor(
     }
 
     private fun currentVersionCode(): Long =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
-        } else {
-            @Suppress("DEPRECATION")
-            context.packageManager.getPackageInfo(context.packageName, 0).versionCode.toLong()
-        }
+        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
 
     private fun extractVersionCode(release: GithubRelease, tagName: String): Long? {
         val bodyVersion = RE_VERSION_CODE.find(release.body)?.groupValues?.getOrNull(1)?.toLongOrNull()

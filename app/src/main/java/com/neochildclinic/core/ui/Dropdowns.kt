@@ -32,7 +32,7 @@ fun DateDropdownPicker(
         if (currentDate.isEmpty()) null
         else try {
             LocalDate.parse(currentDate, formatter)
-                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                .atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         } catch (_: Exception) { null }
     }
 
