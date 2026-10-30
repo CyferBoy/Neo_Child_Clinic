@@ -28,7 +28,7 @@ import com.neochildclinic.core.designsystem.*
 fun LockScreen(
     onAuthenticate: () -> Unit,
     onPasswordAuthenticate: (String) -> Unit,
-    userName: String = "Dr. Meera Sharma"
+    userName: String = ""
 ) {
     var showPasswordDialog by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
@@ -48,30 +48,13 @@ fun LockScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Clinic Logo Plinth (220 x 180dp card with transparent clinic logo)
-                Card(
-                    modifier = Modifier
-                        .width(220.dp)
-                        .height(180.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo),
-                            contentDescription = "Clinic Logo",
-                            modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .fillMaxHeight(0.85f)
-                        )
-                    }
-                }
+                // Clinic Logo from drawable (no background or border)
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Clinic Logo",
+                    modifier = Modifier.height(130.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
 
                 Spacer(modifier = Modifier.height(28.dp))
 
@@ -102,15 +85,17 @@ fun LockScreen(
 
                 Spacer(modifier = Modifier.height(Spacing.xxs))
 
-                Text(
-                    text = userName,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center
-                )
+                if (userName.isNotBlank()) {
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center
+                    )
 
-                Spacer(modifier = Modifier.height(Spacing.xs))
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                }
 
                 Text(
                     text = "Unlock to continue to your clinic.",

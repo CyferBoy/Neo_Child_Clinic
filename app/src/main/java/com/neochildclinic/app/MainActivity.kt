@@ -68,6 +68,12 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var preferenceManager: PreferenceManager
 
+    @Inject
+    lateinit var sessionManager: com.neochildclinic.core.security.SessionManager
+
+    @Inject
+    lateinit var profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+
     private val authViewModel: AuthViewModel by viewModels()
     private val appUpdateViewModel: AppUpdateViewModel by viewModels()
 
@@ -98,6 +104,18 @@ class MainActivity : FragmentActivity() {
             NeoChildTheme(darkTheme = darkTheme) {
                 val isLocked by BiometricLockManager.isAppLocked.collectAsState()
                 val lockStateResolved by BiometricLockManager.lockStateResolved.collectAsState()
+                val currentProfile by authViewModel.profile.collectAsState()
+                val allProfiles by profileRepository.allProfiles.collectAsState(initial = emptyList())
+                val currentUserId = remember { auth.currentSessionOrNull()?.user?.id }
+
+                val currentUserName = remember(currentProfile, allProfiles, currentUserId) {
+                    currentProfile?.displayName?.takeIf { it.isNotBlank() }
+                        ?: allProfiles.find { it.id == currentUserId }?.displayName?.takeIf { it.isNotBlank() }
+                        ?: sessionManager.getCurrentUserDisplayName("").takeIf { it.isNotBlank() && it != "Unknown" }
+                        ?: auth.currentSessionOrNull()?.user?.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+                        ?: ""
+                }
+
                 val navController = rememberNavController()
                 val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
                 val startupPopup by appUpdateViewModel.startupPopup.collectAsState()
@@ -130,7 +148,8 @@ class MainActivity : FragmentActivity() {
                     if (isLocked) {
                         LockScreen(
                             onAuthenticate = { authenticateWithBiometrics() },
-                            onPasswordAuthenticate = { authenticateWithAccountPassword(it) }
+                            onPasswordAuthenticate = { authenticateWithAccountPassword(it) },
+                            userName = currentUserName
                         )
                     }
 
