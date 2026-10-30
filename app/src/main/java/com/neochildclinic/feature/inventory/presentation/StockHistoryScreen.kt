@@ -63,15 +63,6 @@ fun StockHistoryScreen(
         uiState.selectedTypeFilter != StockHistoryTypeFilter.ALL ||
         uiState.fromDate.isNotBlank() || uiState.toDate.isNotBlank()
 
-    // Calculate Summary Stats from transactions
-    val totalIn = remember(uiState.transactions) {
-        uiState.transactions.filter { it.quantity > 0 }.sumOf { it.quantity }
-    }
-    val totalOut = remember(uiState.transactions) {
-        uiState.transactions.filter { it.quantity < 0 }.sumOf { -it.quantity }
-    }
-    val netChange = totalIn - totalOut
-
     // Group transactions by Date Header
     val groupedTransactions = remember(uiState.transactions) {
         groupTransactionsByDate(uiState.transactions)
@@ -117,16 +108,6 @@ fun StockHistoryScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                // Summary 3-Column Stats Card (SVG matching)
-                StockHistorySummaryCard(
-                    totalIn = totalIn,
-                    totalOut = totalOut,
-                    netChange = netChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.screen, vertical = Spacing.xs)
-                )
-
                 // SVG Pill Filter Chips Row
                 StockHistoryFilterChipsRow(
                     selected = uiState.selectedTypeFilter,
@@ -229,106 +210,6 @@ fun StockHistoryScreen(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-/**
- * 3-Column Summary Card from stock_history_light.svg:
- * [+60 doses in] | [−4 doses out] | [+56 net change]
- */
-@Composable
-private fun StockHistorySummaryCard(
-    totalIn: Int,
-    totalOut: Int,
-    netChange: Int,
-    modifier: Modifier = Modifier
-) {
-    val customColors = LocalCustomColors.current
-
-    Surface(
-        modifier = modifier.height(68.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Column 1: Doses In
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "+$totalIn",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = customColors.textSuccess,
-                    letterSpacing = (-0.5).sp
-                )
-                Text(
-                    text = "doses in",
-                    fontSize = 9.5.sp,
-                    color = customColors.textGrey
-                )
-            }
-
-            VerticalDivider(
-                modifier = Modifier.height(40.dp),
-                color = MaterialTheme.colorScheme.outline,
-                thickness = 1.dp
-            )
-
-            // Column 2: Doses Out
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "−$totalOut",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFB42318),
-                    letterSpacing = (-0.5).sp
-                )
-                Text(
-                    text = "doses out",
-                    fontSize = 9.5.sp,
-                    color = customColors.textGrey
-                )
-            }
-
-            VerticalDivider(
-                modifier = Modifier.height(40.dp),
-                color = MaterialTheme.colorScheme.outline,
-                thickness = 1.dp
-            )
-
-            // Column 3: Net Change
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                val netSign = if (netChange > 0) "+" else if (netChange < 0) "−" else ""
-                val netColor = if (netChange > 0) customColors.textSuccess else if (netChange < 0) Color(0xFFB42318) else MaterialTheme.colorScheme.onSurface
-                Text(
-                    text = "$netSign${abs(netChange)}",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = netColor,
-                    letterSpacing = (-0.5).sp
-                )
-                Text(
-                    text = "net change",
-                    fontSize = 9.5.sp,
-                    color = customColors.textGrey
-                )
             }
         }
     }
