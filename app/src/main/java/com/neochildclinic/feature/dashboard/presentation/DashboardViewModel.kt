@@ -15,6 +15,10 @@ import com.neochildclinic.feature.waste.domain.repository.WasteRepository
 import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
+import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.core.common.PatientUtils
+import java.util.Calendar
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
 import com.neochildclinic.core.ui.SlotsUiState
@@ -54,7 +58,9 @@ data class DashboardUiState(
     val allDoctors: List<Profile> = emptyList(),
     val todoSlotsState: SlotsUiState = SlotsUiState.Idle,
     val slotSegments: List<SlotSegment> = emptyList(),
-    val selectedSlotKey: String? = null
+    val selectedSlotKey: String? = null,
+    val currentMonthRevenue: Double = 0.0,
+    val revenueGrowthPercent: Double? = null
 )
 
 data class DashboardStats(
@@ -62,7 +68,9 @@ data class DashboardStats(
     val stockCounts: Pair<Int, Int>,
     val borrowedCount: Int,
     val dueTodayCount: Int,
-    val wasteCount: Int
+    val wasteCount: Int,
+    val currentMonthRevenue: Double = 0.0,
+    val revenueGrowthPercent: Double? = null
 )
 
 data class DashboardExtras(
@@ -101,7 +109,8 @@ class DashboardViewModel @Inject constructor(
     private val realtimeChangeSubscriptions: RealtimeChangeSubscriptions,
     private val profileRepository: ProfileRepository,
     private val getAvailableSlotsUseCase: GetAvailableSlotsUseCase,
-    private val doctorAvailabilityRepository: DoctorAvailabilityRepository
+    private val doctorAvailabilityRepository: DoctorAvailabilityRepository,
+    private val financeRepository: FinanceRepository
 ) : ViewModel() {
 
     private val _allDoctors = MutableStateFlow<List<Profile>>(emptyList())
@@ -218,15 +227,61 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private fun monthlyRevenueStats(): Flow<Pair<Double, Double?>> =
+        financeRepository.getAllTransactions().map { transactions ->
+            val income = transactions.filter { it.type.equals("INCOME", ignoreCase = true) }
+            val effective = FinanceCalculator.effectiveIncome(income)
+
+            val now = LocalDate.now()
+            val curYear = now.year
+            val curMonth = now.monthValue
+            val prevDate = now.minusMonths(1)
+            val prevYear = prevDate.year
+            val prevMonth = prevDate.monthValue
+
+            var curRevenue = 0.0
+            var prevRevenue = 0.0
+
+            effective.forEach { tx ->
+                val reportingDate = FinanceCalculator.resolveReportingDate(tx)
+                val parsed = PatientUtils.parseDate(reportingDate) ?: return@forEach
+                val cal = Calendar.getInstance().apply { time = parsed }
+                val year = cal.get(Calendar.YEAR)
+                val month = cal.get(Calendar.MONTH) + 1
+                if (year == curYear && month == curMonth) {
+                    curRevenue += tx.amount.coerceAtLeast(0.0)
+                } else if (year == prevYear && month == prevMonth) {
+                    prevRevenue += tx.amount.coerceAtLeast(0.0)
+                }
+            }
+
+            val growth = FinanceCalculator.calculateImprovement(curRevenue, prevRevenue)
+            curRevenue to growth
+        }
+
     val uiState: StateFlow<DashboardUiState> = combine(
         combine(
-            patientCount(),
-            inventoryStockCounts(),
-            borrowedCount(),
-            dueCount(),
-            wasteCount()
-        ) { pCount, stock, borrowed, due, waste ->
-            DashboardStats(pCount, stock, borrowed, due, waste)
+            combine(
+                patientCount(),
+                inventoryStockCounts(),
+                borrowedCount(),
+                dueCount(),
+                wasteCount()
+            ) { pCount, stock, borrowed, due, waste ->
+                pCount to listOf(stock.first, stock.second, borrowed, due, waste)
+            },
+            monthlyRevenueStats()
+        ) { counts, revenueStats ->
+            val (pCount, rest) = counts
+            DashboardStats(
+                patientCount = pCount,
+                stockCounts = rest[0] to rest[1],
+                borrowedCount = rest[2],
+                dueTodayCount = rest[3],
+                wasteCount = rest[4],
+                currentMonthRevenue = revenueStats.first,
+                revenueGrowthPercent = revenueStats.second
+            )
         },
         combine(
             syncRepository.syncState,
@@ -282,6 +337,8 @@ class DashboardViewModel @Inject constructor(
             dueTodayCount = stats.dueTodayCount,
             wasteCount = stats.wasteCount,
             outOfStockCount = stats.stockCounts.second,
+            currentMonthRevenue = stats.currentMonthRevenue,
+            revenueGrowthPercent = stats.revenueGrowthPercent,
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,

@@ -8,7 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Inventory2
+import com.neochildclinic.core.common.CurrencyUtils
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -57,7 +63,7 @@ fun DashboardBrandBar(isOnline: Boolean) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Pediatric vaccination & care",
+                        text = "Offering nurturing care...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -136,40 +142,262 @@ private fun DashboardPatientCard(
                 )
                 Text(
                     text = count.toString(),
-                    fontSize = 34.sp,
+                    fontSize = 38.sp,
                     fontWeight = FontWeight.Bold,
                     color = customColors.textBlue,
-                    lineHeight = 38.sp
+                    letterSpacing = (-0.035).sp,
+                    lineHeight = 40.sp
                 )
                 Text(
                     text = "patient records",
                     style = MaterialTheme.typography.bodySmall,
-                    color = customColors.textBlue.copy(alpha = 0.75f)
+                    color = customColors.textBlue.copy(alpha = 0.8f)
                 )
             }
 
-            // Quick add pill button
-            Surface(
-                modifier = Modifier.clickable { onAddPatient() },
-                shape = PillShape,
-                color = MaterialTheme.colorScheme.primary
+            // Quick add pill button and trailing chevron
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Surface(
+                    modifier = Modifier.clickable { onAddPatient() },
+                    shape = PillShape,
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add patient",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Add",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+
+                val isDark = isSystemInDarkTheme()
+                val circleBg = if (isDark) Color(0xFF151F1B).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(circleBg, CircleShape)
+                        .clickable { onPatientList() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add patient",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(14.dp)
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Open patient list",
+                        tint = customColors.textBlue,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardStatisticsCard(
+    modifier: Modifier = Modifier,
+    revenue: Double,
+    growthPercent: Double?,
+    onClick: () -> Unit
+) {
+    val customColors = LocalCustomColors.current
+
+    Box(
+        modifier = modifier
+            .clip(CardShape)
+            .background(customColors.softPurple)
+            .clickable { onClick() }
+            .padding(Spacing.card)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                contentDescription = "Statistics",
+                tint = customColors.textPurple,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Column {
+                Text(
+                    text = "Statistics",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = customColors.textPurple
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = CurrencyUtils.formatInr(revenue),
+                        fontSize = 23.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = customColors.textPurple,
+                        letterSpacing = (-0.02).sp,
+                        lineHeight = 26.sp
+                    )
+
+                    if (growthPercent != null) {
+                        val isPositive = growthPercent >= 0
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPositive) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                                contentDescription = if (isPositive) "Growth" else "Decline",
+                                tint = customColors.textPurple,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = "${kotlin.math.abs(growthPercent.roundToInt())}%",
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = customColors.textPurple
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "revenue this month",
+                    fontSize = 9.5.sp,
+                    color = customColors.textPurple.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardInventoryCard(
+    modifier: Modifier = Modifier,
+    lowStockCount: Int,
+    outOfStockCount: Int,
+    onInventory: () -> Unit
+) {
+    val customColors = LocalCustomColors.current
+    val isDark = isSystemInDarkTheme()
+    val outOfStockColor = if (isDark) Color(0xFFFFB4AB) else Color(0xFFB42318)
+    val circleBg = if (isDark) Color(0xFF151F1B).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
+
+    Box(
+        modifier = modifier
+            .clip(CardShape)
+            .background(customColors.softOrange)
+            .clickable { onInventory() }
+            .padding(Spacing.card)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(
+                imageVector = Icons.Default.Inventory2,
+                contentDescription = "Inventory",
+                tint = customColors.textOrange,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Inventory",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = customColors.textOrange
+                )
+
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = lowStockCount.toString(),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = customColors.textOrange,
+                        lineHeight = 30.sp
                     )
                     Text(
-                        text = "Add",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "low stock",
+                        fontSize = 10.sp,
+                        color = customColors.textOrange.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = outOfStockCount.toString(),
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = outOfStockColor,
+                        lineHeight = 30.sp
+                    )
+                    Text(
+                        text = "out of stock",
+                        fontSize = 10.sp,
+                        color = customColors.textOrange.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = customColors.softPink,
+                    modifier = Modifier
+                        .height(24.dp)
+                        .width(76.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Review",
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = customColors.textPink
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(circleBg, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Review Inventory",
+                        tint = customColors.textOrange,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -189,12 +417,11 @@ fun DashboardMainGrid(
     onInventory: () -> Unit,
     onStatistics: () -> Unit
 ) {
-    val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        // Column 1: Patient List (210dp) and Statistics (150dp)
+        // Column 1: Patient List (196dp) and Statistics (138dp)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(Spacing.md)
@@ -202,24 +429,22 @@ fun DashboardMainGrid(
             DashboardPatientCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(210.dp),
+                    .height(196.dp),
                 count = uiState.patientCount,
                 onPatientList = onPatientList,
                 onAddPatient = onAddPatient
             )
-            DashboardCard(
-                title = "Statistics",
-                subtitle = "Practice metrics",
-                icon = Icons.AutoMirrored.Filled.TrendingUp,
-                containerColor = customColors.softPurple,
-                contentColor = customColors.textPurple,
-                height = 150.dp,
-                modifier = Modifier.fillMaxWidth(),
+            DashboardStatisticsCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(138.dp),
+                revenue = uiState.currentMonthRevenue,
+                growthPercent = uiState.revenueGrowthPercent,
                 onClick = onStatistics
             )
         }
 
-        // Column 2: Today's Queue (150dp) and Inventory (210dp)
+        // Column 2: Today's Patients (150dp) and Inventory (184dp)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(Spacing.md)
@@ -235,22 +460,13 @@ fun DashboardMainGrid(
                 onAddConsultation = dashboardAddConsultation,
                 onAddVaccination = dashboardAddVaccination
             )
-            val inventorySubtitle = if (uiState.outOfStockCount > 0) {
-                "${uiState.outOfStockCount} out of stock\n${uiState.lowStockCount} low on stock"
-            } else if (uiState.lowStockCount > 0) {
-                "${uiState.lowStockCount} low on stock"
-            } else {
-                "Stock healthy"
-            }
-            DashboardCard(
-                title = "Inventory",
-                subtitle = inventorySubtitle,
-                icon = Icons.Default.ShoppingCart,
-                containerColor = customColors.softOrange,
-                contentColor = if (uiState.outOfStockCount > 0 || uiState.lowStockCount > 0) customColors.textPink else customColors.textOrange,
-                height = 210.dp,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = onInventory
+            DashboardInventoryCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(184.dp),
+                lowStockCount = uiState.lowStockCount,
+                outOfStockCount = uiState.outOfStockCount,
+                onInventory = onInventory
             )
         }
     }

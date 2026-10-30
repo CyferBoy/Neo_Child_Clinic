@@ -104,12 +104,12 @@ fun DashboardScreen(
                             ) {
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
-                                    height = 210.dp,
+                                    height = 196.dp,
                                     shape = CardShape
                                 )
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
-                                    height = 150.dp,
+                                    height = 138.dp,
                                     shape = CardShape
                                 )
                             }
@@ -124,7 +124,7 @@ fun DashboardScreen(
                                 )
                                 SkeletonCard(
                                     modifier = Modifier.fillMaxWidth(),
-                                    height = 210.dp,
+                                    height = 184.dp,
                                     shape = CardShape
                                 )
                             }

@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.designsystem.*
@@ -43,16 +44,64 @@ fun TodayPatientsCard(
     var showAdd by remember { mutableStateOf(false) }
 
     val customColors = LocalCustomColors.current
-    Box(modifier = modifier) {
-        DashboardCard(
-            title = "Today's Patient",
-            subtitle = "Consultation: ${consultations.size}\nVaccination: ${vaccinations.size}",
-            icon = Icons.Default.EventAvailable,
-            containerColor = customColors.softGreen,
-            contentColor = customColors.textGreen,
+    val consultationCount = consultations.size
+    val vaccinationCount = vaccinations.size
+    val totalCount = consultationCount + vaccinationCount
+
+    Box(
+        modifier = modifier
+            .clip(CardShape)
+            .background(customColors.softGreen)
+            .clickable { onTodayPatients() }
+            .padding(Spacing.card)
+    ) {
+        Column(
             modifier = Modifier.fillMaxSize(),
-            onClick = onTodayPatients
-        )
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(
+                imageVector = Icons.Default.EventAvailable,
+                contentDescription = "Today's Patients",
+                tint = customColors.textGreen,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Column {
+                Text(
+                    text = "Today's Patients",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = customColors.textGreen
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = totalCount.toString(),
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = customColors.textGreen,
+                        letterSpacing = (-0.03).sp,
+                        lineHeight = 36.sp
+                    )
+                    Text(
+                        text = "total",
+                        fontSize = 10.sp,
+                        color = customColors.textGreen.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "$consultationCount consultation · $vaccinationCount vaccination",
+                    fontSize = 9.5.sp,
+                    color = customColors.textGreen.copy(alpha = 0.85f),
+                    maxLines = 1
+                )
+            }
+        }
     }
 
     if (showAdd) {

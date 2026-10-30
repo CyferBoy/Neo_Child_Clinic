@@ -2,7 +2,6 @@ package com.neochildclinic.feature.dashboard.presentation
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
@@ -10,17 +9,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.R
+import com.neochildclinic.core.designsystem.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardTopBar(
     onMenuClick: () -> Unit,
@@ -44,9 +42,32 @@ fun DashboardTopBar(
         "$timeGreeting, $name"
     }
 
-    TopAppBar(
-        title = {
-            Column {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = Spacing.screen, vertical = Spacing.xs)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                IconButton(
+                    onClick = onMenuClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Open navigation menu",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 Text(
                     text = dateText,
                     style = MaterialTheme.typography.labelSmall,
@@ -54,39 +75,31 @@ fun DashboardTopBar(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
                 )
-                Text(
-                    text = greetingText,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
             }
-        },
-        navigationIcon = {
-            IconButton(onClick = onMenuClick) {
+
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier.size(32.dp)
+            ) {
                 Icon(
-                    Icons.Default.Menu,
-                    contentDescription = "Open navigation menu",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onSearchClick) {
-                Icon(
-                    Icons.Default.Search,
+                    imageVector = Icons.Default.Search,
                     contentDescription = "Search patients",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(22.dp)
                 )
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Transparent,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-            actionIconContentColor = MaterialTheme.colorScheme.onSurface
+        }
+
+        Spacer(modifier = Modifier.height(2.dp))
+
+        Text(
+            text = greetingText,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(start = 42.dp)
         )
-    )
+    }
 }
 
 @Composable
@@ -113,7 +126,7 @@ fun ClinicLogo(isWideScreen: Boolean) {
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Pediatric vaccination & care",
+                text = "Offering nurturing care...",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
