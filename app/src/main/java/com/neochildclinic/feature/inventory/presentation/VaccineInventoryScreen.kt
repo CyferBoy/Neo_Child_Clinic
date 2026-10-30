@@ -327,6 +327,7 @@ private fun VaccineInventoryContent(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
+                                if (uiState.showStockValueEnabled) {
                                     VerticalDivider(
                                         modifier = Modifier.height(36.dp),
                                         color = MaterialTheme.colorScheme.outline
@@ -350,8 +351,9 @@ private fun VaccineInventoryContent(
                                 }
                             }
                         }
+                    }
 
-                        // 3. Vaccine List or Empty State
+                    // 3. Vaccine List or Empty State
                         if (uiState.inventory.isEmpty()) {
                             item {
                                 EmptyState(
@@ -366,6 +368,7 @@ private fun VaccineInventoryContent(
                                 Box(modifier = Modifier.padding(horizontal = Spacing.screen)) {
                                     VaccineItemCard(
                                         item = item,
+                                        hideExpiredEmpty = uiState.hideExpiredEmpty,
                                         onAddBatch = onAddBatch,
                                         onEditBatch = onEditBatch,
                                         onDeleteBatch = onDeleteBatch,
@@ -386,6 +389,7 @@ private fun VaccineInventoryContent(
 @Composable
 private fun VaccineItemCard(
     item: InventoryItem,
+    hideExpiredEmpty: Boolean = true,
     onAddBatch: (String, String) -> Unit,
     onEditBatch: (String, String, String) -> Unit,
     onDeleteBatch: (VaccineBatch) -> Unit,
@@ -394,13 +398,14 @@ private fun VaccineItemCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
-    var showHiddenBatches by remember { mutableStateOf(false) }
+    var overrideHideBatches by remember(hideExpiredEmpty) { mutableStateOf<Boolean?>(null) }
+    val isHiding = overrideHideBatches ?: hideExpiredEmpty
 
-    val hiddenBatches = remember(item.batches) {
-        item.batches.filter { InventoryUtils.isExpired(it.expiryDate) && it.remainingQuantity <= 0 }
+    val unusableBatches = remember(item.batches) {
+        item.batches.filter { InventoryUtils.isExpired(it.expiryDate) || it.remainingQuantity <= 0 }
     }
 
-    val visibleBatches = if (showHiddenBatches) item.batches else item.batches.filterNot { it in hiddenBatches }
+    val visibleBatches = if (isHiding) item.batches.filterNot { it in unusableBatches } else item.batches
 
     Card(
         modifier = Modifier
@@ -423,12 +428,12 @@ private fun VaccineItemCard(
                     // Status icon box
                     val iconContainerColor = when {
                         item.hasExpired || item.stock <= 0 -> MaterialTheme.colorScheme.errorContainer
-                        item.isLowStock -> MaterialTheme.colorScheme.tertiaryContainer
+                        item.isLowStock || item.isNearExpiry -> MaterialTheme.colorScheme.tertiaryContainer
                         else -> MaterialTheme.colorScheme.secondaryContainer
                     }
                     val iconContentColor = when {
                         item.hasExpired || item.stock <= 0 -> MaterialTheme.colorScheme.onErrorContainer
-                        item.isLowStock -> MaterialTheme.colorScheme.onTertiaryContainer
+                        item.isLowStock || item.isNearExpiry -> MaterialTheme.colorScheme.onTertiaryContainer
                         else -> MaterialTheme.colorScheme.onSecondaryContainer
                     }
 
@@ -458,10 +463,15 @@ private fun VaccineItemCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        val batchCountText = if (isHiding && unusableBatches.isNotEmpty()) {
+                            "${visibleBatches.size} active · ${item.batches.size} total"
+                        } else {
+                            "${item.batches.size} batches"
+                        }
                         Text(
                             text = listOfNotNull(
                                 item.company.takeIf { it.isNotBlank() },
-                                "${item.batches.size} batches"
+                                batchCountText
                             ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -494,6 +504,7 @@ private fun VaccineItemCard(
                             item.hasExpired -> Triple("Expired", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
                             item.stock <= 0 -> Triple("Out of stock", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
                             item.isLowStock -> Triple("Low stock", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                            item.isNearExpiry -> Triple("Near expiry", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
                             else -> Triple("In stock", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
                         }
 
@@ -516,15 +527,16 @@ private fun VaccineItemCard(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
                 ) {
-                    if (hiddenBatches.isNotEmpty()) {
+                    if (unusableBatches.isNotEmpty()) {
                         DropdownMenuItem(
-                            text = { Text(if (showHiddenBatches) "Hide Expired & Empty" else "Show Hidden Batches") },
+                            text = { Text(if (isHiding) "Show Hidden Batches (${unusableBatches.size})" else "Hide Expired & Empty") },
                             onClick = {
-                                showHiddenBatches = !showHiddenBatches
+                                val nextHiding = !isHiding
+                                overrideHideBatches = nextHiding
                                 menuExpanded = false
-                                if (showHiddenBatches) expanded = true
+                                if (!nextHiding) expanded = true
                             },
-                            leadingIcon = { Icon(if (showHiddenBatches) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) }
+                            leadingIcon = { Icon(if (isHiding) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) }
                         )
                     }
                     DropdownMenuItem(
@@ -612,6 +624,8 @@ private fun BatchRow(
     brandName: String
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val isExpired = InventoryUtils.isExpired(batch.expiryDate)
+    val isZeroQty = batch.remainingQuantity <= 0
 
     Row(
         modifier = Modifier
@@ -620,16 +634,45 @@ private fun BatchRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                "Batch: ${batch.batchNumber}",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Batch: ${batch.batchNumber}",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (isExpired) {
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Text(
+                            text = "Expired",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                } else if (isZeroQty) {
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            text = "Empty",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+            }
             Text(
                 "Exp: ${formatDateForDisplay(batch.expiryDate)} · Qty: ${batch.remainingQuantity}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 "MRP: ₹${batch.sellingPrice} · Net: ₹${batch.purchaseCost}",

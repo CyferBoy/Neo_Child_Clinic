@@ -34,13 +34,6 @@ fun InventorySettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val customColors = LocalCustomColors.current
 
-    // Local state for UI toggles represented in the SVG
-    var expiryWarningsEnabled by remember { mutableStateOf(true) }
-    var hideExpiredEmpty by remember { mutableStateOf(true) }
-    var warnDaysBeforeExpiry by remember { mutableIntStateOf(30) }
-    var showStockValueEnabled by remember { mutableStateOf(true) }
-    var sortMethod by remember { mutableStateOf("Alphabetical") }
-
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
@@ -121,8 +114,8 @@ fun InventorySettingsScreen(
                                     icon = Icons.Default.Schedule,
                                     title = "Expiry warnings",
                                     subtitle = "Warn before batches expire",
-                                    checked = expiryWarningsEnabled,
-                                    onCheckedChange = { expiryWarningsEnabled = it }
+                                    checked = s.expiryWarningsEnabled,
+                                    onCheckedChange = { viewModel.updateSettings(s.copy(expiryWarningsEnabled = it)) }
                                 )
 
                                 HorizontalDivider(
@@ -136,8 +129,8 @@ fun InventorySettingsScreen(
                                     icon = Icons.Default.VisibilityOff,
                                     title = "Hide expired & empty",
                                     subtitle = "Hide unusable batches by default",
-                                    checked = hideExpiredEmpty,
-                                    onCheckedChange = { hideExpiredEmpty = it }
+                                    checked = s.hideExpiredEmpty,
+                                    onCheckedChange = { viewModel.updateSettings(s.copy(hideExpiredEmpty = it)) }
                                 )
                             }
                         }
@@ -177,11 +170,16 @@ fun InventorySettingsScreen(
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.clickable {
-                                        warnDaysBeforeExpiry = if (warnDaysBeforeExpiry == 30) 60 else if (warnDaysBeforeExpiry == 60) 15 else 30
+                                        val nextDays = when (s.warnDaysBeforeExpiry) {
+                                            30 -> 60
+                                            60 -> 15
+                                            else -> 30
+                                        }
+                                        viewModel.updateSettings(s.copy(warnDaysBeforeExpiry = nextDays))
                                     }
                                 ) {
                                     Text(
-                                        text = "$warnDaysBeforeExpiry days",
+                                        text = "${s.warnDaysBeforeExpiry} days",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -212,7 +210,12 @@ fun InventorySettingsScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            sortMethod = if (sortMethod == "Alphabetical") "Expiry Date" else if (sortMethod == "Expiry Date") "Quantity" else "Alphabetical"
+                                            val nextSort = when (s.sortMethod) {
+                                                "Alphabetical" -> "Expiry Date"
+                                                "Expiry Date" -> "Quantity"
+                                                else -> "Alphabetical"
+                                            }
+                                            viewModel.updateSettings(s.copy(sortMethod = nextSort))
                                         }
                                         .padding(horizontal = 16.dp, vertical = 14.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -225,7 +228,7 @@ fun InventorySettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = sortMethod,
+                                        text = s.sortMethod,
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = customColors.textGrey
@@ -261,8 +264,8 @@ fun InventorySettingsScreen(
                                     }
 
                                     Switch(
-                                        checked = showStockValueEnabled,
-                                        onCheckedChange = { showStockValueEnabled = it },
+                                        checked = s.showStockValueEnabled,
+                                        onCheckedChange = { viewModel.updateSettings(s.copy(showStockValueEnabled = it)) },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = Color.White,
                                             checkedTrackColor = Color(0xFF16558F)

@@ -2,6 +2,8 @@ package com.neochildclinic.feature.inventory.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.core.preferences.NotificationSettings
+import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
@@ -19,19 +21,23 @@ data class VaccineInventoryUiState(
     val filter: InventoryFilter = InventoryFilter.ALL,
     val sort: InventorySort = InventorySort.ALPHABETICAL,
     val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val hideExpiredEmpty: Boolean = true,
+    val warnDaysBeforeExpiry: Int = 30,
+    val showStockValueEnabled: Boolean = true
 )
 
 @HiltViewModel
 class VaccineInventoryViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val settingsManager: NotificationSettingsManager
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     private val _filter = MutableStateFlow(InventoryFilter.ALL)
-    private val _sort = MutableStateFlow(InventorySort.ALPHABETICAL)
+    private val _sort = MutableStateFlow<InventorySort?>(null)
     private val _isRefreshing = MutableStateFlow(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -39,19 +45,28 @@ class VaccineInventoryViewModel @Inject constructor(
         _searchQuery,
         _filter,
         _sort,
-        _isRefreshing
-    ) { query, filter, sort, refreshing ->
-        Quad(query, filter, sort, refreshing)
-    }.flatMapLatest { internal ->
-        inventoryRepository.getInventoryItems(internal.first, internal.second, internal.third)
+        _isRefreshing,
+        settingsManager.settingsFlow
+    ) { query, filter, sortOverride, refreshing, settings ->
+        InventoryStateParams(query, filter, sortOverride, refreshing, settings)
+    }.flatMapLatest { params ->
+        val activeSort = params.sortOverride ?: when (params.settings.sortMethod) {
+            "Expiry Date" -> InventorySort.EXPIRY
+            "Quantity" -> InventorySort.HIGHEST_STOCK
+            else -> InventorySort.ALPHABETICAL
+        }
+        inventoryRepository.getInventoryItems(params.query, params.filter, activeSort)
             .map { items ->
                 VaccineInventoryUiState(
                     inventory = items,
-                    searchQuery = internal.first,
-                    filter = internal.second,
-                    sort = internal.third,
+                    searchQuery = params.query,
+                    filter = params.filter,
+                    sort = activeSort,
                     isLoading = false,
-                    isRefreshing = internal.fourth
+                    isRefreshing = params.refreshing,
+                    hideExpiredEmpty = params.settings.hideExpiredEmpty,
+                    warnDaysBeforeExpiry = params.settings.warnDaysBeforeExpiry,
+                    showStockValueEnabled = params.settings.showStockValueEnabled
                 )
             }
     }.stateIn(
@@ -108,4 +123,10 @@ class VaccineInventoryViewModel @Inject constructor(
     }
 }
 
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+private data class InventoryStateParams(
+    val query: String,
+    val filter: InventoryFilter,
+    val sortOverride: InventorySort?,
+    val refreshing: Boolean,
+    val settings: NotificationSettings
+)

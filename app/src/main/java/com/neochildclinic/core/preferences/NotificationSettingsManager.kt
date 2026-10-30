@@ -22,6 +22,11 @@ class NotificationSettingsManager @Inject constructor(
     private val SYNC_ALERTS_ENABLED = booleanPreferencesKey("sync_alerts_enabled")
     private val REMINDER_TIME = stringPreferencesKey("reminder_time")
     private val LOW_STOCK_THRESHOLD = intPreferencesKey("low_stock_threshold")
+    private val EXPIRY_WARNINGS_ENABLED = booleanPreferencesKey("expiry_warnings_enabled")
+    private val WARN_DAYS_BEFORE_EXPIRY = intPreferencesKey("warn_days_before_expiry")
+    private val HIDE_EXPIRED_EMPTY = booleanPreferencesKey("hide_expired_empty")
+    private val SHOW_STOCK_VALUE_ENABLED = booleanPreferencesKey("show_stock_value_enabled")
+    private val INVENTORY_SORT_METHOD = stringPreferencesKey("inventory_sort_method")
     
     // Security Settings
     private val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("biometric_lock_enabled")
@@ -41,6 +46,11 @@ class NotificationSettingsManager @Inject constructor(
             syncAlertsEnabled = preferences[SYNC_ALERTS_ENABLED] ?: true,
             reminderTime = preferences[REMINDER_TIME] ?: "08:00",
             lowStockThreshold = preferences[LOW_STOCK_THRESHOLD] ?: 5,
+            expiryWarningsEnabled = preferences[EXPIRY_WARNINGS_ENABLED] ?: true,
+            warnDaysBeforeExpiry = preferences[WARN_DAYS_BEFORE_EXPIRY] ?: 30,
+            hideExpiredEmpty = preferences[HIDE_EXPIRED_EMPTY] ?: true,
+            showStockValueEnabled = preferences[SHOW_STOCK_VALUE_ENABLED] ?: true,
+            sortMethod = preferences[INVENTORY_SORT_METHOD] ?: "Alphabetical",
             
             biometricLockEnabled = preferences[BIOMETRIC_LOCK_ENABLED] ?: true,
             inactivityDaysThreshold = preferences[INACTIVITY_DAYS_THRESHOLD] ?: 10,
@@ -60,6 +70,11 @@ class NotificationSettingsManager @Inject constructor(
             preferences[SYNC_ALERTS_ENABLED] = settings.syncAlertsEnabled
             preferences[REMINDER_TIME] = settings.reminderTime
             preferences[LOW_STOCK_THRESHOLD] = settings.lowStockThreshold
+            preferences[EXPIRY_WARNINGS_ENABLED] = settings.expiryWarningsEnabled
+            preferences[WARN_DAYS_BEFORE_EXPIRY] = settings.warnDaysBeforeExpiry
+            preferences[HIDE_EXPIRED_EMPTY] = settings.hideExpiredEmpty
+            preferences[SHOW_STOCK_VALUE_ENABLED] = settings.showStockValueEnabled
+            preferences[INVENTORY_SORT_METHOD] = settings.sortMethod
             
             preferences[BIOMETRIC_LOCK_ENABLED] = settings.biometricLockEnabled
             preferences[INACTIVITY_DAYS_THRESHOLD] = settings.inactivityDaysThreshold
@@ -105,19 +120,24 @@ class NotificationSettingsManager @Inject constructor(
 }
 
 data class NotificationSettings(
-    val dailySummaryEnabled: Boolean,
-    val lowStockEnabled: Boolean,
-    val syncAlertsEnabled: Boolean,
-    val reminderTime: String,
-    val lowStockThreshold: Int,
+    val dailySummaryEnabled: Boolean = true,
+    val lowStockEnabled: Boolean = true,
+    val syncAlertsEnabled: Boolean = true,
+    val reminderTime: String = "08:00",
+    val lowStockThreshold: Int = 5,
+    val expiryWarningsEnabled: Boolean = true,
+    val warnDaysBeforeExpiry: Int = 30,
+    val hideExpiredEmpty: Boolean = true,
+    val showStockValueEnabled: Boolean = true,
+    val sortMethod: String = "Alphabetical",
     
-    val biometricLockEnabled: Boolean,
-    val inactivityDaysThreshold: Int,
-    val authOnEveryOpen: Boolean,
+    val biometricLockEnabled: Boolean = true,
+    val inactivityDaysThreshold: Int = 10,
+    val authOnEveryOpen: Boolean = false,
     
-    val lastAppOpenTimestamp: Long,
-    val needsAuth: Boolean,
-    val lastSummarySentDate: String,
-    val notifiedLowStockVaccines: Set<String>
+    val lastAppOpenTimestamp: Long = 0L,
+    val needsAuth: Boolean = false,
+    val lastSummarySentDate: String = "",
+    val notifiedLowStockVaccines: Set<String> = emptySet()
 )
 

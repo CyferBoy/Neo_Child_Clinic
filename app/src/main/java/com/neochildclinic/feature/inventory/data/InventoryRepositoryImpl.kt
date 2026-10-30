@@ -69,6 +69,7 @@ class InventoryRepositoryImpl @Inject constructor(
             settingsManager.settingsFlow
         ) { vaccines, allBatches, settings ->
             val globalThreshold = settings.lowStockThreshold
+            val warnDays = settings.warnDaysBeforeExpiry
             vaccines.map { vaccine ->
                 val batches = allBatches.filter { it.vaccineId == vaccine.id }
                 // Usable stock excludes expired batches: an expired dose can never be
@@ -77,8 +78,8 @@ class InventoryRepositoryImpl @Inject constructor(
                 val totalStock = activeBatches.sumOf { it.remainingQuantity }
                 
                 val hasExpired = batches.any { InventoryUtils.isExpired(it.expiryDate) && it.remainingQuantity > 0 }
-                val isNearExpiry = batches.any { InventoryUtils.isNearExpiry(it.expiryDate) }
-                val isLowStock = totalStock <= globalThreshold
+                val isNearExpiry = batches.any { it.remainingQuantity > 0 && InventoryUtils.isNearExpiry(it.expiryDate, thresholdDays = warnDays) }
+                val isLowStock = totalStock > 0 && totalStock <= globalThreshold
                 val isOutOfStock = totalStock <= 0
 
                 // Fallback pricing from latest batch if not set in definition
