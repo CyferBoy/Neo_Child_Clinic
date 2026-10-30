@@ -2,39 +2,45 @@ package com.neochildclinic.feature.borrowed.presentation
 
 import com.neochildclinic.core.designsystem.*
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import com.neochildclinic.core.ui.EmptyState
-import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import com.neochildclinic.core.ui.ShowSnackbar
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.domain.model.BorrowedVaccine
 import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.ui.*
+import com.neochildclinic.domain.model.BorrowedVaccine
 import com.neochildclinic.domain.model.InventoryItem
-import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.AppPullToRefresh
-import com.neochildclinic.core.ui.BackTopAppBar
-import com.neochildclinic.core.ui.SkeletonList
-import com.neochildclinic.core.ui.DeleteConfirmationDialog
-import com.neochildclinic.core.ui.StandardAutoCompleteField
-import com.neochildclinic.core.ui.StandardButton
-import com.neochildclinic.core.ui.StandardTextField
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.*
+
+enum class BorrowFilter {
+    OUTSTANDING,
+    RETURNED,
+    ALL
+}
 
 @Composable
 fun BorrowedScreen(
@@ -42,9 +48,6 @@ fun BorrowedScreen(
     viewModel: BorrowedViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    // BorrowedScreen had no error surface at all: zero references to error, Snackbar or
-    // Toast, while the ViewModel declared an actionError that could never be set. A failed
-    // save, return or delete looked exactly like a successful one (NCC-014).
     val snackbarHostState = remember { SnackbarHostState() }
     ShowSnackbar(uiState.actionError, snackbarHostState, duration = SnackbarDuration.Short) {
         viewModel.clearActionError()
@@ -55,35 +58,10 @@ fun BorrowedScreen(
     var returningItem by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
     var itemToDelete by remember { mutableStateOf<BorrowedDisplayItem?>(null) }
 
-    // Outer Borrowed/Returned split, then the By/From type filter, then sort so
-    // records needing attention (partially returned) surface first while still
-    // reading latest-date-first overall - never plain alphabetical.
-    val filteredList = remember(uiState.borrowedList, uiState.mainTab, uiState.selectedTab) {
-        val byMainTab = uiState.borrowedList.filter { item ->
-            when (uiState.mainTab) {
-                BorrowMainTab.BORROWED -> item.status != BorrowStatus.RETURNED
-                BorrowMainTab.RETURNED -> item.status == BorrowStatus.RETURNED
-            }
-        }
-        val typeValue = if (uiState.selectedTab == 0) "BY" else "FROM"
-        val byType = byMainTab.filter { it.type.equals(typeValue, ignoreCase = true) }
-
-        when (uiState.mainTab) {
-            BorrowMainTab.BORROWED -> byType.sortedWith(
-                compareByDescending<BorrowedDisplayItem> { it.status == BorrowStatus.PARTIALLY_RETURNED }
-                    .thenByDescending { PatientUtils.parseDate(it.latestDate)?.time ?: 0L }
-            )
-            BorrowMainTab.RETURNED -> byType.sortedByDescending { PatientUtils.parseDate(it.latestDate)?.time ?: 0L }
-        }
-    }
-
     BorrowedContent(
         uiState = uiState,
-        filteredList = filteredList,
         onBack = onBack,
         onRefresh = viewModel::refresh,
-        onMainTabSelected = viewModel::selectMainTab,
-        onTypeTabSelected = viewModel::updateTab,
         onAddClick = {
             editingItem = null
             showAddDialog = true
@@ -101,7 +79,7 @@ fun BorrowedScreen(
     if (showAddDialog) {
         BorrowedEditDialog(
             item = editingItem,
-            defaultType = if (uiState.selectedTab == 0) "BY" else "FROM",
+            defaultType = "FROM",
             inventory = uiState.inventory,
             onDismiss = { showAddDialog = false },
             onSave = {
@@ -112,7 +90,6 @@ fun BorrowedScreen(
     }
 
     historyItem?.let { item ->
-        // Keep the sheet showing the latest state of the item it's open for.
         val latest = uiState.borrowedList.find { it.id == item.id } ?: item
         BorrowHistorySheet(
             item = latest,
@@ -153,11 +130,8 @@ fun BorrowedScreen(
 @Composable
 private fun BorrowedContent(
     uiState: BorrowedUiState,
-    filteredList: List<BorrowedDisplayItem>,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
-    onMainTabSelected: (BorrowMainTab) -> Unit,
-    onTypeTabSelected: (Int) -> Unit,
     onAddClick: () -> Unit,
     onItemClick: (BorrowedDisplayItem) -> Unit,
     onEditRequest: (BorrowedDisplayItem) -> Unit,
@@ -165,121 +139,371 @@ private fun BorrowedContent(
     onDeleteRequest: (BorrowedDisplayItem) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
-    val mainTabs = remember { listOf(BorrowMainTab.BORROWED to "Borrowed", BorrowMainTab.RETURNED to "Returned") }
-    val mainTabIndex = mainTabs.indexOfFirst { it.first == uiState.mainTab }.coerceAtLeast(0)
+    val isDark = isSystemInDarkTheme()
+    var currentFilter by rememberSaveable { mutableStateOf(BorrowFilter.OUTSTANDING) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var isSearchOpen by rememberSaveable { mutableStateOf(false) }
+
+    // Summary statistics matching SVG exactly:
+    val activeLoans = remember(uiState.borrowedList) {
+        uiState.borrowedList.count { it.status != BorrowStatus.RETURNED }
+    }
+    val dosesPending = remember(uiState.borrowedList) {
+        uiState.borrowedList
+            .filter { it.status != BorrowStatus.RETURNED }
+            .sumOf { it.remainingQuantity }
+    }
+    val fullyReturned = remember(uiState.borrowedList) {
+        uiState.borrowedList.count { it.status == BorrowStatus.RETURNED }
+    }
+
+    val filteredList = remember(uiState.borrowedList, currentFilter, searchQuery) {
+        uiState.borrowedList
+            .filter { item ->
+                val matchesFilter = when (currentFilter) {
+                    BorrowFilter.OUTSTANDING -> item.status != BorrowStatus.RETURNED
+                    BorrowFilter.RETURNED -> item.status == BorrowStatus.RETURNED
+                    BorrowFilter.ALL -> true
+                }
+                val matchesSearch = if (searchQuery.isBlank()) {
+                    true
+                } else {
+                    item.vaccineName.contains(searchQuery, ignoreCase = true) ||
+                    item.doctorName.contains(searchQuery, ignoreCase = true) ||
+                    item.batchNumber.contains(searchQuery, ignoreCase = true) ||
+                    (item.notes?.contains(searchQuery, ignoreCase = true) == true)
+                }
+                matchesFilter && matchesSearch
+            }
+            .sortedWith(
+                when (currentFilter) {
+                    BorrowFilter.OUTSTANDING -> compareByDescending<BorrowedDisplayItem> { item ->
+                        isLoanOverdue(item.borrowedDate, item.remainingQuantity)
+                    }.thenByDescending {
+                        it.status == BorrowStatus.PARTIALLY_RETURNED
+                    }.thenByDescending {
+                        PatientUtils.parseDate(it.latestDate)?.time ?: 0L
+                    }
+                    BorrowFilter.RETURNED -> compareByDescending {
+                        PatientUtils.parseDate(it.latestDate)?.time ?: 0L
+                    }
+                    BorrowFilter.ALL -> compareByDescending<BorrowedDisplayItem> {
+                        it.status != BorrowStatus.RETURNED
+                    }.thenByDescending {
+                        PatientUtils.parseDate(it.latestDate)?.time ?: 0L
+                    }
+                }
+            )
+    }
 
     AppBackground {
         Scaffold(
-            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            Column {
-                BackTopAppBar(
-                    title = { Text("Borrowed Vaccines") },
-                    onBack = onBack
-                )
-                TabRow(
-                    selectedTabIndex = mainTabIndex,
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentColor = MaterialTheme.colorScheme.onBackground,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[mainTabIndex]),
-                            color = MaterialTheme.colorScheme.primary
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Borrowed Vaccines",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
-                    }
-                ) {
-                    mainTabs.forEachIndexed { index, (tab, title) ->
-                        Tab(
-                            selected = mainTabIndex == index,
-                            onClick = { onMainTabSelected(tab) },
-                            text = { 
-                                Text(
-                                    text = title, 
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (mainTabIndex == index) MaterialTheme.colorScheme.primary 
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                ) 
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { isSearchOpen = !isSearchOpen }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        IconButton(onClick = {
+                            currentFilter = if (currentFilter == BorrowFilter.RETURNED) {
+                                BorrowFilter.OUTSTANDING
+                            } else {
+                                BorrowFilter.RETURNED
                             }
-                        )
-                    }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = "History",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent
+                    )
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = onAddClick,
+                    shape = CircleShape,
+                    containerColor = if (isDark) Color(0xFF9CC7FF) else Color(0xFF16558F),
+                    contentColor = if (isDark) Color(0xFF07305B) else Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Borrowed")
                 }
             }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddClick,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Borrowed")
-            }
-        }
-    ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            Box(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = uiState.selectedTab == 0,
-                        onClick = { onTypeTabSelected(0) },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2)
-                    ) { Text("By") }
-                    SegmentedButton(
-                        selected = uiState.selectedTab == 1,
-                        onClick = { onTypeTabSelected(1) },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2)
-                    ) { Text("From") }
-                }
-            }
-
+        ) { paddingValues ->
             AppPullToRefresh(
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = onRefresh,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
-                        SkeletonList(
-                            modifier = Modifier.fillMaxSize(),
-                            count = 8,
-                            cardShaped = true,
-                            spacing = Spacing.md,
-                            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xs)
-                        )
-                    } else if (filteredList.isEmpty()) {
-                        // Shared EmptyState instead of a bare sentence: no icon, no message and
-                        // no distinction between "nothing borrowed yet" and "nothing matched".
-                        EmptyState(
-                            modifier = Modifier.fillMaxSize(),
-                            icon = Icons.Default.Inventory2,
-                            title = if (uiState.mainTab == BorrowMainTab.RETURNED) "No returns yet" else "No borrowed vaccines",
-                            message = if (uiState.mainTab == BorrowMainTab.RETURNED)
-                                "Doses returned to the clinic will be listed here."
-                            else "Record a vaccine borrowed from or lent to another clinic to track it here."
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
-                            contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.xs),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = Spacing.screen),
+                    contentPadding = PaddingValues(top = Spacing.xs, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Search bar
+                    if (isSearchOpen) {
+                        item {
+                            StandardTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                label = "",
+                                placeholder = "Search by vaccine, doctor or batch...",
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Clear")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // 1. Summary Stats Card (353 x 68dp card, rx 20)
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isDark) Color(0xFF151F1B) else Color.White,
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF2C3A34) else Color(0xFFD8D2C6))
                         ) {
-                            items(filteredList, key = { it.id }) { item ->
-                                BorrowedRecordCard(
-                                    item = item,
-                                    onClick = { onItemClick(item) },
-                                    onEdit = { onEditRequest(item) },
-                                    onReturn = { onReturnRequest(item) },
-                                    onDelete = { onDeleteRequest(item) },
-                                    modifier = Modifier.animateItem()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(68.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "$activeLoans",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.02).sp,
+                                        color = if (isDark) Color(0xFFEEF3F0) else Color(0xFF14201F)
+                                    )
+                                    Text(
+                                        text = "active loans",
+                                        fontSize = 9.5.sp,
+                                        color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
+                                    )
+                                }
+
+                                VerticalDivider(
+                                    modifier = Modifier.height(40.dp),
+                                    color = if (isDark) Color(0xFF2C3A34) else Color(0xFFD8D2C6)
+                                )
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "$dosesPending",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.02).sp,
+                                        color = if (isDark) Color(0xFFF5C15C) else Color(0xFF8A5300)
+                                    )
+                                    Text(
+                                        text = "doses pending",
+                                        fontSize = 9.5.sp,
+                                        color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
+                                    )
+                                }
+
+                                VerticalDivider(
+                                    modifier = Modifier.height(40.dp),
+                                    color = if (isDark) Color(0xFF2C3A34) else Color(0xFFD8D2C6)
+                                )
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "$fullyReturned",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.02).sp,
+                                        color = if (isDark) Color(0xFF8DE0AB) else Color(0xFF067647)
+                                    )
+                                    Text(
+                                        text = "fully returned",
+                                        fontSize = 9.5.sp,
+                                        color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Filter Pills (Outstanding, Returned, All)
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            listOf(
+                                BorrowFilter.OUTSTANDING to "Outstanding",
+                                BorrowFilter.RETURNED to "Returned",
+                                BorrowFilter.ALL to "All"
+                            ).forEach { (filter, title) ->
+                                val isSelected = currentFilter == filter
+                                Surface(
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .clickable { currentFilter = filter },
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = when {
+                                        isSelected -> if (isDark) Color(0xFF9CC7FF) else Color(0xFF16558F)
+                                        else -> if (isDark) Color(0xFF151F1B) else Color.White
+                                    },
+                                    border = BorderStroke(
+                                        1.dp,
+                                        when {
+                                            isSelected -> if (isDark) Color(0xFF9CC7FF) else Color(0xFF16558F)
+                                            else -> if (isDark) Color(0xFF2C3A34) else Color(0xFFD8D2C6)
+                                        }
+                                    )
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = when {
+                                                isSelected -> if (isDark) Color(0xFF07305B) else Color.White
+                                                else -> if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Section Header
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = when (currentFilter) {
+                                        BorrowFilter.OUTSTANDING -> "Outstanding"
+                                        BorrowFilter.RETURNED -> "Returned"
+                                        BorrowFilter.ALL -> "All"
+                                    },
+                                    fontSize = 16.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isDark) Color(0xFFEEF3F0) else Color(0xFF14201F)
+                                )
+                                Text(
+                                    text = "Loans from other clinics and doctors",
+                                    fontSize = 9.5.sp,
+                                    color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
                                 )
                             }
+
+                            Text(
+                                text = "Add borrowed",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDark) Color(0xFF9CC7FF) else Color(0xFF16558F),
+                                modifier = Modifier.clickable { onAddClick() }
+                            )
+                        }
+                    }
+
+                    // 4. Cards or Empty State
+                    if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
+                        item {
+                            SkeletonList(
+                                count = 4,
+                                cardShaped = true,
+                                spacing = Spacing.md
+                            )
+                        }
+                    } else if (filteredList.isEmpty()) {
+                        item {
+                            EmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = Spacing.xl),
+                                icon = Icons.Default.Inventory2,
+                                title = if (currentFilter == BorrowFilter.RETURNED) "No returns yet" else "No borrowed vaccines",
+                                message = if (currentFilter == BorrowFilter.RETURNED)
+                                    "Doses returned to the clinic will be listed here."
+                                else "Record a vaccine borrowed from or lent to another clinic to track it here."
+                            )
+                        }
+                    } else {
+                        items(filteredList, key = { it.id }) { item ->
+                            BorrowedRecordCard(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onEdit = { onEditRequest(item) },
+                                onReturn = { onReturnRequest(item) },
+                                onDelete = { onDeleteRequest(item) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+
+                        // 5. Footer Note matching SVG
+                        item {
+                            Text(
+                                text = "Returns reduce stock only after confirmation.",
+                                fontSize = 9.5.sp,
+                                color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68),
+                                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                            )
                         }
                     }
                 }
             }
         }
     }
-}
 }
 
 @Composable

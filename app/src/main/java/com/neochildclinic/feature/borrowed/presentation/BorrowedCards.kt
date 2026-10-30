@@ -2,24 +2,42 @@ package com.neochildclinic.feature.borrowed.presentation
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.common.DateUtils
-import com.neochildclinic.core.designsystem.*
+import java.time.LocalDate
+import java.time.ZoneId
+
+data class BorrowedStatusStyle(
+    val label: String,
+    val containerColor: Color,
+    val contentColor: Color,
+    val icon: ImageVector
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -31,24 +49,40 @@ fun BorrowedRecordCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = isSystemInDarkTheme()
     var menuExpanded by remember { mutableStateOf(false) }
 
-    val (statusLabel, statusBg, statusFg) = when (item.status) {
-        BorrowStatus.BORROWED -> Triple(
-            "Borrowed",
-            StatusWarningContainerLight,
-            StatusWarningLight
-        )
-        BorrowStatus.PARTIALLY_RETURNED -> Triple(
-            "Partially returned",
-            StatusInfoContainerLight,
-            StatusInfoLight
-        )
-        BorrowStatus.RETURNED -> Triple(
-            "Returned",
-            StatusSuccessContainerLight,
-            StatusSuccessLight
-        )
+    val isOverdue = remember(item.borrowedDate, item.remainingQuantity) {
+        isLoanOverdue(item.borrowedDate, item.remainingQuantity)
+    }
+
+    val statusStyle = remember(item.status, isOverdue, isDark) {
+        when {
+            isOverdue -> BorrowedStatusStyle(
+                label = "Return overdue",
+                containerColor = if (isDark) Color(0xFF4E1511) else Color(0xFFFDE4E1),
+                contentColor = if (isDark) Color(0xFFFFDAD6) else Color(0xFF7A1A12),
+                icon = Icons.Default.Warning
+            )
+            item.status == BorrowStatus.PARTIALLY_RETURNED -> BorrowedStatusStyle(
+                label = "Partially returned",
+                containerColor = if (isDark) Color(0xFF4A3406) else Color(0xFFFFF0C9),
+                contentColor = if (isDark) Color(0xFFFFE2A3) else Color(0xFF563400),
+                icon = Icons.Default.Inventory2
+            )
+            item.status == BorrowStatus.BORROWED -> BorrowedStatusStyle(
+                label = "Borrowed",
+                containerColor = if (isDark) Color(0xFF17325C) else Color(0xFFE4EDFD),
+                contentColor = if (isDark) Color(0xFFD6E4FF) else Color(0xFF0B357E),
+                icon = Icons.Default.Event
+            )
+            else -> BorrowedStatusStyle(
+                label = "Returned",
+                containerColor = if (isDark) Color(0xFF054F31) else Color(0xFFDEF7EC),
+                contentColor = if (isDark) Color(0xFFDEF7EC) else Color(0xFF03543F),
+                icon = Icons.Default.CheckCircle
+            )
+        }
     }
 
     val initials = remember(item.vaccineName) {
@@ -56,149 +90,167 @@ fun BorrowedRecordCard(
         if (words.size >= 2) {
             "${words[0].first().uppercase()}${words[1].first().uppercase()}"
         } else {
-            item.vaccineName.take(3).uppercase()
+            item.vaccineName.firstOrNull()?.uppercase() ?: "V"
         }
     }
 
-    val avatarColor = remember(item.vaccineName) {
-        when {
-            item.vaccineName.contains("Rota", ignoreCase = true) -> ClinicBlue
-            item.vaccineName.contains("MMR", ignoreCase = true) -> ClinicSage
-            item.vaccineName.contains("Hep", ignoreCase = true) -> ClinicAccent
-            item.vaccineName.contains("BCG", ignoreCase = true) -> Color(0xFF6941C6)
-            else -> ClinicBlue
+    val prefix = if (item.type.equals("BY", ignoreCase = true)) "By" else "From"
+    val doctorAttribution = remember(item.type, item.doctorName, item.notes) {
+        buildString {
+            append(prefix)
+            append(" ")
+            if (item.doctorName.isNotBlank()) {
+                append(item.doctorName.trim())
+            } else {
+                append("External Clinic")
+            }
+            if (!item.notes.isNullOrBlank()) {
+                append(" · ")
+                append(item.notes.trim())
+            }
         }
     }
 
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { menuExpanded = true }
             ),
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        )
+        color = if (isDark) Color(0xFF151F1B) else Color.White,
+        border = BorderStroke(1.dp, if (isDark) Color(0xFF2C3A34) else Color(0xFFD8D2C6))
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            // Row 1: Left 44dp Avatar + Vaccine Info + Return Action
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // 40dp Circle Avatar matching SVG cx=56, cy=316, r=20
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF244A37) else Color(0xFFE0EBE2)),
+                contentAlignment = Alignment.Center
             ) {
-                // Colored Initials Avatar (44dp rounded box, rx 12)
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = avatarColor.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, avatarColor.copy(alpha = 0.25f))
+                Text(
+                    text = initials,
+                    fontSize = 13.6.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) Color(0xFFC6E4D2) else Color(0xFF244032)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                // Line 1: Vaccine Name & Status Pill
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = initials,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = avatarColor
-                        )
-                    }
-                }
-
-                Spacer(Modifier.width(Spacing.md))
-
-                // Vaccine Name & Batch / Date Subtitle
-                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.vaccineName,
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = if (isDark) Color(0xFFEEF3F0) else Color(0xFF14201F),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
-                    Text(
-                        text = "Batch ${item.batchNumber} · Borrowed ${formatDisplayDate(item.borrowedDate)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Status Badge (height 24dp, rx 12)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = statusStyle.containerColor,
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = statusStyle.icon,
+                                contentDescription = null,
+                                tint = statusStyle.contentColor,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = statusStyle.label,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = statusStyle.contentColor
+                            )
+                        }
+                    }
                 }
 
-                // Return Button (compact 36dp height, 10dp shape)
-                if (item.remainingQuantity > 0) {
-                    Button(
-                        onClick = onReturn,
-                        modifier = Modifier.height(36.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
+                Spacer(modifier = Modifier.height(3.dp))
+
+                // Line 2: Batch Number
+                Text(
+                    text = "Batch ${item.batchNumber}",
+                    fontSize = 9.5.sp,
+                    color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Line 3: Borrowed Date
+                Text(
+                    text = "Borrowed ${formatDisplayDate(item.borrowedDate)}",
+                    fontSize = 9.5.sp,
+                    color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68)
+                )
+
+                Spacer(modifier = Modifier.height(3.dp))
+
+                // Line 4: Quantities
+                Text(
+                    text = "${item.borrowedQuantity} borrowed · ${item.returnedQuantity} returned",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isDark) Color(0xFFC9D3CE) else Color(0xFF384A46)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Line 5: Doctor attribution & Return Action Link
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = doctorAttribution,
+                        fontSize = 9.5.sp,
+                        color = if (isDark) Color(0xFF9AA8A1) else Color(0xFF5F6D68),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (item.remainingQuantity > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Return",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDark) Color(0xFF9CC7FF) else Color(0xFF16558F),
+                            modifier = Modifier.clickable { onReturn() }
                         )
                     }
                 }
-            }
 
-            // Row 2: Status chips & counts
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Quantity breakdown chip
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ) {
-                    Text(
-                        text = "${item.borrowedQuantity} borrowed · ${item.returnedQuantity} returned",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
-                    )
-                }
-
-                // Status Pill
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = statusBg
-                ) {
-                    Text(
-                        text = statusLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusFg,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
-                    )
-                }
-            }
-
-            // Row 3: Doctor / Clinic attribution at bottom
-            val fromText = if (item.doctorName.isNotBlank()) "From ${item.doctorName}" else "From External Clinic"
-            Text(
-                text = fromText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            // Context Menu
-            Box(modifier = Modifier.fillMaxWidth()) {
+                // Dropdown Context Menu for Actions
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
@@ -233,6 +285,17 @@ fun BorrowedRecordCard(
                 }
             }
         }
+    }
+}
+
+fun isLoanOverdue(borrowedDateStr: String, remainingQuantity: Int): Boolean {
+    if (remainingQuantity <= 0 || borrowedDateStr.isBlank()) return false
+    return try {
+        val parsed = DateUtils.parseDate(borrowedDateStr) ?: return false
+        val borrowedLocalDate = parsed.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+        LocalDate.now().isAfter(borrowedLocalDate.plusDays(7))
+    } catch (_: Exception) {
+        false
     }
 }
 
