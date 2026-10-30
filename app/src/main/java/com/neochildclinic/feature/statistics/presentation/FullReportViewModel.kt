@@ -1,26 +1,29 @@
 package com.neochildclinic.feature.statistics.presentation
-import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.domain.model.Expense
+import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.domain.model.FinanceTransaction
-import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
+import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
+import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
-import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.Month
 import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 import javax.inject.Inject
 
 data class FullReportDataPoint(
@@ -38,8 +41,30 @@ data class FullReportDataPoint(
 
 enum class ChartMode { BAR, LINE }
 
+enum class ReportViewMode { TABLE, LINE, BAR }
+
+data class FullReportSummary(
+    val totalPatients: Int = 0,
+    val newPatientsInPeriod: Int = 0,
+    val consultationCount: Int = 0,
+    val consultationRevenue: Double = 0.0,
+    val vaccinationCount: Int = 0,
+    val vaccinationRevenue: Double = 0.0,
+    val cogsAmount: Double = 0.0,
+    val pendingCogsCount: Int = 0,
+    val isCogsComplete: Boolean = true,
+    val expenseItemCount: Int = 0,
+    val totalExpenses: Double = 0.0,
+    val totalRevenue: Double = 0.0,
+    val cashTotal: Double = 0.0,
+    val onlineTotal: Double = 0.0,
+    val netProfit: Double = 0.0
+)
+
 data class FullReportUiState(
     val dataPoints: List<FullReportDataPoint> = emptyList(),
+    val summary: FullReportSummary = FullReportSummary(),
+    val viewMode: ReportViewMode = ReportViewMode.TABLE,
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isDaily: Boolean = false,
@@ -61,10 +86,11 @@ class FullReportViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(FullReportUiState())
     val uiState: StateFlow<FullReportUiState> = _uiState.asStateFlow()
 
-    private val _filterMode = MutableStateFlow("Overall")
+    private val _filterMode = MutableStateFlow(StatisticsUtils.getCurrentFinancialYear())
     private val _fyQuarter = MutableStateFlow(0)
     private val _selectedMonth = MutableStateFlow(-1)
     private val _chartMode = MutableStateFlow(ChartMode.BAR)
+    private val _viewMode = MutableStateFlow(ReportViewMode.TABLE)
 
     init {
         viewModelScope.launch {
@@ -76,26 +102,35 @@ class FullReportViewModel @Inject constructor(
                 _filterMode,
                 _fyQuarter,
                 _selectedMonth,
-                _chartMode
+                _chartMode,
+                _viewMode
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val patients = values[0] as List<Patient>
                 @Suppress("UNCHECKED_CAST")
                 val vaccinations = values[1] as List<Vaccination>
                 @Suppress("UNCHECKED_CAST")
-                val transactions = values[2] as List<com.neochildclinic.domain.model.FinanceTransaction>
+                val transactions = values[2] as List<FinanceTransaction>
                 @Suppress("UNCHECKED_CAST")
                 val expenses = values[3] as List<Expense>
                 val filterMode = values[4] as String
                 val fyQuarter = values[5] as Int
                 val selectedMonth = values[6] as Int
                 val chartMode = values[7] as ChartMode
+                val viewMode = values[8] as ReportViewMode
 
-                computeReport(patients, vaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode)
+                computeReport(
+                    patients,
+                    vaccinations,
+                    transactions,
+                    expenses,
+                    filterMode,
+                    fyQuarter,
+                    selectedMonth,
+                    chartMode,
+                    viewMode
+                )
             }.flowOn(Dispatchers.Default)
-                // No .catch: an upstream Room failure escaped this launch and left
-                // _uiState.isLoading stuck at its initial `true`, so the screen spun forever
-                // with no error. Matches VaccineDetailViewModel's handling (NCC-016).
                 .catch { e ->
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Full report combine failed", e)
@@ -116,6 +151,16 @@ class FullReportViewModel @Inject constructor(
 
     fun setChartMode(mode: ChartMode) {
         _chartMode.value = mode
+        _viewMode.value = if (mode == ChartMode.LINE) ReportViewMode.LINE else ReportViewMode.BAR
+    }
+
+    fun setViewMode(mode: ReportViewMode) {
+        _viewMode.value = mode
+        when (mode) {
+            ReportViewMode.LINE -> _chartMode.value = ChartMode.LINE
+            ReportViewMode.BAR -> _chartMode.value = ChartMode.BAR
+            ReportViewMode.TABLE -> Unit
+        }
     }
 
     fun refresh() {
@@ -138,7 +183,8 @@ class FullReportViewModel @Inject constructor(
         filterMode: String,
         fyQuarter: Int,
         selectedMonth: Int,
-        chartMode: ChartMode
+        chartMode: ChartMode,
+        viewMode: ReportViewMode
     ): FullReportUiState {
         val validVaccinations = StatisticsUtils.filterValidVaccinations(vaccinations)
         val isDaily = filterMode != "Overall" && fyQuarter != 0 && selectedMonth != -1
@@ -150,9 +196,32 @@ class FullReportViewModel @Inject constructor(
         val availableYears = StatisticsUtils.getAvailableFinancialYears(allDates).sorted().reversed()
 
         return if (isDaily) {
-            computeDaily(patients, validVaccinations, vaccinations, transactions, expenses, filterMode, fyQuarter, selectedMonth, chartMode, availableYears)
+            computeDaily(
+                patients,
+                validVaccinations,
+                vaccinations,
+                transactions,
+                expenses,
+                filterMode,
+                fyQuarter,
+                selectedMonth,
+                chartMode,
+                viewMode,
+                availableYears
+            )
         } else {
-            computeMonthly(patients, validVaccinations, vaccinations, transactions, expenses, filterMode, fyQuarter, chartMode, availableYears)
+            computeMonthly(
+                patients,
+                validVaccinations,
+                vaccinations,
+                transactions,
+                expenses,
+                filterMode,
+                fyQuarter,
+                chartMode,
+                viewMode,
+                availableYears
+            )
         }
     }
 
@@ -165,10 +234,9 @@ class FullReportViewModel @Inject constructor(
         filterMode: String,
         fyQuarter: Int,
         chartMode: ChartMode,
+        viewMode: ReportViewMode,
         availableYears: List<String>
     ): FullReportUiState {
-        // Raw visits: consultation visits are recorded ACTIVE, so effective registration dates
-        // and the consultation series must not be gated by filterValidVaccinations (NCC-043).
         val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, allVisits)
 
         val monthKeys: List<YearMonth>
@@ -183,8 +251,6 @@ class FullReportViewModel @Inject constructor(
             val monthCount = if (fyQuarter != 0) 3 else 12
             val quarterOffset = (fyQuarter - 1) * 3
 
-            // April is month 4; walk forward from there rather than hand-rolling
-            // year/month rollover arithmetic.
             val fyStart = YearMonth.of(fyStartYear, 4)
             monthKeys = (0 until monthCount).map { offset ->
                 val rawMonth = (if (fyQuarter == 0) 0 else quarterOffset) + offset
@@ -195,7 +261,6 @@ class FullReportViewModel @Inject constructor(
 
         val monthKeySet = monthKeys.toSet()
 
-        // Patient buckets use effective registration dates
         val patientBuckets = effectiveRegDates.values.filterNotNull()
             .map { YearMonth.from(it) }
             .filter { it in monthKeySet }
@@ -210,9 +275,9 @@ class FullReportViewModel @Inject constructor(
 
         data class MonthFinance(var revenue: Double = 0.0, var cash: Double = 0.0, var online: Double = 0.0, var cogs: Double = 0.0)
         val financeBuckets = mutableMapOf<YearMonth, MonthFinance>()
-        // effectiveIncome collapses duplicate vaccination income per visit, exactly like the
-        // Financial Statistics tab - the raw sum made this screen disagree with it.
-        FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) }).forEach { tx ->
+        val effectiveIncome = FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) })
+
+        effectiveIncome.forEach { tx ->
             val key = StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx)) ?: return@forEach
             if (key !in monthKeySet) return@forEach
             val mf = financeBuckets.getOrPut(key) { MonthFinance() }
@@ -250,7 +315,90 @@ class FullReportViewModel @Inject constructor(
             )
         }
 
-        return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = false, periodLabel = periodLabel, chartMode = chartMode, availableFinancialYears = availableYears)
+        // Period Summary calculations
+        val totalPatients = patients.size
+        val newPatientsInPeriod = effectiveRegDates.values.filterNotNull().count { YearMonth.from(it) in monthKeySet }
+
+        val periodConsultations = allVisits.filter {
+            it.visitType.equals("CONSULTATION", true) && StatisticsDateUtils.monthOfIST(it.dateGiven) in monthKeySet
+        }
+        val consultationCount = periodConsultations.size
+
+        val periodIncome = effectiveIncome.filter { tx ->
+            val key = StatisticsDateUtils.monthOfIST(FinanceCalculator.resolveReportingDate(tx))
+            key != null && key in monthKeySet
+        }
+
+        val consultationRevenue = periodIncome
+            .filter { it.category.equals("CONSULTATION", true) }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+
+        val periodVaccinations = validVaccinations.filter {
+            it.visitType.equals("VACCINATION", true) && StatisticsDateUtils.monthOfIST(it.dateGiven) in monthKeySet
+        }
+        val vaccinationCount = periodVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }
+        val vaccinationRevenue = periodIncome
+            .filter { it.category.equals("VACCINATION", true) }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+
+        val vaccinationIncomeRows = periodIncome.filter { it.category.equals("VACCINATION", true) }
+        var totalCogs = 0.0
+        var pendingCogsCount = 0
+        vaccinationIncomeRows.forEach { tx ->
+            val snapshot = FinanceCalculator.cogsOf(tx.remarks)
+            if (snapshot != null && snapshot >= 0.0) {
+                totalCogs += snapshot
+            } else {
+                pendingCogsCount++
+            }
+        }
+        val isCogsComplete = pendingCogsCount == 0
+
+        val periodExpenses = expenses.filter { exp ->
+            val key = StatisticsDateUtils.monthOfIST(exp.expenseDate)
+            key != null && key in monthKeySet
+        }
+        val expenseItemCount = periodExpenses.size
+        val totalExpenses = periodExpenses.sumOf { it.amountPaise / 100.0 }
+
+        val totalRevenue = periodIncome.sumOf { it.amount.coerceAtLeast(0.0) }
+        var cashTotal = 0.0
+        var onlineTotal = 0.0
+        periodIncome.forEach { tx ->
+            val (cashAmt, onlineAmt) = FinanceCalculator.cashAndOnlineOf(tx)
+            cashTotal += cashAmt
+            onlineTotal += onlineAmt
+        }
+        val netProfit = totalRevenue - totalCogs - totalExpenses
+
+        val summary = FullReportSummary(
+            totalPatients = totalPatients,
+            newPatientsInPeriod = newPatientsInPeriod,
+            consultationCount = consultationCount,
+            consultationRevenue = consultationRevenue,
+            vaccinationCount = vaccinationCount,
+            vaccinationRevenue = vaccinationRevenue,
+            cogsAmount = totalCogs,
+            pendingCogsCount = pendingCogsCount,
+            isCogsComplete = isCogsComplete,
+            expenseItemCount = expenseItemCount,
+            totalExpenses = totalExpenses,
+            totalRevenue = totalRevenue,
+            cashTotal = cashTotal,
+            onlineTotal = onlineTotal,
+            netProfit = netProfit
+        )
+
+        return FullReportUiState(
+            dataPoints = dataPoints,
+            summary = summary,
+            viewMode = viewMode,
+            isLoading = false,
+            isDaily = false,
+            periodLabel = periodLabel,
+            chartMode = chartMode,
+            availableFinancialYears = availableYears
+        )
     }
 
     private fun computeDaily(
@@ -263,9 +411,9 @@ class FullReportViewModel @Inject constructor(
         fyQuarter: Int,
         selectedMonth: Int,
         chartMode: ChartMode,
+        viewMode: ReportViewMode,
         availableYears: List<String>
     ): FullReportUiState {
-        // Raw visits, as in computeMonthly (NCC-043).
         val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, allVisits)
 
         val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: 0
@@ -275,9 +423,18 @@ class FullReportViewModel @Inject constructor(
         val targetMonth = ((3) + ((fyQuarter - 1) * 3) + monthInQuarter + 12) % 12
         val targetYear = fyStartYear + if (targetMonth >= 3) 0 else 1
 
-        val daysInMonth = java.time.YearMonth.of(targetYear, targetMonth + 1).lengthOfMonth()
+        val daysInMonth = YearMonth.of(targetYear, targetMonth + 1).lengthOfMonth()
 
-        data class DayBucket(var patients: Int = 0, var consults: Int = 0, var vaccs: Int = 0, var revenue: Double = 0.0, var cash: Double = 0.0, var online: Double = 0.0, var cogs: Double = 0.0, var expenses: Double = 0.0)
+        data class DayBucket(
+            var patients: Int = 0,
+            var consults: Int = 0,
+            var vaccs: Int = 0,
+            var revenue: Double = 0.0,
+            var cash: Double = 0.0,
+            var online: Double = 0.0,
+            var cogs: Double = 0.0,
+            var expenses: Double = 0.0
+        )
         val dayBuckets = mutableMapOf<Int, DayBucket>()
         for (d in 1..daysInMonth) dayBuckets[d] = DayBucket()
 
@@ -287,7 +444,11 @@ class FullReportViewModel @Inject constructor(
             return ld.dayOfMonth
         }
 
-        // Patient bucketing uses effective registration dates
+        fun isInTargetMonth(dateStr: String): Boolean {
+            val ld = StatisticsDateUtils.parseToISTLocalDate(dateStr) ?: return false
+            return ld.year == targetYear && ld.monthValue - 1 == targetMonth
+        }
+
         effectiveRegDates.values.filterNotNull().forEach { effDate ->
             if (effDate.year == targetYear && effDate.monthValue - 1 == targetMonth) {
                 dayBuckets[effDate.dayOfMonth]?.patients?.plus(1)?.let {
@@ -295,12 +456,20 @@ class FullReportViewModel @Inject constructor(
                 }
             }
         }
-        allVisits.filter { it.visitType.equals("CONSULTATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { dayBuckets[it]?.consults?.plus(1)?.let { n -> dayBuckets[it] = dayBuckets[it]!!.copy(consults = n) } } }
-        validVaccinations.filter { it.visitType.equals("VACCINATION", true) }.forEach { v -> dayOfMonthIST(v.dateGiven)?.let { val qty = v.items.sumOf { it.quantity.coerceAtLeast(0) }; dayBuckets[it]?.let { b -> dayBuckets[it] = b.copy(vaccs = b.vaccs + qty) } } }
+        allVisits.filter { it.visitType.equals("CONSULTATION", true) }.forEach { v ->
+            dayOfMonthIST(v.dateGiven)?.let {
+                dayBuckets[it]?.consults?.plus(1)?.let { n -> dayBuckets[it] = dayBuckets[it]!!.copy(consults = n) }
+            }
+        }
+        validVaccinations.filter { it.visitType.equals("VACCINATION", true) }.forEach { v ->
+            dayOfMonthIST(v.dateGiven)?.let {
+                val qty = v.items.sumOf { it.quantity.coerceAtLeast(0) }
+                dayBuckets[it]?.let { b -> dayBuckets[it] = b.copy(vaccs = b.vaccs + qty) }
+            }
+        }
 
-        // Same rule as computeMonthly above: collapse duplicate vaccination income per visit,
-        // or this day view disagrees with the month view on the same screen (NCC-008).
-        FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) }).forEach { tx ->
+        val effectiveIncome = FinanceCalculator.effectiveIncome(transactions.filter { it.type.equals("INCOME", true) })
+        effectiveIncome.forEach { tx ->
             dayOfMonthIST(FinanceCalculator.resolveReportingDate(tx))?.let { day ->
                 val bucket = dayBuckets[day] ?: return@let
                 val amount = tx.amount.coerceAtLeast(0.0)
@@ -323,7 +492,9 @@ class FullReportViewModel @Inject constructor(
             }
         }
 
-        val monthName = StatisticsUtils.monthNames[targetMonth]
+        val fullMonthName = Month.of(targetMonth + 1).getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+        val periodLabel = "$fullMonthName $targetYear"
+
         val dataPoints = (1..daysInMonth).map { day ->
             val b = dayBuckets[day]!!
             FullReportDataPoint(
@@ -340,7 +511,86 @@ class FullReportViewModel @Inject constructor(
             )
         }
 
-        return FullReportUiState(dataPoints = dataPoints, isLoading = false, isDaily = true, periodLabel = "$monthName $targetYear (Daily)", chartMode = chartMode, availableFinancialYears = availableYears)
+        // Daily Summary calculations
+        val totalPatients = patients.size
+        val newPatientsInPeriod = effectiveRegDates.values.filterNotNull().count { it.year == targetYear && it.monthValue - 1 == targetMonth }
+
+        val periodConsultations = allVisits.filter {
+            it.visitType.equals("CONSULTATION", true) && isInTargetMonth(it.dateGiven)
+        }
+        val consultationCount = periodConsultations.size
+
+        val periodIncome = effectiveIncome.filter { tx ->
+            isInTargetMonth(FinanceCalculator.resolveReportingDate(tx))
+        }
+
+        val consultationRevenue = periodIncome
+            .filter { it.category.equals("CONSULTATION", true) }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+
+        val periodVaccinations = validVaccinations.filter {
+            it.visitType.equals("VACCINATION", true) && isInTargetMonth(it.dateGiven)
+        }
+        val vaccinationCount = periodVaccinations.sumOf { v -> v.items.sumOf { it.quantity.coerceAtLeast(0) } }
+        val vaccinationRevenue = periodIncome
+            .filter { it.category.equals("VACCINATION", true) }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+
+        val vaccinationIncomeRows = periodIncome.filter { it.category.equals("VACCINATION", true) }
+        var totalCogs = 0.0
+        var pendingCogsCount = 0
+        vaccinationIncomeRows.forEach { tx ->
+            val snapshot = FinanceCalculator.cogsOf(tx.remarks)
+            if (snapshot != null && snapshot >= 0.0) {
+                totalCogs += snapshot
+            } else {
+                pendingCogsCount++
+            }
+        }
+        val isCogsComplete = pendingCogsCount == 0
+
+        val periodExpenses = expenses.filter { exp -> isInTargetMonth(exp.expenseDate) }
+        val expenseItemCount = periodExpenses.size
+        val totalExpenses = periodExpenses.sumOf { it.amountPaise / 100.0 }
+
+        val totalRevenue = periodIncome.sumOf { it.amount.coerceAtLeast(0.0) }
+        var cashTotal = 0.0
+        var onlineTotal = 0.0
+        periodIncome.forEach { tx ->
+            val (cashAmt, onlineAmt) = FinanceCalculator.cashAndOnlineOf(tx)
+            cashTotal += cashAmt
+            onlineTotal += onlineAmt
+        }
+        val netProfit = totalRevenue - totalCogs - totalExpenses
+
+        val summary = FullReportSummary(
+            totalPatients = totalPatients,
+            newPatientsInPeriod = newPatientsInPeriod,
+            consultationCount = consultationCount,
+            consultationRevenue = consultationRevenue,
+            vaccinationCount = vaccinationCount,
+            vaccinationRevenue = vaccinationRevenue,
+            cogsAmount = totalCogs,
+            pendingCogsCount = pendingCogsCount,
+            isCogsComplete = isCogsComplete,
+            expenseItemCount = expenseItemCount,
+            totalExpenses = totalExpenses,
+            totalRevenue = totalRevenue,
+            cashTotal = cashTotal,
+            onlineTotal = onlineTotal,
+            netProfit = netProfit
+        )
+
+        return FullReportUiState(
+            dataPoints = dataPoints,
+            summary = summary,
+            viewMode = viewMode,
+            isLoading = false,
+            isDaily = true,
+            periodLabel = periodLabel,
+            chartMode = chartMode,
+            availableFinancialYears = availableYears
+        )
     }
 
     private companion object {
