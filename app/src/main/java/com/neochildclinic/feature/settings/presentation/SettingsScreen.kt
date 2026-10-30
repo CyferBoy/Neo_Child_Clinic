@@ -1,20 +1,30 @@
 package com.neochildclinic.feature.settings.presentation
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
-import com.neochildclinic.core.ui.BackTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,18 +38,50 @@ fun SettingsScreen(
     onPrivacyPolicy: () -> Unit,
     onTermsOfService: () -> Unit,
     onCheckForUpdates: () -> Unit,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
+    onManageStaff: () -> Unit = {},
+    onDoctorTimings: () -> Unit = {},
+    onAuditLog: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
+    var showThemeDialog by remember { mutableStateOf(false) }
+
+    val customColors = LocalCustomColors.current
+
+    if (showThemeDialog) {
+        ThemeSelectionDialog(
+            currentTheme = themeMode,
+            onThemeSelected = {
+                viewModel.setThemeMode(it)
+                showThemeDialog = false
+            },
+            onDismiss = { showThemeDialog = false }
+        )
+    }
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                BackTopAppBar(
-                    title = { Text("Settings") },
-                    onBack = onBack,
-                    colors = TopAppBarDefaults.topAppBarColors()
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Settings",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                 )
             }
         ) { padding ->
@@ -48,110 +90,234 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = Spacing.screen),
-                contentPadding = PaddingValues(top = Spacing.sm, bottom = Spacing.xxl),
-                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+                contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Theme Section
+                // 1. Staff Profile Header Card (84dp height, matching SVG)
                 item {
-                    SettingsSection(title = "Appearance") {
-                        ThemeOption("Light", "Clean warm clinical ivory", themeMode == "light") { viewModel.setThemeMode("light") }
-                        SettingsDivider()
-                        ThemeOption("Dark", "Forest ink clinical theme", themeMode == "dark") { viewModel.setThemeMode("dark") }
-                        SettingsDivider()
-                        ThemeOption("System Default", "Follow device appearance", themeMode == "system") { viewModel.setThemeMode("system") }
+                    SettingsStaffProfileCard(
+                        doctorName = "Dr. Meera Sharma",
+                        role = "ADMIN",
+                        email = "meera.sharma@neoclinic.in",
+                        initials = "MS",
+                        onClick = onManageStaff
+                    )
+                }
+
+                // 2. Card 1: System Settings (Theme, Notifications, Security, Inventory settings)
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Theme Row
+                            val themeLabel = when (themeMode.lowercase()) {
+                                "light" -> "Light"
+                                "dark" -> "Dark"
+                                else -> "System"
+                            }
+                            SettingsIconRow(
+                                icon = Icons.Default.Palette,
+                                title = "Theme",
+                                subtitle = "Light · dark · system default",
+                                trailingContent = {
+                                    Text(
+                                        text = themeLabel,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = customColors.textGrey
+                                    )
+                                },
+                                onClick = { showThemeDialog = true }
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline,
+                                thickness = 1.dp
+                            )
+
+                            // Notifications Row
+                            SettingsIconRow(
+                                icon = Icons.Default.Notifications,
+                                title = "Notifications",
+                                subtitle = "Vaccination, stock and summary alerts",
+                                trailingChevron = true,
+                                onClick = onNotifications
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline,
+                                thickness = 1.dp
+                            )
+
+                            // Security Row
+                            SettingsIconRow(
+                                icon = Icons.Default.Shield,
+                                title = "Security",
+                                subtitle = "Biometric lock and app authentication",
+                                trailingChevron = true,
+                                onClick = onSecurity
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline,
+                                thickness = 1.dp
+                            )
+
+                            // Inventory Settings Row
+                            SettingsIconRow(
+                                icon = Icons.Default.Inventory2,
+                                title = "Inventory settings",
+                                subtitle = "Low stock threshold and expiry alerts",
+                                trailingChevron = true,
+                                onClick = onInventory
+                            )
+                        }
                     }
                 }
 
-                // 2. Application Preferences
+                // 3. 2x2 Quick Action Grid (Manage staff, Doctor timings, Audit log, App update)
                 item {
-                    SettingsSection(title = "Preferences") {
-                        SettingsRow(
-                            icon = Icons.Default.Notifications,
-                            title = "Notifications",
-                            subtitle = "Vaccination, stock and summary alerts",
-                            onClick = onNotifications
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SettingsQuickCard(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.People,
+                            title = "Manage staff",
+                            subtitle = "6 members",
+                            onClick = onManageStaff
                         )
-                        SettingsDivider()
-                        SettingsRow(
-                            icon = Icons.Default.Inventory,
-                            title = "Inventory",
-                            subtitle = "Expiry thresholds and low-stock alerts",
-                            onClick = onInventory
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            icon = Icons.Default.Security,
-                            title = "Security",
-                            subtitle = "Biometric lock and app authentication",
-                            onClick = onSecurity
+                        SettingsQuickCard(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Schedule,
+                            title = "Doctor timings",
+                            subtitle = "Weekly slots",
+                            onClick = onDoctorTimings
                         )
                     }
                 }
 
-                // 3. Backup & Data
                 item {
-                    SettingsSection(title = "Data Management") {
-                        SettingsRow(
-                            icon = Icons.Default.Backup,
-                            title = "Backup & Restore",
-                            subtitle = "Local snapshots and cloud archive",
-                            onClick = onBackup
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SettingsQuickCard(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Assignment,
+                            title = "Audit log",
+                            subtitle = "Recent activity",
+                            onClick = onAuditLog
                         )
-                        SettingsDivider()
-                        SettingsRow(
-                            icon = Icons.Default.CloudUpload,
-                            title = "Check for Updates",
-                            subtitle = "Current version v${com.neochildclinic.BuildConfig.VERSION_NAME}",
+                        SettingsQuickCard(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Sync,
+                            title = "App update",
+                            subtitle = "v${BuildConfig.VERSION_NAME}",
                             onClick = onCheckForUpdates
                         )
                     }
                 }
 
-                // 4. Help & About
+                // 4. Card 2: Backup & Support (Backup & restore, Sync status, Help & support)
                 item {
-                    SettingsSection(title = "Support & Legal") {
-                        SettingsRow(
-                            icon = Icons.Default.HeadsetMic,
-                            title = "Help & Support",
-                            subtitle = "FAQs, clinical guides and contact",
-                            onClick = onHelpSupport
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            icon = Icons.Default.Lock,
-                            title = "Privacy Policy",
-                            subtitle = "Patient data confidentiality",
-                            onClick = onPrivacyPolicy
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            icon = Icons.Default.Description,
-                            title = "Terms of Service",
-                            subtitle = "Usage rules and clinic agreements",
-                            onClick = onTermsOfService
-                        )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Backup & Restore
+                            SettingsIconRow(
+                                icon = Icons.Default.Storage,
+                                title = "Backup & restore",
+                                subtitle = "Last backup yesterday, 11:40 PM",
+                                trailingChevron = true,
+                                onClick = onBackup
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline,
+                                thickness = 1.dp
+                            )
+
+                            // Sync Status
+                            SettingsIconRow(
+                                icon = Icons.Default.CloudQueue,
+                                title = "Sync status",
+                                subtitle = "Online · 0 changes pending",
+                                trailingChevron = true,
+                                onClick = {}
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline,
+                                thickness = 1.dp
+                            )
+
+                            // Help & Support
+                            SettingsIconRow(
+                                icon = Icons.Default.HelpOutline,
+                                title = "Help & support",
+                                subtitle = "FAQs, contact and legal",
+                                trailingChevron = true,
+                                onClick = onHelpSupport
+                            )
+                        }
                     }
                 }
 
-                // 5. Version & Copyright Footer
+                // 5. Footer (Privacy · Terms · v<version> on left, Log out in red on right)
                 item {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = Spacing.md),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(top = Spacing.xs, bottom = Spacing.sm),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Privacy",
+                                fontSize = 9.5.sp,
+                                color = customColors.textGrey,
+                                modifier = Modifier.clickable { onPrivacyPolicy() }
+                            )
+                            Text(
+                                text = " · ",
+                                fontSize = 9.5.sp,
+                                color = customColors.textGrey
+                            )
+                            Text(
+                                text = "Terms",
+                                fontSize = 9.5.sp,
+                                color = customColors.textGrey,
+                                modifier = Modifier.clickable { onTermsOfService() }
+                            )
+                            Text(
+                                text = " · v${BuildConfig.VERSION_NAME}",
+                                fontSize = 9.5.sp,
+                                color = customColors.textGrey
+                            )
+                        }
+
                         Text(
-                            "Neo Child Clinic v${com.neochildclinic.BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Log out",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Protected by Warm Clinical System · Offline-first",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            color = Color(0xFFB42318),
+                            modifier = Modifier.clickable { onLogout() }
                         )
                     }
                 }
@@ -160,40 +326,268 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * 84dp Staff profile header card from settings_home_light.svg:
+ * Soft blue container `#DCE9F8`, circular avatar with "MS", name, role, email, chevron.
+ */
 @Composable
-private fun ThemeOption(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
+private fun SettingsStaffProfileCard(
+    doctorName: String,
+    role: String,
+    email: String,
+    initials: String,
     onClick: () -> Unit
 ) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFFDCE9F8),
+        border = BorderStroke(1.dp, Color(0xFFC3D8EF))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 56dp Avatar Circle
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF16558F)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initials,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = doctorName,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0A2F52)
+                )
+                Text(
+                    text = role,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    color = Color(0xFF0A2F52).copy(alpha = 0.85f)
+                )
+                Text(
+                    text = email,
+                    fontSize = 9.5.sp,
+                    color = Color(0xFF0A2F52).copy(alpha = 0.75f)
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color(0xFF0A2F52),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Standard row inside settings card:
+ * Icon in 34dp rounded container, Title, Subtitle, and Trailing content or chevron.
+ */
+@Composable
+private fun SettingsIconRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    trailingChevron: Boolean = false,
+    trailingContent: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    val customColors = LocalCustomColors.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = Spacing.card, vertical = Spacing.sm),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // 34dp Icon container
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFFF0ECE3)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF384A46),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 10.5.sp,
+                color = customColors.textGrey
             )
         }
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = MaterialTheme.colorScheme.primary,
-                unselectedColor = MaterialTheme.colorScheme.outline
+
+        if (trailingContent != null) {
+            trailingContent()
+        } else if (trailingChevron) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = customColors.textGrey,
+                modifier = Modifier.size(18.dp)
             )
-        )
+        }
     }
+}
+
+/**
+ * Mini 64dp Action Card for 2x2 grid in settings_home_light.svg:
+ * Icon container, Title, Subtitle, small trailing chevron.
+ */
+@Composable
+private fun SettingsQuickCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    val customColors = LocalCustomColors.current
+
+    Surface(
+        modifier = modifier
+            .height(64.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color(0xFFF0ECE3)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color(0xFF16558F),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 9.sp,
+                    color = customColors.textGrey
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = customColors.textGrey.copy(alpha = 0.6f),
+                modifier = Modifier.size(14.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeSelectionDialog(
+    currentTheme: String,
+    onThemeSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Choose Theme",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    "light" to "Light (Warm ivory clinical)",
+                    "dark" to "Dark (Forest ink clinical)",
+                    "system" to "System Default (Follow device)"
+                ).forEach { (mode, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onThemeSelected(mode) }
+                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentTheme.lowercase() == mode,
+                            onClick = { onThemeSelected(mode) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
