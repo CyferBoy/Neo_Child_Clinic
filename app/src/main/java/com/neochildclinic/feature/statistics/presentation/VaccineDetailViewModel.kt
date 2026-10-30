@@ -43,7 +43,7 @@ class VaccineDetailViewModel @Inject constructor(
     private val type: String = savedStateHandle["type"] ?: ""
 
     // Null/blank means the user tapped a vaccine TYPE, so every upcoming reminder of that
-    // type is listed. Non-blank is the vaccine catalog id of the tapped BRAND.
+    // type or mentioning its brands is listed. Non-blank is the vaccine catalog id of the tapped BRAND.
     private val vaccineId: String? = savedStateHandle.get<String>("vaccineId")?.ifBlank { null }
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -53,47 +53,85 @@ class VaccineDetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Selection and brand-name lookup both run in SQL (DueReminderDao), so this no
-            // longer downloads every reminder and filters in Kotlin. The Upcoming section
-            // counts the same rows through the same predicate, so a card reading "12" opens
-            // exactly 12 entries here - including the is_deleted = 0 rule, which soft-deleted
-            // reminders would otherwise slip past.
-            val selectedFlow = vaccineId
-                ?.let { reminderRepository.getUpcomingVaccinationsByVaccineId(it) }
-                ?: reminderRepository.getUpcomingVaccinationsByType(type)
-
             combine(
-                selectedFlow,
+                reminderRepository.getUpcomingVaccinations(),
                 patientRepository.allPatients,
                 inventoryRepository.getInventoryItems()
             ) { reminders, patients, inventory ->
                 val patientMap = patients.associateBy { it.id }
 
-                // Resolve the brand's display name from the catalog by its stable id, so the
-                // header shows the same name the Upcoming card showed. Not used for
-                // filtering - the query already selected the rows.
-                val brandName = vaccineId?.let { sid ->
-                    inventory.firstOrNull { it.id == sid }?.brandName
-                }
+                val targetBrand = if (vaccineId != null) {
+                    inventory.firstOrNull { it.id == vaccineId || it.brandName.equals(vaccineId, ignoreCase = true) }
+                } else null
+                val brandName = targetBrand?.brandName ?: vaccineId
 
-                // A reminder can list the same vaccine more than once; distinctBy keeps one
-                // row per vaccine per reminder so the detail count still matches the card.
-                val entries = reminders
-                    .flatMap { reminder ->
-                        reminder.vaccineName.split(",")
+                val entries: List<VaccineDetailEntry> = if (brandName != null) {
+                    // Specific brand drill-down: show ONLY that specific brand name list
+                    val brandClean = PatientUtils.cleanVaccineName(brandName).lowercase()
+                    reminders.filter { reminder ->
+                        val idMatches = reminder.nxtVaccineId?.contains(vaccineId) == true ||
+                                (targetBrand != null && reminder.nxtVaccineId?.contains(targetBrand.id) == true)
+                        val nameMatches = reminder.vaccineName.split(",")
+                            .map { PatientUtils.cleanVaccineName(it.trim()).lowercase() }
+                            .any { it == brandClean }
+                        idMatches || nameMatches
+                    }.map { reminder ->
+                        VaccineDetailEntry(reminder, patientMap[reminder.patientId], brandName)
+                    }
+                } else {
+                    // Type drill-down: show ALL records where type OR brand name is mentioned
+                    val typeClean = type.trim()
+                    val typeBrands = inventory.filter { it.type.equals(typeClean, ignoreCase = true) }
+                    val typeBrandIds = typeBrands.map { it.id }.toSet()
+                    val typeBrandNames = typeBrands.map { PatientUtils.cleanVaccineName(it.brandName.trim()).lowercase() }
+                        .filter { it.isNotBlank() }
+                        .toSet()
+
+                    reminders.filter { reminder ->
+                        val remType = reminder.type.trim()
+                        val typeMatches = remType.equals(typeClean, ignoreCase = true) ||
+                                (remType.isBlank() && typeClean.equals("Other", ignoreCase = true))
+
+                        val names = reminder.vaccineName.split(",")
+                            .map { PatientUtils.cleanVaccineName(it.trim()) }
+                            .filter { it.isNotBlank() }
+
+                        val nameMentionsType = names.any {
+                            it.equals(typeClean, ignoreCase = true) || it.contains(typeClean, ignoreCase = true)
+                        }
+                        val nameMentionsBrand = names.any {
+                            typeBrandNames.contains(it.lowercase())
+                        }
+                        val idMentionsBrand = reminder.nxtVaccineId?.any { it in typeBrandIds } == true
+
+                        typeMatches || nameMentionsType || nameMentionsBrand || idMentionsBrand
+                    }.flatMap { reminder ->
+                        val patient = patientMap[reminder.patientId]
+                        val names = reminder.vaccineName.split(",")
                             .map { it.trim() }
                             .filter { it.isNotBlank() }
                             .map { PatientUtils.cleanVaccineName(it) }
                             .filter { it.isNotBlank() }
                             .distinct()
-                            .map { name -> VaccineDetailEntry(reminder, patientMap[reminder.patientId], name) }
+
+                        if (names.isEmpty()) {
+                            // Try resolving brand name from nxtVaccineId if available
+                            val idBrands = reminder.nxtVaccineId?.mapNotNull { vid ->
+                                inventory.firstOrNull { it.id == vid }?.brandName
+                            } ?: emptyList()
+
+                            if (idBrands.isNotEmpty()) {
+                                idBrands.distinct().map { VaccineDetailEntry(reminder, patient, it) }
+                            } else {
+                                listOf(VaccineDetailEntry(reminder, patient, reminder.type.ifBlank { typeClean }))
+                            }
+                        } else {
+                            names.map { name ->
+                                VaccineDetailEntry(reminder, patient, name)
+                            }
+                        }
                     }
-                    .let { rows ->
-                        val brand = brandName
-                        if (brand == null) rows
-                        else rows.filter { it.brandName.equals(brand, ignoreCase = true) }
-                    }
-                    .sortedBy { it.reminder.dueDate }
+                }.sortedBy { it.reminder.dueDate }
 
                 VaccineDetailUiState(entries = entries, isLoading = false, brandName = brandName)
             }.flowOn(Dispatchers.Default)

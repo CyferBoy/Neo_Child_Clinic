@@ -139,7 +139,7 @@ fun VaccineDetailScreen(
                                 VaccinePatientCard(
                                     entry = entry,
                                     type = type,
-                                    showTypeOnly = uiState.brandName != null,
+                                    isBrandSpecific = uiState.brandName != null,
                                     onClick = {
                                         entry.patient?.id?.let { onPatientClick(it) }
                                     }
@@ -206,7 +206,7 @@ private fun VaccineDueSummary(header: String, patientCount: Int, overdueCount: I
 private fun VaccinePatientCard(
     entry: VaccineDetailEntry,
     type: String,
-    showTypeOnly: Boolean,
+    isBrandSpecific: Boolean,
     onClick: () -> Unit
 ) {
     val customColors = LocalCustomColors.current
@@ -230,6 +230,16 @@ private fun VaccinePatientCard(
         DateCategory.Today -> "Due today"
         DateCategory.Tomorrow -> "Due tomorrow"
         is DateCategory.Future -> "Upcoming"
+    }
+
+    val tagText = if (isBrandSpecific) {
+        entry.brandName
+    } else {
+        if (entry.brandName.isNotBlank() && !entry.brandName.equals(type, ignoreCase = true)) {
+            "$type • ${entry.brandName}"
+        } else {
+            type
+        }
     }
 
     Surface(
@@ -276,7 +286,7 @@ private fun VaccinePatientCard(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
-                            text = if (showTypeOnly) type else entry.brandName,
+                            text = tagText,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
