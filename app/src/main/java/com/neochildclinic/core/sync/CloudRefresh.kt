@@ -2,6 +2,7 @@ package com.neochildclinic.core.sync
 
 import android.util.Log
 import io.github.jan.supabase.exceptions.RestException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -19,6 +20,8 @@ internal suspend fun cloudRefresh(tag: String, rethrow: Boolean = false, block: 
     withContext(Dispatchers.IO) {
         try {
             block()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(tag, "Refresh failed", e)
             if (isSessionFailure(e)) {

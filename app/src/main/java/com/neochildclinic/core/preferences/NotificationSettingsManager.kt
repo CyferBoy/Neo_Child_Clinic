@@ -17,6 +17,9 @@ class NotificationSettingsManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     // Notification Settings
+    private val DUE_VACCINATIONS_ENABLED = booleanPreferencesKey("due_vaccinations_enabled")
+    private val PERSONAL_REMINDERS_ENABLED = booleanPreferencesKey("personal_reminders_enabled")
+    private val APP_UPDATES_ENABLED = booleanPreferencesKey("app_updates_enabled")
     private val DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
     private val LOW_STOCK_ENABLED = booleanPreferencesKey("low_stock_enabled")
     private val SYNC_ALERTS_ENABLED = booleanPreferencesKey("sync_alerts_enabled")
@@ -41,6 +44,9 @@ class NotificationSettingsManager @Inject constructor(
 
     val settingsFlow: Flow<NotificationSettings> = context.dataStore.data.map { preferences ->
         NotificationSettings(
+            dueVaccinationsEnabled = preferences[DUE_VACCINATIONS_ENABLED] ?: true,
+            personalRemindersEnabled = preferences[PERSONAL_REMINDERS_ENABLED] ?: true,
+            appUpdatesEnabled = preferences[APP_UPDATES_ENABLED] ?: true,
             dailySummaryEnabled = preferences[DAILY_SUMMARY_ENABLED] ?: true,
             lowStockEnabled = preferences[LOW_STOCK_ENABLED] ?: true,
             syncAlertsEnabled = preferences[SYNC_ALERTS_ENABLED] ?: true,
@@ -65,6 +71,9 @@ class NotificationSettingsManager @Inject constructor(
 
     suspend fun updateSettings(settings: NotificationSettings) {
         context.dataStore.edit { preferences ->
+            preferences[DUE_VACCINATIONS_ENABLED] = settings.dueVaccinationsEnabled
+            preferences[PERSONAL_REMINDERS_ENABLED] = settings.personalRemindersEnabled
+            preferences[APP_UPDATES_ENABLED] = settings.appUpdatesEnabled
             preferences[DAILY_SUMMARY_ENABLED] = settings.dailySummaryEnabled
             preferences[LOW_STOCK_ENABLED] = settings.lowStockEnabled
             preferences[SYNC_ALERTS_ENABLED] = settings.syncAlertsEnabled
@@ -120,6 +129,9 @@ class NotificationSettingsManager @Inject constructor(
 }
 
 data class NotificationSettings(
+    val dueVaccinationsEnabled: Boolean = true,
+    val personalRemindersEnabled: Boolean = true,
+    val appUpdatesEnabled: Boolean = true,
     val dailySummaryEnabled: Boolean = true,
     val lowStockEnabled: Boolean = true,
     val syncAlertsEnabled: Boolean = true,
