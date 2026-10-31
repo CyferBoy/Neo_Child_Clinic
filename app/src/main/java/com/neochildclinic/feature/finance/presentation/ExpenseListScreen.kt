@@ -95,7 +95,7 @@ fun ExpenseListScreen(
     }
 
     val groupedExpenses = remember(uiState.expenses) { groupExpensesByMonth(uiState.expenses) }
-    val collapsedMonths = rememberSaveable { mutableStateMapOf<String, Boolean>() }
+    val collapsedMonths = remember { mutableStateMapOf<String, Boolean>() }
 
     AppBackground {
         Scaffold(
