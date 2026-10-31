@@ -31,7 +31,7 @@ object SecurityUtils {
      * Stores it in EncryptedSharedPreferences (backed by Android Keystore).
      */
     @Throws(GeneralSecurityException::class)
-    fun getDatabasePassphrase(context: Context): ByteArray {
+    fun getDatabasePassphrase(context: Context, databaseExists: Boolean = false): ByteArray {
         Log.d(TAG, "Loading database passphrase...")
         
         val masterKey = getMasterKey(context)
@@ -50,9 +50,16 @@ object SecurityUtils {
         var passphrase = sharedPreferences.getString(DB_PASSPHRASE_KEY, null)
         
         if (passphrase == null) {
+            // An existing database without its passphrase cannot be recovered. Fail closed
+            // instead of minting a new key and letting AppDatabase move the old file aside.
+            check(!databaseExists) {
+                "The local database exists but its encryption passphrase is missing. Restore the app's secure settings or a backup; the database was not modified."
+            }
             Log.i(TAG, "Generating new database passphrase...")
             passphrase = UUID.randomUUID().toString()
-            sharedPreferences.edit().putString(DB_PASSPHRASE_KEY, passphrase).apply()
+            if (!sharedPreferences.edit().putString(DB_PASSPHRASE_KEY, passphrase).commit()) {
+                throw GeneralSecurityException("Could not persist the database passphrase")
+            }
         }
 
         return passphrase.toByteArray()

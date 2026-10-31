@@ -153,6 +153,17 @@ async function handleUpload(request: Request, env: Env, accountId: string, backu
     return json({ error: `Backup limit reached (${MAX_ACCOUNT_BACKUPS}) - delete an older backup first` }, 429);
   }
 
+  // A failed client upload never reaches handleConfirm, so it has no D1 row and the count
+  // above cannot see it. Count the account's R2 prefix too, otherwise abandoned uploads
+  // can park unbounded storage.
+  const listed = await env.BACKUP_BUCKET.list({
+    prefix: `backups/${accountId}/`,
+    limit: MAX_ACCOUNT_BACKUPS + 1
+  });
+  if (listed.objects.length >= MAX_ACCOUNT_BACKUPS) {
+    return json({ error: `Backup limit reached (${MAX_ACCOUNT_BACKUPS}) - delete an older backup first` }, 429);
+  }
+
   const declaredLength = request.headers.get("Content-Length");
   if (declaredLength && Number(declaredLength) > MAX_BACKUP_BYTES) {
     return json({ error: `Backup exceeds maximum allowed size of ${MAX_BACKUP_BYTES} bytes` }, 413);

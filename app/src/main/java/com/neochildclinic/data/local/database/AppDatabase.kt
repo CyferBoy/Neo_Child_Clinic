@@ -448,7 +448,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val dbFile = context.getDatabasePath(DB_NAME)
                 
                 val passphrase = try {
-                    SecurityUtils.getDatabasePassphrase(context)
+                    SecurityUtils.getDatabasePassphrase(context, databaseExists = dbFile.exists())
+                } catch (e: IllegalStateException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Hardware Keystore is unavailable. This usually means the device is locked after a reboot.", e)
                     throw IllegalStateException("Security keys could not be loaded. Please ensure your device is unlocked.", e)

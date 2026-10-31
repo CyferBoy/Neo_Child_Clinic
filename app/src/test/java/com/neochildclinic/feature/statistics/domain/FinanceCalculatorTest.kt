@@ -78,6 +78,23 @@ class FinanceCalculatorTest {
         assertEquals(0.0, rows.single { it.key == "2026-07" }.revenue, 0.001)
     }
 
+    @Test
+    fun `expense-only month is included in the monthly table`() {
+        val expenses = listOf(expense("2026-05-05", 500))
+
+        val rows = FinanceCalculator.getMonthlyGroupedData(
+            transactions = emptyList(),
+            vaccinations = emptyList(),
+            filterMode = "FY 26-27",
+            expenses = expenses
+        )
+
+        val may = rows.single { it.key == "2026-05" }
+        assertEquals(0.0, may.revenue, 0.001)
+        assertEquals(500.0, may.expenses, 0.001)
+        assertEquals(-500.0, may.netProfit, 0.001)
+    }
+
     private fun vaccinationIncome(id: String, visitId: String?, amount: Double, timestamp: String) =
         income(id, transactionDate = null, timestamp = timestamp, visitId = visitId).copy(
             category = "VACCINATION",

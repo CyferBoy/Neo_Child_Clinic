@@ -215,11 +215,11 @@ fun PatientDetailsContent(
                         }
                     }
                 }
-                items(documents, key = { it.name }) { doc ->
+                items(documents, key = { it.path }) { doc ->
                     DocumentCard(
                         doc = doc,
-                        onView = { onViewDocument("${patient.id}/${doc.name}") },
-                        onDelete = { onDeleteDocument("${patient.id}/${doc.name}") }
+                        onView = { onViewDocument(doc.path) },
+                        onDelete = { onDeleteDocument(doc.path) }
                     )
                 }
             }

@@ -168,7 +168,12 @@ object FinanceCalculator {
             if (date.before(safetyBoundary)) return@mapNotNull null
             transaction to date
         }
-        if (parsed.isEmpty()) return emptyList()
+        val parsedExpenses = expenses.mapNotNull { exp ->
+            val date = PatientUtils.parseDate(exp.expenseDate) ?: return@mapNotNull null
+            if (date.before(safetyBoundary)) return@mapNotNull null
+            exp to date
+        }
+        if (parsed.isEmpty() && parsedExpenses.isEmpty()) return emptyList()
 
         val (first, last) = if (filterMode.startsWith("FY ")) {
             val short = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull()
@@ -194,7 +199,8 @@ object FinanceCalculator {
                 start to end
             }
         } else {
-            parsed.minOf { monthStart(it.second) } to parsed.maxOf { monthStart(it.second) }
+            val allDates = parsed.map { it.second } + parsedExpenses.map { it.second }
+            allDates.minOf { monthStart(it) } to allDates.maxOf { monthStart(it) }
         }
 
         val result = mutableListOf<FinanceSummaryItem>()
@@ -205,8 +211,7 @@ object FinanceCalculator {
         // The Expense column/TOTAL come from the separate `expenses` table - nothing
         // writes EXPENSE rows to finance_transactions anymore - bucketed with the same
         // month key as the income rows above.
-        val expensesByMonth = expenses.mapNotNull { exp ->
-            val date = PatientUtils.parseDate(exp.expenseDate) ?: return@mapNotNull null
+        val expensesByMonth = parsedExpenses.map { (exp, date) ->
             monthKey(date) to exp.amountRupees
         }.groupBy({ it.first }, { it.second }).mapValues { (_, amounts) -> amounts.sum() }
 
