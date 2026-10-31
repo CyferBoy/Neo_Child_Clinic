@@ -190,9 +190,10 @@ class ExpenseListViewModel @Inject constructor(
                 limit = PAGE_SIZE,
                 offset = offset
             )
+            val cleanPage = page.filter { com.neochildclinic.feature.statistics.domain.FinanceCalculator.isCleanExpense(it) }
             _uiState.update {
                 it.copy(
-                    expenses = if (reset) page else it.expenses + page,
+                    expenses = if (reset) cleanPage else it.expenses + cleanPage,
                     isLoading = false,
                     isLoadingMore = false,
                     canLoadMore = page.size == PAGE_SIZE,

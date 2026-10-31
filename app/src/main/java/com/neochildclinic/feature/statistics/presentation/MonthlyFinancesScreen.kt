@@ -42,20 +42,41 @@ fun MonthlyFinancesScreen(
     val transactions by viewModel.transactions.collectAsState()
     val vaccinations by viewModel.vaccinations.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
+    val patients by viewModel.patients.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     var selectedFilter by rememberSaveable { mutableStateOf("Overall") }
 
-    val visitDatesById = remember(vaccinations) { vaccinations.associate { it.id to it.dateGiven } }
+    val validPatients = remember(patients) { patients.filter { it.name.isNotBlank() } }
+    val patientIds = remember(validPatients) { validPatients.map { it.id }.toSet() }
 
-    val transactionsWithDates = remember(transactions, visitDatesById) {
-        transactions.map { it to FinanceCalculator.resolveReportingDate(it, visitDatesById) }
+    val validVaccinations = remember(vaccinations) {
+        StatisticsUtils.filterValidVaccinations(vaccinations)
+    }
+    val validVaccinationIds = remember(validVaccinations) {
+        validVaccinations.map { it.id }.toSet()
     }
 
-    val availableYears = remember(transactionsWithDates, vaccinations) {
+    val cleanTransactions = remember(transactions, validVaccinationIds, patientIds) {
+        transactions.filter { tx ->
+            FinanceCalculator.isCleanTransaction(tx, validVaccinationIds, patientIds)
+        }
+    }
+
+    val cleanExpenses = remember(expenses) {
+        expenses.filter { FinanceCalculator.isCleanExpense(it) }
+    }
+
+    val visitDatesById = remember(validVaccinations) { validVaccinations.associate { it.id to it.dateGiven } }
+
+    val transactionsWithDates = remember(cleanTransactions, visitDatesById) {
+        cleanTransactions.map { it to FinanceCalculator.resolveReportingDate(it, visitDatesById) }
+    }
+
+    val availableYears = remember(transactionsWithDates, validVaccinations) {
         StatisticsUtils.getAvailableFinancialYears(
-            transactionsWithDates.map { it.second } + vaccinations.map { it.dateGiven }
+            transactionsWithDates.map { it.second } + validVaccinations.map { it.dateGiven }
         )
     }
 
@@ -63,15 +84,15 @@ fun MonthlyFinancesScreen(
         listOf("Overall") + availableYears.reversed().map { "FY $it" }
     }
 
-    val displayData = remember(transactions, vaccinations, expenses, selectedFilter, visitDatesById) {
+    val displayData = remember(cleanTransactions, validVaccinations, cleanExpenses, selectedFilter, visitDatesById) {
         FinanceCalculator.getMonthlyGroupedData(
-            transactions = transactions,
-            vaccinations = vaccinations,
+            transactions = cleanTransactions,
+            vaccinations = validVaccinations,
             filterMode = selectedFilter,
             selectedQuarter = 0,
             selectedMonth = -1,
             visitDatesById = visitDatesById,
-            expenses = expenses
+            expenses = cleanExpenses
         ).filter { it.revenue > 0.0 || it.expenses > 0.0 }.reversed()
     }
 

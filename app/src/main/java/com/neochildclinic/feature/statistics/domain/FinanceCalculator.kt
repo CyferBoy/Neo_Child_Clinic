@@ -65,6 +65,36 @@ object FinanceCalculator {
         return transaction.timestamp
     }
 
+    fun isCleanTransaction(
+        transaction: FinanceTransaction,
+        validVaccinationIds: Set<String>? = null,
+        validPatientIds: Set<String>? = null
+    ): Boolean {
+        if (transaction.amount <= 0.0) return false
+        val remarks = transaction.remarks
+        if (remarks != null) {
+            if (remarks.contains("[DELETED]", ignoreCase = true)) return false
+            if (remarks.contains("is_deleted", ignoreCase = true)) return false
+            if (remarks.contains("is_deleted=true", ignoreCase = true)) return false
+            if (remarks.contains("\"is_deleted\":true", ignoreCase = true)) return false
+        }
+        if (validPatientIds != null && !transaction.patientId.isNullOrBlank()) {
+            if (transaction.patientId !in validPatientIds) return false
+        }
+        if (validVaccinationIds != null && transaction.category.equals(VACCINATION, true) && !transaction.visitId.isNullOrBlank()) {
+            if (transaction.visitId !in validVaccinationIds) return false
+        }
+        return true
+    }
+
+    fun isCleanExpense(expense: Expense): Boolean {
+        if (expense.amountPaise <= 0) return false
+        if (expense.title.contains("DELETED", ignoreCase = true)) return false
+        if (expense.description?.contains("DELETED", ignoreCase = true) == true) return false
+        if (expense.description?.contains("is_deleted", ignoreCase = true) == true) return false
+        return true
+    }
+
     fun calculateFinanceStats(
         transactions: List<FinanceTransaction>,
         vaccinationsForCogs: List<Vaccination>,
@@ -72,12 +102,13 @@ object FinanceCalculator {
         vaccinationsForReconciliation: List<Vaccination> = vaccinationsForCogs,
         visitDatesById: Map<String, String>? = null
     ): FinanceStatsData {
-        val income = transactions.filter { it.type.equals(INCOME, true) }
-        val expenses = transactions.filter { it.type.equals(EXPENSE, true) }
-        
         // Cache valid vaccinations once
         val validVaccinationsForCogs = StatisticsUtils.filterValidVaccinations(vaccinationsForCogs)
         val vaccinationById = validVaccinationsForCogs.associateBy { it.id }
+
+        val cleanTransactions = transactions.filter { isCleanTransaction(it, vaccinationById.keys) }
+        val income = cleanTransactions.filter { it.type.equals(INCOME, true) }
+        val expenses = cleanTransactions.filter { it.type.equals(EXPENSE, true) }
 
         val effectiveIncome = effectiveIncome(income)
         val revenue = effectiveIncome.sumOf { it.amount.coerceAtLeast(0.0) }
@@ -152,7 +183,9 @@ object FinanceCalculator {
         visitDatesById: Map<String, String>? = null,
         expenses: List<Expense> = emptyList()
     ): List<FinanceSummaryItem> {
-        val vaccinationById = StatisticsUtils.filterValidVaccinations(vaccinations).associateBy { it.id }
+        val validVaccinations = StatisticsUtils.filterValidVaccinations(vaccinations)
+        val vaccinationById = validVaccinations.associateBy { it.id }
+        val validVaccinationIds = vaccinationById.keys
         
         // Safety: Ignore transactions before the year 2000 to prevent infinite loops 
         // if dates are corrupted (e.g., year 0202).
@@ -161,14 +194,16 @@ object FinanceCalculator {
             set(Calendar.MILLISECOND, 0)
         }.time
 
-        // Cache reporting dates to avoid redundant parsing in the loop
+        // Cache reporting dates to avoid redundant parsing in the loop, strictly excluding deleted items
         val parsed = transactions.mapNotNull { transaction ->
+            if (!isCleanTransaction(transaction, validVaccinationIds)) return@mapNotNull null
             val reportingDate = resolveReportingDate(transaction, visitDatesById)
             val date = PatientUtils.parseDate(reportingDate) ?: return@mapNotNull null
             if (date.before(safetyBoundary)) return@mapNotNull null
             transaction to date
         }
         val parsedExpenses = expenses.mapNotNull { exp ->
+            if (!isCleanExpense(exp)) return@mapNotNull null
             val date = PatientUtils.parseDate(exp.expenseDate) ?: return@mapNotNull null
             if (date.before(safetyBoundary)) return@mapNotNull null
             exp to date

@@ -31,7 +31,8 @@ object ExpenseCalculator {
         fyQuarter: Int,
         selectedMonth: Int
     ): List<Expense> = expenses.filter {
-        StatisticsUtils.isDateInFilter(it.expenseDate, filterMode, fyQuarter, selectedMonth)
+        FinanceCalculator.isCleanExpense(it) &&
+            StatisticsUtils.isDateInFilter(it.expenseDate, filterMode, fyQuarter, selectedMonth)
     }
 
     /**
