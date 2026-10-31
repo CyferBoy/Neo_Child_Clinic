@@ -29,6 +29,10 @@ class MergePatientsUseCase @Inject constructor(
         if (masterId.isBlank() || duplicateIds.isEmpty()) return
 
         transactionRunner.run {
+            // Every child UPDATE and the duplicate's DELETE share one group so the uploader
+            // cannot push the patient DELETE before the rows that still point at it.
+            val groupId = java.util.UUID.randomUUID().toString()
+
             for (dupId in duplicateIds) {
                 // Fetch record IDs before moving them so we can queue sync properly
                 val vaccIds = vaccinationRepository.getVaccinationsForPatient(dupId).first().map { it.id }
@@ -43,26 +47,32 @@ class MergePatientsUseCase @Inject constructor(
                 // 3. Move inventory transactions
                 inventoryRepository.transferPatientTransactions(dupId, masterId)
 
-                // 4. Create an audit log for the merge
+                // 4. Move the remaining patient-linked rows (consultations, notes,
+                // personal reminders, finance, todos) and queue their UPDATEs.
+                patientRepository.reassignPatientLinkedRecords(dupId, masterId, groupId)
+
+                // 5. Queue the moved visit/reminder updates before the duplicate DELETE.
+                vaccIds.forEach { id ->
+                    syncRepository.enqueue("VACCINATION", id, SyncOperation.UPDATE, SyncPriority.MEDIUM, groupId)
+                }
+                reminderIds.forEach { id ->
+                    syncRepository.enqueue("REMINDERS", id, SyncOperation.UPDATE, SyncPriority.LOW, groupId)
+                }
+
+                // 6. Create an audit log for the merge
                 auditLogger.recordLog(
                     module = "PATIENT",
                     entityType = "PATIENT",
                     entityId = masterId,
                     action = "MERGE_PATIENT",
                     patientId = masterId,
-                    remarks = "Merged with duplicate patient ID: $dupId"
+                    remarks = "Merged with duplicate patient ID: $dupId",
+                    transactionGroupId = groupId
                 )
 
-                // 5. Delete duplicate patient locally (this also queues sync)
-                patientRepository.deletePatient(dupId)
+                // 7. Delete duplicate patient locally (this also queues its DELETE last)
+                patientRepository.deletePatient(dupId, groupId)
 
-                // 6. Queue sync for moved records
-                vaccIds.forEach { id ->
-                    syncRepository.enqueue("VACCINATION", id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-                }
-                reminderIds.forEach { id ->
-                    syncRepository.enqueue("REMINDERS", id, SyncOperation.UPDATE, SyncPriority.LOW)
-                }
                 // NOTE: audit rows are deliberately NOT enqueued here. audit_logs is append-only
                 // on the server (no UPDATE policy), its sync entity is AUDIT_LOG, and there is no
                 // client-side patientId rewrite to push - AuditLogger already enqueues its own
@@ -78,7 +88,8 @@ class MergePatientsUseCase @Inject constructor(
                 entityName = "PATIENT",
                 entityId = masterId,
                 operation = SyncOperation.UPDATE,
-                priority = SyncPriority.MEDIUM
+                priority = SyncPriority.MEDIUM,
+                transactionGroupId = groupId
             )
         }
     }

@@ -200,7 +200,7 @@ class AddStockViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
                 val user = sessionManager.getCurrentUserEmail()
-                val today = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
+                val today = com.neochildclinic.core.common.DateUtils.todayDateString()
 
                 val entriesByVaccine = sections
                     .filter { it.vaccineId.isNotBlank() }

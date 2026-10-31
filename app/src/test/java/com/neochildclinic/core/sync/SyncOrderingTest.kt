@@ -125,4 +125,28 @@ class SyncOrderingTest {
         assertEquals(2, groups.size)
         assertEquals(listOf("id-PATIENT-1", "id-EXPENSE-5"), namesInOrder(groups))
     }
+
+    @Test
+    fun `remote newer conflict download decodes full entity without missing required fields`() {
+        // Finding 2 & 15 guard: conflict download requires full entity fields (id, name, etc.),
+        // not just a two-column projection ("id", "updated_at").
+        val descriptor = SYNC_ENTITY_REGISTRY["PATIENT_NOTE"]
+        org.junit.Assert.assertNotNull(descriptor)
+        val fullRemoteMap = mapOf(
+            "id" to kotlinx.serialization.json.JsonPrimitive("note-1"),
+            "patient_id" to kotlinx.serialization.json.JsonPrimitive("patient-1"),
+            "content" to kotlinx.serialization.json.JsonPrimitive("Follow up in 2 weeks"),
+            "author" to kotlinx.serialization.json.JsonPrimitive("Dr. Smith"),
+            "timestamp" to kotlinx.serialization.json.JsonPrimitive("2026-01-01T10:00:00Z"),
+            "updated_at" to kotlinx.serialization.json.JsonPrimitive("2026-01-02T10:00:00Z")
+        )
+        // Verify fullRemoteMap decodes successfully with syncRemoteJson
+        val jsonObject = kotlinx.serialization.json.JsonObject(fullRemoteMap)
+        val decoded = syncRemoteJson.decodeFromJsonElement(
+            com.neochildclinic.data.local.entity.PatientNotesEntity.serializer(),
+            jsonObject
+        )
+        assertEquals("note-1", decoded.id)
+        assertEquals("Follow up in 2 weeks", decoded.content)
+    }
 }

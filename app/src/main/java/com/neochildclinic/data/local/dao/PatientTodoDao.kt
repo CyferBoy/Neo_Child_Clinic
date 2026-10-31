@@ -51,6 +51,19 @@ interface PatientTodoDao {
     @Query("DELETE FROM vaccination_todos WHERE id = :id")
     suspend fun deleteVaccination(id: String)
 
+    // Patient merge: move both todo tables to the surviving patient.
+    @Query("SELECT id FROM consultation_todos WHERE patient_id = :patientId")
+    suspend fun getConsultationIdsForPatient(patientId: String): List<String>
+
+    @Query("SELECT id FROM vaccination_todos WHERE patient_id = :patientId")
+    suspend fun getVaccinationIdsForPatient(patientId: String): List<String>
+
+    @Query("UPDATE consultation_todos SET patient_id = :masterId, updated_at = :updatedAt, is_synced = 0 WHERE patient_id = :duplicateId")
+    suspend fun reassignConsultationsToPatient(duplicateId: String, masterId: String, updatedAt: String)
+
+    @Query("UPDATE vaccination_todos SET patient_id = :masterId, updated_at = :updatedAt, is_synced = 0 WHERE patient_id = :duplicateId")
+    suspend fun reassignVaccinationsToPatient(duplicateId: String, masterId: String, updatedAt: String)
+
     // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
     @Query("SELECT id FROM consultation_todos")
     suspend fun getConsultationTodoIds(): List<String>

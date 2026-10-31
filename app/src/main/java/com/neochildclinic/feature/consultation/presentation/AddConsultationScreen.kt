@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.core.designsystem.*
@@ -38,7 +38,7 @@ val snackbarHostState = remember { SnackbarHostState() }
 val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
+    val today = remember { com.neochildclinic.core.common.DateUtils.todayDateString() }
     var date by rememberSaveable { mutableStateOf(today) }
     var cashAmount by rememberSaveable { mutableStateOf("") }
     var onlineAmount by rememberSaveable { mutableStateOf("") }
@@ -78,10 +78,7 @@ val scope = rememberCoroutineScope()
     }
 
     val totalAmount = (cashAmount.toDoubleOrNull() ?: 0.0) + (onlineAmount.toDoubleOrNull() ?: 0.0)
-    // Was "₹$totalAmount", which rendered "₹500.0". Also truncating with toInt()
-    // would silently drop a .50 fee, so show decimals only when they exist.
-    val totalDisplay = if (totalAmount % 1.0 == 0.0) totalAmount.toLong().toString()
-                        else "%.2f".format(totalAmount)
+    val totalDisplay = com.neochildclinic.core.common.CurrencyUtils.formatInr(totalAmount)
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
@@ -211,7 +208,7 @@ val scope = rememberCoroutineScope()
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Total Amount (Read Only)", style = MaterialTheme.typography.titleMedium)
-                            Text("₹$totalDisplay", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(totalDisplay, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
                         if (feeError != null) {
                             Text(
@@ -281,7 +278,7 @@ private fun PatientSummaryCard(patient: Patient) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true || patient.patientClinicId.isNullOrBlank()) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
+                val clinicId = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
                 Text(
                     text = "${patient.gender} · DOB: ${patient.dob} · ID: $clinicId",
                     style = MaterialTheme.typography.bodySmall,

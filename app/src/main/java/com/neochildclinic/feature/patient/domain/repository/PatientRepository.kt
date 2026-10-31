@@ -7,8 +7,20 @@ import kotlinx.coroutines.flow.Flow
 interface PatientRepository {
     val allPatients: Flow<List<Patient>>
     fun searchPatients(query: String): Flow<List<Patient>>
-    suspend fun deletePatient(id: String)
+    suspend fun deletePatient(id: String, transactionGroupId: String? = null)
     suspend fun refreshPatients()
+
+    /**
+     * Moves every patient-linked child row (consultations, notes, personal reminders,
+     * finance, todos) to [masterId] and queues an UPDATE for each moved row, before the
+     * caller deletes [duplicateId]. Runs in the caller's transaction so the reassignment,
+     * enqueue order, and the duplicate's DELETE commit together.
+     */
+    suspend fun reassignPatientLinkedRecords(
+        duplicateId: String,
+        masterId: String,
+        transactionGroupId: String
+    )
 
     suspend fun getPatientById(id: String): Patient?
     suspend fun addPatient(patient: Patient)

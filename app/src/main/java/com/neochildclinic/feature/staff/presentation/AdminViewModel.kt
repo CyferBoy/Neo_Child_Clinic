@@ -9,6 +9,7 @@ import com.neochildclinic.feature.staff.domain.repository.CreateStaffRequest
 import com.neochildclinic.feature.staff.domain.repository.StaffActionRequest
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,7 +54,10 @@ class AdminViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 profileRepository.refreshProfiles()
-            } catch (_: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("AdminVM", "Refresh failed", e)
             } finally {
                 _isRefreshing.value = false
             }
@@ -63,8 +67,17 @@ class AdminViewModel @Inject constructor(
     fun fetchStaff() {
         _uiState.value = _uiState.value.copy(isLoading = true)
         viewModelScope.launch {
-            profileRepository.refreshProfiles()
-            _uiState.value = _uiState.value.copy(isLoading = false)
+            try {
+                profileRepository.refreshProfiles()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Offline is routine here; the Room-backed list still renders and a
+                // generic error would stomp the success message set by staff actions.
+                android.util.Log.e("AdminVM", "Fetch staff failed", e)
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
         }
     }
 
@@ -92,6 +105,8 @@ class AdminViewModel @Inject constructor(
                     success = "Staff account created for $name ($role). They can now log in."
                 )
                 fetchStaff()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -114,6 +129,8 @@ class AdminViewModel @Inject constructor(
                     isLoading = false,
                     success = "Password reset email sent"
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
@@ -154,6 +171,8 @@ class AdminViewModel @Inject constructor(
                 staffRepository.runStaffAction(request)
                 _uiState.value = _uiState.value.copy(isLoading = false, success = successMessage)
                 fetchStaff()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }

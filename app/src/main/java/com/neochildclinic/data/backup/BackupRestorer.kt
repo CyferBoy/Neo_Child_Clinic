@@ -48,15 +48,18 @@ class BackupRestorer(
     data class Outcome(val appliedRecordCounts: Map<String, Int>)
 
     suspend fun restore(payload: BackupPayloadV1, mode: RestoreMode): Outcome {
+        if (mode == RestoreMode.MERGE) {
+            val pendingOrFailed = database.syncQueueDao().getUnacknowledgedCountSync()
+            if (pendingOrFailed > 0) {
+                throw IllegalStateException("Sync pending changes first before merging a backup.")
+            }
+        }
         return database.useWriterConnection { transactor ->
             transactor.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
                 // A restore replaces the rows that queued operations refer to. Leaving an old
                 // DELETE/UPDATE in the queue lets it run after the restore and delete or
                 // overwrite the restored row on the server. Clear it in the same transaction,
                 // then re-enqueue only the restored rows that still need pushing.
-                // shortcut: merge restore also drops queue entries for local-only pending rows;
-                // those rows stay local but need an edit (or a full re-enqueue) to upload.
-                // Revisit if merge restore is used while unrelated edits are pending.
                 database.syncQueueDao().clearAll()
                 when (mode) {
                     RestoreMode.REPLACE -> replaceAll(payload)

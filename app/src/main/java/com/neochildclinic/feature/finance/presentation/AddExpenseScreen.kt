@@ -6,20 +6,24 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
@@ -90,13 +94,33 @@ fun AddExpenseScreen(
                     .padding(padding)
                     .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                DateDropdownPicker(
-                    label = "Expense Date*",
-                    currentDate = uiState.expenseDate,
-                    onDateSelected = viewModel::onDateChange,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    DateDropdownPicker(
+                        label = "Expense date *",
+                        currentDate = uiState.expenseDate,
+                        onDateSelected = viewModel::onDateChange,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        PaymentMethodDropdown(
+                            selected = uiState.paymentMethod,
+                            onSelected = viewModel::onPaymentMethodChange
+                        )
+                    }
+                }
+
+                StandardTextField(
+                    value = uiState.title,
+                    onValueChange = viewModel::onTitleChange,
+                    label = "Title *",
+                    placeholder = "e.g. Clinic rent"
                 )
 
                 CategoryDropdown(
@@ -105,34 +129,26 @@ fun AddExpenseScreen(
                 )
 
                 StandardTextField(
-                    value = uiState.title,
-                    onValueChange = viewModel::onTitleChange,
-                    label = "Title*"
-                )
-
-                StandardTextField(
-                    value = uiState.description,
-                    onValueChange = viewModel::onDescriptionChange,
-                    label = "Description"
-                )
-
-                StandardTextField(
                     value = uiState.amount,
                     onValueChange = viewModel::onAmountChange,
-                    label = "Amount (₹)*",
+                    label = "Amount (₹) *",
+                    placeholder = "0",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                )
-
-                PaymentMethodDropdown(
-                    selected = uiState.paymentMethod,
-                    onSelected = viewModel::onPaymentMethodChange
                 )
 
                 StandardTextField(
                     value = uiState.referenceNumber,
                     onValueChange = viewModel::onReferenceNumberChange,
-                    label = "Reference Number",
-                    placeholder = "e.g. Cheque/UTR number (optional)"
+                    label = "Reference number",
+                    placeholder = "Optional · cheque or transaction ID"
+                )
+
+                StandardTextField(
+                    value = uiState.description,
+                    onValueChange = viewModel::onDescriptionChange,
+                    label = "Description",
+                    placeholder = "Add a short note for your records.",
+                    singleLine = false
                 )
 
                 AttachmentSection(
@@ -142,14 +158,56 @@ fun AddExpenseScreen(
                     onRemove = viewModel::removeAttachment
                 )
 
-                Spacer(Modifier.height(Spacing.sm))
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Receipts stay with this expense",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Attach a photo or PDF for your records.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.xs))
 
                 StandardButton(
                     onClick = { viewModel.submit() },
                     isLoading = uiState.isSaving,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (uiState.isEditMode) "Update Expense" else "Save Expense")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Text(if (uiState.isEditMode) "Update Expense" else "Save Expense")
+                    }
                 }
 
                 Spacer(Modifier.height(Spacing.lg))

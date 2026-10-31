@@ -1,13 +1,11 @@
 package com.neochildclinic.feature.vaccination.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.core.ui.SelectDropdown
@@ -40,40 +40,67 @@ internal fun NextVaccinationGroupCard(
 ) {
     var showCancelGroupDialog by remember { mutableStateOf(false) }
 
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
-        Column(modifier = Modifier.padding(Spacing.card), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(Spacing.md))
-                Box(modifier = Modifier.weight(1f)) {
-                    DateDropdownPicker(
-                        label = "Due Date*",
-                        currentDate = group.dueDate,
-                        onDateSelected = onDueDateSelected
-                    )
-                }
-                Spacer(Modifier.width(Spacing.sm))
+        Column(
+            modifier = Modifier.padding(Spacing.card),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Next vaccination",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 if (group.items.any { it.reminderId != null }) {
-                    TextButton(onClick = { showCancelGroupDialog = true }) {
-                        Text("Cancel Group", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                    TextButton(
+                        onClick = { showCancelGroupDialog = true },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "Cancel",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFFB42318)
+                        )
                     }
                 } else {
-                    IconButton(onClick = onRemoveGroup) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Remove date group", tint = MaterialTheme.colorScheme.error)
+                    TextButton(
+                        onClick = onRemoveGroup,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "Remove",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFFB42318)
+                        )
                     }
                 }
             }
 
-            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            DateDropdownPicker(
+                label = "Due date *",
+                currentDate = group.dueDate,
+                onDateSelected = onDueDateSelected,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             group.items.forEachIndexed { index, item ->
                 NextVaccinationItemRow(
                     item = item,
                     inventory = inventory,
                     availableTypes = availableTypes,
+                    isOnlyItem = group.items.size == 1,
                     onTypeSelected = { onTypeSelected(item.id, it) },
                     onVaccineSelected = { onVaccineSelected(item.id, it) },
                     onRemove = { onRemoveItem(item.id) },
@@ -81,8 +108,6 @@ internal fun NextVaccinationGroupCard(
                 )
                 if (index < group.items.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = Spacing.xs),
-                        thickness = 0.5.dp,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                 }
@@ -90,12 +115,15 @@ internal fun NextVaccinationGroupCard(
 
             TextButton(
                 onClick = onAddItem,
-                modifier = Modifier.align(Alignment.Start),
-                contentPadding = PaddingValues(horizontal = Spacing.sm)
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(Spacing.xs))
-                Text("Add Vaccine/Type")
+                Text(
+                    "Add another vaccine",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -123,6 +151,7 @@ internal fun NextVaccinationItemRow(
     item: NextVaccinationItem,
     inventory: List<InventoryItem>,
     availableTypes: List<String>,
+    isOnlyItem: Boolean,
     onTypeSelected: (String) -> Unit,
     onVaccineSelected: (InventoryItem?) -> Unit,
     onRemove: () -> Unit,
@@ -131,32 +160,53 @@ internal fun NextVaccinationItemRow(
     var vaccineExpanded by remember { mutableStateOf(false) }
     var showCancelItemDialog by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Box(modifier = Modifier.weight(1f)) {
-                SelectDropdown(
-                    items = availableTypes,
-                    selected = item.type,
-                    onItemSelected = onTypeSelected,
-                    itemLabel = { it },
-                    label = "Type*",
-                    isError = item.typeError,
-                    errorText = "Type selection is mandatory"
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        if (!isOnlyItem) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Vaccine & type",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-
-            if (item.reminderId != null) {
-                // Was sizing the IconButton itself, which overrode
-                // minimumInteractiveComponentSize. Size the icon, not the target.
-                IconButton(onClick = { showCancelItemDialog = true }) {
-                    Icon(Icons.Default.Close, contentDescription = "Cancel item", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                }
-            } else {
-                IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove item", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                if (item.reminderId != null) {
+                    TextButton(
+                        onClick = { showCancelItemDialog = true },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "Cancel item",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFFB42318)
+                        )
+                    }
+                } else {
+                    TextButton(
+                        onClick = onRemove,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "Remove",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFFB42318)
+                        )
+                    }
                 }
             }
         }
+
+        SelectDropdown(
+            items = availableTypes,
+            selected = item.type,
+            onItemSelected = onTypeSelected,
+            itemLabel = { it },
+            label = "Vaccine type *",
+            isError = item.typeError,
+            errorText = "Type selection is mandatory"
+        )
 
         val filteredVaccines = if (item.type.isBlank()) {
             emptyList()
@@ -169,10 +219,10 @@ internal fun NextVaccinationItemRow(
             onExpandedChange = { if (item.type.isNotBlank()) vaccineExpanded = it }
         ) {
             StandardTextField(
-                value = item.vaccine?.brandName ?: if (item.type.isBlank()) "Select a Type first" else "None (Optional)",
+                value = item.vaccine?.brandName ?: if (item.type.isBlank()) "Select a type first" else "None (Optional)",
                 onValueChange = {},
                 readOnly = true,
-                label = "Vaccine",
+                label = "Specific vaccine (Optional)",
                 modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaccineExpanded) }
             )

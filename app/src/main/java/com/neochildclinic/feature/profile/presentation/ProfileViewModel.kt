@@ -6,6 +6,7 @@ import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +65,8 @@ class ProfileViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(profile = refreshed)
                 }
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
@@ -100,6 +103,8 @@ class ProfileViewModel @Inject constructor(
                     isLoading = false,
                     success = "Name updated successfully"
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "Update failed", isLoading = false)
             }
@@ -128,6 +133,8 @@ class ProfileViewModel @Inject constructor(
                     isLoading = false,
                     success = "Phone number updated"
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
@@ -150,6 +157,8 @@ class ProfileViewModel @Inject constructor(
                     isLoading = false,
                     success = "Password changed successfully"
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }

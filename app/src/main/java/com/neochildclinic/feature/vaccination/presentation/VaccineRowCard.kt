@@ -1,9 +1,12 @@
 package com.neochildclinic.feature.vaccination.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,8 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.StandardAutoCompleteField
 import com.neochildclinic.core.ui.StandardTextField
@@ -39,20 +42,33 @@ internal fun VaccineRow(
     var vaccineExpanded by remember { mutableStateOf(false) }
     var batchExpanded by remember { mutableStateOf(false) }
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
-        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Vaccine Row", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(modifier = Modifier.padding(Spacing.card), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Vaccine & batch",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 if (!isOnlyRow && allowVaccineBatchEdit) {
-                    // Was Modifier.size(24.dp) on the IconButton, which overrode
-                    // minimumInteractiveComponentSize and left a 24dp touch target.
-                    // Size the icon instead and let the button keep its 48dp target.
-                    IconButton(onClick = onRemove) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove vaccine row",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
+                    TextButton(
+                        onClick = onRemove,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "Remove",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFFB42318)
                         )
                     }
                 }
@@ -65,7 +81,7 @@ internal fun VaccineRow(
                     label = "Vaccine*",
                     expanded = vaccineExpanded,
                     onExpandedChange = { vaccineExpanded = it },
-                    placeholder = "Search Vaccine"
+                    placeholder = "Select Vaccine"
                 ) {
                     val filtered = inventory.filter { it.brandName.contains(vaccineSearch, ignoreCase = true) }
                     filtered.forEach { vaccine ->
@@ -135,13 +151,78 @@ internal fun VaccineRow(
                 )
             }
 
-            StandardTextField(
-                value = state.quantity.toString(),
-                onValueChange = onQuantityChange,
-                label = "Quantity*",
-                readOnly = !allowQuantityEdit,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Quantity",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${state.quantity} dose${if (state.quantity == 1) "" else "s"}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                if (allowQuantityEdit) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFF0ECE3),
+                            onClick = {
+                                if (state.quantity > 1) {
+                                    onQuantityChange((state.quantity - 1).toString())
+                                }
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Remove,
+                                    contentDescription = "Decrease",
+                                    tint = Color(0xFF384A46),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = state.quantity.toString(),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = Spacing.xs)
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFF0ECE3),
+                            onClick = {
+                                val maxStock = state.selectedBatch?.remainingQuantity ?: 999
+                                if (state.quantity < maxStock) {
+                                    onQuantityChange((state.quantity + 1).toString())
+                                }
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Increase",
+                                    tint = Color(0xFF384A46),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -78,6 +78,13 @@ interface FinanceDao {
     @Query("DELETE FROM finance_transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: String)
 
+    // Patient merge: finance rows keep their visit link; only the patient id moves.
+    @Query("SELECT id FROM finance_transactions WHERE patientId = :patientId")
+    suspend fun getIdsForPatient(patientId: String): List<String>
+
+    @Query("UPDATE finance_transactions SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
+    suspend fun reassignToPatient(duplicateId: String, masterId: String)
+
     // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
     @Query("SELECT id FROM finance_transactions")
     suspend fun getFinanceIds(): List<String>

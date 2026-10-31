@@ -29,6 +29,15 @@ interface ConsultationDao {
     @Query("DELETE FROM consultations WHERE id = :id")
     suspend fun deleteConsultation(id: String)
 
+    // Patient merge: move the consultation to the surviving patient and mark it dirty so
+    // the new patient_id is pushed. updatedAt must move too, otherwise the conflict check
+    // sees the remote row as newer and downloads the old patient_id back.
+    @Query("SELECT id FROM consultations WHERE patientId = :patientId")
+    suspend fun getConsultationIdsForPatient(patientId: String): List<String>
+
+    @Query("UPDATE consultations SET patientId = :masterId, updatedAt = :updatedAt, isSynced = 0 WHERE patientId = :duplicateId")
+    suspend fun reassignToPatient(duplicateId: String, masterId: String, updatedAt: String)
+
     // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
     @Query("SELECT id FROM consultations")
     suspend fun getConsultationIds(): List<String>

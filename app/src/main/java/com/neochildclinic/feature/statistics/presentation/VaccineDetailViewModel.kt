@@ -148,7 +148,8 @@ class VaccineDetailViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 refreshDataUseCase()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.e("VaccineDetailVM", "Refresh failed", e)
             } finally {
                 _isRefreshing.value = false
             }

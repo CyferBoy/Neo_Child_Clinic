@@ -244,13 +244,71 @@ class PatientRepositoryImpl @Inject constructor(
         patientCache.invalidate(patient.id)
     }
 
-    override suspend fun deletePatient(id: String) {
+    override suspend fun reassignPatientLinkedRecords(
+        duplicateId: String,
+        masterId: String,
+        transactionGroupId: String
+    ) {
+        transactionRunner.run {
+            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+
+            val consultationIds = consultationDao.getConsultationIdsForPatient(duplicateId)
+            if (consultationIds.isNotEmpty()) {
+                consultationDao.reassignToPatient(duplicateId, masterId, now)
+                consultationIds.forEach {
+                    syncRepository.enqueue("CONSULTATION", it, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId)
+                }
+            }
+
+            val noteIds = notesDao.getNoteIdsForPatient(duplicateId)
+            if (noteIds.isNotEmpty()) {
+                notesDao.reassignToPatient(duplicateId, masterId)
+                noteIds.forEach {
+                    syncRepository.enqueue("PATIENT_NOTE", it, SyncOperation.UPDATE, SyncPriority.LOW, transactionGroupId)
+                }
+            }
+
+            val personalReminderIds = personalReminderDao.getIdsForPatient(duplicateId)
+            if (personalReminderIds.isNotEmpty()) {
+                personalReminderDao.reassignToPatient(duplicateId, masterId, now)
+                personalReminderIds.forEach {
+                    syncRepository.enqueue("PERSONAL_REMINDER", it, SyncOperation.UPDATE, SyncPriority.LOW, transactionGroupId)
+                }
+            }
+
+            val financeIds = database.financeDao().getIdsForPatient(duplicateId)
+            if (financeIds.isNotEmpty()) {
+                database.financeDao().reassignToPatient(duplicateId, masterId)
+                financeIds.forEach {
+                    syncRepository.enqueue("FINANCE", it, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId)
+                }
+            }
+
+            val consultationTodoIds = database.patientTodoDao().getConsultationIdsForPatient(duplicateId)
+            if (consultationTodoIds.isNotEmpty()) {
+                database.patientTodoDao().reassignConsultationsToPatient(duplicateId, masterId, now)
+                consultationTodoIds.forEach {
+                    syncRepository.enqueue("CONSULTATION_TODO", it, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId)
+                }
+            }
+
+            val vaccinationTodoIds = database.patientTodoDao().getVaccinationIdsForPatient(duplicateId)
+            if (vaccinationTodoIds.isNotEmpty()) {
+                database.patientTodoDao().reassignVaccinationsToPatient(duplicateId, masterId, now)
+                vaccinationTodoIds.forEach {
+                    syncRepository.enqueue("VACCINATION_TODO", it, SyncOperation.UPDATE, SyncPriority.MEDIUM, transactionGroupId)
+                }
+            }
+        }
+    }
+
+    override suspend fun deletePatient(id: String, transactionGroupId: String?) {
         // One transaction for the whole delete (docs/SYNC.md: entity writes and enqueue
         // commit together - no partial state). Previously every deleteX() was followed by
         // its own enqueue outside any transaction, so a crash mid-way left deletes without
         // their queue rows (remote rows surviving) or queue rows without deletes.
         transactionRunner.run {
-            val deleteGroupId = java.util.UUID.randomUUID().toString()
+            val deleteGroupId = transactionGroupId ?: java.util.UUID.randomUUID().toString()
             val vaccinationIds = vaccinationDao.getVaccinationsForPatient(id).first().map { it.id }
             val reminders = dueReminderDao.getDueRemindersForPatient(id).first()
             val personalReminderIds = personalReminderDao.getActiveReminders().first().filter { it.patientId == id }.map { it.id }

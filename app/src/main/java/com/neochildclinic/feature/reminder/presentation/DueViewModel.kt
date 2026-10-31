@@ -14,6 +14,7 @@ import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -101,8 +102,11 @@ class DueViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 reminderRepository.refreshReminders()
-            } catch (_: Exception) { }
-            finally {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("DueVM", "Refresh failed", e)
+            } finally {
                 _isRefreshing.value = false
             }
         }

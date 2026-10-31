@@ -4,15 +4,12 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.neochildclinic.core.common.DateCategory
+import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.data.local.database.AppDatabase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 @HiltWorker
 class PersonalReminderNotificationWorker @AssistedInject constructor(
@@ -23,20 +20,26 @@ class PersonalReminderNotificationWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val reminders = database.personalReminderDao().getActiveReminders().first()
-        val today = LocalDate.now(ZoneId.of("Asia/Kolkata")).toString()
         for (r in reminders) {
             val date = r.reminderDate
             if (date.isNullOrBlank()) {
                 notificationHelper.showPersonalReminderNotification(r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone, undated = true)
                 continue
             }
-            when {
-                date == today -> notificationHelper.showPersonalReminderNotification(r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone)
-                date < today -> {
-                    val days = try {
-                        ChronoUnit.DAYS.between(LocalDate.parse(date), LocalDate.parse(today)).toInt()
-                    } catch (_: Exception) { 0 }
-                    notificationHelper.showPersonalReminderNotification(r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone, overdueDays = days.coerceAtLeast(1))
+            when (val category = DateClassifier.classify(date)) {
+                is DateCategory.Today -> {
+                    notificationHelper.showPersonalReminderNotification(
+                        r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone
+                    )
+                }
+                is DateCategory.Overdue -> {
+                    notificationHelper.showPersonalReminderNotification(
+                        r.id, r.patientName, r.vaccineLabel ?: "Vaccine Requirement", r.patientPhone,
+                        overdueDays = category.days
+                    )
+                }
+                else -> {
+                    // Future date (Tomorrow or Future) - do not notify yet
                 }
             }
         }

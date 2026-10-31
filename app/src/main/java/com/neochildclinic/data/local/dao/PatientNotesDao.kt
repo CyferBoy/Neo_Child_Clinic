@@ -17,4 +17,12 @@ interface PatientNotesDao {
 
     @Query("DELETE FROM patient_notes WHERE id = :id")
     suspend fun deleteNote(id: String)
+
+    // Patient merge: notes have no updatedAt column, so the descriptor treats an unsynced
+    // note as freshly edited; isSynced=0 is what lets the new patient_id upload.
+    @Query("SELECT id FROM patient_notes WHERE patientId = :patientId")
+    suspend fun getNoteIdsForPatient(patientId: String): List<String>
+
+    @Query("UPDATE patient_notes SET patientId = :masterId, isSynced = 0 WHERE patientId = :duplicateId")
+    suspend fun reassignToPatient(duplicateId: String, masterId: String)
 }

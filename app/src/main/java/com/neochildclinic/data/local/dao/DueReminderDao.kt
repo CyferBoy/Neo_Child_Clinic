@@ -134,27 +134,6 @@ interface DueReminderDao {
     fun getDueRemindersForPatient(patientId: String): Flow<List<ReminderEntity>>
 
     @Transaction
-    suspend fun getLocalPriority(pId: String, vId: String, name: String, type: String): Int {
-        val reminder = getReminderByStableId(pId, vId, name, type) ?: return 0
-        return when (reminder.status) {
-            "COMPLETED" -> 3
-            "DISMISSED" -> 2
-            "ACTIVE" -> 1
-            else -> 0
-        }
-    }
-
-    @Transaction
-    suspend fun isLocalUnsynced(pId: String, vId: String, name: String, type: String): Boolean {
-        return getReminderByStableId(pId, vId, name, type)?.isSynced == false
-    }
-
-    @Transaction
-    suspend fun clearAllStates(patientId: String, visitId: String, vaccineName: String, type: String) {
-        deleteReminder(patientId, visitId, vaccineName, type)
-    }
-
-    @Transaction
     suspend fun moveDueToCompleted(reminder: ReminderEntity, completedBy: String, notes: String? = null) {
         val updated = reminder.copy(
             status = "COMPLETED",

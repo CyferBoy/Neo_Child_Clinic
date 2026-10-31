@@ -5,7 +5,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.common.PatientUtils.calculateDetailedAge
@@ -128,7 +128,7 @@ fun AddPatientScreen(
                     dob = dob,
                     gender = gender,
                     address = address,
-                    registrationDate = if (isEditMode) registrationDate else LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
+                    registrationDate = if (isEditMode) registrationDate else com.neochildclinic.core.common.DateUtils.todayDateString()
                 )
 
                 viewModel.savePatient(

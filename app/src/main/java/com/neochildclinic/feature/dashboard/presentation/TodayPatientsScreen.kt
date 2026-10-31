@@ -306,9 +306,16 @@ fun TodayPatientsScreen(
                                     is VaccinationTodo -> item.id
                                     else -> null
                                 }
+                                val slotId = when (item) {
+                                    is ConsultationTodo -> item.availabilitySlotId
+                                    is VaccinationTodo -> item.availabilitySlotId
+                                    else -> null
+                                }
+                                val slotRange = slotId?.let { uiState.slotRanges[it] }
                                 TodayPatientItem(
                                     index = index + 1,
                                     item = item,
+                                    slotRange = slotRange,
                                     isHighlighted = itemId != null && itemId == pendingHighlightId,
                                     onStatusToggle = { viewModel.toggleTodoStatus(item) },
                                     onDelete = {
@@ -347,9 +354,16 @@ fun TodayPatientsScreen(
                                         is VaccinationTodo -> item.id
                                         else -> null
                                     }
+                                    val slotId = when (item) {
+                                        is ConsultationTodo -> item.availabilitySlotId
+                                        is VaccinationTodo -> item.availabilitySlotId
+                                        else -> null
+                                    }
+                                    val slotRange = slotId?.let { uiState.slotRanges[it] }
                                     TodayPatientItem(
                                         index = pendingList.size + index + 1,
                                         item = item,
+                                        slotRange = slotRange,
                                         isHighlighted = itemId != null && itemId == pendingHighlightId,
                                         onStatusToggle = { viewModel.toggleTodoStatus(item) },
                                         onDelete = {

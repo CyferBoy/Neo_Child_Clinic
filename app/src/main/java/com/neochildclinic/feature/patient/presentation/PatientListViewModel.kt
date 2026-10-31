@@ -13,6 +13,7 @@ import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.sync.RealtimeChangeSubscriptions
 import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -134,6 +135,8 @@ class PatientListViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 refreshDataUseCase(*tables)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Refresh failed: ${e.message}"
             } finally {
@@ -175,6 +178,8 @@ class PatientListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 patientRepository.deletePatient(id)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("PatientListVM", "Delete patient failed", e)
                 _error.value = "Delete failed: ${e.message}"
@@ -191,33 +196,13 @@ class PatientListViewModel @Inject constructor(
                 try {
                     mergePatientsUseCase(master.id, listOf(secondary.id))
                     clearSelection()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _error.value = e.message
                 } finally {
                     _isMerging.value = false
                 }
-            }
-        }
-    }
-
-    fun autoMergeDuplicates() {
-        viewModelScope.launch {
-            _isMerging.value = true
-            try {
-                val patientsList = uiState.value.patients
-                val groups = patientsList.groupBy { 
-                    it.name.trim().lowercase() + "|" + it.phone.trim()
-                }.filter { it.value.size > 1 }
-
-                for (group in groups.values) {
-                    val master = group[0]
-                    val duplicates = group.drop(1).map { it.id }
-                    mergePatientsUseCase(master.id, duplicates)
-                }
-            } catch (e: Exception) {
-                _error.value = e.message
-            } finally {
-                _isMerging.value = false
             }
         }
     }

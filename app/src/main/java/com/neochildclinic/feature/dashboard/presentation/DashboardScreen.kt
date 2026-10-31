@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.security.AuthViewModel
 import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
@@ -281,11 +281,11 @@ fun DashboardScreen(
                                 onWaste = onWaste
                             )
 
-                            // Quick Actions Row (Patient, Vaccinate, Stock, Expense)
+                            // Quick Actions Row (Patient, Vaccinate, Monthly stats, Expense)
                             DashboardQuickActionsRow(
                                 onAddPatient = onAddPatient,
                                 onVaccinate = onTodayPatients,
-                                onStock = onAddVaccine,
+                                onMonthlyStats = onStatistics,
                                 onExpense = onExpenses
                             )
 

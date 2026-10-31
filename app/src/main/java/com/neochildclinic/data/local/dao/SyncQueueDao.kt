@@ -35,6 +35,11 @@ interface SyncQueueDao {
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
     suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
 
+    // 429 is the server asking us to slow down, not this item failing: requeue it and keep
+    // its retry budget intact so a busy afternoon cannot exhaust five attempts.
+    @Query("UPDATE sync_queue SET status = 'PENDING', lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
+    suspend fun requeueRateLimited(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
+
     @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND updatedAt < :staleBefore")
     suspend fun requeueStaleSyncingItems(staleBefore: String)
 

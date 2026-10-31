@@ -19,7 +19,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.domain.model.SyncItem
 import com.neochildclinic.domain.model.SyncStatus

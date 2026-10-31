@@ -47,8 +47,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 profileRepository.refreshProfiles()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 // Offline or initial load failure: Room cache will be emitted
+                android.util.Log.e("SettingsVM", "Initial profile refresh failed", e)
             }
         }
     }

@@ -30,15 +30,9 @@ interface VaccineDao {
     @Query("DELETE FROM vaccines WHERE id = :id")
     suspend fun deleteVaccine(id: String)
 
-    @Delete
-    suspend fun deleteVaccinePermanently(vaccine: VaccineEntity)
-
     // Batches
     @Query("SELECT * FROM vaccine_batches")
     fun getAllBatches(): Flow<List<VaccineBatchEntity>>
-
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
-    fun getBatchesForVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
 
     @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
     fun getBatchesByVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>

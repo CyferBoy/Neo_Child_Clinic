@@ -4,7 +4,6 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.SyncOperation
 import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -14,7 +13,7 @@ import javax.inject.Inject
 // Decoder used for remote rows pulled back into the local DB (downloadAndReplaceLocal).
 // ignoreUnknownKeys/coerceInputValues: the remote row may carry columns Room doesn't know
 // (server-side only, e.g. receipt_number triggers) or values Room types coerce resiliently.
-private val syncRemoteJson = kotlinx.serialization.json.Json {
+internal val syncRemoteJson = kotlinx.serialization.json.Json {
     ignoreUnknownKeys = true
     coerceInputValues = true
 }
@@ -188,7 +187,17 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         tableName = "patient_notes",
         priority = 5,
         fetch = { db, id -> db.patientNotesDao().getNoteById(id) },
-        updatedAt = { (it as? PatientNotesEntity)?.timestamp ?: "" },
+        // The entity has no updatedAt column. While the row is dirty (isSynced=false),
+        // treat it as edited now so a merge's patient_id rewrite is not pre-empted by
+        // the remote row's newer updated_at and downloaded back.
+        updatedAt = {
+            val note = it as? PatientNotesEntity
+            when {
+                note == null -> ""
+                note.isSynced -> note.timestamp
+                else -> com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            }
+        },
         download = { db, m ->
             val entity = syncRemoteJson.decodeFromJsonElement<PatientNotesEntity>(JsonObject(m))
             db.patientNotesDao().insertNote(entity.copy(isSynced = true))
@@ -412,14 +421,11 @@ class SyncUploader @Inject constructor(
             if (ids.isEmpty()) continue
 
             try {
-                // Project only the columns the conflict consumer reads (remoteData["id"],
-                // remoteData["updated_at"]). updated_at exists on every public table
-                // (migration 20260816 add-if-not-exists + set_updated_at trigger), so the
-                // projection cannot 400 like the legacy `last_updated` fallback could - that
-                // column exists nowhere in the schema, the constraint branch was dead code;
-                // the projected select drops it alongside every other unused field of the
-                // formerly full-row read.
-                val rows = postgrest.from(table).select(columns = Columns.list("id", "updated_at")) {
+                // Full rows, not just id/updated_at: the conflict consumer passes the
+                // winning row straight to descriptor.download(), which decodes a complete
+                // entity. A two-column projection made every remote-newer conflict throw
+                // MissingFieldException and end FAILED instead of self-healing.
+                val rows = postgrest.from(table).select {
                     filter { isIn("id", ids) }
                 }.decodeList<Map<String, JsonElement>>()
 
@@ -433,6 +439,27 @@ class SyncUploader @Inject constructor(
         }
 
         return result
+    }
+
+    /**
+     * A stock movement the server rejected with a check violation means the local batch
+     * was already out of date (another device deducted the same doses first). The trigger
+     * is the only stock writer, so copy the server's remaining_quantity back into Room;
+     * the queue item itself still ends FAILED and stays visible on the Sync screen.
+     */
+    suspend fun reconcileRejectedStockMovement(item: SyncQueueEntity, error: Throwable): Boolean {
+        if (item.entityName != "INVENTORY_TRANSACTION" || !isStockCheckViolation(error)) return false
+        val localTransaction = database.vaccineDao().getTransactionById(item.entityId) ?: return false
+        val remoteBatch = try {
+            postgrest.from("vaccine_batches").select {
+                filter { eq("id", localTransaction.batchId) }
+            }.decodeSingleOrNull<VaccineBatchEntity>()
+        } catch (e: Exception) {
+            android.util.Log.w("SyncUploader", "Stock reconcile read failed for batch ${localTransaction.batchId}", e)
+            return false
+        } ?: return false
+        database.vaccineDao().upsertBatch(remoteBatch)
+        return true
     }
 
     suspend fun uploadEntity(
@@ -591,8 +618,20 @@ class SyncUploader @Inject constructor(
                     filter { eq("id", localData.id) }
                 }
                 is ConsultationEntity -> postgrest.from(table).upsert(localData)
-                is ConsultationTodoEntity -> postgrest.from(table).upsert(localData)
-                is VaccinationTodoEntity -> postgrest.from(table).upsert(localData)
+                is ConsultationTodoEntity -> {
+                    val sanitized = localData.copy(
+                        createdAt = localData.createdAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() },
+                        updatedAt = localData.updatedAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
+                    )
+                    postgrest.from(table).upsert(sanitized)
+                }
+                is VaccinationTodoEntity -> {
+                    val sanitized = localData.copy(
+                        createdAt = localData.createdAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() },
+                        updatedAt = localData.updatedAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
+                    )
+                    postgrest.from(table).upsert(sanitized)
+                }
                 is BorrowEntity -> postgrest.from(table).upsert(localData)
                 is BorrowReturnEntity -> postgrest.from(table).upsert(localData)
                 is PatientNotesEntity -> postgrest.from(table).upsert(localData)
@@ -715,4 +754,23 @@ internal fun batchUpsert(localData: VaccineBatchEntity, isCreate: Boolean): Batc
         fields.remove("remaining_quantity")
     }
     return BatchUpsert(JsonObject(fields), insertOnly = isCreate)
+}
+
+/**
+ * True when Postgres rejected a write with a check-constraint violation (SQLSTATE 23514),
+ * the shape a stock movement takes when the batch no longer has enough remaining doses.
+ */
+internal fun isStockCheckViolation(error: Throwable): Boolean {
+    var current: Throwable? = error
+    repeat(8) {
+        val t = current
+        val text = t?.message.orEmpty()
+        val status = (t as? io.github.jan.supabase.exceptions.RestException)?.statusCode
+        val isCheck = text.contains("23514") ||
+            text.contains("check_violation", ignoreCase = true) ||
+            text.contains("violates check constraint", ignoreCase = true)
+        if (isCheck && (status == null || status == 400)) return true
+        current = t?.cause
+    }
+    return false
 }

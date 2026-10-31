@@ -21,6 +21,7 @@ import com.neochildclinic.domain.model.*
 import com.neochildclinic.feature.settings.domain.repository.BackupRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -95,6 +96,8 @@ class BackupRepositoryImpl @Inject constructor(
                 val envelope = BackupSerializer.decodeFromContainer(bytes, password)
                 val summary = BackupValidator.validate(envelope)
                 BackupValidationResult.Valid(summary)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: BackupException) {
                 BackupValidationResult.Invalid(e.reason, e.userMessage)
             } catch (e: Exception) {
@@ -152,6 +155,7 @@ class BackupRepositoryImpl @Inject constructor(
             // A failed safety snapshot must not silently allow a destructive restore to
             // proceed - fail closed.
             safetyStore.discardStaged()
+            if (e is CancellationException) throw e
             throw BackupException.Failed("Could not create pre-restore safety backup", e)
         }
 
@@ -165,6 +169,7 @@ class BackupRepositoryImpl @Inject constructor(
             // Room's withTransaction rolls back automatically on any thrown exception -
             // existing data is guaranteed intact.
             safetyStore.discardStaged()
+            if (e is CancellationException) throw e
             throw BackupException.Failed("Restore transaction failed, rolled back", e)
         }
         // The staged snapshot only replaces the live one AFTER the restore succeeded, so a
@@ -250,6 +255,8 @@ class BackupRepositoryImpl @Inject constructor(
                 val envelope = BackupSerializer.decodeFromContainer(bytes, password)
                 val summary = BackupValidator.validate(envelope)
                 BackupValidationResult.Valid(summary)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: BackupException) {
                 BackupValidationResult.Invalid(e.reason, e.userMessage)
             } catch (e: Exception) {
@@ -488,6 +495,10 @@ class BackupRepositoryImpl @Inject constructor(
         location: BackupLocation,
         triggeredBy: String = "MANUAL"
     ): BackupOperationResult {
+        // A cancelled operation is not a backup failure: rethrow so cancellation actually
+        // propagates and no FAILED history row is written for work the user walked away
+        // from (same lesson as AppUpdateManager's runCatching).
+        if (e is CancellationException) throw e
         val backupException = e as? BackupException ?: BackupException.Failed(e.message ?: "Unknown error", e)
         Log.e(TAG, "${type.name} failed: ${backupException.logDetail}", backupException)
         runCatching {

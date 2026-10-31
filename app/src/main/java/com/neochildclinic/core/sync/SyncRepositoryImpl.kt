@@ -315,6 +315,12 @@ class SyncRepositoryImpl @Inject constructor(
             GroupResult.SESSION_DEFERRED
         } catch (e: Exception) {
             android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
+            // A rejected stock movement means another device already moved this batch's
+            // remaining_quantity; copy the server value back so the next visit sees the
+            // real stock. The queue item still fails normally below.
+            if (failIndex >= 0) {
+                groupItems.getOrNull(failIndex)?.let { uploader.reconcileRejectedStockMovement(it, e) }
+            }
             // Everything after the failing item was never attempted (it is still sitting
             // in SYNCING from the loop above): release it back to PENDING untouched, so a
             // sibling's error neither burns its retry budget nor marks it FAILED with an
@@ -349,10 +355,16 @@ class SyncRepositoryImpl @Inject constructor(
      */
     private suspend fun classifyAndRecordError(groupItems: List<SyncQueueEntity>, e: Exception): Boolean {
         val transient = isTransientSyncError(e)
+        // 429 is backpressure, not a bad item: requeue it without consuming its retry
+        // budget, otherwise a busy server turns every queued row FAILED after five syncs.
+        val rateLimited = isRateLimitedSyncError(e)
         var requeued = false
 
         for (item in groupItems) {
-            if (transient && item.retryCount < 5) {
+            if (rateLimited) {
+                syncDao.requeueRateLimited(item.queueId, buildSyncErrorDetails(e))
+                requeued = true
+            } else if (transient && item.retryCount < 5) {
                 syncDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
                 syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
                 requeued = true
@@ -597,6 +609,18 @@ internal fun isTransientSyncError(error: Throwable): Boolean {
     return text.contains("network", ignoreCase = true) ||
         text.contains("timeout", ignoreCase = true) ||
         text.contains("unavailable", ignoreCase = true)
+}
+
+// 429 alone. Kept separate from isTransientSyncError because a rate-limited item must be
+// requeued WITHOUT incrementing retryCount - see classifyAndRecordError.
+internal fun isRateLimitedSyncError(error: Throwable): Boolean {
+    var current: Throwable? = error
+    repeat(8) {
+        val t = current
+        if (t is RestException) return t.statusCode == 429
+        current = t?.cause
+    }
+    return false
 }
 
 // Blocks until the SDK has left the Initializing status - i.e. it has restored a persisted

@@ -107,7 +107,7 @@ class AddBatchViewModel @Inject constructor(
                     inventoryRepository.updateBatch(updated, user)
                 } else {
                     val newBatchId = UUID.randomUUID().toString()
-                    val today = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
+                    val today = com.neochildclinic.core.common.DateUtils.todayDateString()
                     val batch = VaccineBatch(
                         batchId = newBatchId,
                         vaccineId = vaccineId,

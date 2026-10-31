@@ -34,11 +34,14 @@ import com.neochildclinic.core.designsystem.Spacing
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
 
+import com.neochildclinic.domain.model.TimeRange
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TodayPatientItem(
     index: Int,
     item: Any,
+    slotRange: TimeRange? = null,
     isHighlighted: Boolean = false,
     onStatusToggle: () -> Unit,
     onDelete: () -> Unit,
@@ -78,16 +81,20 @@ internal fun TodayPatientItem(
         else -> ""
     }
 
-    // Time slot from scheduled time if available, otherwise unassigned indicator
-    val timeSlotText = remember(item) {
-        val dateStr = when (item) {
-            is ConsultationTodo -> item.todoDate
-            is VaccinationTodo -> item.todoDate
-            else -> ""
+    // Doctor availability slot timing (e.g. "10:00 - 10:15 AM") or parsed time if available
+    val timeSlotText = remember(item, slotRange) {
+        if (slotRange != null) {
+            slotRange.label()
+        } else {
+            val dateStr = when (item) {
+                is ConsultationTodo -> item.todoDate
+                is VaccinationTodo -> item.todoDate
+                else -> ""
+            }
+            val timeRegex = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
+            val match = timeRegex.find(dateStr)
+            match?.value ?: "--:--"
         }
-        val timeRegex = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
-        val match = timeRegex.find(dateStr)
-        match?.value ?: "--:--"
     }
 
     // Soft palette for avatar container based on name hash
@@ -137,14 +144,17 @@ internal fun TodayPatientItem(
         ) {
             // Left Time Slot Column
             Column(
-                modifier = Modifier.width(42.dp),
+                modifier = Modifier.widthIn(min = 48.dp, max = 80.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = timeSlotText,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 2,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontSize = if (timeSlotText.length > 5) 11.sp else 12.sp
                 )
                 Text(
                     text = "#$index",

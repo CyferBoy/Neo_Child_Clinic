@@ -3,6 +3,7 @@ package com.neochildclinic.feature.personalreminder.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.Patient
@@ -14,8 +15,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 
@@ -263,6 +262,6 @@ class AddEditPersonalReminderViewModel @Inject constructor(
 
     companion object {
         /** Today's date pre-formatted for the reminder-date field default. */
-        fun todayFormatted(): String = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH))
+        fun todayFormatted(): String = DateUtils.todayDateString()
     }
 }

@@ -1,25 +1,35 @@
 package com.neochildclinic.feature.finance.presentation
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.FilterAltOff
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.ErrorState
@@ -58,6 +68,28 @@ fun ExpenseListScreen(
     val filtersActive = uiState.categoryFilter != null || uiState.paymentMethodFilter != null ||
         uiState.fromDate.isNotBlank() || uiState.toDate.isNotBlank()
 
+    val totalAmount = remember(uiState.expenses) {
+        uiState.expenses.sumOf { it.amountRupees }
+    }
+    val totalCount = remember(uiState.expenses) {
+        uiState.expenses.size
+    }
+    val biggestCategoryGroup = remember(uiState.expenses) {
+        uiState.expenses.groupBy { it.category }
+            .maxByOrNull { entry -> entry.value.sumOf { it.amountRupees } }
+    }
+    val biggestCategoryName = biggestCategoryGroup?.key?.label ?: "None"
+    val biggestCategoryTotal = biggestCategoryGroup?.value?.sumOf { it.amountRupees } ?: 0.0
+    val biggestCategoryPercent = if (totalAmount > 0) ((biggestCategoryTotal / totalAmount) * 100).toInt() else 0
+
+    val monthName = remember {
+        java.time.LocalDate.now().month.name.uppercase()
+    }
+    val currentMonthDisplay = remember {
+        val now = java.time.LocalDate.now()
+        "${now.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${now.year}"
+    }
+
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
@@ -92,6 +124,133 @@ fun ExpenseListScreen(
                     ExpenseFilters(uiState = uiState, viewModel = viewModel)
                 }
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+                ) {
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(Spacing.card)) {
+                            Text(
+                                text = "$monthName EXPENSES",
+                                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.5.sp),
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(Spacing.xs))
+                            Text(
+                                text = "₹${String.format(java.util.Locale.ENGLISH, "%,.0f", totalAmount)}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFB42318)
+                            )
+                            Spacer(Modifier.height(Spacing.xs))
+                            Text(
+                                text = "$totalCount records",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(Spacing.card)) {
+                            Text(
+                                text = "BIGGEST",
+                                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.5.sp),
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(Spacing.xs))
+                            Text(
+                                text = biggestCategoryName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.height(Spacing.xs))
+                            Text(
+                                text = "₹${String.format(java.util.Locale.ENGLISH, "%,.0f", biggestCategoryTotal)} · $biggestCategoryPercent%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                val popularCategories = listOf(
+                    null,
+                    ExpenseCategory.STAFF_SALARY,
+                    ExpenseCategory.RENT,
+                    ExpenseCategory.MEDICAL_SUPPLIES,
+                    ExpenseCategory.OTHER
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    popularCategories.forEach { category ->
+                        val isSelected = uiState.categoryFilter == category
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                            ),
+                            onClick = { viewModel.onCategoryFilterChange(category) },
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = category?.label ?: "All",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (uiState.fromDate.isNotBlank()) "${uiState.fromDate} – ${uiState.toDate}" else currentMonthDisplay,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = uiState.sort.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 AppPullToRefresh(isRefreshing = uiState.isRefreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                     if (uiState.isLoading && uiState.expenses.isEmpty()) {
                         SkeletonList(
@@ -118,7 +277,7 @@ fun ExpenseListScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(Spacing.lg),
+                            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xs),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(uiState.expenses, key = { it.id }) { expense ->
@@ -247,34 +406,93 @@ private fun ExpenseFilters(uiState: ExpenseListUiState, viewModel: ExpenseListVi
     }
 }
 
+private fun categoryColor(category: ExpenseCategory): Pair<Color, Color> {
+    return when (category) {
+        ExpenseCategory.STAFF_SALARY -> Pair(Color(0xFFDCE9F8), Color(0xFF0A2F52))
+        ExpenseCategory.RENT -> Pair(Color(0xFFE0EBE2), Color(0xFF244032))
+        ExpenseCategory.MEDICAL_SUPPLIES, ExpenseCategory.VACCINE_PURCHASE -> Pair(Color(0xFFF8E4D7), Color(0xFF5B2A12))
+        ExpenseCategory.ELECTRICITY, ExpenseCategory.WATER, ExpenseCategory.INTERNET -> Pair(Color(0xFFF0EAFB), Color(0xFF3F2482))
+        else -> Pair(Color(0xFFEEF0F2), Color(0xFF344054))
+    }
+}
+
+private fun categoryIcon(category: ExpenseCategory): ImageVector {
+    return when (category) {
+        ExpenseCategory.STAFF_SALARY -> Icons.Default.People
+        ExpenseCategory.RENT -> Icons.Default.Home
+        ExpenseCategory.MEDICAL_SUPPLIES, ExpenseCategory.VACCINE_PURCHASE -> Icons.Default.MedicalServices
+        else -> Icons.Default.ReceiptLong
+    }
+}
+
 @Composable
 private fun ExpenseCard(expense: Expense, onClick: () -> Unit) {
+    val (bgTint, iconTint) = categoryColor(expense.category)
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(Spacing.card), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(expense.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text(expense.category.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier.padding(Spacing.card).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Surface(
+                modifier = Modifier.size(36.dp),
+                shape = CircleShape,
+                color = bgTint
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = categoryIcon(expense.category),
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    com.neochildclinic.core.common.CurrencyUtils.formatInr(expense.amountRupees),
-                    style = MaterialTheme.typography.titleLarge,
+                    text = expense.title,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${expense.category.label} · ${PatientUtils.formatDateForDisplay(expense.expenseDate)} · ${expense.paymentMethod.label}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(PatientUtils.formatDateForDisplay(expense.expenseDate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("\u2022", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                Text(expense.paymentMethod.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = com.neochildclinic.core.common.CurrencyUtils.formatInr(expense.amountRupees),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (expense.attachmentPath != null) {
+                    Text(
+                        text = "receipt",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF067647),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFF7C8A84),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

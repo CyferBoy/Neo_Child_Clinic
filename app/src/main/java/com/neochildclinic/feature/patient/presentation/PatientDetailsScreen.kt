@@ -19,7 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.*
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.ui.*

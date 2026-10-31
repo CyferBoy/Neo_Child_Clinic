@@ -12,6 +12,7 @@ import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SessionManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -53,7 +54,10 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
             try {
                 repository.refresh()
                 profileRepository.refreshProfiles()
-            } catch (_: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("WeeklyDoctorSlotsVM", "Refresh failed", e)
             } finally {
                 _isRefreshing.value = false
             }
@@ -135,6 +139,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 repository.addWeeklySlot(doctor.id, dayOfWeek, startMinute, endMinute, actor = currentActor())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Unable to add slot.") }
             }
@@ -146,6 +152,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 repository.removeWeeklySlot(slotId, actor = currentActor())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Unable to remove slot.") }
             }
@@ -189,6 +197,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                     ),
                     actor = currentActor()
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Unable to add exception.") }
             }
@@ -200,6 +210,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 repository.deleteException(id, actor = currentActor())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Unable to delete exception.") }
             }

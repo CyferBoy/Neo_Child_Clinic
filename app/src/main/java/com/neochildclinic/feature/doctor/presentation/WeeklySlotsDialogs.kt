@@ -14,11 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.common.Constants
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.ui.DateDropdownPicker
 import com.neochildclinic.domain.model.TimeRange
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +25,7 @@ internal fun AddExceptionDialog(
     onAddFullDay: (date: String, reason: String?) -> Unit,
     onAddCustomTime: (date: String, startMinute: Int, endMinute: Int, reason: String?) -> Unit
 ) {
-    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
+    val today = remember { DateUtils.todayDateString() }
     var date by remember { mutableStateOf(today) }
     var fullDay by remember { mutableStateOf(true) }
     var reason by remember { mutableStateOf("") }

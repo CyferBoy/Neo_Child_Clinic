@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.feature.patient.domain.SearchPatientsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -47,7 +48,12 @@ class SearchViewModel @Inject constructor(
                         )
                     }
                     .onStart { emit(SearchUiState(query = q, results = lastResults, isLoading = true)) }
-                    .catch { e -> emit(SearchUiState(query = q, results = lastResults, error = e.message)) }
+                    .catch { e ->
+                        // flatMapLatest cancels the previous query on every keystroke; that
+                        // cancellation must not surface as a search error.
+                        if (e is CancellationException) throw e
+                        emit(SearchUiState(query = q, results = lastResults, error = e.message))
+                    }
             }
         }
         .stateIn(

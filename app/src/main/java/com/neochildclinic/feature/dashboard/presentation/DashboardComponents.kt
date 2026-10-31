@@ -518,7 +518,7 @@ fun DashboardSmallActionsRow(
 fun DashboardQuickActionsRow(
     onAddPatient: () -> Unit,
     onVaccinate: () -> Unit,
-    onStock: () -> Unit,
+    onMonthlyStats: () -> Unit,
     onExpense: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -546,10 +546,10 @@ fun DashboardQuickActionsRow(
                 onClick = onVaccinate
             )
             QuickActionButton(
-                icon = Icons.Default.Inventory2,
-                label = "Stock",
+                icon = Icons.Default.BarChart,
+                label = "Monthly stats",
                 modifier = Modifier.weight(1f),
-                onClick = onStock
+                onClick = onMonthlyStats
             )
             QuickActionButton(
                 icon = Icons.Default.ReceiptLong,

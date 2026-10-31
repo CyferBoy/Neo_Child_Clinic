@@ -60,6 +60,7 @@ data class DashboardUiState(
     val allDoctors: List<Profile> = emptyList(),
     val todoSlotsState: SlotsUiState = SlotsUiState.Idle,
     val slotSegments: List<SlotSegment> = emptyList(),
+    val slotRanges: Map<String, TimeRange> = emptyMap(),
     val selectedSlotKey: String? = null,
     val currentMonthRevenue: Double = 0.0,
     val revenueGrowthPercent: Double? = null
@@ -347,6 +348,7 @@ class DashboardViewModel @Inject constructor(
             allDoctors = extra.allDoctors,
             todoSlotsState = extra.todoSlotsState,
             slotSegments = slots.segments,
+            slotRanges = slots.ranges,
             selectedSlotKey = slots.effectiveKey
         )
     }.flowOn(Dispatchers.Default)

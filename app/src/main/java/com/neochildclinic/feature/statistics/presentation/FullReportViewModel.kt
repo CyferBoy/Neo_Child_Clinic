@@ -168,7 +168,8 @@ class FullReportViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isRefreshing = true)
             try {
                 refreshDataUseCase()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.e("FullReportVM", "Refresh failed", e)
             } finally {
                 _uiState.value = _uiState.value.copy(isRefreshing = false)
             }

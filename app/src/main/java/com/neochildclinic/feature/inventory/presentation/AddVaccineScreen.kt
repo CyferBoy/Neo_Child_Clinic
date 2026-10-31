@@ -3,18 +3,23 @@ package com.neochildclinic.feature.inventory.presentation
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.neochildclinic.core.ui.AppBackground
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.*
 import kotlinx.coroutines.launch
@@ -85,28 +90,17 @@ fun AddVaccineScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                StandardAutoCompleteField(
-                    value = type,
-                    onValueChange = { 
-                        type = it
-                        typeExpanded = true 
-                    },
-                    label = "Vaccine Type*",
-                    placeholder = "e.g. DTaP, BCG, Polio",
-                    expanded = typeExpanded,
-                    onExpandedChange = { typeExpanded = it },
-                    dropdownContent = {
-                        val filteredTypes = uiState.allTypes.filter { it.contains(type, ignoreCase = true) }
-                        filteredTypes.forEach { suggestion ->
-                            DropdownMenuItem(
-                                text = { Text(suggestion) },
-                                onClick = {
-                                    type = suggestion
-                                    typeExpanded = false
-                                }
-                            )
-                        }
-                    }
+                Text(
+                    text = if (vaccineId != null) "Update this vaccine definition" else "Create a vaccine type before adding stock",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = "Vaccine identity",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = Spacing.xs)
                 )
 
                 StandardAutoCompleteField(
@@ -134,11 +128,42 @@ fun AddVaccineScreen(
                     }
                 )
 
+                StandardAutoCompleteField(
+                    value = type,
+                    onValueChange = { 
+                        type = it
+                        typeExpanded = true 
+                    },
+                    label = "Vaccine Type*",
+                    placeholder = "e.g. DTaP-IPV-Hib",
+                    expanded = typeExpanded,
+                    onExpandedChange = { typeExpanded = it },
+                    dropdownContent = {
+                        val filteredTypes = uiState.allTypes.filter { it.contains(type, ignoreCase = true) }
+                        filteredTypes.forEach { suggestion ->
+                            DropdownMenuItem(
+                                text = { Text(suggestion) },
+                                onClick = {
+                                    type = suggestion
+                                    typeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                )
+
                 StandardTextField(
                     value = companyName,
                     onValueChange = { companyName = it },
                     label = "Manufacturer*",
-                    placeholder = "e.g. Sanofi"
+                    placeholder = "e.g. Sanofi Pasteur"
+                )
+
+                Text(
+                    text = "Standard pricing",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = Spacing.xs)
                 )
 
                 Row(
@@ -148,8 +173,8 @@ fun AddVaccineScreen(
                     StandardTextField(
                         value = mrp,
                         onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) mrp = it },
-                        label = "MRP (Standard)",
-                        placeholder = "0.00",
+                        label = "MRP",
+                        placeholder = "₹0",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
@@ -157,22 +182,53 @@ fun AddVaccineScreen(
                     StandardTextField(
                         value = netRate,
                         onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) netRate = it },
-                        label = "Net Rate (Standard)",
-                        placeholder = "0.00",
+                        label = "Net rate",
+                        placeholder = "₹0",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(Spacing.xl))
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Standard rates are defaults",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Batches can override these rates.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.md))
 
                 StandardButton(
                     onClick = {
                         if (brandName.isBlank() || type.isBlank() || companyName.isBlank()) {
-scope.launch {
-                    snackbarHostState.showSnackbar("Please fill all required fields")
-                }
-                return@StandardButton
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Please fill all required fields")
+                            }
+                            return@StandardButton
                         }
                         viewModel.saveVaccine(
                             vaccineId, 
@@ -186,7 +242,18 @@ scope.launch {
                     isLoading = uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (vaccineId != null) "Update Vaccine" else "Create Vaccine")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Text(if (vaccineId != null) "Update Vaccine" else "Create Vaccine")
+                    }
                 }
             }
         }

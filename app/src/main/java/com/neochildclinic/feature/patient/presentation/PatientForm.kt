@@ -71,6 +71,12 @@ fun AddPatientContent(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
+                Text(
+                    text = if (isEditMode) "Update this patient record" else "Register a new patient for this clinic",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 // Section Title: Patient Identity
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -90,29 +96,28 @@ fun AddPatientContent(
                     )
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    StandardTextField(
-                        value = clinicId,
-                        onValueChange = onClinicIdChange,
-                        label = "Patient ID (Optional)",
-                        placeholder = "e.g. NEO-1042",
-                        modifier = Modifier.weight(1f)
-                    )
-                    StandardTextField(
-                        value = name,
-                        onValueChange = onNameChange,
-                        label = "Full Name *",
-                        placeholder = "Enter patient's name",
-                        modifier = Modifier.weight(2f)
-                    )
-                }
+                StandardTextField(
+                    value = clinicId,
+                    onValueChange = onClinicIdChange,
+                    label = "Patient ID (Optional)",
+                    placeholder = "e.g. NEO-1042",
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                StandardTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = "Full Name *",
+                    placeholder = "Enter patient's full name",
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     StandardTextField(
                         value = phone,
                         onValueChange = onPhoneChange,
                         label = "Phone Number",
-                        placeholder = "e.g., 98765 43210",
+                        placeholder = "98765 43210",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.weight(1f)
                     )

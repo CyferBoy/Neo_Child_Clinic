@@ -48,8 +48,11 @@ private data class ResumeMetadata(
 )
 
 private fun normalizeTag(rawTag: String): String {
-    val trimmed = rawTag.trim()
-    return if (trimmed.startsWith("v", ignoreCase = true)) trimmed.substring(1).trim() else trimmed
+    var tag = rawTag.trim()
+    while (tag.startsWith("v", ignoreCase = true) || tag.startsWith(".")) {
+        tag = tag.substring(1).trim()
+    }
+    return tag
 }
 
 private val json = Json { ignoreUnknownKeys = true }

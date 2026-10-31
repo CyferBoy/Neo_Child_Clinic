@@ -40,6 +40,8 @@ object PatientUtils {
 
     fun formatDateForDisplay(dateStr: String): String = DateUtils.formatDateForDisplay(dateStr)
 
+    fun todayDateString(): String = DateUtils.todayDateString()
+
     fun formatBytes(bytes: Long): String = DateUtils.formatBytes(bytes)
 
     fun getCurrentIsoTimestamp(): String = DateUtils.getCurrentIsoTimestamp()

@@ -56,7 +56,9 @@ class CompletedDismissedViewModel @Inject constructor(
                         reminderRepository.restoreReminder(reminder, user)
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("CompletedDismissedVM", "Restore reminder failed", e)
+            }
         }
     }
 
@@ -65,8 +67,9 @@ class CompletedDismissedViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 reminderRepository.refreshReminders()
-            } catch (_: Exception) { }
-            finally {
+            } catch (e: Exception) {
+                android.util.Log.e("CompletedDismissedVM", "Refresh failed", e)
+            } finally {
                 _isRefreshing.value = false
             }
         }

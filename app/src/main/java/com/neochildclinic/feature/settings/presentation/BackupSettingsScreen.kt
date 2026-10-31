@@ -25,7 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
@@ -737,13 +737,22 @@ private fun PasswordPromptDialog(
         title = { Text("Enter Backup Password") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text("Backups are encrypted with your backup password.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Backups are encrypted with your backup password. Minimum 12 characters required for data security.",
+                    style = MaterialTheme.typography.bodySmall
+                )
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
+                    supportingText = {
+                        if (password.isNotEmpty() && password.length < 12) {
+                            Text("Password must be at least 12 characters (${password.length}/12)")
+                        }
+                    },
+                    isError = password.isNotEmpty() && password.length < 12,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -751,7 +760,7 @@ private fun PasswordPromptDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(password, null) },
-                enabled = password.isNotBlank()
+                enabled = password.length >= 12
             ) {
                 Text("Continue")
             }

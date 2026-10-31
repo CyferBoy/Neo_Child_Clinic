@@ -88,7 +88,11 @@ class AppUpdateViewModel @Inject constructor(
                         if (info == null) _upToDate.value = true
                     }
                 }
-                .onFailure { _message.value = it.message ?: "Unable to check for updates." }
+                .onFailure {
+                    if (it !is kotlinx.coroutines.CancellationException) {
+                        _message.value = it.message ?: "Unable to check for updates."
+                    }
+                }
             _checking.value = false
         }
     }

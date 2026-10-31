@@ -10,6 +10,7 @@ import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -103,8 +104,11 @@ class PersonalReminderViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 repository.refresh()
-            } catch (_: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 // Best-effort refresh; local data remains authoritative offline.
+                android.util.Log.e("PersonalReminderVM", "Refresh failed", e)
             } finally {
                 _isRefreshing.value = false
             }
@@ -124,6 +128,8 @@ class PersonalReminderViewModel @Inject constructor(
     fun delete(id: String) = viewModelScope.launch {
         try {
             repository.deleteReminder(id)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("PersonalReminderVM", "Delete reminder failed", e)
         }

@@ -6,6 +6,7 @@ import com.neochildclinic.core.sync.SyncRepositoryImpl
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.domain.model.SyncItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +38,15 @@ class SyncViewModel @Inject constructor(
 
     fun processSync() {
         viewModelScope.launch {
-            syncRepository.processNextItems()
+            try {
+                syncRepository.processNextItems()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Uncaught here would reach the default handler and kill the process;
+                // per-item failures are already counted by the queue and SyncWorker.
+                _refreshError.value = e.message ?: "Unable to sync"
+            }
         }
     }
 
@@ -47,6 +56,8 @@ class SyncViewModel @Inject constructor(
             _refreshError.value = null
             try {
                 refreshDataUseCase()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _refreshError.value = e.message ?: "Unable to refresh from cloud"
             } finally {

@@ -27,6 +27,13 @@ interface PersonalReminderDao {
     @Query("DELETE FROM personal_vaccine_reminders WHERE id = :id")
     suspend fun delete(id: String)
 
+    // Patient merge: all statuses, not just active reminders.
+    @Query("SELECT id FROM personal_vaccine_reminders WHERE patient_id = :patientId")
+    suspend fun getIdsForPatient(patientId: String): List<String>
+
+    @Query("UPDATE personal_vaccine_reminders SET patient_id = :masterId, updated_at = :updatedAt, is_synced = 0 WHERE patient_id = :duplicateId")
+    suspend fun reassignToPatient(duplicateId: String, masterId: String, updatedAt: String)
+
     // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
     @Query("SELECT id FROM personal_vaccine_reminders")
     suspend fun getPersonalReminderIds(): List<String>

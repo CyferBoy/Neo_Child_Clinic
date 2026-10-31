@@ -41,6 +41,15 @@ internal fun Calendar.startOfDay(): Calendar {
  */
 object DateUtils {
 
+    val APP_DATE_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
+
+    /**
+     * Returns today's calendar date in IST formatted with the standard display format (Constants.DATE_FORMAT).
+     */
+    fun todayDateString(): String =
+        LocalDate.now(ZoneId.of(IST_ZONE_ID)).format(APP_DATE_FORMATTER)
+
     // parseDate() is called for essentially every date across every Statistics screen
     // (often the same string many times over, e.g. once per filter pass and again for
     // each of the 6 months in the trend chart). Caching results avoids re-parsing the

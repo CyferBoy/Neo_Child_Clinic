@@ -1,13 +1,17 @@
 package com.neochildclinic.feature.inventory.presentation
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,7 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
@@ -33,9 +37,9 @@ fun AddStockScreen(
     onBack: () -> Unit = {},
     viewModel: AddStockViewModel = hiltViewModel()
 ) {
-val uiState by viewModel.uiState.collectAsState()
-      val context = LocalContext.current
-      val snackbarHostState = remember { SnackbarHostState() }
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
@@ -48,9 +52,9 @@ val uiState by viewModel.uiState.collectAsState()
     ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearError() }
 
     AppBackground {
-Scaffold(
-              containerColor = Color.Transparent,
-              snackbarHost = { SnackbarHost(snackbarHostState) },
+        Scaffold(
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 BackTopAppBar(
                     title = { Text("Add Stock") },
@@ -68,17 +72,34 @@ Scaffold(
                 return@Scaffold
             }
 
+            val allBatches = remember(uiState.vaccineSections) {
+                uiState.vaccineSections.flatMap { it.batches }
+            }
+            val totalDoses = remember(allBatches) {
+                allBatches.sumOf { it.quantity.toIntOrNull() ?: 0 }
+            }
+            val totalBatchesCount = remember(allBatches) {
+                allBatches.count { it.batchNumber.isNotBlank() || it.quantity.isNotBlank() }.coerceAtLeast(allBatches.size)
+            }
+            val totalNetValue = remember(allBatches) {
+                allBatches.sumOf {
+                    val q = it.quantity.toIntOrNull() ?: 0
+                    val nr = it.netRate.toDoubleOrNull() ?: 0.0
+                    q * nr
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
                     .padding(Spacing.lg)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 Text(
-                    "Add stock for one or more vaccines, each with one or more batches.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "Add stock for one or more vaccines, each with one or more batches.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
@@ -103,21 +124,101 @@ Scaffold(
 
                 OutlinedButton(
                     onClick = { viewModel.addVaccineSection() },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Add Vaccine")
                 }
 
-                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    text = "Delivery summary",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = Spacing.xs)
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFF0ECE3),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.card).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "$totalDoses doses · $totalBatchesCount batch${if (totalBatchesCount == 1) "" else "es"}",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF14201F)
+                            )
+                            Text(
+                                text = "Stock value ₹${String.format(java.util.Locale.ENGLISH, "%,.0f", totalNetValue)} at net rate",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF5F6D68)
+                            )
+                        }
+                        Text(
+                            text = "₹${String.format(java.util.Locale.ENGLISH, "%,.0f", totalNetValue)}",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF14201F)
+                        )
+                    }
+                }
+
+                Surface(
+                    color = Color(0xFFFFF0C9),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.WarningAmber,
+                            contentDescription = null,
+                            tint = Color(0xFF563400),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Check expiry before saving",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF563400)
+                            )
+                            Text(
+                                text = "Expired batches are hidden from vaccination.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF563400).copy(alpha = 0.85f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.xs))
 
                 StandardButton(
                     onClick = { viewModel.submit() },
                     isLoading = uiState.isSaving,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Save Stock")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Text("Save Stock")
+                    }
                 }
 
                 Spacer(Modifier.height(Spacing.lg))
@@ -140,57 +241,91 @@ private fun VaccineStockSection(
     onRemoveBatch: (String) -> Unit,
     onUpdateBatch: (String, (StockBatchFormState) -> StockBatchFormState) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    var isChangingVaccine by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        if (section.vaccineId.isNotBlank() && !isChangingVaccine) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFFDCE9F8),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    "Vaccine ${index + 1}",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (canRemoveSection) {
-                    TextButton(onClick = onRemoveSection) {
-                        Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(Spacing.xs))
-                        Text("Remove Vaccine")
+                Row(
+                    modifier = Modifier.padding(Spacing.card).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Vaccine",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFF0A2F52).copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = section.brandName,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF0A2F52)
+                        )
+                        Text(
+                            text = section.companyName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF0A2F52).copy(alpha = 0.8f)
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { isChangingVaccine = true }) {
+                            Text("Change", color = Color(0xFF0A2F52), fontWeight = FontWeight.SemiBold)
+                        }
+                        if (canRemoveSection) {
+                            IconButton(onClick = onRemoveSection) {
+                                Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color(0xFFB42318))
+                            }
+                        }
                     }
                 }
             }
-
+        } else {
             VaccinePickerDropdown(
                 selected = section,
                 availableVaccines = availableVaccines,
                 alreadySelectedIds = alreadySelectedIds,
-                onVaccineSelected = onVaccineSelected
+                onVaccineSelected = {
+                    onVaccineSelected(it)
+                    isChangingVaccine = false
+                }
+            )
+        }
+
+        if (section.vaccineId.isNotBlank()) {
+            Text(
+                text = "Stock received",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Add one or more batches from this delivery.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (section.vaccineId.isNotBlank()) {
-                HorizontalDivider()
+            section.batches.forEachIndexed { batchIndex, batch ->
+                BatchFormRow(
+                    batch = batch,
+                    batchIndex = batchIndex,
+                    canRemove = section.batches.size > 1,
+                    onRemove = { onRemoveBatch(batch.localId) },
+                    onChange = { update -> onUpdateBatch(batch.localId, update) }
+                )
+            }
 
-                section.batches.forEachIndexed { batchIndex, batch ->
-                    BatchFormRow(
-                        batch = batch,
-                        batchIndex = batchIndex,
-                        canRemove = section.batches.size > 1,
-                        onRemove = { onRemoveBatch(batch.localId) },
-                        onChange = { update -> onUpdateBatch(batch.localId, update) }
-                    )
-                    if (batchIndex != section.batches.lastIndex) HorizontalDivider()
-                }
-
-                TextButton(onClick = onAddBatch) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(Spacing.xs))
-                    Text("Add Batch")
-                }
+            OutlinedButton(
+                onClick = onAddBatch,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(Spacing.xs))
+                Text("Add another batch")
             }
         }
     }
@@ -229,9 +364,6 @@ private fun VaccinePickerDropdown(
                 DropdownMenuItem(text = { Text("No vaccines found. Add a vaccine type first.") }, onClick = {}, enabled = false)
             }
             availableVaccines.forEach { vaccine ->
-                // A vaccine already chosen in another section is still shown, but disabled -
-                // this is the UI-level guard against accidentally adding it twice; the
-                // repository also enforces this server-side as a second line of defense.
                 val alreadyUsedElsewhere = vaccine.id in alreadySelectedIds && vaccine.id != selected.vaccineId
                 DropdownMenuItem(
                     text = {
@@ -263,66 +395,95 @@ private fun BatchFormRow(
     onRemove: () -> Unit,
     onChange: ((StockBatchFormState) -> StockBatchFormState) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.card),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            Text(
-                "Batch ${batchIndex + 1}",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
-            if (canRemove) {
-                IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.Close, contentDescription = "Remove Batch", modifier = Modifier.size(18.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Batch ${batchIndex + 1}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (canRemove) {
+                    TextButton(
+                        onClick = onRemove,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "Remove",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color(0xFFB42318)
+                        )
+                    }
                 }
             }
-        }
 
-        StandardTextField(
-            value = batch.batchNumber,
-            onValueChange = { value -> onChange { it.copy(batchNumber = value) } },
-            label = "Batch Number*"
-        )
-
-        StandardTextField(
-            value = batch.quantity,
-            onValueChange = { value -> if (value.isEmpty() || value.toIntOrNull() != null) onChange { it.copy(quantity = value) } },
-            label = "Quantity*",
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-
-        DateDropdownPicker(
-            label = "Expiry Date*",
-            currentDate = batch.expiryDate,
-            onDateSelected = { value -> onChange { it.copy(expiryDate = value) } },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             StandardTextField(
-                value = batch.mrp,
-                onValueChange = { value -> if (value.isEmpty() || value.toDoubleOrNull() != null) onChange { it.copy(mrp = value) } },
-                label = "MRP*",
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(1f)
+                value = batch.batchNumber,
+                onValueChange = { value -> onChange { it.copy(batchNumber = value) } },
+                label = "Batch number *",
+                placeholder = "e.g. PXM24C"
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                DateDropdownPicker(
+                    label = "Expiry date *",
+                    currentDate = batch.expiryDate,
+                    onDateSelected = { value -> onChange { it.copy(expiryDate = value) } },
+                    modifier = Modifier.weight(1f)
+                )
+
+                StandardTextField(
+                    value = batch.quantity,
+                    onValueChange = { value -> if (value.isEmpty() || value.toIntOrNull() != null) onChange { it.copy(quantity = value) } },
+                    label = "Quantity *",
+                    placeholder = "0",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                StandardTextField(
+                    value = batch.mrp,
+                    onValueChange = { value -> if (value.isEmpty() || value.toDoubleOrNull() != null) onChange { it.copy(mrp = value) } },
+                    label = "MRP *",
+                    placeholder = "₹0",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f)
+                )
+                StandardTextField(
+                    value = batch.netRate,
+                    onValueChange = { value -> if (value.isEmpty() || value.toDoubleOrNull() != null) onChange { it.copy(netRate = value) } },
+                    label = "Net rate *",
+                    placeholder = "₹0",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             StandardTextField(
-                value = batch.netRate,
-                onValueChange = { value -> if (value.isEmpty() || value.toDoubleOrNull() != null) onChange { it.copy(netRate = value) } },
-                label = "Net Rate*",
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(1f)
+                value = batch.manufacturer,
+                onValueChange = { value -> onChange { it.copy(manufacturer = value) } },
+                label = "Batch manufacturer (if different)",
+                placeholder = "Optional"
             )
         }
-
-        StandardTextField(
-            value = batch.manufacturer,
-            onValueChange = { value -> onChange { it.copy(manufacturer = value) } },
-            label = "Batch Manufacturer (if different)",
-            placeholder = "e.g. Sanofi"
-        )
     }
 }

@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Patient
@@ -157,19 +157,6 @@ fun AddVaccinationScreen(
                             selectedDoctor = uiState.selectedDoctor,
                             onDoctorSelected = { viewModel.selectDoctor(it) },
                             isError = uiState.doctorError
-                        )
-                        Spacer(Modifier.height(Spacing.sm))
-                    }
-                    // The slot dropdown must be visible whenever the schedule is being
-                    // edited - including a date-only edit, where the Doctor list stays
-                    // hidden but the change has already cleared the recorded slot and the
-                    // save requires a new one.
-                    if (!isEdit || editDoctor || editGivenDate) {
-                        AvailableSlotDropdown(
-                            state = uiState.slotsState,
-                            selectedSlot = uiState.selectedSlot,
-                            onSlotSelected = { viewModel.selectSlot(it) },
-                            isError = uiState.slotError
                         )
                     } else {
                         ReadOnlyValue(uiState.selectedDoctor?.displayName ?: "Not selected")
@@ -366,7 +353,7 @@ private fun PatientSummaryCard(patient: Patient) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                val clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true || patient.patientClinicId.isNullOrBlank()) "Not Assigned" else patient.patientClinicId ?: "Not Assigned"
+                val clinicId = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) "Not Assigned" else patient.patientClinicId
                 Text(
                     text = "${patient.gender} · DOB: ${patient.dob} · ID: $clinicId",
                     style = MaterialTheme.typography.bodySmall,

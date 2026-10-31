@@ -21,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -325,7 +325,7 @@ private fun StatisticsTabContent(
     onVaccineTypeClick: (String, String?) -> Unit
 ) {
     when (selectedTab) {
-        0 -> OverviewTab(patients, vaccinations, financeTransactions, showFilters = showFilters, onFullReportClick = onFullReportClick)
+        0 -> OverviewTab(patients, vaccinations, financeTransactions, expenses = expenses, showFilters = showFilters, onFullReportClick = onFullReportClick)
         1 -> PatientsTab(patients, vaccinations, showFilters = showFilters, onMilestoneClick = onMilestoneClick)
         2 -> VaccinationsTab(vaccinations, vaccinationReminders, inventory, showFilters = showFilters, onVaccineTypeClick = onVaccineTypeClick)
         3 -> FinanceTab(vaccinations, financeTransactions, expenses, showFilters = showFilters, onMonthClick = onMonthClick)

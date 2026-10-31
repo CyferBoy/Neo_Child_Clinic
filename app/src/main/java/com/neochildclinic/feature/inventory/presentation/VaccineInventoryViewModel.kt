@@ -80,8 +80,9 @@ class VaccineInventoryViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 inventoryRepository.refreshInventory()
-            } catch (_: Exception) { }
-            finally {
+            } catch (e: Exception) {
+                android.util.Log.e("VaccineInventoryVM", "Refresh failed", e)
+            } finally {
                 _isRefreshing.value = false
             }
         }

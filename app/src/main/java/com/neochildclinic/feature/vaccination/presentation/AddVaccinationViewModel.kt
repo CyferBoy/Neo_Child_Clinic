@@ -15,12 +15,11 @@ import com.neochildclinic.feature.vaccination.domain.ClinicalVaccinationService
 import com.neochildclinic.feature.vaccination.domain.VaccinationEditEngine
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SessionManager
+import com.neochildclinic.core.common.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.inject.Inject
 
@@ -57,7 +56,7 @@ data class AddVaccinationUiState(
     val slotsState: SlotsUiState = SlotsUiState.Idle,
     val selectedSlot: AvailableSlot? = null,
     val slotError: Boolean = false,
-    val givenDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)),
+    val givenDate: String = DateUtils.todayDateString(),
     val vaccinesGiven: List<VaccineSelectionState> = listOf(VaccineSelectionState()),
     val nextVaccinationGroups: List<NextVaccinationGroup> = emptyList(),
     val cashAmount: String = "0",
@@ -506,10 +505,6 @@ class AddVaccinationViewModel @Inject constructor(
                 _uiState.update { it.copy(doctorError = true, errorMessage = "Please select a doctor.") }
                 return
             }
-            if (state.selectedSlot == null) {
-                _uiState.update { it.copy(slotError = true, errorMessage = "Please select an available slot.") }
-                return
-            }
         }
 
         // Defense in depth: if this is an edit that isn't touching Vaccine & Batch, the save
@@ -557,23 +552,6 @@ class AddVaccinationViewModel @Inject constructor(
                     vaccinationRepository.getVaccinationById(vaccinationId)
                 } else null
 
-                // Revalidate (req. 17): another device may have changed this doctor's
-                // availability between loading slots and tapping Save. Only meaningful
-                // when the schedule is edited (slot is guaranteed non-null there).
-                // Schedule section revalidation (req. 17) - only when the date/doctor is
-                // actually being edited (doctor + slot guaranteed non-null there).
-                if (!isEdit || editSchedule) {
-                    val stillAvailable = getAvailableSlotsUseCase.isSlotStillAvailable(
-                        state.selectedDoctor!!.id, state.givenDate, state.selectedSlot!!.weeklySlotId
-                    )
-                    if (!stillAvailable) {
-                        _uiState.update { it.copy(isLoading = false, slotError = true, selectedSlot = null) }
-                        loadAvailableSlots()
-                        _uiState.update { it.copy(errorMessage = "That slot is no longer available. Please choose another.") }
-                        return@launch
-                    }
-                }
-
                 // When the schedule section is untouched, carry the originally recorded
                 // doctor/slot through unchanged instead of diffing against a blanked
                 // selection - the original slot may not even be in the availability list
@@ -584,7 +562,8 @@ class AddVaccinationViewModel @Inject constructor(
                         state.selectedDoctor?.employeeId ?: state.selectedDoctor?.id ?: ""
                     }
                 } else {
-                    state.selectedDoctor!!.employeeId ?: state.selectedDoctor!!.id
+                    val doctor = state.selectedDoctor!!
+                    doctor.employeeId ?: doctor.id
                 }
                 val performedBy = if (preserveOriginalSchedule) {
                     existingVaccination?.performedBy ?: state.selectedDoctor?.displayName ?: ""
@@ -594,7 +573,7 @@ class AddVaccinationViewModel @Inject constructor(
                 val availabilitySlotId = if (preserveOriginalSchedule) {
                     existingVaccination?.availabilitySlotId
                 } else {
-                    state.selectedSlot!!.weeklySlotId
+                    state.selectedSlot?.weeklySlotId
                 }
 
                 // Every item keeps its stable row identity: rows loaded from the DB carry

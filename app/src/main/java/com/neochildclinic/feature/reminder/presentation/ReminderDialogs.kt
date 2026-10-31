@@ -7,19 +7,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.DateDropdownPicker
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.*
 
 @Composable
 fun RescheduleDialog(
     onDismiss: () -> Unit,
     onConfirm: (newDate: String, reason: String) -> Unit
 ) {
-    val fmt = remember { DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH) }
-    val today = remember { LocalDate.now().format(fmt) }
+    val today = remember { DateUtils.todayDateString() }
 
     var newDueDate by remember { mutableStateOf(today) }
     var reason by remember { mutableStateOf("") }

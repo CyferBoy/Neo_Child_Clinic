@@ -14,9 +14,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.feature.statistics.domain.ExpenseCalculator
 import com.neochildclinic.feature.statistics.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.FinanceStatsData
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
@@ -30,6 +32,7 @@ fun OverviewTab(
     patients: List<Patient>,
     vaccinations: List<Vaccination>,
     financeTransactions: List<FinanceTransaction>,
+    expenses: List<Expense> = emptyList(),
     showFilters: Boolean = false,
     onFullReportClick: () -> Unit = {}
 ) {
@@ -88,12 +91,29 @@ fun OverviewTab(
     // Quick Overview Chart Data - Patient Activity (last 6 months, filter-aware)
     val allValidVaccinations = remember(vaccinations) { StatisticsUtils.filterValidVaccinations(vaccinations) }
 
-    val currentFinanceStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations) {
-        FinanceCalculator.calculateFinanceStats(filteredTransactions, allValidVaccinations, financeTransactions, filteredVaccinations)
+    val currentExpenseTotalRupees = remember(expenses, filterMode, fyQuarter, selectedMonth) {
+        ExpenseCalculator.totalExpensesPaiseInPeriod(expenses, filterMode, fyQuarter, selectedMonth) / 100.0
     }
-    val prevFinanceStats = remember(prevTransactions, allValidVaccinations, prevVaccinations, isOverall) {
+    val prevExpenseTotalRupees = remember(expenses, prevFilter, prevQuarter, prevMonth, isOverall) {
+        if (isOverall) 0.0 else ExpenseCalculator.totalExpensesPaiseInPeriod(expenses, prevFilter, prevQuarter, prevMonth) / 100.0
+    }
+
+    val currentFinanceStats = remember(filteredTransactions, allValidVaccinations, filteredVaccinations, currentExpenseTotalRupees) {
+        val base = FinanceCalculator.calculateFinanceStats(filteredTransactions, allValidVaccinations, financeTransactions, filteredVaccinations)
+        base.copy(
+            totalExpenses = base.totalExpenses + currentExpenseTotalRupees,
+            netProfit = if (base.isProfitComplete) base.netProfit - currentExpenseTotalRupees else 0.0
+        )
+    }
+    val prevFinanceStats = remember(prevTransactions, allValidVaccinations, prevVaccinations, isOverall, prevExpenseTotalRupees) {
         if (isOverall) FinanceStatsData(totalRevenue = 0.0, cashTotal = 0.0, onlineTotal = 0.0, totalExpenses = 0.0, vaccineCost = 0.0, grossProfit = 0.0, netProfit = 0.0)
-        else FinanceCalculator.calculateFinanceStats(prevTransactions, allValidVaccinations, financeTransactions, prevVaccinations)
+        else {
+            val base = FinanceCalculator.calculateFinanceStats(prevTransactions, allValidVaccinations, financeTransactions, prevVaccinations)
+            base.copy(
+                totalExpenses = base.totalExpenses + prevExpenseTotalRupees,
+                netProfit = if (base.isProfitComplete) base.netProfit - prevExpenseTotalRupees else 0.0
+            )
+        }
     }
 
     val patientActivityData = remember(patients, vaccinations, financeTransactions, allValidVaccinations, filterMode, fyQuarter, selectedMonth) {

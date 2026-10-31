@@ -16,6 +16,7 @@ import androidx.compose.runtime.State
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -175,7 +176,7 @@ class AuthViewModel @Inject constructor(
             if (!p.isActive) {
                 logout()
                 _error.value = "Account Disabled: Please contact administrator."
-                return true
+                return false
             }
 
             _profile.value = p
@@ -186,11 +187,14 @@ class AuthViewModel @Inject constructor(
                 if (!refreshed.isActive) {
                     logout()
                     _error.value = "Account Disabled: Please contact administrator."
+                    return false
                 } else {
                     _profile.value = refreshed
                 }
             }
             return true
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _error.value = "Failed to load profile: ${e.message}"
             return false
@@ -219,8 +223,8 @@ class AuthViewModel @Inject constructor(
 
                 val userId = auth.currentSessionOrNull()?.user?.id
                 val lastAccount = accountPrefs.getString(KEY_LAST_ACCOUNT, null)
-                if (userId != null && lastAccount != null && lastAccount != userId) {
-                    // The Room database on this device belongs to a different account.
+                if (userId != null && lastAccount != userId) {
+                    // The Room database on this device belongs to a different account (or no previous record).
                     val unacknowledged = syncQueueDao.getUnacknowledgedCountSync()
                     if (unacknowledged > 0) {
                         // Never erase another account's unsynced work silently - ask.
@@ -235,6 +239,8 @@ class AuthViewModel @Inject constructor(
                     // @WorkerThread call, so it must never run on the main dispatcher.
                     try {
                         clearLocalDatabase()
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         _isLoading.value = false
                         _error.value = "Could not clear the previous account's local data: ${e.message}"
@@ -243,6 +249,8 @@ class AuthViewModel @Inject constructor(
                     }
                 }
                 finishLogin(userId, onSuccess)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _isLoading.value = false
                 _error.value = e.message
@@ -273,6 +281,8 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 clearLocalDatabase()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Could not clear the previous account's local data: ${e.message}"
                 return@launch
@@ -356,6 +366,8 @@ class AuthViewModel @Inject constructor(
         _profile.value = null
         try {
             clearLocalDatabase()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Keep KEY_LAST_ACCOUNT so the next login still detects the account mismatch
             // and asks before exposing the old rows. Do not report a successful sign-out.

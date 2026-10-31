@@ -29,14 +29,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.common.Constants
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.WasteRecord
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlinx.coroutines.launch
 
@@ -422,7 +421,7 @@ private fun WasteEntryDialog(
     var batchNumber by rememberSaveable { mutableStateOf(record?.batchNumber ?: "") }
     var expiryDate by rememberSaveable { mutableStateOf(record?.expiryDate ?: "") }
 
-    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)) }
+    val today = remember { DateUtils.todayDateString() }
     var dateWasted by rememberSaveable { mutableStateOf(record?.dateWasted ?: today) }
     var reason by rememberSaveable { mutableStateOf(record?.reason ?: WASTE_REASONS[0]) }
     var quantityText by rememberSaveable { mutableStateOf(record?.quantity?.toString() ?: "1") }

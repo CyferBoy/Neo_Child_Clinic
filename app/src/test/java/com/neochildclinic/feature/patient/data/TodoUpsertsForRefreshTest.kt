@@ -20,8 +20,17 @@ class TodoUpsertsForRefreshTest {
         id: String,
         isSynced: Boolean,
         status: String = "PENDING"
-    ) = ConsultationTodoEntity(id = id, name = "Patient", mobile = "1", address = "a",
-        todoDate = "2026-10-20", status = status, isSynced = isSynced)
+    ) = ConsultationTodoEntity(
+        id = id,
+        name = "Patient",
+        mobile = "1",
+        address = "a",
+        todoDate = "2026-10-20",
+        status = status,
+        isSynced = isSynced,
+        createdAt = "2026-10-20T10:00:00Z",
+        updatedAt = "2026-10-20T10:00:00Z"
+    )
 
     private fun merge(
         remote: List<ConsultationTodoEntity>,
