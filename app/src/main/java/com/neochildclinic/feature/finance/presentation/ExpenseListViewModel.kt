@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
@@ -35,6 +36,8 @@ data class ExpenseListUiState(
     val query: String = "",
     val categoryFilter: ExpenseCategory? = null,
     val paymentMethodFilter: ExpensePaymentMethod? = null,
+    val selectedFinancialYear: String = StatisticsUtils.getCurrentFinancialYear(),
+    val availableFinancialYears: List<String> = emptyList(),
     val fromDate: String = "",
     val toDate: String = "",
     val sort: ExpenseSortOption = ExpenseSortOption.DATE_DESC,
@@ -61,7 +64,20 @@ class ExpenseListViewModel @Inject constructor(
 
     init {
         loadPermission()
+        loadAvailableYears()
         loadPage(reset = true)
+    }
+
+    private fun loadAvailableYears() {
+        viewModelScope.launch {
+            expenseRepository.getAllExpenses().collect { allExpenses ->
+                val dates = allExpenses.map { it.expenseDate }
+                val years = StatisticsUtils.getAvailableFinancialYears(dates).map { "FY $it" }
+                val currentFy = StatisticsUtils.getCurrentFinancialYear()
+                val merged = (listOf(currentFy) + years).distinct().sortedDescending()
+                _uiState.update { it.copy(availableFinancialYears = merged) }
+            }
+        }
     }
 
     private fun loadPermission() {
@@ -91,6 +107,11 @@ class ExpenseListViewModel @Inject constructor(
         loadPage(reset = true)
     }
 
+    fun onFinancialYearChange(fy: String) {
+        _uiState.update { it.copy(selectedFinancialYear = fy, fromDate = "", toDate = "") }
+        loadPage(reset = true)
+    }
+
     fun onSortChange(sort: ExpenseSortOption) {
         _uiState.update { it.copy(sort = sort) }
         loadPage(reset = true)
@@ -98,7 +119,14 @@ class ExpenseListViewModel @Inject constructor(
 
     fun clearFilters() {
         _uiState.update {
-            it.copy(query = "", categoryFilter = null, paymentMethodFilter = null, fromDate = "", toDate = "")
+            it.copy(
+                query = "",
+                categoryFilter = null,
+                paymentMethodFilter = null,
+                fromDate = "",
+                toDate = "",
+                selectedFinancialYear = StatisticsUtils.getCurrentFinancialYear()
+            )
         }
         loadPage(reset = true)
     }
@@ -137,16 +165,26 @@ class ExpenseListViewModel @Inject constructor(
         }
     }
 
+    private fun getFyDateRange(fyString: String): Pair<String, String> {
+        val shortYear = fyString.substringAfter("FY ").substringBefore("-").trim().toIntOrNull() ?: 26
+        val startYear = 2000 + shortYear
+        return "$startYear-04-01" to "${startYear + 1}-03-31"
+    }
+
     private suspend fun loadPageInternal(reset: Boolean) {
         val state = _uiState.value
         _uiState.update { if (reset) it.copy(isLoading = true, error = null) else it.copy(isLoadingMore = true) }
         try {
             val offset = if (reset) 0 else state.expenses.size
+            val (fyFrom, fyTo) = getFyDateRange(state.selectedFinancialYear)
+            val effectiveFrom = toIsoDate(state.fromDate) ?: fyFrom
+            val effectiveTo = toIsoDate(state.toDate) ?: fyTo
+
             val page = expenseRepository.getFilteredExpensesPage(
                 category = state.categoryFilter?.name,
                 paymentMethod = state.paymentMethodFilter?.name,
-                fromDate = toIsoDate(state.fromDate),
-                toDate = toIsoDate(state.toDate),
+                fromDate = effectiveFrom,
+                toDate = effectiveTo,
                 query = state.query,
                 sortBy = state.sort.sqlKey,
                 limit = PAGE_SIZE,

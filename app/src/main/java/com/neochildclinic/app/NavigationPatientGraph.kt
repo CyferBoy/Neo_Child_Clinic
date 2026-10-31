@@ -12,6 +12,7 @@ import com.neochildclinic.feature.patient.presentation.PatientDetailsScreen
 import com.neochildclinic.feature.patient.presentation.PatientListScreen
 import com.neochildclinic.feature.search.presentation.SearchScreen
 import com.neochildclinic.feature.vaccination.presentation.AddVaccinationScreen
+import com.neochildclinic.feature.audit.presentation.PatientAuditHistoryScreen
 
 internal fun NavGraphBuilder.patientGraph(
     navController: NavHostController,
@@ -73,7 +74,21 @@ internal fun NavGraphBuilder.patientGraph(
             },
             onEditPatient = { id ->
                 navController.navigate("edit_patient/$id")
+            },
+            onShowAudit = { id ->
+                navController.navigate("patient_audit_history/$id")
             }
+        )
+    }
+
+    composable(
+        route = Routes.PATIENT_AUDIT_HISTORY,
+        arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
+    ) { backStackEntry ->
+        val patientId = backStackEntry.stringArg("patientId")
+        PatientAuditHistoryScreen(
+            patientId = patientId,
+            onBack = goBack
         )
     }
 

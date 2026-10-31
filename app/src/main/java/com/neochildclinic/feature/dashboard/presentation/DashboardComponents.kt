@@ -517,10 +517,12 @@ fun DashboardSmallActionsRow(
 @Composable
 fun DashboardQuickActionsRow(
     onAddPatient: () -> Unit,
-    onVaccinate: () -> Unit,
-    onMonthlyStats: () -> Unit,
+    onAddStock: () -> Unit,
+    onMonthlyFinances: () -> Unit,
     onExpense: () -> Unit
 ) {
+    val customColors = LocalCustomColors.current
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Quick actions",
@@ -536,24 +538,32 @@ fun DashboardQuickActionsRow(
             QuickActionButton(
                 icon = Icons.Default.PersonAdd,
                 label = "Patient",
+                containerColor = customColors.softBlue,
+                contentColor = customColors.textBlue,
                 modifier = Modifier.weight(1f),
                 onClick = onAddPatient
             )
             QuickActionButton(
-                icon = Icons.Default.MedicalServices,
-                label = "Vaccinate",
+                icon = Icons.Default.AddBusiness,
+                label = "Add stock",
+                containerColor = customColors.softOrange,
+                contentColor = customColors.textOrange,
                 modifier = Modifier.weight(1f),
-                onClick = onVaccinate
+                onClick = onAddStock
             )
             QuickActionButton(
                 icon = Icons.Default.BarChart,
-                label = "Monthly stats",
+                label = "Monthly finances",
+                containerColor = customColors.softPurple,
+                contentColor = customColors.textPurple,
                 modifier = Modifier.weight(1f),
-                onClick = onMonthlyStats
+                onClick = onMonthlyFinances
             )
             QuickActionButton(
                 icon = Icons.Default.ReceiptLong,
                 label = "Expense",
+                containerColor = customColors.softGreen,
+                contentColor = customColors.textGreen,
                 modifier = Modifier.weight(1f),
                 onClick = onExpense
             )
@@ -565,34 +575,40 @@ fun DashboardQuickActionsRow(
 private fun QuickActionButton(
     icon: ImageVector,
     label: String,
+    containerColor: Color,
+    contentColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         modifier = modifier
-            .height(70.dp)
+            .height(72.dp)
             .clickable { onClick() },
         shape = CardShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        color = containerColor
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
+                tint = contentColor,
+                modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = contentColor,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 2,
+                lineHeight = 12.sp
             )
         }
     }

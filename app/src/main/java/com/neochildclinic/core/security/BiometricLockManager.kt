@@ -36,6 +36,23 @@ object BiometricLockManager {
     private var protectionEnabled = true
     private var lastActiveTime: Long = System.currentTimeMillis()
     private const val INACTIVITY_TIMEOUT = 5 * 60 * 1000L
+    private var suppressLockUntil: Long = 0L
+
+    fun suppressLock(durationMs: Long = 120_000L) {
+        suppressLockUntil = System.currentTimeMillis() + durationMs
+    }
+
+    fun isLockSuppressed(): Boolean {
+        val suppressed = System.currentTimeMillis() < suppressLockUntil
+        if (!suppressed) {
+            suppressLockUntil = 0L
+        }
+        return suppressed
+    }
+
+    fun clearLockSuppression() {
+        suppressLockUntil = 0L
+    }
 
     /**
      * Persists the arm flag (NotificationSettingsManager's `needs_auth`) so the lock
@@ -52,7 +69,7 @@ object BiometricLockManager {
     }
 
     fun onAppResume() {
-        if (!protectionEnabled) {
+        if (!protectionEnabled || isLockSuppressed()) {
             _isAppLocked.value = false
             screenWasOff = false
             onUserActive()

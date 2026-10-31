@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.statistics.presentation.MonthlyFinanceDetailsScreen
+import com.neochildclinic.feature.statistics.presentation.MonthlyFinancesScreen
 import com.neochildclinic.feature.statistics.presentation.MilestonePatientsScreen
 import com.neochildclinic.feature.statistics.presentation.VaccineDetailScreen
 import com.neochildclinic.feature.statistics.presentation.FullReportScreen
@@ -17,14 +18,21 @@ internal fun NavGraphBuilder.statisticsGraph(
     userRole: UserRole?,
     goBack: () -> Unit
 ) {
+    composable(Routes.MONTHLY_FINANCES) {
+        MonthlyFinancesScreen(
+            onBack = goBack,
+            onMonthClick = { monthKey ->
+                navController.navigate("monthly_finance_details/$monthKey")
+            }
+        )
+    }
+
     composable(Routes.STATISTICS) {
         val hasStatisticsAccess = userRole == UserRole.admin || userRole == UserRole.doctor
         StatisticsScreen(
             hasAccess = hasStatisticsAccess,
             onBack = goBack,
-            onMonthClick = { monthKey ->
-                navController.navigate("monthly_finance_details/$monthKey")
-            },
+            onMonthClick = { /* Disabled in StatisticsScreen Finance tab per user request */ },
             onMilestoneClick = { milestoneKey ->
                 navController.navigate("milestone_patients/$milestoneKey")
             },

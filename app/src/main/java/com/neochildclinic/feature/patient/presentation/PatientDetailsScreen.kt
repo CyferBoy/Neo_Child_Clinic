@@ -37,6 +37,7 @@ fun PatientDetailsScreen(
     onEditVaccination: (String) -> Unit = {},
     onViewVaccination: (String) -> Unit = {},
     onEditPatient: (String) -> Unit = {},
+    onShowAudit: (String) -> Unit = {},
     viewModel: PatientViewModel = hiltViewModel()
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
@@ -89,7 +90,6 @@ val snackbarHostState = remember { SnackbarHostState() }
     var vaccinationToDelete by remember { mutableStateOf<Vaccination?>(null) }
     var consultationToDelete by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
     var patientToDelete by remember { mutableStateOf<com.neochildclinic.domain.model.Patient?>(null) }
-    var showAuditLog by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var fabExpanded by remember { mutableStateOf(false) }
 
@@ -175,26 +175,6 @@ val snackbarHostState = remember { SnackbarHostState() }
         title = "Delete Document",
         message = "Are you sure you want to delete this document?"
     )
-
-    if (showAuditLog) {
-        val auditState by viewModel.auditLogPager.state.collectAsState()
-        LaunchedEffect(showAuditLog, patientId) {
-            viewModel.auditLogPager.load(patientId)
-        }
-        AuditLogDialog(
-            show = showAuditLog,
-            onDismiss = {
-                showAuditLog = false
-                viewModel.auditLogPager.clear()
-            },
-            logs = auditState.logs,
-            isLoading = auditState.isLoading,
-            isLoadingMore = auditState.isLoadingMore,
-            hasMore = auditState.hasMore,
-            error = auditState.error,
-            onLoadMore = { viewModel.auditLogPager.loadMore() }
-        )
-    }
 
     if (showSheet) {
         ModalBottomSheet(
@@ -313,7 +293,7 @@ val snackbarHostState = remember { SnackbarHostState() }
                                         leadingIcon = { Icon(Icons.Default.History, null) },
                                         onClick = {
                                             menuExpanded = false
-                                            showAuditLog = true
+                                            onShowAudit(patientId)
                                         }
                                     )
                                     DropdownMenuItem(
@@ -424,7 +404,7 @@ val snackbarHostState = remember { SnackbarHostState() }
                     },
                     viewModel = viewModel,
                     onEditPatient = { onEditPatient(patientId) },
-                    onShowAudit = { showAuditLog = true },
+                    onShowAudit = { onShowAudit(patientId) },
                     onReceiptAction = {
                         val recent = historyState.vaccinations.firstOrNull()
                         if (recent != null) {

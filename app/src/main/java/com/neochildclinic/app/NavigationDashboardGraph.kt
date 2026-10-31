@@ -57,6 +57,8 @@ internal fun NavGraphBuilder.dashboardNavGraph(
             onAddPatient = { navController.navigate(Routes.ADD_PATIENT) },
             onPatientList = { navController.navigate(Routes.PATIENT_LIST) },
             onAddVaccine = { navController.navigate(Routes.VACCINE_INVENTORY) },
+            onAddStock = { navController.navigate(Routes.ADD_VACCINE_STOCK) },
+            onMonthlyFinances = { navController.navigate(Routes.MONTHLY_FINANCES) },
             onStatistics = { navController.navigate(Routes.STATISTICS) },
             onBorrowed = { navController.navigate(Routes.BORROWED) },
             onDue = { navController.navigate(Routes.DUE) },

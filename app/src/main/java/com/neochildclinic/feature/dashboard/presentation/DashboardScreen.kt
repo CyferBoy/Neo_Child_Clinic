@@ -39,6 +39,8 @@ fun DashboardScreen(
     onAddPatient: () -> Unit = {},
     onPatientList: () -> Unit = {},
     onAddVaccine: () -> Unit = {},
+    onAddStock: () -> Unit = {},
+    onMonthlyFinances: () -> Unit = {},
     onStatistics: () -> Unit = {},
     onBorrowed: () -> Unit = {},
     onDue: () -> Unit = {},
@@ -281,11 +283,11 @@ fun DashboardScreen(
                                 onWaste = onWaste
                             )
 
-                            // Quick Actions Row (Patient, Vaccinate, Monthly stats, Expense)
+                            // Quick Actions Row (Patient, Add stock, Monthly finances, Expense)
                             DashboardQuickActionsRow(
                                 onAddPatient = onAddPatient,
-                                onVaccinate = onTodayPatients,
-                                onMonthlyStats = onStatistics,
+                                onAddStock = onAddStock,
+                                onMonthlyFinances = onMonthlyFinances,
                                 onExpense = onExpenses
                             )
 

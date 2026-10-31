@@ -72,7 +72,14 @@ object ReminderDueListProcessor {
             val firstState = group.first()
             val vaccination = allVaccinations.find { it.id == firstState.originalVisitId }
             if (vaccination != null) {
+                val terminalDateFormatted = when (status) {
+                    ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.common.PatientUtils.isoToLong(firstState.completionDate)))
+                    ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.common.PatientUtils.isoToLong(firstState.dismissalDate)))
+                    else -> ""
+                }
                 result.add(vaccination.copy(
+                    originalDateGiven = vaccination.dateGiven,
+                    statusDate = terminalDateFormatted,
                     nextVaccinations = group.map {
                         NextVaccinationSummary(
                             reminderId = it.id,
@@ -82,11 +89,7 @@ object ReminderDueListProcessor {
                         )
                     },
                     status = status,
-                    dateGiven = when (status) {
-                        ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.common.PatientUtils.isoToLong(firstState.completionDate)))
-                        ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.common.PatientUtils.isoToLong(firstState.dismissalDate)))
-                        else -> ""
-                    },
+                    dateGiven = terminalDateFormatted,
                     performedBy = firstState.performedBy ?: "",
                     notes = group.mapNotNull { it.notes ?: it.dismissalReason }.distinct().joinToString(", ")
                 ))

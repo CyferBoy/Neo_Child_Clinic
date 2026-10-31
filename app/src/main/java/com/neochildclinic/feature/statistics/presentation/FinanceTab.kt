@@ -223,7 +223,9 @@ private fun FinanceContent(
         NetProfitHero(
             stats = currentStats,
             previousStats = prevStats,
-            filterMode = filterMode
+            filterMode = filterMode,
+            currentExpensesRupees = currentExpensesRupees,
+            prevExpensesRupees = prevExpensesRupees
         )
 
         Spacer(modifier = Modifier.height(Spacing.md))
@@ -342,8 +344,12 @@ private fun FinanceContent(
 private fun NetProfitHero(
     stats: FinanceStatsData,
     previousStats: FinanceStatsData,
-    filterMode: String
+    filterMode: String,
+    currentExpensesRupees: Double = 0.0,
+    prevExpensesRupees: Double = 0.0
 ) {
+    val currentNetProfit = stats.netProfit - currentExpensesRupees
+    val previousNetProfit = previousStats.netProfit - prevExpensesRupees
     val growth = if (
         filterMode == "Overall" ||
         !stats.isProfitComplete ||
@@ -351,10 +357,10 @@ private fun NetProfitHero(
     ) {
         null
     } else {
-        StatisticsUtils.calculateGrowth(stats.netProfit, previousStats.netProfit)
+        StatisticsUtils.calculateGrowth(currentNetProfit, previousNetProfit)
     }
     val revenue = StatisticsUtils.formatRupees(stats.totalRevenue)
-    val costs = StatisticsUtils.formatRupees(stats.vaccineCost + stats.totalExpenses)
+    val costs = StatisticsUtils.formatRupees(stats.vaccineCost + stats.totalExpenses + currentExpensesRupees)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -370,7 +376,7 @@ private fun NetProfitHero(
             )
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
-                text = if (stats.isProfitComplete) StatisticsUtils.formatRupees(stats.netProfit) else "Unavailable",
+                text = if (stats.isProfitComplete) StatisticsUtils.formatRupees(currentNetProfit) else "Unavailable",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,

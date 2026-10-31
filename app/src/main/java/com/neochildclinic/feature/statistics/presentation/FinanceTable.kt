@@ -44,7 +44,7 @@ fun FinanceTable(
             selectedMonth = selectedMonth,
             visitDatesById = visitDatesById,
             expenses = expenses
-        )
+        ).filter { it.revenue > 0.0 }
     }
 
     if (displayData.isEmpty()) {
@@ -118,7 +118,6 @@ private fun FinanceMonthRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onMonthClick(data.key) }
             .padding(Spacing.card)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -158,13 +157,6 @@ private fun FinanceMonthRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(modifier = Modifier.width(Spacing.xs))
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
         }
 
         Spacer(modifier = Modifier.height(Spacing.sm))

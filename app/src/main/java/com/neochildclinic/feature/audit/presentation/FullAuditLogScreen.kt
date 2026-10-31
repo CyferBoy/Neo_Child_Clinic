@@ -33,6 +33,11 @@ import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.AuditLog
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +64,8 @@ fun FullAuditLogScreen(
             }
         }
     }
+
+    val groupedLogs = remember(filteredLogs) { groupLogsByDate(filteredLogs) }
 
     AppBackground {
         Scaffold(
@@ -177,9 +184,22 @@ fun FullAuditLogScreen(
                                 )
                             }
                         } else {
-                            items(filteredLogs, key = { it.id }) { log ->
-                                Box(modifier = Modifier.padding(horizontal = Spacing.screen)) {
-                                    AuditLogItem(log)
+                            groupedLogs.forEach { (dateHeader, logsForDate) ->
+                                item(key = "header_$dateHeader") {
+                                    Text(
+                                        text = dateHeader,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier
+                                            .padding(horizontal = Spacing.screen)
+                                            .padding(top = 10.dp, bottom = 4.dp)
+                                    )
+                                }
+                                items(logsForDate, key = { it.id }) { log ->
+                                    Box(modifier = Modifier.padding(horizontal = Spacing.screen)) {
+                                        AuditLogItem(log)
+                                    }
                                 }
                             }
                         }
@@ -270,7 +290,7 @@ fun AuditLogItem(log: AuditLog) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = PatientUtils.formatDateTimeForDisplay(log.timestamp),
+                        text = formatTimeOnly(log.timestamp),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -339,5 +359,43 @@ private fun getModuleVisuals(module: String, action: String): ModuleVisual {
             container = MaterialTheme.colorScheme.surfaceVariant,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** Helper to group audit logs by human-readable Date (e.g. "27 October 2026") like StockHistory */
+private fun groupLogsByDate(logs: List<AuditLog>): Map<String, List<AuditLog>> {
+    val dateFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US)
+    val map = linkedMapOf<String, MutableList<AuditLog>>()
+
+    for (log in logs) {
+        val dateStr = runCatching {
+            val instant = Instant.parse(log.timestamp)
+            val localDate = instant.atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
+            localDate.format(dateFormatter)
+        }.getOrElse {
+            if (log.timestamp.length >= 10) {
+                runCatching {
+                    val localDate = LocalDate.parse(log.timestamp.substring(0, 10))
+                    localDate.format(dateFormatter)
+                }.getOrDefault("Earlier")
+            } else {
+                "Recent"
+            }
+        }
+
+        map.getOrPut(dateStr) { mutableListOf() }.add(log)
+    }
+
+    return map
+}
+
+/** Helper to format time only (e.g. "09:36 AM") */
+private fun formatTimeOnly(isoTimestamp: String): String {
+    val timeFormatter = DateTimeFormatter.ofPattern("hh:mm a", Locale.US)
+    return runCatching {
+        val instant = Instant.parse(isoTimestamp)
+        instant.atZone(ZoneId.of("Asia/Kolkata")).format(timeFormatter)
+    }.getOrElse {
+        "10:00 AM"
     }
 }

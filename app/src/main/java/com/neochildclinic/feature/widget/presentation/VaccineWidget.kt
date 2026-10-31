@@ -140,20 +140,26 @@ class VaccineWidget : GlanceAppWidget() {
                 }
             }
 
-            // Footer: Centered Refresh Button
+            // Footer: Centered Refresh Button with wide touch target
             Row(
                 modifier = GlanceModifier.fillMaxWidth().padding(top = (DESIGN_GAP_DP * padScale).dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    provider = ImageProvider(R.drawable.ic_widget_refresh),
-                    contentDescription = "Refresh",
-                    colorFilter = ColorFilter.tint(textColorProvider),
+                Box(
                     modifier = GlanceModifier
-                        .size(20.dp)
-                        .clickable(actionRunCallback<RefreshWidgetAction>())
-                )
+                        .width(64.dp)
+                        .height(20.dp)
+                        .clickable(actionRunCallback<RefreshWidgetAction>()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_widget_refresh),
+                        contentDescription = "Refresh",
+                        colorFilter = ColorFilter.tint(textColorProvider),
+                        modifier = GlanceModifier.size(18.dp)
+                    )
+                }
             }
         }
     }

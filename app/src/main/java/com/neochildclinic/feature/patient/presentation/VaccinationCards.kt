@@ -77,11 +77,16 @@ fun VaccinationRecordCard(
             .sortedBy { com.neochildclinic.core.common.PatientUtils.parseDate(it.second)?.time ?: Long.MAX_VALUE }
     }
 
+    var isExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = onClick,
+                onClick = {
+                    isExpanded = !isExpanded
+                    onClick()
+                },
                 onLongClick = onLongClick
             ),
         shape = RoundedCornerShape(20.dp),
@@ -143,8 +148,8 @@ fun VaccinationRecordCard(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = if (isExpanded) Int.MAX_VALUE else 1,
+                                overflow = if (isExpanded) TextOverflow.Clip else TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "Given: ${formatDateForDisplay(vaccination.dateGiven)}",
@@ -197,6 +202,45 @@ fun VaccinationRecordCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+
+                // Badges row: Doctor's Acc, With Fees
+                if (vaccination.doctorsAcc || vaccination.withFees) {
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (vaccination.doctorsAcc) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer
+                            ) {
+                                Text(
+                                    text = "Doctor's Acc",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        if (vaccination.withFees) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = "With Fees",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
 

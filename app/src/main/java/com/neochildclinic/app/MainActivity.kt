@@ -245,7 +245,7 @@ class MainActivity : FragmentActivity() {
 
                 val settings = settingsManager.settingsFlow.first()
                 BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)
-                if (!settings.biometricLockEnabled) {
+                if (!settings.biometricLockEnabled || BiometricLockManager.isLockSuppressed()) {
                     BiometricLockManager.unlockBecauseProtectionIsDisabled()
                     return@launch
                 }

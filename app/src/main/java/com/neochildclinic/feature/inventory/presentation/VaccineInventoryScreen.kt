@@ -117,13 +117,12 @@ private fun VaccineInventoryContent(
     onEditVaccine: (String) -> Unit,
     onAddBatch: (String, String) -> Unit,
     onEditBatch: (String, String, String) -> Unit,
-    onAddStock: () -> Unit,
+    onAddStock: () -> Unit = {},
     onStockHistory: () -> Unit,
     onDeleteBatch: (VaccineBatch) -> Unit,
     onDeleteVaccine: (InventoryItem) -> Unit
 ) {
     var isSearchActive by remember { mutableStateOf(false) }
-    var fabExpanded by remember { mutableStateOf(false) }
 
     AppBackground {
         Scaffold(
@@ -146,61 +145,15 @@ private fun VaccineInventoryContent(
                 )
             },
             floatingActionButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    AnimatedVisibility(visible = fabExpanded) {
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                            modifier = Modifier.padding(bottom = Spacing.md)
-                        ) {
-                            SmallFloatingActionButton(
-                                onClick = {
-                                    fabExpanded = false
-                                    onAddVaccine()
-                                },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = Spacing.md),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Vaccines, "New Vaccine", modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(Spacing.sm))
-                                    Text("New Vaccine", fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-
-                            SmallFloatingActionButton(
-                                onClick = {
-                                    fabExpanded = false
-                                    onAddStock()
-                                },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = Spacing.md),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.AddBusiness, "Add Stock", modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(Spacing.sm))
-                                    Text("Add Stock", fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                        }
-                    }
-
-                    FloatingActionButton(
-                        onClick = { fabExpanded = !fabExpanded },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ) {
-                        Icon(
-                            if (fabExpanded) Icons.Default.Close else Icons.Default.Add,
-                            contentDescription = if (fabExpanded) "Close" else "Add Menu"
-                        )
-                    }
+                FloatingActionButton(
+                    onClick = onAddVaccine,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Vaccine"
+                    )
                 }
             }
         ) { padding ->

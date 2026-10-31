@@ -10,7 +10,9 @@ object Routes {
     const val EDIT_VACCINATION = "edit_vaccination/{vaccinationId}"
     const val VACCINE_INVENTORY = "vaccine_inventory"
     const val STATISTICS = "statistics"
+    const val MONTHLY_FINANCES = "monthly_finances"
     const val MONTHLY_FINANCE_DETAILS = "monthly_finance_details/{monthKey}"
+    const val PATIENT_AUDIT_HISTORY = "patient_audit_history/{patientId}"
     const val MILESTONE_PATIENTS = "milestone_patients/{milestoneKey}"
     const val FULL_REPORT = "full_report"
     // vaccineId is an optional query arg: absent (or empty) means "whole vaccine type", which is

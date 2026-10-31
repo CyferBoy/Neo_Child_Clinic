@@ -44,7 +44,9 @@ data class Vaccination(
     @SerialName("raw_vaccine_names") val rawVaccineNames: String = "", // Fallback for legacy records
     @SerialName("vaccine_ids") val vaccineIds: List<String> = emptyList(), // Legacy support for validator
     @SerialName("created_by") val createdBy: String? = null,
-    @SerialName("updated_by") val updatedBy: String? = null
+    @SerialName("updated_by") val updatedBy: String? = null,
+    @SerialName("original_date_given") val originalDateGiven: String? = null,
+    @SerialName("status_date") val statusDate: String? = null
 ) {
     // Computed properties for legacy records: fall back to the visit-level snapshot when
     // no persisted item carries a usable vaccine name.

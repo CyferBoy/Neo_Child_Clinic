@@ -25,6 +25,7 @@ object ReceiptPrinter {
     }
 
     private fun startPrintJob(context: Context, jobName: String, drawContent: (Canvas) -> Unit) {
+        com.neochildclinic.core.security.BiometricLockManager.suppressLock(120_000L)
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
         printManager.print(jobName, object : PrintDocumentAdapter() {
             override fun onLayout(

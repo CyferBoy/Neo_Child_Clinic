@@ -2,6 +2,7 @@ package com.neochildclinic.feature.finance.presentation
 
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,11 +18,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.FilterAltOff
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -89,6 +93,9 @@ fun ExpenseListScreen(
         val now = java.time.LocalDate.now()
         "${now.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${now.year}"
     }
+
+    val groupedExpenses = remember(uiState.expenses) { groupExpensesByMonth(uiState.expenses) }
+    val collapsedMonths = rememberSaveable { mutableStateMapOf<String, Boolean>() }
 
     AppBackground {
         Scaffold(
@@ -280,8 +287,54 @@ fun ExpenseListScreen(
                             contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xs),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(uiState.expenses, key = { it.id }) { expense ->
-                                ExpenseCard(expense = expense, onClick = { selectedExpense = expense })
+                            groupedExpenses.forEach { group ->
+                                val isCollapsed = collapsedMonths[group.monthKey] ?: false
+                                item(key = "header_${group.monthKey}") {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp, bottom = 4.dp)
+                                            .clickable {
+                                                collapsedMonths[group.monthKey] = !isCollapsed
+                                            },
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = group.monthDisplay,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "${group.expenses.size} expenses · ₹${String.format(java.util.Locale.ENGLISH, "%,.0f", group.totalAmount)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = if (isCollapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                                contentDescription = if (isCollapsed) "Expand" else "Collapse",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (!isCollapsed) {
+                                    items(group.expenses, key = { it.id }) { expense ->
+                                        ExpenseCard(expense = expense, onClick = { selectedExpense = expense })
+                                    }
+                                }
                             }
                             if (uiState.canLoadMore) {
                                 item {
@@ -367,6 +420,30 @@ private fun ExpenseFilters(uiState: ExpenseListUiState, viewModel: ExpenseListVi
                 DropdownMenuItem(text = { Text("All Payment Methods") }, onClick = { viewModel.onPaymentMethodFilterChange(null); paymentExpanded = false })
                 ExpensePaymentMethod.entries.forEach { method ->
                     DropdownMenuItem(text = { Text(method.label) }, onClick = { viewModel.onPaymentMethodFilterChange(method); paymentExpanded = false })
+                }
+            }
+        }
+
+        var fyExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(expanded = fyExpanded, onExpandedChange = { fyExpanded = !fyExpanded }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = uiState.selectedFinancialYear,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Financial Year") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fyExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
+            )
+            ExposedDropdownMenu(expanded = fyExpanded, onDismissRequest = { fyExpanded = false }) {
+                uiState.availableFinancialYears.forEach { fy ->
+                    DropdownMenuItem(
+                        text = { Text(fy) },
+                        onClick = {
+                            viewModel.onFinancialYearChange(fy)
+                            fyExpanded = false
+                        }
+                    )
                 }
             }
         }
@@ -563,5 +640,41 @@ private fun DetailRow(label: String, value: String) {
     Column {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private data class MonthExpenseGroup(
+    val monthKey: String,
+    val monthDisplay: String,
+    val totalAmount: Double,
+    val expenses: List<Expense>
+)
+
+private fun groupExpensesByMonth(expenses: List<Expense>): List<MonthExpenseGroup> {
+    val formatter = java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.US)
+    val map = linkedMapOf<String, MutableList<Expense>>()
+
+    for (expense in expenses) {
+        val (key, display) = runCatching {
+            val date = java.time.LocalDate.parse(expense.expenseDate.take(10))
+            val key = date.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM", java.util.Locale.US))
+            val display = date.format(formatter)
+            key to display
+        }.getOrElse {
+            "earlier" to "Earlier"
+        }
+        map.getOrPut("$key::$display") { mutableListOf() }.add(expense)
+    }
+
+    return map.map { (keyDisplay, list) ->
+        val parts = keyDisplay.split("::")
+        val key = parts[0]
+        val display = parts.getOrElse(1) { key }
+        MonthExpenseGroup(
+            monthKey = key,
+            monthDisplay = display,
+            totalAmount = list.sumOf { it.amountRupees },
+            expenses = list
+        )
     }
 }

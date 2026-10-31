@@ -18,6 +18,7 @@ class BiometricLockManagerTest {
     @Before
     fun reset() {
         BiometricLockManager.onNeedsAuthChanged = null
+        BiometricLockManager.clearLockSuppression()
         BiometricLockManager.setProtectionEnabled(false) // clears lock + screen-off state
         BiometricLockManager.setProtectionEnabled(true)
         BiometricLockManager.onNeedsAuthChanged = { persisted.add(it) }
