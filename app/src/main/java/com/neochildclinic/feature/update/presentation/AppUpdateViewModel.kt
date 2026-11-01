@@ -60,6 +60,10 @@ class AppUpdateViewModel @Inject constructor(
     private val _upToDate = MutableStateFlow(false)
     val upToDate: StateFlow<Boolean> = _upToDate.asStateFlow()
 
+    // Timestamp of the last completed update check (0L if not checked yet in this session)
+    private val _lastCheckedTimestamp = MutableStateFlow(0L)
+    val lastCheckedTimestamp: StateFlow<Long> = _lastCheckedTimestamp.asStateFlow()
+
     // "Automatic update checks" toggle exposed on the App Update screen - the "Don't
     // remind me" choice on the update dialog sets this to false; a manual "Check for
     // Updates" tap always still works regardless (see AppUpdateManager.checkForUpdate).
@@ -71,8 +75,20 @@ class AppUpdateViewModel @Inject constructor(
         viewModelScope.launch {
             _checking.value = true
             _message.value = null
+            if (isManual) {
+                // When manually triggered, reset upToDate state so checking animation runs
+                _upToDate.value = false
+            }
+            val startTime = System.currentTimeMillis()
             runCatching { updateManager.checkForUpdate(isManual) }
                 .onSuccess { info ->
+                    if (isManual) {
+                        // Ensure at least 650ms for the check animation so the user perceives the refresh
+                        val elapsed = System.currentTimeMillis() - startTime
+                        if (elapsed < 650) {
+                            kotlinx.coroutines.delay(650 - elapsed)
+                        }
+                    }
                     if (!isManual) {
                         // Silent launch/resume check: NEVER auto-opens the full Update
                         // Available dialog. A genuine new version surfaces only via the
@@ -85,6 +101,7 @@ class AppUpdateViewModel @Inject constructor(
                         }
                     } else {
                         _updateInfo.value = info
+                        _lastCheckedTimestamp.value = System.currentTimeMillis()
                         if (info == null) _upToDate.value = true
                     }
                 }

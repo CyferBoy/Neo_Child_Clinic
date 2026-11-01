@@ -38,16 +38,16 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Fetch all active FCM tokens
+    // Fetch all active FCM tokens and their registered app versions
     const { data: devices, error: dbError } = await supabase
       .from('user_devices')
-      .select('fcm_token')
+      .select('fcm_token, app_version')
       .eq('is_active', true)
 
     if (dbError) throw dbError
 
-    const tokens = devices?.map((d) => d.fcm_token).filter(Boolean) || []
-    if (tokens.length === 0) {
+    const activeDevices = devices?.filter((d) => Boolean(d.fcm_token)) || []
+    if (activeDevices.length === 0) {
       return new Response(JSON.stringify({ message: 'No active devices found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -66,17 +66,28 @@ serve(async (req) => {
       ? `Version ${version_name} is required. Tap to update.`
       : `Version ${version_name} is now available. Tap to update.`
 
-    const results = { total: tokens.length, sent: 0, failed: 0 }
+    const results = { total: activeDevices.length, sent: 0, skipped: 0, failed: 0 }
 
-    for (const token of tokens) {
+    for (const dev of activeDevices) {
+      const token = dev.fcm_token
+      // If the device already has this version or a newer one registered, skip notification.
+      if (dev.app_version && !isNewerVersion(dev.app_version, version_name)) {
+        results.skipped++
+        continue
+      }
+
+      // Use a data-only payload so NeoChildFirebaseMessagingService.onMessageReceived
+      // always runs (even in background/killed state) to verify the device's installed
+      // BuildConfig.VERSION_NAME before raising a system notification.
       const message = {
         message: {
           token,
-          notification: { title, body: bodyText },
           data: {
             type: "app_update",
             version_name: version_name,
-            mandatory: String(mandatory)
+            mandatory: String(mandatory),
+            title,
+            body: bodyText
           }
         }
       }
@@ -164,3 +175,42 @@ function str2ab(str: string) {
   }
   return bytes.buffer
 }
+
+function normalizeVersion(rawVersion: string): string {
+  let v = (rawVersion || '').trim()
+  while (v.startsWith('v') || v.startsWith('V') || v.startsWith('.')) {
+    v = v.substring(1).trim()
+  }
+  return v.split('-')[0].split('+')[0].trim()
+}
+
+function parseVersionParts(version: string): number[] | null {
+  const clean = normalizeVersion(version)
+  if (!clean) return null
+  const parts = clean.split('.')
+  const nums = parts.map((p) => {
+    const n = Number(p)
+    return Number.isInteger(n) ? n : NaN
+  })
+  if (nums.some((n) => Number.isNaN(n))) return null
+  return nums
+}
+
+function isNewerVersion(currentVersion: string, newVersion: string): boolean {
+  const curParts = parseVersionParts(currentVersion)
+  const newParts = parseVersionParts(newVersion)
+  if (!curParts || !newParts) {
+    const c = normalizeVersion(currentVersion)
+    const n = normalizeVersion(newVersion)
+    return Boolean(c && n && c !== n)
+  }
+  const maxLen = Math.max(curParts.length, newParts.length)
+  for (let i = 0; i < maxLen; i++) {
+    const cur = curParts[i] ?? 0
+    const nw = newParts[i] ?? 0
+    if (nw > cur) return true
+    if (nw < cur) return false
+  }
+  return false
+}
+

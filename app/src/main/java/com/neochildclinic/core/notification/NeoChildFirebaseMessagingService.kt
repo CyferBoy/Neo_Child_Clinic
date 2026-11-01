@@ -4,6 +4,8 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
 import android.content.Intent
 import com.neochildclinic.app.MainActivity
+import com.neochildclinic.BuildConfig
+import com.neochildclinic.core.common.VersionUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
@@ -23,8 +25,17 @@ class NeoChildFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: com.google.firebase.messaging.RemoteMessage) {
         super.onMessageReceived(message)
         if (message.data["type"] == "app_update") {
+            val newVersion = message.data["version_name"] ?: return
+            val currentVersion = BuildConfig.VERSION_NAME
+
+            // If the incoming version is identical to or older than the installed version,
+            // do not display an update notification.
+            if (!VersionUtils.isNewerVersion(currentVersion, newVersion)) {
+                return
+            }
+
             notificationHelper.showUpdateNotification(
-                versionName = message.data["version_name"] ?: "new version",
+                versionName = newVersion,
                 mandatory = message.data["mandatory"] == "true"
             )
         }

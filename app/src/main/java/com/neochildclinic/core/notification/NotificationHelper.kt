@@ -196,6 +196,10 @@ class NotificationHelper @Inject constructor(
     }
 
     fun showUpdateNotification(versionName: String, mandatory: Boolean) {
+        if (!com.neochildclinic.core.common.VersionUtils.isNewerVersion(com.neochildclinic.BuildConfig.VERSION_NAME, versionName)) {
+            return
+        }
+
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("CHECK_APP_UPDATE", true)
