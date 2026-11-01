@@ -2,6 +2,7 @@ package com.neochildclinic.feature.widget.presentation
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color
+import androidx.glance.unit.ColorProvider
 
 data class WidgetColors(
     val background: Color,
@@ -10,18 +11,36 @@ data class WidgetColors(
     val accent: Color
 )
 
+data class WidgetColorProviders(
+    val background: ColorProvider,
+    val primaryText: ColorProvider,
+    val secondaryText: ColorProvider,
+    val accent: ColorProvider,
+    val overdue: ColorProvider
+)
+
 enum class VaccineWidgetTheme(
     val key: String,
     val label: String,
     val colorsProvider: (Context) -> WidgetColors
 ) {
-    SYSTEM("system", "System", { _ ->
-        WidgetColors(
-            background = Color(0xFFFFFFFF),
-            primaryText = Color(0xFF1E3A5F),
-            secondaryText = Color(0xFF64748B),
-            accent = Color(0xFF1976D2)
-        )
+    SYSTEM("system", "System", { context ->
+        val isNight = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        if (isNight) {
+            WidgetColors(
+                background = Color(0xFF1A1C1E),
+                primaryText = Color(0xFFE2E2E6),
+                secondaryText = Color(0xFF94A3B8),
+                accent = Color(0xFF90CAF9)
+            )
+        } else {
+            WidgetColors(
+                background = Color(0xFFFFFFFF),
+                primaryText = Color(0xFF1E3A5F),
+                secondaryText = Color(0xFF64748B),
+                accent = Color(0xFF1976D2)
+            )
+        }
     }),
     LIGHT("light", "Light", { _ ->
         WidgetColors(
@@ -89,6 +108,30 @@ enum class VaccineWidgetTheme(
     });
 
     fun colors(context: Context): WidgetColors = colorsProvider(context)
+
+    fun colorProviders(context: Context, opacity: Float): WidgetColorProviders {
+        return if (this == SYSTEM) {
+            val lightBg = Color(0xFFFFFFFF).copy(alpha = opacity)
+            val darkBg = Color(0xFF1A1C1E).copy(alpha = opacity)
+            WidgetColorProviders(
+                background = androidx.glance.color.ColorProvider(day = lightBg, night = darkBg),
+                primaryText = androidx.glance.color.ColorProvider(day = Color(0xFF1E3A5F), night = Color(0xFFE2E2E6)),
+                secondaryText = androidx.glance.color.ColorProvider(day = Color(0xFF64748B), night = Color(0xFF94A3B8)),
+                accent = androidx.glance.color.ColorProvider(day = Color(0xFF1976D2), night = Color(0xFF90CAF9)),
+                overdue = androidx.glance.color.ColorProvider(day = Color(0xFFD32F2F), night = Color(0xFFEF5350))
+            )
+        } else {
+            val staticColors = colors(context)
+            val staticBg = staticColors.background.copy(alpha = opacity)
+            WidgetColorProviders(
+                background = androidx.glance.color.ColorProvider(day = staticBg, night = staticBg),
+                primaryText = androidx.glance.color.ColorProvider(day = staticColors.primaryText, night = staticColors.primaryText),
+                secondaryText = androidx.glance.color.ColorProvider(day = staticColors.secondaryText, night = staticColors.secondaryText),
+                accent = androidx.glance.color.ColorProvider(day = staticColors.accent, night = staticColors.accent),
+                overdue = androidx.glance.color.ColorProvider(day = Color(0xFFD32F2F), night = Color(0xFFEF5350))
+            )
+        }
+    }
 
     companion object {
         fun fromKey(key: String?): VaccineWidgetTheme {

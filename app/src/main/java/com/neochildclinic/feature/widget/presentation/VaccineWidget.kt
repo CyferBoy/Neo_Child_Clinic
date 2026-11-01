@@ -2,7 +2,6 @@ package com.neochildclinic.feature.widget.presentation
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -65,6 +64,9 @@ class VaccineWidget : GlanceAppWidget() {
             WidgetEntryPoint::class.java
         )
         val dueItems = entryPoint.widgetLocalDataSource().getDueItemsFirst()
+        if (dueItems.isEmpty()) {
+            com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(context)
+        }
 
         provideContent {
             val prefs = currentState<Preferences>()
@@ -85,16 +87,13 @@ class VaccineWidget : GlanceAppWidget() {
         fontScale: Float,
         padding: Float
     ) {
-        val colors = theme.colors(context)
-        val resolvedBgColor = colors.background.copy(alpha = opacity)
-        val textColorProvider = androidx.glance.color.ColorProvider(colors.primaryText, colors.primaryText)
-        val secondaryTextProvider = androidx.glance.color.ColorProvider(colors.secondaryText, colors.secondaryText)
+        val colorProviders = theme.colorProviders(context, opacity)
         val padScale = padding / DEFAULT_PADDING
 
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(resolvedBgColor)
+                .background(colorProviders.background)
                 .cornerRadius(24.dp)
                 .padding(padding.dp)
                 .clickable(
@@ -116,11 +115,11 @@ class VaccineWidget : GlanceAppWidget() {
                     style = TextStyle(
                         fontSize = (DESIGN_TITLE_SP * fontScale).sp,
                         fontWeight = FontWeight.Bold,
-                        color = textColorProvider
+                        color = colorProviders.primaryText
                     )
                 )
             }
-            Divider(secondaryTextProvider)
+            Divider(colorProviders.secondaryText)
 
             // Content: Takes available space
             Box(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -128,13 +127,13 @@ class VaccineWidget : GlanceAppWidget() {
                     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = "No upcoming vaccinations",
-                            style = TextStyle(fontSize = (DESIGN_EMPTY_SP * fontScale).sp, color = secondaryTextProvider)
+                            style = TextStyle(fontSize = (DESIGN_EMPTY_SP * fontScale).sp, color = colorProviders.secondaryText)
                         )
                     }
                 } else {
                     LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(top = (DESIGN_GAP_DP * padScale).dp)) {
                         items(items) { item ->
-                            VaccineRow(item, textColorProvider, colors.accent, fontScale, padScale)
+                            VaccineRow(item, colorProviders, fontScale, padScale)
                         }
                     }
                 }
@@ -156,7 +155,7 @@ class VaccineWidget : GlanceAppWidget() {
                     Image(
                         provider = ImageProvider(R.drawable.ic_widget_refresh),
                         contentDescription = "Refresh",
-                        colorFilter = ColorFilter.tint(textColorProvider),
+                        colorFilter = ColorFilter.tint(colorProviders.primaryText),
                         modifier = GlanceModifier.size(18.dp)
                     )
                 }
@@ -167,12 +166,11 @@ class VaccineWidget : GlanceAppWidget() {
     @Composable
     private fun VaccineRow(
         item: WidgetDueEntity,
-        textColorProvider: ColorProvider,
-        accentColor: Color,
+        colorProviders: WidgetColorProviders,
         fontScale: Float,
         padScale: Float
     ) {
-        val dateColor = if (item.isOverdue) androidx.glance.color.ColorProvider(Color(0xFFD32F2F), Color(0xFFD32F2F)) else androidx.glance.color.ColorProvider(accentColor, accentColor)
+        val dateColor = if (item.isOverdue) colorProviders.overdue else colorProviders.accent
         Column(
             modifier = GlanceModifier.fillMaxWidth().padding(vertical = (DESIGN_ROW_GAP_DP * padScale).dp)
         ) {
@@ -185,7 +183,7 @@ class VaccineWidget : GlanceAppWidget() {
                     style = TextStyle(
                         fontSize = (DESIGN_ROW_SP * fontScale).sp,
                         fontWeight = FontWeight.Medium,
-                        color = textColorProvider
+                        color = colorProviders.primaryText
                     ),
                     maxLines = 1,
                     modifier = GlanceModifier.defaultWeight()

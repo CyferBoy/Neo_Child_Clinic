@@ -1,9 +1,12 @@
 package com.neochildclinic.core.sync
 
+import android.content.Context
 import android.util.Log
 import com.neochildclinic.core.network.NetworkMonitor
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.feature.widget.data.WidgetUtils
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.CoroutineScope
@@ -42,7 +45,8 @@ class SyncReconciler @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val auth: Auth,
     private val refreshDataUseCase: RefreshDataUseCase,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    @ApplicationContext private val context: Context
 ) {
     private val flight = SingleFlight()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -68,6 +72,7 @@ class SyncReconciler @Inject constructor(
         runCatching { syncRepository.processNextItems() }
             .onFailure { Log.w(TAG, "Outbound sync pass failed", it) }
         runCatching { refreshDataUseCase() }
+            .onSuccess { WidgetUtils.updateWidget(context) }
             .onFailure { Log.w(TAG, "Inbound refresh pass failed", it) }
     }
 

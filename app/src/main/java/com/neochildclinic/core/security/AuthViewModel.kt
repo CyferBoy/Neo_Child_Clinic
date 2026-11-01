@@ -272,6 +272,7 @@ class AuthViewModel @Inject constructor(
 
         _isLoading.value = false
         syncManager.scheduleImmediateSync()
+        com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(appContext)
         onSuccess()
     }
 
@@ -375,6 +376,7 @@ class AuthViewModel @Inject constructor(
             return false
         }
         accountPrefs.edit().remove(KEY_LAST_ACCOUNT).apply()
+        com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(appContext)
         return true
     }
 

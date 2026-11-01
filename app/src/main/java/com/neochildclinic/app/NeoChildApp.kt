@@ -130,6 +130,13 @@ class NeoChildApp : Application(), Configuration.Provider {
         }
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(this@NeoChildApp)
+        }
+    }
+
     private fun installSecurityProvider() {
         val availability = GoogleApiAvailability.getInstance()
         val result = availability.isGooglePlayServicesAvailable(applicationContext)

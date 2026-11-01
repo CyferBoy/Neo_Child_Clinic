@@ -217,9 +217,24 @@ fun MonthlyFinanceDetailsScreen(
         map.toList().sortedByDescending { it.second }
     }
 
-    // Net Profit
-    val netProfit = remember(totalIncome, totalExpenses) {
-        totalIncome - totalExpenses
+    val monthCogs = remember(effectiveVaccinationIncome) {
+        val countedVisitIds = mutableSetOf<String>()
+        var cost = 0.0
+        effectiveVaccinationIncome.forEach { tx ->
+            val visitId = tx.visitId
+            if (visitId.isNullOrBlank()) return@forEach
+            if (!countedVisitIds.add(visitId)) return@forEach
+            val snapshot = FinanceCalculator.cogsOf(tx.remarks)
+            if (snapshot != null) {
+                cost += snapshot
+            }
+        }
+        cost
+    }
+
+    // Net Profit: revenue - (cogs + expenses)
+    val netProfit = remember(totalIncome, monthCogs, totalExpenses) {
+        totalIncome - (monthCogs + totalExpenses)
     }
     val marginPercent = remember(totalIncome, netProfit) {
         if (totalIncome > 0) (netProfit / totalIncome * 100) else 0.0
@@ -249,15 +264,31 @@ fun MonthlyFinanceDetailsScreen(
         val effInc = inc.filterNot { it.category.equals("VACCINATION", ignoreCase = true) } + effVacc
         effInc.sumOf { it.amount.coerceAtLeast(0.0) }
     }
+    val prevMonthCogs = remember(prevMonthTransactions) {
+        val inc = prevMonthTransactions.filter { it.type.equals("INCOME", ignoreCase = true) }
+        val effVacc = FinanceCalculator.deduplicateVaccinationIncome(inc)
+        val countedVisitIds = mutableSetOf<String>()
+        var cost = 0.0
+        effVacc.forEach { tx ->
+            val visitId = tx.visitId
+            if (visitId.isNullOrBlank()) return@forEach
+            if (!countedVisitIds.add(visitId)) return@forEach
+            val snapshot = FinanceCalculator.cogsOf(tx.remarks)
+            if (snapshot != null) {
+                cost += snapshot
+            }
+        }
+        cost
+    }
     val prevExpenses = remember(prevMonthTransactions, prevMonthExpenseItems) {
         prevMonthTransactions.filter { it.type.equals("EXPENSE", ignoreCase = true) }.sumOf { it.amount.coerceAtLeast(0.0) } +
             prevMonthExpenseItems.sumOf { it.amountRupees }
     }
-    val prevNetProfit = remember(prevIncome, prevExpenses) {
-        prevIncome - prevExpenses
+    val prevNetProfit = remember(prevIncome, prevMonthCogs, prevExpenses) {
+        prevIncome - (prevMonthCogs + prevExpenses)
     }
-    val hasPrevData = remember(prevIncome, prevExpenses) {
-        prevIncome > 0 || prevExpenses > 0
+    val hasPrevData = remember(prevIncome, prevMonthCogs, prevExpenses) {
+        prevIncome > 0 || prevMonthCogs > 0 || prevExpenses > 0
     }
 
     val customColors = LocalCustomColors.current
@@ -342,10 +373,10 @@ fun MonthlyFinanceDetailsScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Income & Expense Cards
+                        // Income, COGS & Expense Cards
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Income Card
                             Surface(
@@ -362,7 +393,7 @@ fun MonthlyFinanceDetailsScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        .padding(horizontal = 10.dp, vertical = 12.dp),
                                     verticalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
@@ -378,9 +409,49 @@ fun MonthlyFinanceDetailsScreen(
                                         text = StatisticsUtils.formatRupees(totalIncome),
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 22.sp
+                                            fontSize = 18.sp
                                         ),
                                         color = customColors.textSuccess,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            // COGS Card
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(88.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 10.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "COGS",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 10.sp,
+                                            letterSpacing = 0.04.sp
+                                        ),
+                                        color = customColors.muted
+                                    )
+                                    Text(
+                                        text = StatisticsUtils.formatRupees(monthCogs),
+                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -402,7 +473,7 @@ fun MonthlyFinanceDetailsScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        .padding(horizontal = 10.dp, vertical = 12.dp),
                                     verticalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
@@ -418,7 +489,7 @@ fun MonthlyFinanceDetailsScreen(
                                         text = StatisticsUtils.formatRupees(totalExpenses),
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 22.sp
+                                            fontSize = 18.sp
                                         ),
                                         color = MaterialTheme.colorScheme.error,
                                         maxLines = 1,
@@ -467,13 +538,13 @@ fun MonthlyFinanceDetailsScreen(
                                 val netProfitSubtitle = if (hasPrevData) {
                                     String.format(
                                         Locale.US,
-                                        "%.1f%% margin · vs %s in %s",
+                                        "%.1f%% margin · vs %s in %s (Revenue - (COGS + Expenses))",
                                         marginPercent,
                                         StatisticsUtils.formatRupees(prevNetProfit),
                                         prevMonthName
                                     )
                                 } else {
-                                    String.format(Locale.US, "%.1f%% margin", marginPercent)
+                                    String.format(Locale.US, "%.1f%% margin · Revenue - (COGS + Expenses)", marginPercent)
                                 }
                                 Text(
                                     text = netProfitSubtitle,

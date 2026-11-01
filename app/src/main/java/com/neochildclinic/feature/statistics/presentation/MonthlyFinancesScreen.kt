@@ -97,6 +97,7 @@ fun MonthlyFinancesScreen(
     }
 
     val totalPeriodRevenue = remember(displayData) { displayData.sumOf { it.revenue } }
+    val totalPeriodCogs = remember(displayData) { displayData.sumOf { it.vaccineCost } }
     val totalPeriodExpenses = remember(displayData) { displayData.sumOf { it.expenses } }
     val totalPeriodNetProfit = remember(displayData) { displayData.sumOf { it.netProfit } }
 
@@ -173,6 +174,7 @@ fun MonthlyFinancesScreen(
                             MonthlyFinancesHero(
                                 filter = selectedFilter,
                                 revenue = totalPeriodRevenue,
+                                cogs = totalPeriodCogs,
                                 expenses = totalPeriodExpenses,
                                 netProfit = totalPeriodNetProfit,
                                 activeMonthsCount = displayData.size
@@ -230,6 +232,7 @@ fun MonthlyFinancesScreen(
 private fun MonthlyFinancesHero(
     filter: String,
     revenue: Double,
+    cogs: Double,
     expenses: Double,
     netProfit: Double,
     activeMonthsCount: Int,
@@ -276,7 +279,7 @@ private fun MonthlyFinancesHero(
             )
 
             Text(
-                text = "Net profit for selected period",
+                text = "Net profit = Revenue - (COGS + Expenses)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -301,6 +304,21 @@ private fun MonthlyFinancesHero(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "TOTAL COGS",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = StatisticsUtils.formatRupees(cogs),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

@@ -1,9 +1,12 @@
 package com.neochildclinic.feature.widget.data
 
 import android.content.Context
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
+import com.neochildclinic.feature.widget.presentation.VaccineWidget
 
 object WidgetUtils {
     /**
@@ -17,8 +20,24 @@ object WidgetUtils {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             "vaccine_widget_refresh",
-            androidx.work.ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.REPLACE,
             workRequest
         )
+    }
+
+    /**
+     * Re-renders the Glance widget UI without querying remote network or reloading the database cache.
+     * Useful when system configuration (dark/light theme) changes.
+     */
+    suspend fun updateGlanceWidgetsOnly(context: Context) {
+        try {
+            val manager = GlanceAppWidgetManager(context)
+            val ids = manager.getGlanceIds(VaccineWidget::class.java)
+            ids.forEach { id ->
+                VaccineWidget().update(context, id)
+            }
+        } catch (_: Exception) {
+            // Widget update failed (non-fatal, e.g. no widgets placed on home screen)
+        }
     }
 }

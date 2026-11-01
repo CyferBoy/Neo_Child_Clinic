@@ -226,6 +226,7 @@ class MainActivity : FragmentActivity() {
             syncManager.scheduleSync()
             if (auth.currentSessionOrNull() != null) {
                 appUpdateViewModel.checkForUpdates()
+                com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
             }
         }
     }
@@ -247,6 +248,7 @@ class MainActivity : FragmentActivity() {
                 BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)
                 if (!settings.biometricLockEnabled || BiometricLockManager.isLockSuppressed()) {
                     BiometricLockManager.unlockBecauseProtectionIsDisabled()
+                    com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
                     return@launch
                 }
 
@@ -277,6 +279,7 @@ class MainActivity : FragmentActivity() {
             subtitle = "Authenticate to access patient data"
         ) {
             BiometricLockManager.unlockAfterKeystoreVerification()
+            com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
         }
     }
 
@@ -285,6 +288,7 @@ class MainActivity : FragmentActivity() {
             val result = authViewModel.reauthenticateWithPassword(password)
             if (result.isSuccess) {
                 BiometricLockManager.unlockAfterKeystoreVerification()
+                com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
             } else if (result.exceptionOrNull()?.message == "No account email is available.") {
                 // No session email to authenticate against - nothing to unlock or relock,
                 // just tell the user why the lock-screen password path is unavailable.
