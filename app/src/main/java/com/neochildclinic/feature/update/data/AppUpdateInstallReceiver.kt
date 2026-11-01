@@ -48,8 +48,29 @@ class AppUpdateInstallReceiver : BroadcastReceiver() {
         )
         val notificationHelper = entryPoint.notificationHelper()
 
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            // Android requires user confirmation to proceed with the install.
+            // Extract the system's confirmation dialog intent and launch it.
+            val confirmIntent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_INTENT)
+            }
+            if (confirmIntent != null) {
+                confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(confirmIntent)
+            } else {
+                Log.w(TAG, "STATUS_PENDING_USER_ACTION received but Intent.EXTRA_INTENT was null. sessionId=$sessionId")
+                notificationHelper.showUpdateInstallFailed("User confirmation prompt could not be displayed.")
+            }
+            return
+        }
+
         if (status == PackageInstaller.STATUS_SUCCESS) {
             Log.i(TAG, "Update installed successfully. sessionId=$sessionId")
+        } else if (status == PackageInstaller.STATUS_FAILURE_ABORTED) {
+            Log.i(TAG, "Update installation cancelled by user. sessionId=$sessionId")
         } else {
             Log.w(TAG, "Update installation failed. sessionId=$sessionId status=$status message=$message")
             val reason = message?.takeIf { it.isNotBlank() }

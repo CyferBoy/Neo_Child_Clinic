@@ -454,6 +454,10 @@ class AppUpdateManager @Inject constructor(
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(context.packageName)
             if (apkFile.length() > 0) setSize(apkFile.length())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Request user action if needed (prompts the system install dialog via STATUS_PENDING_USER_ACTION)
+                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+            }
         }
         val sessionId = packageInstaller.createSession(params)
         val session = packageInstaller.openSession(sessionId)
