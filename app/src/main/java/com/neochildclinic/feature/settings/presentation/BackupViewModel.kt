@@ -43,6 +43,14 @@ sealed class RestoreSource {
 
 data class BackupUiMessage(val text: String, val isError: Boolean)
 
+sealed class PendingPasswordAction {
+    data class ExportLocal(val uri: Uri) : PendingPasswordAction()
+    data class ImportLocal(val uri: Uri) : PendingPasswordAction()
+    data object CloudBackup : PendingPasswordAction()
+    data class CloudRestore(val backupId: String) : PendingPasswordAction()
+    data object EnableAuto : PendingPasswordAction()
+}
+
 @HiltViewModel
 class BackupViewModel @Inject constructor(
     private val backupRepository: BackupRepository,

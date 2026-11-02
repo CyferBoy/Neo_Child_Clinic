@@ -36,6 +36,7 @@ import java.text.NumberFormat
 @Composable
 fun BackupSettingsScreen(
     onBack: () -> Unit,
+    onRestore: () -> Unit,
     viewModel: BackupViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -46,9 +47,6 @@ fun BackupSettingsScreen(
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) pendingAction = PendingPasswordAction.ExportLocal(uri)
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) pendingAction = PendingPasswordAction.ImportLocal(uri)
     }
 
     AppBackground {
@@ -131,7 +129,7 @@ fun BackupSettingsScreen(
                         }
 
                         OutlinedButton(
-                            onClick = { importLauncher.launch(arrayOf("*/*")) },
+                            onClick = onRestore,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
@@ -646,16 +644,8 @@ private fun defaultBackupFileName(): String {
     return "NeoChildClinic_Backup_$ts.nccb"
 }
 
-private sealed class PendingPasswordAction {
-    data class ExportLocal(val uri: Uri) : PendingPasswordAction()
-    data class ImportLocal(val uri: Uri) : PendingPasswordAction()
-    data object CloudBackup : PendingPasswordAction()
-    data class CloudRestore(val backupId: String) : PendingPasswordAction()
-    data object EnableAuto : PendingPasswordAction()
-}
-
 @Composable
-private fun BackupProgressDialog(label: String) {
+fun BackupProgressDialog(label: String) {
     Dialog(onDismissRequest = {}) {
         Surface(shape = MaterialTheme.shapes.large, tonalElevation = Spacing.xs) {
             Row(Modifier.padding(Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
@@ -668,7 +658,7 @@ private fun BackupProgressDialog(label: String) {
 }
 
 @Composable
-private fun RestoreSummaryDialog(
+fun RestoreSummaryDialog(
     summary: RestoreSummary,
     onDismiss: () -> Unit,
     onReplace: () -> Unit,
@@ -725,7 +715,7 @@ private fun RestoreSummaryDialog(
 }
 
 @Composable
-private fun PasswordPromptDialog(
+fun PasswordPromptDialog(
     action: PendingPasswordAction,
     onDismiss: () -> Unit,
     onConfirm: (password: String, settings: AutoBackupSettings?) -> Unit

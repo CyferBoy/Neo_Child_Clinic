@@ -33,6 +33,7 @@ object Routes {
     const val NOTIFICATION_SETTINGS = "notification_settings"
     const val INVENTORY_SETTINGS = "inventory_settings"
     const val BACKUP_SETTINGS = "backup_settings"
+    const val RESTORE = "restore"
     const val SECURITY_SETTINGS = "security_settings"
     const val HELP_SUPPORT = "help_support"
     const val PRIVACY_POLICY = "privacy_policy"

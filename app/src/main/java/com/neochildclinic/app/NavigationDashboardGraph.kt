@@ -118,7 +118,14 @@ internal fun NavGraphBuilder.dashboardNavGraph(
     }
 
     composable(Routes.BACKUP_SETTINGS) {
-        BackupSettingsScreen(onBack = goBack)
+        BackupSettingsScreen(
+            onBack = goBack,
+            onRestore = { navController.navigate(Routes.RESTORE) }
+        )
+    }
+
+    composable(Routes.RESTORE) {
+        com.neochildclinic.feature.settings.presentation.RestoreScreen(onBack = goBack)
     }
 
     composable(Routes.SECURITY_SETTINGS) {
