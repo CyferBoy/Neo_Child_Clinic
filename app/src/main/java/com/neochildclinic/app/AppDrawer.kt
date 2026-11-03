@@ -1,4 +1,4 @@
-package com.neochildclinic.feature.dashboard.presentation.component
+package com.neochildclinic.app
 
 import com.neochildclinic.core.designsystem.*
 

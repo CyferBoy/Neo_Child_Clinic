@@ -8,7 +8,7 @@
 **There is no sealed `UiState` for screen state anywhere in this app.** Every screen
 ViewModel exposes a flat `data class` with nullable fields (`error: String?`,
 `isLoading: Boolean`). Exactly one sealed UI state exists —
-`SlotsUiState` in `core/ui/Dropdowns.kt:162-169`.
+`SlotsUiState` in `feature/doctor/presentation/DoctorDropdowns.kt:20-27`.
 
 That single fact explains most of [[Error Handling]] and several entries in
 [[Known Bugs]]: with no `sealed` hierarchy, nothing forces a screen to handle every branch,
@@ -43,13 +43,13 @@ terminated at `:291`:
 ```
 
 Same shape in `PatientListViewModel.kt:66-94`. Both work around the 5-argument `combine`
-overload with a private holder type — `RefreshState<A,B,C,D,E>` at `PatientListViewModel.kt:221`,
+overload with a private holder type — `RefreshState<A,B,C,D,E>` at `PatientListViewModel.kt:215`,
 `Quad<A,B,C,D>` at `VaccineInventoryViewModel.kt:111`, and raw `values[0] as List<T>` casts
 in 5 more ViewModels. See [[Technical Debt]].
 
 ### Pattern C — the only sealed state
 
-`core/ui/Dropdowns.kt:162-169`:
+`feature/doctor/presentation/DoctorDropdowns.kt:20-27`:
 
 ```kotlin
 sealed class SlotsUiState {

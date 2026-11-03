@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.vaccination.presentation
 
-import com.neochildclinic.core.ui.SlotsUiState
-import com.neochildclinic.core.ui.loadUiState
+import com.neochildclinic.feature.doctor.presentation.SlotsUiState
+import com.neochildclinic.feature.doctor.presentation.loadUiState
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

@@ -35,7 +35,7 @@ default uncaught handler — **process crash**.
 | 11 | `throw IllegalArgumentException` inside its own `try` | 3 | `PatientViewModel.kt:198` |
 | 12 | Silent `?: return` leaving state half-set | 4 | `ProfileViewModel.kt:36`, `:85`, `:106` |
 | 13 | Silent `?: null` on parse failure → blank/empty state | many | `DateUtils.kt:57-112` |
-| 14 | `sealed class … Error(val message)` | **1** | `core/ui/Dropdowns.kt:168` |
+| 14 | `sealed class … Error(val message)` | **1** | `feature/doctor/presentation/DoctorDropdowns.kt:26` |
 | 15 | `sealed class BackupException` / `BackupValidationResult` | 2 | `data/backup/BackupErrors.kt:11` |
 
 `Result<T>` appears in exactly 3 places, all below the UI boundary. **No ViewModel exposes a

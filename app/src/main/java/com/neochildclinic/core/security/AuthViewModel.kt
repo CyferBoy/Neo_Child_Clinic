@@ -7,7 +7,7 @@ import com.neochildclinic.core.sync.SyncManagerImpl
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
-import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
+import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email

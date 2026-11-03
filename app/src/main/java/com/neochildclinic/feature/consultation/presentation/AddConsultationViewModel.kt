@@ -2,8 +2,8 @@ package com.neochildclinic.feature.consultation.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.ui.SlotsUiState
-import com.neochildclinic.core.ui.loadUiState
+import com.neochildclinic.feature.doctor.presentation.SlotsUiState
+import com.neochildclinic.feature.doctor.presentation.loadUiState
 import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.Patient

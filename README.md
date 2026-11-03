@@ -1,372 +1,147 @@
-# Neo Child Clinic - Vaccine Manager
+# Neo Child Clinic — Vaccine Manager
 
 [![GitHub release](https://img.shields.io/github/v/release/CyferBoy/Neo_Child_Clinic?label=latest%20release)](https://github.com/CyferBoy/Neo_Child_Clinic/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active%20development-brightgreen)](#project-status)
+[![Unit Tests](https://img.shields.io/badge/unit%20tests-344%20passed-success)](app/src/test/java/com/neochildclinic)
 
-Neo Child Clinic - Vaccine Manager is an Android application for pediatric clinics to manage patients, vaccinations, consultations, vaccine inventory, reminders, staff, and financial records.
-
-The application uses an offline-first architecture with an encrypted local Room database and Supabase synchronization.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Screenshots](#screenshots)
-- [Releases & Updates](#releases--updates)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Architecture](#architecture)
-- [Backend & Configuration](#backend--configuration)
-- [Security & Privacy](#security--privacy)
-- [Contributing](#contributing)
-- [Getting Started](#getting-started)
-- [Support](#support)
-- [License](#license)
-- [Disclaimer](#disclaimer)
+Neo Child Clinic is a robust, offline-first Android application designed for pediatric clinics and healthcare providers. It coordinates patient clinical records, multi-vial vaccination administration, doctor consultations, dynamic inventory/batch tracking, due reminders, and financial ledgers.
 
 ---
 
-## Overview
+## 🧭 Developer Navigation & Documentation Map
 
-- **Version:** 0.6
-- **Version Code:** 4
-- **Minimum Android:** 10.0 (API 29)
-- **Target Android:** 15 (API 35)
-- **Status:** 🟢 Active Development
-
-Neo Child Clinic - Vaccine Manager is actively developed and maintained. Features, database structures, and backend services may change between releases.
+| Area | Primary Guide | Description |
+|---|---|---|
+| **Code Placement** | 🧭 [Where Things Belong](docs/architecture/where-things-belong.md) | Practical guide: where to place screens, ViewModels, DAOs, migrations, and tests |
+| **System Architecture** | 🏛️ [Architecture Overview](ARCHITECTURE.md) | High-level package boundaries, clean architecture, and dependency flow |
+| **Getting Started** | 🚀 [Developer Onboarding](docs/getting-started/onboarding.md) | Environment setup, JDK 17, Android Studio, `.env.local` keys, and first build |
+| **Offline Synchronization** | 🔄 [Offline-First Sync](docs/architecture/offline-first-sync.md) | In-depth synchronization engine, queue mechanics, and conflict resolution |
+| **Cache Architecture** | ⚡ [In-Memory Cache](docs/architecture/cache-architecture.md) | LRU cache specs, generation counters, and session boundary clearing |
+| **Database Architecture** | 🗄️ [Schema Overview](docs/database/schema-overview.md) | Room schema v33, foreign keys, cascade rules, and Supabase RLS |
+| **Features Matrix** | 📋 [Features Overview](docs/features/overview.md) | Detailed capability matrix across all 20 clinic business modules |
+| **Disaster Recovery** | 🛡️ [Backup & Restore](docs/operations/backup-restore.md) | `.nccb` AES-256-GCM container format, Cloudflare R2 worker, and safety rollback |
+| **Releases & Deployment** | 📦 [Release Runbook](docs/operations/release-management.md) | APK signing, ProGuard/R8 shrinking, in-app updates, and FCM alerts |
+| **Contributing** | 🤝 [Contributing Guidelines](CONTRIBUTING.md) | Coding conventions, TDD requirements, and Git PR standards |
+| **Security Policy** | 🔐 [Security Policy](SECURITY.md) | Responsible disclosure process and verified security controls |
+| **Obsidian Vault** | 📚 [Knowledge Base](docs/Knowledge_Base/) | 66 interconnected notes verified with strict citation validators |
 
 ---
 
-## Screenshots
+## 📱 Application Overview & Screenshots
 
-Click any screenshot to open it at full size.
+- **Target SDK**: Android 15 (API 35) · **Compile SDK**: 35 · **Minimum SDK**: Android 10 (API 29)
+- **Local Persistence**: Encrypted Room (SQLite v33) via SQLCipher + Android Keystore
+- **Cloud Backend**: Supabase PostgreSQL + Auth + Realtime + Storage
+- **Edge Infrastructure**: Cloudflare Worker + R2 Storage for offsite encrypted backups
 
 <table>
 <tr>
-<td align="center"><a href="docs/Screenshot/dashboard.png" target="_blank"><img src="docs/Screenshot/dashboard.png" width="220"><br>Dashboard</a></td>
-<td align="center"><a href="docs/Screenshot/patient%20details.png" target="_blank"><img src="docs/Screenshot/patient%20details.png" width="220"><br>Patient Details</a></td>
-<td align="center"><a href="docs/Screenshot/due%20vaccination.png" target="_blank"><img src="docs/Screenshot/due%20vaccination.png" width="220"><br>Due Vaccination</a></td>
+<td align="center"><a href="design/assets/screenshots/dashboard.png" target="_blank"><img src="design/assets/screenshots/dashboard.png" width="220"><br><b>Clinic Dashboard</b></a></td>
+<td align="center"><a href="design/assets/screenshots/patient%20details.png" target="_blank"><img src="design/assets/screenshots/patient%20details.png" width="220"><br><b>Patient Records</b></a></td>
+<td align="center"><a href="design/assets/screenshots/due%20vaccination.png" target="_blank"><img src="design/assets/screenshots/due%20vaccination.png" width="220"><br><b>Due Vaccinations</b></a></td>
 </tr>
 <tr>
-<td align="center"><a href="docs/Screenshot/inventory.png" target="_blank"><img src="docs/Screenshot/inventory.png" width="220"><br>Inventory</a></td>
-<td align="center"><a href="docs/Screenshot/borrow%20vaccine.png" target="_blank"><img src="docs/Screenshot/borrow%20vaccine.png" width="220"><br>Borrow Vaccine</a></td>
-<td align="center"><a href="docs/Screenshot/app%20drawer.png" target="_blank"><img src="docs/Screenshot/app%20drawer.png" width="220"><br>Navigation Drawer</a></td>
+<td align="center"><a href="design/assets/screenshots/inventory.png" target="_blank"><img src="design/assets/screenshots/inventory.png" width="220"><br><b>Vial Inventory</b></a></td>
+<td align="center"><a href="design/assets/screenshots/borrow%20vaccine.png" target="_blank"><img src="design/assets/screenshots/borrow%20vaccine.png" width="220"><br><b>Borrowed Vaccines</b></a></td>
+<td align="center"><a href="design/assets/screenshots/app%20drawer.png" target="_blank"><img src="design/assets/screenshots/app%20drawer.png" width="220"><br><b>Navigation Drawer</b></a></td>
 </tr>
 </table>
 
 ---
 
-## Releases & Updates
+## 📂 Repository Directory Tree
 
-### Releases
-
-Official application releases are published on the project's GitHub Releases page.
-
-<a href="https://github.com/CyferBoy/Neo_Child_Clinic/releases" target="_blank">📦 View & Download Releases</a>
-
-### Updates
-
-Application updates are provided through the **in-app update system**. The app checks GitHub Releases for newer versions, shows an in-app update prompt, and lets users download and install the new APK. Mandatory updates can require users to update before continuing. Users can also manually check for updates from Settings.
-
-<a href="https://github.com/CyferBoy/Neo_Child_Clinic/releases" target="_blank">📝 View Release Changelog</a>
-
----
-
-## Features
-
-### 👶 Patient Management
-
-- Create, edit, search, and manage patient records.
-- Automatic patient ID and age calculation.
-- Patient vaccination and consultation history.
-- Patient notes and todos.
-- Merge duplicate patient records.
-- Attach patient documents, photos, and lab reports.
-- Search by patient details, vaccine names, and receipt numbers.
-- View and print/download vaccination and consultation receipts.
-
-### 💉 Vaccination
-
-- Add and edit vaccination visits.
-- Add multiple vaccines to a single visit.
-- Select vaccine batches and quantities from inventory.
-- Prevent use of expired or unavailable stock.
-- Track vaccination payments, including Cash and Online/UPI.
-- Automatically update inventory when vaccinations are recorded or edited.
-- Generate vaccination receipts.
-
-**Next Vaccination**
-
-- Date-first scheduling.
-- Add multiple due dates to one record.
-- Add multiple Type + Vaccine entries under the same due date.
-- Edit or cancel individual scheduled vaccination items.
-- Automatic vaccination reminders.
-
-### 🩺 Consultation
-
-- Add and edit consultations.
-- Select doctor/staff member.
-- Record consultation fees and clinical notes.
-- Set follow-up dates.
-- Add consultation todos.
-- Generate consultation receipts.
-
-### 📦 Vaccine Inventory
-
-- Manage vaccines and vaccine batches.
-- Add stock for multiple vaccines at once.
-- Add multiple batches for each vaccine in a single stock operation.
-- Track stock deductions and adjustments.
-- View complete stock transaction history.
-- Track borrowed vaccines and returns.
-- Record vaccine wastage.
-- Reconcile inventory.
-
-### 💰 Finance
-
-- Record and manage expenses.
-- Track financial transactions.
-- View financial summaries and monthly details.
-- Calculate vaccination and consultation financial data.
-
-### 🔔 Reminders & Notifications
-
-- Vaccination due reminders.
-- Personal reminders with priority and status.
-- Background reminder notifications.
-- Reminder history and audit tracking.
-
-### 👥 Staff & Access
-
-- Manage clinic staff.
-- Staff profiles and details.
-- Role-based access and permissions.
-- Authentication and controlled clinic access.
-
-### 📊 Dashboard & Statistics
-
-- Clinic dashboard.
-- Today's patients.
-- Vaccination and patient statistics.
-- Patient milestones.
-- Finance and expense statistics.
-
-### 📄 Documents & Records
-
-- Store and manage patient documents.
-- Patient vaccination cards and records.
-- Receipts and printable records.
-- Audit logs for important clinic activity.
-
-### ☁️ Offline & Sync
-
-- Offline-first local database.
-- Automatic synchronization with Supabase.
-- Sync queue and retry handling.
-- Refresh data manually when needed.
-- Startup/reconnection reconciliation and the sign-out isolation gate.
-  See [docs/SYNC.md](docs/SYNC.md) for the full synchronization model and its invariants.
-
-### 📱 Home Screen Widget
-
-- Vaccine due information on the Android home screen.
-- Widget refresh support.
-- Configurable widget settings.
-
-### 🔄 In-App Updates
-
-- Check GitHub Releases for newer versions.
-- In-app update prompt with release information.
-- Download and install the latest APK from the app.
-- Mandatory update support.
-- Manual update check from Settings.
-
----
-
-## Technology Stack
-
-- Kotlin
-- Jetpack Compose
-- Material 3
-- MVVM / Clean Architecture
-- Hilt
-- Room
-- SQLCipher
-- WorkManager
-- Supabase
-- Firebase Cloud Messaging
-- GitHub Releases
-
----
-
-## Architecture
-
-The application follows a layered architecture:
-
-```
-UI
+```text
+Neo_Child_Clinic/
 │
-├── Jetpack Compose
-├── ViewModels
-└── Navigation
-      │
-      ▼
-Domain
+├── app/                                 # Android application module (:app)
+│   ├── src/main/
+│   │   ├── java/com/neochildclinic/
+│   │   │   ├── app/                     # App entry point, MainActivity, NavHost, sealed Routes
+│   │   │   ├── core/                    # Shared infrastructure (di, sync, cache, security, ui)
+│   │   │   ├── data/                    # Room DB (v33), 21 DAOs, 21 entities, remote sources, backup
+│   │   │   ├── domain/model/            # 33 Pure Kotlin business domain models (no Android imports)
+│   │   │   └── feature/<name>/          # 20 Self-contained business features (patient, inventory, etc.)
+│   │   ├── res/                         # Android drawables, colors, strings, themes, widget XML
+│   │   └── AndroidManifest.xml          # Component declarations, permissions, auth deep links
+│   ├── src/test/java/                   # 344 JVM-based unit tests
+│   ├── src/androidTest/java/            # Android instrumentation tests (Room migrations, DAOs)
+│   ├── schemas/                         # Room database version schema JSONs (v33)
+│   └── build.gradle.kts                 # Application build script and dependency configurations
 │
-├── Use Cases
-├── Domain Models
-└── Repository Interfaces
-      │
-      ▼
-Data
+├── supabase/                            # Supabase cloud backend
+│   ├── migrations/                      # Tracked SQL schema, trigger arithmetic, & RLS migrations
+│   ├── functions/                       # Deno Edge Functions (manage-staff, notify-update)
+│   ├── tests/                           # SQL regression tests (e.g., stock_trigger_arithmetic.sql)
+│   └── config.toml                      # Local Supabase CLI configuration
 │
-├── Repositories
-├── Room / SQLCipher
-├── Sync Manager
-└── Supabase
-      │
-      ├── PostgreSQL
-      ├── Auth
-      ├── Realtime
-      └── Storage
+├── cloudflare/                          # Cloudflare edge infrastructure
+│   └── backup-worker/                   # TypeScript Cloudflare Worker for R2 cloud backups & Vitest suite
+│
+├── design/                              # Design assets and design system
+│   ├── design-system/                   # Design system documentation & contrast checkers
+│   └── assets/screenshots/              # Full-resolution application screenshots
+│
+├── docs/                                # Documentation and Knowledge Base
+│   ├── getting-started/                 # Onboarding, environment setup, and quickstart guides
+│   ├── architecture/                    # System architecture, sync models, placement guides
+│   ├── features/                        # Business feature specifications and matrices
+│   ├── database/                        # Database schema, relationships, and indexing documentation
+│   ├── operations/                      # Backup, restore, release, and deployment runbooks
+│   ├── quality/                         # Security audits, bug audits, and compliance registers
+│   └── Knowledge_Base/                  # Linked Obsidian vault with 66 interconnected notes
+│
+├── scripts/                             # Repository tooling & verification scripts
+│   ├── validate_docs.py                 # Strict documentation and citation validator
+│   └── test_validate_docs.py            # Regression test suite for documentation validation
+│
+├── .github/                             # GitHub Actions CI/CD workflows
+├── README.md                            # Primary project overview and navigation guide
+├── ARCHITECTURE.md                      # High-level architecture summary
+├── CONTRIBUTING.md                      # Developer contribution workflow
+└── SECURITY.md                          # Vulnerability reporting policy
 ```
-
-Background tasks such as synchronization and reminders are handled using WorkManager.
 
 ---
 
+## ⚡ Quick Start for Developers
 
-## Backend & Configuration
+```bash
+# 1. Clone the repository
+git clone https://github.com/CyferBoy/Neo_Child_Clinic.git
+cd Neo_Child_Clinic
 
-### Backend
+# 2. Configure credentials in .env.local
+cat << 'EOF' > .env.local
+SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_ANON_KEY
+BACKUP_WORKER_URL=https://YOUR_BACKUP_WORKER.workers.dev
+EOF
 
-Supabase is used for:
+# 3. Build debug APK
+./gradlew assembleDebug
 
-- Authentication
-- PostgreSQL database
-- Row Level Security
-- Realtime
-- Storage
-- Edge Functions
+# 4. Run unit tests (344 tests)
+./gradlew testDebugUnitTest
 
-The project includes Edge Functions for privileged staff management and application-release notifications.
-
-### Configuration & Secrets
-
-Required application configuration:
-
-```
-SUPABASE_URL
-SUPABASE_PUBLISHABLE_KEY
-```
-
-Firebase configuration is required for notification functionality.
-
-Never commit:
-
-- Supabase service-role keys.
-- Firebase service-account credentials.
-- Private signing keys.
-- Production secrets.
-- Other sensitive credentials.
-
-The Supabase publishable key is a client-side key and should not be treated as a server secret. Backend access must be protected using authentication and RLS.
-
-### Database
-
-The application uses:
-
-- Room + SQLCipher for encrypted local storage.
-- Supabase PostgreSQL for cloud storage.
-- Room migrations for supported local database upgrades.
-- Supabase migrations for backend schema and security changes.
-
-Current Room database version:
-
-```
-30
+# 5. Run documentation validation
+python3 scripts/validate_docs.py --strict
 ```
 
-Supabase migrations are stored in:
-
-```
-supabase/migrations/
-```
-
-## Security & Privacy
-
-If you discover a security vulnerability, please follow the instructions in [SECURITY.md](SECURITY.md). Do not publicly disclose security vulnerabilities before they have been reviewed.
-
-The application may handle sensitive clinic information including patient, vaccination, consultation, financial, and staff data.
-
-Production deployments should properly configure:
-
-- Supabase RLS.
-- Storage policies.
-- Authentication.
-- Edge Function secrets.
-- Staff permissions.
-- Database backup and recovery.
-
-The application provides local database encryption and application security features, but secure deployment also depends on correct backend configuration.
+See [docs/getting-started/onboarding.md](docs/getting-started/onboarding.md) for full setup instructions.
 
 ---
 
-## Contributing
+## 🔒 Security & Privacy
 
-Contributions, bug reports, and suggestions are welcome.
-
-Before submitting changes:
-
-1. Check existing issues and pull requests.
-2. Keep changes focused and documented.
-3. Run unit tests.
-4. Run lint checks.
-5. Verify database changes include the required migrations.
-6. Test synchronization-related changes carefully.
-7. Do not commit secrets or production credentials.
+This application handles sensitive medical, immunization, and financial data for children.
+- Never commit credentials, signing keystores (`*.jks`), service-role keys, or `google-services.json`.
+- Cloud access is strictly governed by Supabase Row Level Security (RLS) policies checking active staff credentials.
+- Report any security vulnerabilities privately by following our [Security Policy](SECURITY.md).
 
 ---
 
-## Getting Started
+## 📄 License
 
-Want to set up the project locally?
-
-<a href="docs/GETTING_STARTED.md" target="_blank">🚀 Open the Getting Started Guide</a>
-
-The separate guide contains the complete setup instructions for Android Studio, JDK/SDK, Supabase, Firebase, local environment configuration, Edge Functions, building, testing, and initial clinic setup.
-
-## Support
-
-For application support:
-
-neochildclinic.sbg@gmail.com
-
----
-
-## License
-
-This project is licensed under the Apache License, Version 2.0.
-
-See [LICENSE](LICENSE) for the complete license.
-
----
-
-## Disclaimer
-
-Neo Child Clinic - Vaccine Manager is clinic-management software and does not replace professional medical judgment.
-
-Clinic administrators are responsible for:
-
-- Correct patient data entry.
-- Correct vaccination schedules.
-- Appropriate staff permissions.
-- Data protection.
-- Backup and recovery.
-- Compliance with applicable healthcare and privacy requirements.
-
-Always verify clinical and financial information before relying on it for patient care or accounting.
-
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/CyferBoy/Neo_Child_Clinic?utm_source=oss&utm_medium=github&utm_campaign=CyferBoy%2FNeo_Child_Clinic&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+This project is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

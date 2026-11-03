@@ -184,7 +184,7 @@ Two entries formerly in this table have since been fixed and are kept for histor
 `InventoryRepositoryImpl.addStockBatch` now wraps its whole validation/write loop in
 `transactionRunner.run` (`:250`, NCC-018), and the `AddVaccinationViewModel` reminder loop is
 gone — reminders are passed into `recordVaccination` as `reminderSpecs` and written inside its
-transaction (`AddVaccinationViewModel.kt:685-695`, NCC-004).
+transaction (`AddVaccinationViewModel.kt:660-675`, NCC-004).
 
 ## Confirmed findings
 

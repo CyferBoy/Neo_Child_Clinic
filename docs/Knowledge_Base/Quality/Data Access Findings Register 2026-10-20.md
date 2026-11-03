@@ -180,7 +180,7 @@
   all call sites use `deductStockFromBatch`, verified by grep). Carries its own expired-batch
   prefilter — i.e. two divergent logic paths for the same task.
 - `VaccineDao.getAuditCountForVaccine` / `getAuditCountExcludingCreation` — zero callers
-  (`app/src/main/java/com/neochildclinic/data/local/dao/VaccineDao.kt:147-151`); they are also the
+  (`app/src/main/java/com/neochildclinic/data/local/dao/VaccineDao.kt:140-147`); they are also the
   unbounded `audit_logs` LIKE scans called out under DA-10, and their index requirement is the
   (differing) basis of NCC-030.
 - **Resolution (2026-10-25)**: both groups are gone. `VaccineDao.getAuditCount*` was deleted

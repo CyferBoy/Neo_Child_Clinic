@@ -1,4 +1,4 @@
-package com.neochildclinic.feature.profile.domain.repository
+package com.neochildclinic.feature.auth.domain.repository
 
 interface DeviceRepository {
     suspend fun registerCurrentDevice()

@@ -74,7 +74,7 @@ same branch as `InsufficientStockException`.
 
 ### 1.3 ✅ A reminder failure after commit causes a duplicate visit on retry
 
-`AddVaccinationViewModel.kt:685-698` commits the visit in `recordVaccination`'s transaction,
+`AddVaccinationViewModel.kt:660-675` commits the visit in `recordVaccination`'s transaction,
 **then** writes reminders outside it:
 
 ```kotlin

@@ -98,7 +98,7 @@ viewModelScope.launch {
 
 | Shape | Where |
 |---|---|
-| `private data class RefreshState<A,B,C,D,E>` | `PatientListViewModel.kt:221` |
+| `private data class RefreshState<A,B,C,D,E>` | `PatientListViewModel.kt:215` |
 | `private data class Quad<A,B,C,D>` | `VaccineInventoryViewModel.kt:111` |
 | raw `values[0] as List<T>` casts | `BorrowedViewModel.kt:96`, `PersonalReminderViewModel.kt:67`, `StatisticsViewModel.kt:74`, `FullReportViewModel.kt:82`, `CompletedDismissedViewModel.kt:36` |
 

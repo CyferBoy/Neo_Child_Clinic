@@ -11,9 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.LocalCustomColors
-import com.neochildclinic.core.ui.AvailableSlotDropdown
-import com.neochildclinic.core.ui.DoctorDropdown
-import com.neochildclinic.core.ui.SlotsUiState
+import com.neochildclinic.feature.doctor.presentation.AvailableSlotDropdown
+import com.neochildclinic.feature.doctor.presentation.DoctorDropdown
+import com.neochildclinic.feature.doctor.presentation.SlotsUiState
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
 import com.neochildclinic.domain.model.ConsultationTodo

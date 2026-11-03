@@ -31,7 +31,7 @@ flowchart TD
     ENG --> E5[ReminderRepository.saveNextVaccination]
 ```
 
-`AddVaccinationViewModel.kt:673-696` is the dispatch. `saveVaccination` spans `:485-703` —
+`AddVaccinationViewModel.kt:660-675` is the dispatch. `saveVaccination` spans `:545-680` —
 **219 lines** mixing validation, scheduling, item building, reminder transform and dispatch.
 
 ## The create transaction — 9 tables

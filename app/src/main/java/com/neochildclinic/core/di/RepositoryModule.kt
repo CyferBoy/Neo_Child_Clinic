@@ -23,7 +23,7 @@ import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
 import com.neochildclinic.feature.settings.domain.repository.BackupRepository
 import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
 import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
-import com.neochildclinic.feature.profile.domain.repository.DeviceRepository
+import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
 import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository

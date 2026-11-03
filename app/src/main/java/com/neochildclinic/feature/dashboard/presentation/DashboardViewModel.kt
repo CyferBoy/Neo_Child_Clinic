@@ -22,8 +22,8 @@ import com.neochildclinic.core.common.PatientUtils
 import java.util.Calendar
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
-import com.neochildclinic.core.ui.SlotsUiState
-import com.neochildclinic.core.ui.loadUiState
+import com.neochildclinic.feature.doctor.presentation.SlotsUiState
+import com.neochildclinic.feature.doctor.presentation.loadUiState
 import com.neochildclinic.core.sync.RealtimeChangeSubscriptions
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo

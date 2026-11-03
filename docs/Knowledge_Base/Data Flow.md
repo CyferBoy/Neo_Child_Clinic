@@ -63,7 +63,7 @@ Two writes that used to escape the transaction are now inside it — kept for hi
 
 | Location | What changed |
 |---|---|
-| `AddVaccinationViewModel.kt:685-695` | reminder loop removed; reminders pass into `recordVaccination` as `reminderSpecs` (NCC-004) |
+| `AddVaccinationViewModel.kt:660-675` | reminder loop removed; reminders pass into `recordVaccination` as `reminderSpecs` (NCC-004) |
 | `InventoryRepositoryImpl.addStockBatch` (`:250`) | batch loop now wrapped in `transactionRunner.run` (NCC-018) |
 
 Both are in [[Known Bugs]].

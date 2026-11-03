@@ -1,5 +1,9 @@
 # Synchronization model
 
+> [!NOTE]
+> This document is also available in structured form in the architecture documentation directory:
+> 👉 **[Offline-First Synchronization Architecture](architecture/offline-first-sync.md)**
+
 How Neo Child Clinic keeps Room and Supabase consistent. Read this before changing any
 refresh, queue, or Realtime code. Updated for the offline-first audit (Oct 2026).
 

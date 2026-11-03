@@ -28,7 +28,7 @@ import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
 import com.neochildclinic.core.ui.SkeletonCard
 import com.neochildclinic.core.ui.AppPullToRefresh
-import com.neochildclinic.feature.dashboard.presentation.component.AppDrawer
+import com.neochildclinic.app.AppDrawer
 import com.neochildclinic.app.Routes
 import com.neochildclinic.core.designsystem.LocalCustomColors
 import kotlinx.coroutines.launch

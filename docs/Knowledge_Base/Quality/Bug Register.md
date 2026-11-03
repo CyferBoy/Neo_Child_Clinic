@@ -260,7 +260,7 @@ where tgrelid = 'public.inventory_transactions'::regclass and not tgisinternal;
 | | |
 |---|---|
 | **Status** | ✅ Fixed 2026-10-18 · **Severity** S1 Critical |
-| **Files** | `feature/vaccination/presentation/AddVaccinationViewModel.kt:685-698`, `:554`; `feature/vaccination/domain/EditReconciler.kt:50-53`; `data/local/dao/VaccinationItemDao.kt:12-13` |
+| **Files** | `feature/vaccination/presentation/AddVaccinationViewModel.kt:660-675`, `:554`; `feature/vaccination/domain/EditReconciler.kt:50-53`; `data/local/dao/VaccinationItemDao.kt:12-13` |
 | **Impact** | Retry produces a second visit, re-points the first's item row, and deducts stock twice. |
 
 **Evidence.** `recordVaccination` commits the visit **and its stock deduction**, then the
