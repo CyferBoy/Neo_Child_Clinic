@@ -43,9 +43,12 @@ object BiometricAuthenticator {
         subtitle: String,
         onVerified: () -> Unit
     ) {
-        val authenticators =
+        val authenticators = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
 
         when (BiometricManager.from(activity).canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
@@ -86,11 +89,16 @@ object BiometricAuthenticator {
                     }
                 )
 
-                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                val promptBuilder = BiometricPrompt.PromptInfo.Builder()
                     .setTitle(title)
                     .setSubtitle(subtitle)
                     .setAllowedAuthenticators(authenticators)
-                    .build()
+
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                    promptBuilder.setNegativeButtonText("Cancel")
+                }
+
+                val promptInfo = promptBuilder.build()
 
                 prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
             }

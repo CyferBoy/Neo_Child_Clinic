@@ -55,6 +55,11 @@ data class DashboardUiState(
     val todayVaccinations: List<VaccinationTodo> = emptyList(),
     val visitedConsultations: List<ConsultationTodo> = emptyList(),
     val visitedVaccinations: List<VaccinationTodo> = emptyList(),
+    // Count totals for segment labels (date-dependent, slot-filter-aware)
+    val consultationCount: Int = 0,
+    val vaccinationCount: Int = 0,
+    val newConsultCount: Int = 0,
+    val followUpConsultCount: Int = 0,
     val datesWithData: Set<String> = emptySet(),
     val patients: List<Patient> = emptyList(),
     val allDoctors: List<Profile> = emptyList(),
@@ -65,6 +70,9 @@ data class DashboardUiState(
     val currentMonthRevenue: Double = 0.0,
     val revenueGrowthPercent: Double? = null
 )
+
+/** Consultation sub-tab: ALL shows both, NEW/FOLLOW_UP filter the list. */
+enum class ConsultSubTab { ALL, NEW, FOLLOW_UP }
 
 data class DashboardStats(
     val patientCount: Int,
@@ -88,7 +96,8 @@ data class TodoBundle(
     val todayVaccinations: List<VaccinationTodo>,
     val visitedConsultations: List<ConsultationTodo>,
     val visitedVaccinations: List<VaccinationTodo>,
-    val slots: SlotFilterState
+    val slots: SlotFilterState,
+    val date: String = ""
 )
 
 data class SlotFilterState(
@@ -96,6 +105,46 @@ data class SlotFilterState(
     val ranges: Map<String, TimeRange> = emptyMap(),
     val effectiveKey: String? = null
 )
+
+internal data class TodayPatientCounts(
+    val consultationCount: Int = 0,
+    val vaccinationCount: Int = 0,
+    val newCount: Int = 0,
+    val followUpCount: Int = 0
+)
+
+internal fun parseDateSafely(dateStr: String, fallback: LocalDate = LocalDate.now(StatisticsDateUtils.IST)): LocalDate {
+    return runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: fallback
+}
+
+internal fun isDateTodayOrFuture(dateStr: String, today: LocalDate = LocalDate.now(StatisticsDateUtils.IST)): Boolean {
+    val parsed = parseDateSafely(dateStr, today)
+    return !parsed.isBefore(today)
+}
+
+internal fun calculateTodayPatientCounts(
+    pendingConsult: List<ConsultationTodo>,
+    visitedConsult: List<ConsultationTodo>,
+    pendingVacc: List<VaccinationTodo>,
+    visitedVacc: List<VaccinationTodo>,
+    selectedDate: String = "",
+    todayDate: LocalDate = LocalDate.now(StatisticsDateUtils.IST)
+): TodayPatientCounts {
+    val effectiveConsults = pendingConsult + visitedConsult
+    val effectiveVaccs = pendingVacc + visitedVacc
+
+    val newCount = effectiveConsults.count { it.visitType == "NEW" || it.visitType.isBlank() }
+    val followUpCount = effectiveConsults.count { it.visitType == "FOLLOW_UP" }
+    val consultCount = newCount + followUpCount
+    val vaccCount = effectiveVaccs.size
+
+    return TodayPatientCounts(
+        consultationCount = consultCount,
+        vaccinationCount = vaccCount,
+        newCount = newCount,
+        followUpCount = followUpCount
+    )
+}
 
 /** Orchestrates Dashboard data using unified data streams. */
 @HiltViewModel
@@ -294,7 +343,7 @@ class DashboardViewModel @Inject constructor(
                 patientTodoRepository.getConsultationsByDateAndStatus(date, "COMPLETED"),
                 patientTodoRepository.getVaccinationsByDateAndStatus(date, "COMPLETED")
             ) { pCons, pVacc, cCons, cVacc ->
-                TodoBundle(pCons, pVacc, cCons, cVacc, SlotFilterState())
+                TodoBundle(pCons, pVacc, cCons, cVacc, SlotFilterState(), date)
             }.flatMapLatest { bundle ->
                 combine(_allDoctors, _selectedSlotKey) { doctors, key -> doctors to key }
                     .flatMapLatest { (doctors, selectedKey) ->
@@ -326,6 +375,20 @@ class DashboardViewModel @Inject constructor(
         val slots = bundle.slots
         fun pass(slotId: String?): Boolean =
             TodaySlotFilter.passes(slots.effectiveKey, slots.ranges, slotId)
+        val pendingConsult = bundle.todayConsultations.filter { pass(it.availabilitySlotId) }
+        val visitedConsult = bundle.visitedConsultations.filter { pass(it.availabilitySlotId) }
+        val pendingVacc = bundle.todayVaccinations.filter { pass(it.availabilitySlotId) }
+        val visitedVacc = bundle.visitedVaccinations.filter { pass(it.availabilitySlotId) }
+        // Counts for segment labels:
+        // Rule 1: Consultation count must equal New + Follow-up.
+        // Today shows registered/scheduled (PENDING + COMPLETED). Previous dates show actual completed visits.
+        val counts = calculateTodayPatientCounts(
+            pendingConsult = pendingConsult,
+            visitedConsult = visitedConsult,
+            pendingVacc = pendingVacc,
+            visitedVacc = visitedVacc,
+            selectedDate = bundle.date
+        )
         DashboardUiState(
             errorMessage = refreshError,
             patientCount = stats.patientCount,
@@ -339,10 +402,14 @@ class DashboardViewModel @Inject constructor(
             syncState = sync.first,
             isOnline = sync.third,
             pendingSyncCount = sync.second,
-            todayConsultations = bundle.todayConsultations.filter { pass(it.availabilitySlotId) },
-            todayVaccinations = bundle.todayVaccinations.filter { pass(it.availabilitySlotId) },
-            visitedConsultations = bundle.visitedConsultations.filter { pass(it.availabilitySlotId) },
-            visitedVaccinations = bundle.visitedVaccinations.filter { pass(it.availabilitySlotId) },
+            todayConsultations = pendingConsult,
+            todayVaccinations = pendingVacc,
+            visitedConsultations = visitedConsult,
+            visitedVaccinations = visitedVacc,
+            consultationCount = counts.consultationCount,
+            vaccinationCount = counts.vaccinationCount,
+            newConsultCount = counts.newCount,
+            followUpConsultCount = counts.followUpCount,
             datesWithData = extra.datesWithData,
             patients = extra.patients,
             allDoctors = extra.allDoctors,
@@ -390,7 +457,8 @@ class DashboardViewModel @Inject constructor(
         address: String,
         doctorId: String? = null,
         doctorName: String? = null,
-        availabilitySlotId: String? = null
+        availabilitySlotId: String? = null,
+        visitType: String = ""
     ) {
         viewModelScope.launch {
             val todo = ConsultationTodo(
@@ -402,7 +470,8 @@ class DashboardViewModel @Inject constructor(
                 todoDate = _selectedDate.value,
                 doctorId = doctorId,
                 doctorName = doctorName,
-                availabilitySlotId = availabilitySlotId
+                availabilitySlotId = availabilitySlotId,
+                visitType = visitType
             )
             patientTodoRepository.addConsultation(todo)
         }

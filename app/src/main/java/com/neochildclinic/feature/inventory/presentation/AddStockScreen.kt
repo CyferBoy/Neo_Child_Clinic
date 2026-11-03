@@ -156,13 +156,13 @@ fun AddStockScreen(
                                 color = Color(0xFF14201F)
                             )
                             Text(
-                                text = "Stock value ₹${String.format(java.util.Locale.ENGLISH, "%,.0f", totalNetValue)} at net rate",
+                                text = "Stock value ${com.neochildclinic.core.common.CurrencyUtils.formatInr(totalNetValue)} at net rate",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF5F6D68)
                             )
                         }
                         Text(
-                            text = "₹${String.format(java.util.Locale.ENGLISH, "%,.0f", totalNetValue)}",
+                            text = com.neochildclinic.core.common.CurrencyUtils.formatInr(totalNetValue),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF14201F)
                         )

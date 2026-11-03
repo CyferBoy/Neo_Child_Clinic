@@ -109,11 +109,12 @@ internal fun EnhancedAddTodoDialog(
     type: TodayPatientTab,
     patients: List<Patient>,
     initialItem: Any? = null,
+    defaultVisitType: String = "NEW",
     allDoctors: List<Profile>,
     slotsState: SlotsUiState,
     onDoctorSelected: (String) -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, mobile: String, address: String, vaccineNames: String, patientId: String?, doctorId: String?, doctorName: String?, slotId: String?) -> Unit
+    onConfirm: (name: String, mobile: String, address: String, vaccineNames: String, patientId: String?, doctorId: String?, doctorName: String?, slotId: String?, visitType: String) -> Unit
 ) {
     var name by rememberSaveable {
         mutableStateOf(
@@ -170,6 +171,15 @@ internal fun EnhancedAddTodoDialog(
         mutableStateOf(allDoctors.firstOrNull { it.id == initialDoctorId })
     }
     var selectedSlot by remember { mutableStateOf<AvailableSlot?>(null) }
+    // visitType selection: pre-filled from sub-tab or existing item; only shown for Consultation
+    var visitType by rememberSaveable {
+        mutableStateOf(
+            when (initialItem) {
+                is ConsultationTodo -> initialItem.visitType.ifBlank { defaultVisitType }
+                else -> defaultVisitType
+            }
+        )
+    }
 
     // Preselect the previously saved slot once availability has loaded for this doctor.
     LaunchedEffect(slotsState, initialItem) {
@@ -264,6 +274,27 @@ internal fun EnhancedAddTodoDialog(
                     )
                 }
 
+                // Visit type picker: only shown for Consultation
+                if (type == TodayPatientTab.CONSULTATION) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        FilterChip(
+                            selected = visitType == "NEW" || visitType.isBlank(),
+                            onClick = { visitType = "NEW" },
+                            label = { Text("New") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = visitType == "FOLLOW_UP",
+                            onClick = { visitType = "FOLLOW_UP" },
+                            label = { Text("Follow-up") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
                 DoctorDropdown(
                     doctors = allDoctors,
                     selectedDoctor = selectedDoctor,
@@ -289,7 +320,8 @@ internal fun EnhancedAddTodoDialog(
                 onClick = {
                     onConfirm(
                         name, mobile, address, vaccineNames, selectedPatientId,
-                        selectedDoctor?.id, selectedDoctor?.displayName, selectedSlot?.weeklySlotId
+                        selectedDoctor?.id, selectedDoctor?.displayName, selectedSlot?.weeklySlotId,
+                        if (type == TodayPatientTab.CONSULTATION) visitType.ifBlank { "NEW" } else ""
                     )
                 }
             ) {

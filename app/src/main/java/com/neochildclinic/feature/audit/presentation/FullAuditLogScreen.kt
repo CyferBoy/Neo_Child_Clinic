@@ -364,7 +364,7 @@ private fun getModuleVisuals(module: String, action: String): ModuleVisual {
 
 /** Helper to group audit logs by human-readable Date (e.g. "27 October 2026") like StockHistory */
 private fun groupLogsByDate(logs: List<AuditLog>): Map<String, List<AuditLog>> {
-    val dateFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US)
+    val dateFormatter = com.neochildclinic.core.common.DateUtils.FULL_DATE_FORMATTER
     val map = linkedMapOf<String, MutableList<AuditLog>>()
 
     for (log in logs) {
@@ -391,7 +391,7 @@ private fun groupLogsByDate(logs: List<AuditLog>): Map<String, List<AuditLog>> {
 
 /** Helper to format time only (e.g. "09:36 AM") */
 private fun formatTimeOnly(isoTimestamp: String): String {
-    val timeFormatter = DateTimeFormatter.ofPattern("hh:mm a", Locale.US)
+    val timeFormatter = com.neochildclinic.core.common.DateUtils.TIME_12H_FORMATTER
     return runCatching {
         val instant = Instant.parse(isoTimestamp)
         instant.atZone(ZoneId.of("Asia/Kolkata")).format(timeFormatter)

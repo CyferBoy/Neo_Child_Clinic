@@ -10,6 +10,10 @@ interface PatientTodoDao {
     @Query("SELECT * FROM consultation_todos WHERE todo_date = :date AND status = :status ORDER BY name COLLATE NOCASE")
     fun getConsultationsByDateAndStatus(date: String, status: String): Flow<List<ConsultationTodoEntity>>
 
+    /** Filters by date, status, and visitType. Pass empty string to match unset/legacy rows too. */
+    @Query("SELECT * FROM consultation_todos WHERE todo_date = :date AND status = :status AND visit_type = :visitType ORDER BY name COLLATE NOCASE")
+    fun getConsultationsByDateStatusAndType(date: String, status: String, visitType: String): Flow<List<ConsultationTodoEntity>>
+
     @Query("SELECT * FROM vaccination_todos WHERE todo_date = :date AND status = :status ORDER BY name COLLATE NOCASE")
     fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodoEntity>>
 

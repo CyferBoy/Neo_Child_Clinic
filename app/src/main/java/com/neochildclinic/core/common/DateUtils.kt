@@ -44,6 +44,12 @@ object DateUtils {
     val APP_DATE_FORMATTER: DateTimeFormatter =
         DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
 
+    val FULL_DATE_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US)
+
+    val TIME_12H_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("hh:mm a", Locale.US)
+
     /**
      * Returns today's calendar date in IST formatted with the standard display format (Constants.DATE_FORMAT).
      */
@@ -228,13 +234,11 @@ object DateUtils {
     /**
      * Removes parentheses from vaccine names if they exist (e.g., "Hepatitis B (HepB)" -> "HepB").
      */
-    fun cleanVaccineName(name: String): String {
-        return if (name.contains("(") && name.endsWith(")")) {
-            name.substringAfter("(").substringBeforeLast(")").trim()
-        } else {
-            name
-        }
-    }
+    @Deprecated(
+        message = "Moved to PatientUtils for domain cohesion",
+        replaceWith = ReplaceWith("PatientUtils.cleanVaccineName(name)", "com.neochildclinic.core.common.PatientUtils")
+    )
+    fun cleanVaccineName(name: String): String = PatientUtils.cleanVaccineName(name)
 
     /**
      * Unified Logic: Filters pending vaccinations based on a string filter (e.g., "Overdue", "Today").

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface PatientTodoRepository {
     fun getConsultationsByDateAndStatus(date: String, status: String): Flow<List<ConsultationTodo>>
+    fun getConsultationsByDateStatusAndType(date: String, status: String, visitType: String): Flow<List<ConsultationTodo>>
     fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodo>>
     fun getDatesWithData(start: String, end: String): Flow<List<String>>
     suspend fun updateStatus(type: String, id: String, status: String)

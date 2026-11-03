@@ -10,6 +10,7 @@ import com.neochildclinic.domain.model.InventoryTransaction
 import com.neochildclinic.domain.model.StockHistoryTypeFilter
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import javax.inject.Inject
 
 private const val PAGE_SIZE = 40
@@ -32,6 +31,7 @@ data class StockHistoryUiState(
     // names without a second lookup query per row.
     val batchLabelById: Map<String, String> = emptyMap(),
     val vaccineLabelById: Map<String, String> = emptyMap(),
+    val patientLabelById: Map<String, String> = emptyMap(),
     val selectedVaccineId: String? = null,
     val selectedBatchId: String? = null,
     val selectedTypeFilter: StockHistoryTypeFilter = StockHistoryTypeFilter.ALL,
@@ -49,7 +49,8 @@ data class StockHistoryUiState(
 
 @HiltViewModel
 class StockHistoryViewModel @Inject constructor(
-    private val inventoryRepository: InventoryRepository
+    private val inventoryRepository: InventoryRepository,
+    private val patientRepository: PatientRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockHistoryUiState())
@@ -68,6 +69,12 @@ class StockHistoryViewModel @Inject constructor(
                         it.copy(vaccines = items, batchLabelById = batchLabels, vaccineLabelById = vaccineLabels)
                     }
                 }
+        }
+        viewModelScope.launch {
+            patientRepository.allPatients.collect { patients ->
+                val patientLabels = patients.associate { it.id to it.name }
+                _uiState.update { it.copy(patientLabelById = patientLabels) }
+            }
         }
         loadPage(reset = true)
     }

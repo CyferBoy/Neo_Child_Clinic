@@ -50,7 +50,15 @@ object PatientUtils {
 
     fun isoToLong(dateStr: String?): Long = DateUtils.isoToLong(dateStr)
 
-    fun cleanVaccineName(name: String): String = DateUtils.cleanVaccineName(name)
+    /**
+     * Removes parentheses from vaccine names if they exist (e.g., "Hepatitis B (HepB)" -> "HepB").
+     */
+    fun cleanVaccineName(name: String): String =
+        if (name.contains("(") && name.endsWith(")")) {
+            name.substringAfter("(").substringBeforeLast(")").trim()
+        } else {
+            name
+        }
 
     fun filterVaccinationsByPeriod(
         pendingVaccinations: List<Vaccination>,

@@ -36,7 +36,9 @@ data class ConsultationTodoEntity(
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
+    // "NEW" or "FOLLOW_UP"; empty string = unset/legacy (migration 33→34 default).
+    @SerialName("visit_type") @ColumnInfo(name = "visit_type", defaultValue = "") val visitType: String = ""
 )
 
 @Serializable
@@ -77,7 +79,8 @@ fun ConsultationTodoEntity.toDomain() = ConsultationTodo(
     status = status,
     doctorId = doctorId,
     doctorName = doctorName,
-    availabilitySlotId = availabilitySlotId
+    availabilitySlotId = availabilitySlotId,
+    visitType = visitType
 )
 
 fun VaccinationTodoEntity.toDomain() = VaccinationTodo(
@@ -110,6 +113,7 @@ fun ConsultationTodo.toEntity() = ConsultationTodoEntity(
     isSynced = false,
     createdBy = null,
     updatedBy = null,
+    visitType = visitType
 )
 
 fun VaccinationTodo.toEntity() = VaccinationTodoEntity(

@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -33,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.designsystem.Spacing
 import com.neochildclinic.domain.model.ConsultationTodo
 import com.neochildclinic.domain.model.VaccinationTodo
-
 import com.neochildclinic.domain.model.TimeRange
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -48,7 +46,10 @@ internal fun TodayPatientItem(
     onEdit: () -> Unit
 ) {
     val context = LocalContext.current
+    // Long-press menu: Edit / Delete (existing behaviour)
     var menuExpanded by remember { mutableStateOf(false) }
+    // Status-change confirmation dialog (requirement: long press initiates status change)
+    var showStatusDialog by remember { mutableStateOf(false) }
 
     val status = when (item) {
         is ConsultationTodo -> item.status
@@ -81,29 +82,13 @@ internal fun TodayPatientItem(
         else -> ""
     }
 
-    // Doctor availability slot timing (e.g. "10:00 - 10:15 AM") or parsed time if available
-    val timeSlotText = remember(item, slotRange) {
-        if (slotRange != null) {
-            slotRange.label()
-        } else {
-            val dateStr = when (item) {
-                is ConsultationTodo -> item.todoDate
-                is VaccinationTodo -> item.todoDate
-                else -> ""
-            }
-            val timeRegex = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
-            val match = timeRegex.find(dateStr)
-            match?.value ?: "--:--"
-        }
-    }
-
     // Soft palette for avatar container based on name hash
     val avatarContainers = listOf(
-        Color(0xFFDCF4E4) to Color(0xFF054F31), // Sage Green
-        Color(0xFFDCE9F8) to Color(0xFF0A2F52), // Harbor Blue
-        Color(0xFFF8E4D7) to Color(0xFF5B2A12), // Terracotta
-        Color(0xFFF0EAFB) to Color(0xFF3F2482), // Soft Purple
-        Color(0xFFFFF0C9) to Color(0xFF563400)  // Soft Amber
+        Color(0xFFDCF4E4) to Color(0xFF054F31),
+        Color(0xFFDCE9F8) to Color(0xFF0A2F52),
+        Color(0xFFF8E4D7) to Color(0xFF5B2A12),
+        Color(0xFFF0EAFB) to Color(0xFF3F2482),
+        Color(0xFFFFF0C9) to Color(0xFF563400)
     )
     val colorPair = remember(nameLine) {
         val hash = kotlin.math.abs(nameLine.hashCode())
@@ -123,8 +108,10 @@ internal fun TodayPatientItem(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = onStatusToggle,
-                onLongClick = { menuExpanded = true }
+                // Single tap: no status change — preserves existing navigation behaviour
+                onClick = {},
+                // Long press: open status-change dialog (per requirement)
+                onLongClick = { showStatusDialog = true }
             ),
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(
@@ -142,25 +129,17 @@ internal fun TodayPatientItem(
                 .padding(horizontal = Spacing.card, vertical = Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left Time Slot Column
+            // Left column: serial/queue number only (time slot removed per requirement)
             Column(
-                modifier = Modifier.widthIn(min = 48.dp, max = 80.dp),
+                modifier = Modifier.widthIn(min = 32.dp, max = 48.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = timeSlotText,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = "#$index",
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    maxLines = 2,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    fontSize = if (timeSlotText.length > 5) 11.sp else 12.sp
-                )
-                Text(
-                    text = "#$index",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    fontSize = 10.sp
+                    fontSize = 14.sp
                 )
             }
 
@@ -227,8 +206,7 @@ internal fun TodayPatientItem(
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isCompleted) Color(0xFFDCF4E4) else Color(0xFFFFF0C9),
-                    modifier = Modifier.clickable { onStatusToggle() }
+                    color = if (isCompleted) Color(0xFFDCF4E4) else Color(0xFFFFF0C9)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
@@ -268,6 +246,7 @@ internal fun TodayPatientItem(
                 }
             }
 
+            // Long-press context menu: Edit / Delete
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
                     text = { Text("Edit") },
@@ -287,5 +266,41 @@ internal fun TodayPatientItem(
                 )
             }
         }
+    }
+
+    // Status-change dialog shown on long press (Edit/Delete dropdown is separate)
+    if (showStatusDialog) {
+        val targetStatus = if (isCompleted) "Waiting" else "Visited"
+        AlertDialog(
+            onDismissRequest = { showStatusDialog = false },
+            shape = RoundedCornerShape(20.dp),
+            title = { Text("Change Status", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Mark $nameLine as $targetStatus?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showStatusDialog = false
+                    onStatusToggle()
+                }) { Text("Mark $targetStatus") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStatusDialog = false }) { Text("Cancel") }
+            },
+            // Also show Edit/Delete options for power users
+            icon = {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    IconButton(onClick = { showStatusDialog = false; onEdit() }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    }
+                    IconButton(onClick = { showStatusDialog = false; onDelete() }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        )
     }
 }

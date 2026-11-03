@@ -1,5 +1,6 @@
 package com.neochildclinic.domain.model
 
+/** visitType: "NEW" for first consultation, "FOLLOW_UP" for return visits, empty = unset (legacy). */
 data class ConsultationTodo(
     val id: String,
     val patientId: String? = null,
@@ -10,7 +11,8 @@ data class ConsultationTodo(
     val status: String = "PENDING",
     val doctorId: String? = null,
     val doctorName: String? = null,
-    val availabilitySlotId: String? = null
+    val availabilitySlotId: String? = null,
+    val visitType: String = ""
 )
 
 data class VaccinationTodo(

@@ -24,6 +24,7 @@ import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
+import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.Profile
@@ -50,22 +51,16 @@ fun StaffDetailsScreen(
     ShowSnackbar(uiState.error, snackbarHostState) { viewModel.clearMessages() }
 
     if (showDeleteDialog && staff != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            shape = RoundedCornerShape(24.dp),
-            title = { Text("Delete Staff") },
-            text = { Text("Are you sure you want to delete ${staff.displayName}? This action cannot be undone.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteStaff(staff.id)
-                        showDeleteDialog = false
-                        onBack()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete") }
+        DeleteConfirmationDialog(
+            show = true,
+            onDismiss = { showDeleteDialog = false },
+            onConfirm = {
+                viewModel.deleteStaff(staff.id)
+                showDeleteDialog = false
+                onBack()
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") } }
+            title = "Delete Staff",
+            message = "Are you sure you want to delete ${staff.displayName}? This action cannot be undone."
         )
     }
 

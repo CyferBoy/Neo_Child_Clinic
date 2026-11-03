@@ -21,9 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -42,8 +40,6 @@ import com.neochildclinic.domain.model.displayLabel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,7 +95,7 @@ fun StockHistoryScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
             }
         ) { padding ->
@@ -190,7 +186,8 @@ fun StockHistoryScreen(
                                     StockHistoryCard(
                                         transaction = transaction,
                                         vaccineName = uiState.vaccineLabelById[transaction.vaccineId] ?: transaction.vaccineId,
-                                        batchNumber = uiState.batchLabelById[transaction.batchId] ?: transaction.batchId
+                                        batchNumber = uiState.batchLabelById[transaction.batchId] ?: transaction.batchId,
+                                        patientName = transaction.patientId?.let { uiState.patientLabelById[it] }
                                     )
                                 }
                             }
@@ -278,7 +275,8 @@ private fun StockHistoryFilterChipsRow(
 private fun StockHistoryCard(
     transaction: InventoryTransaction,
     vaccineName: String,
-    batchNumber: String
+    batchNumber: String,
+    patientName: String? = null
 ) {
     val customColors = LocalCustomColors.current
     val parsedType = runCatching { InventoryTransactionType.valueOf(transaction.transactionType) }.getOrNull()
@@ -310,7 +308,7 @@ private fun StockHistoryCard(
     // Detail suffix: Reason / Notes / Patient / User
     val detailSuffix = when {
         !transaction.notes.isNullOrBlank() -> transaction.notes
-        !transaction.patientId.isNullOrBlank() -> "Aarav Sharma" // Or patient record
+        !patientName.isNullOrBlank() -> patientName
         transaction.user.isNotBlank() -> "by ${transaction.user}"
         else -> ""
     }
@@ -438,7 +436,7 @@ private fun StockHistoryAdvancedFilters(
                     label = { Text("Vaccine") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaccineExpanded) },
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
+                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded = vaccineExpanded, onDismissRequest = { vaccineExpanded = false }) {
                     DropdownMenuItem(
@@ -475,7 +473,7 @@ private fun StockHistoryAdvancedFilters(
                     placeholder = { Text("Select a vaccine first") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = batchExpanded) },
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
+                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded = batchExpanded, onDismissRequest = { batchExpanded = false }) {
                     DropdownMenuItem(
@@ -524,7 +522,7 @@ private fun StockHistoryAdvancedFilters(
 
 /** Helper to group transactions by human-readable Date (e.g. "27 October 2026") */
 private fun groupTransactionsByDate(transactions: List<InventoryTransaction>): Map<String, List<InventoryTransaction>> {
-    val dateFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US)
+    val dateFormatter = com.neochildclinic.core.common.DateUtils.FULL_DATE_FORMATTER
     val map = linkedMapOf<String, MutableList<InventoryTransaction>>()
 
     for (tx in transactions) {
@@ -552,7 +550,7 @@ private fun groupTransactionsByDate(transactions: List<InventoryTransaction>): M
 
 /** Helper to format time only (e.g. "09:36 AM") */
 private fun formatTimeOnly(isoTimestamp: String): String {
-    val timeFormatter = DateTimeFormatter.ofPattern("hh:mm a", Locale.US)
+    val timeFormatter = com.neochildclinic.core.common.DateUtils.TIME_12H_FORMATTER
     return runCatching {
         val instant = Instant.parse(isoTimestamp)
         instant.atZone(ZoneId.of("Asia/Kolkata")).format(timeFormatter)

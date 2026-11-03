@@ -120,8 +120,9 @@ class PatientViewModel @Inject constructor(
 
     init {
         // State Streams
-        allPatients = patientRepository.allPatients.stateIn(            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
+        allPatients = patientRepository.allPatients.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
             initialValue = null
         )
 
@@ -143,7 +144,7 @@ class PatientViewModel @Inject constructor(
             .flowOn(Dispatchers.Default)
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = PatientHistoryUiState()
             )
 
@@ -151,7 +152,7 @@ class PatientViewModel @Inject constructor(
             .map { profiles -> profiles.associate { it.employeeId.orEmpty() to it.displayName } }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = emptyMap()
             )
 
@@ -159,7 +160,7 @@ class PatientViewModel @Inject constructor(
             .map { items -> items.associate { it.id to it.brandName } }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = emptyMap()
             )
 

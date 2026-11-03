@@ -33,6 +33,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.WasteRecord
@@ -98,27 +99,15 @@ fun WasteScreen(
     }
 
     recordToDelete?.let { record ->
-        AlertDialog(
-            onDismissRequest = { recordToDelete = null },
-            shape = RoundedCornerShape(24.dp),
-            title = { Text("Confirm Deletion", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to delete this waste record? The stock (${record.quantity}) will be restored to batch ${record.batchNumber}.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteWaste(record.id)
-                        recordToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete", fontWeight = FontWeight.Bold)
-                }
+        DeleteConfirmationDialog(
+            show = true,
+            onDismiss = { recordToDelete = null },
+            onConfirm = {
+                viewModel.deleteWaste(record.id)
+                recordToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { recordToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
+            title = "Confirm Deletion",
+            message = "Are you sure you want to delete this waste record? The stock (${record.quantity}) will be restored to batch ${record.batchNumber}."
         )
     }
 }

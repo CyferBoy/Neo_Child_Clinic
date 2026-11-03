@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -31,7 +30,6 @@ class FinanceDetailsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val transactionsFlow = financeRepository.getAllTransactions()
-        .map { list -> list }
     private val patientsFlow = patientRepository.allPatients
     private val vaccinationsFlow = vaccinationRepository.allVaccinations
     private val expensesFlow = expenseRepository.getAllExpenses()

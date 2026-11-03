@@ -52,6 +52,17 @@ internal data class SyncEntityDescriptor(
     val deleteFilterColumn: String get() = remotePkColumn ?: pkColumn
 }
 
+private val visitDescriptor = SyncEntityDescriptor(
+    tableName = "patient_visits",
+    priority = 2,
+    fetch = { db, id -> db.vaccinationDao().getVaccinationById(id) },
+    updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
+    download = { db, m ->
+        val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
+        db.vaccinationDao().upsertVaccination(entity.copy(isSynced = true))
+    }
+)
+
 // Built once, no AppDatabase in scope - every accessor takes the DB as a parameter, so the
 // registry is a plain static map safe to share and to unit-test priority/ordering against.
 internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
@@ -75,27 +86,8 @@ internal val SYNC_ENTITY_REGISTRY: Map<String, SyncEntityDescriptor> = mapOf(
         }
     ),
 
-    "VACCINATION" to SyncEntityDescriptor(
-        tableName = "patient_visits",
-        priority = 2,
-        fetch = { db, id -> db.vaccinationDao().getVaccinationById(id) },
-        updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
-        download = { db, m ->
-            val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
-            db.vaccinationDao().upsertVaccination(entity.copy(isSynced = true))
-        }
-    ),
-
-    "VISIT" to SyncEntityDescriptor(
-        tableName = "patient_visits",
-        priority = 2,
-        fetch = { db, id -> db.vaccinationDao().getVaccinationById(id) },
-        updatedAt = { (it as? VisitEntity)?.updatedAt ?: "" },
-        download = { db, m ->
-            val entity = syncRemoteJson.decodeFromJsonElement<VisitEntity>(JsonObject(m))
-            db.vaccinationDao().upsertVaccination(entity.copy(isSynced = true))
-        }
-    ),
+    "VACCINATION" to visitDescriptor,
+    "VISIT" to visitDescriptor,
 
     "VACCINATION_ITEM" to SyncEntityDescriptor(
         tableName = "vaccination_items",

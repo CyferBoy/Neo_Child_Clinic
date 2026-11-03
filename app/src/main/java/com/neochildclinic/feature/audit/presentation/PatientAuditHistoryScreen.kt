@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -261,7 +260,7 @@ fun PatientAuditHistoryScreen(
 }
 
 private fun groupPatientLogsByDate(logs: List<AuditLog>): Map<String, List<AuditLog>> {
-    val dateFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US)
+    val dateFormatter = com.neochildclinic.core.common.DateUtils.FULL_DATE_FORMATTER
     val map = linkedMapOf<String, MutableList<AuditLog>>()
 
     for (log in logs) {

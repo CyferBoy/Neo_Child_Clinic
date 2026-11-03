@@ -152,7 +152,7 @@ fun ExpenseListScreen(
                             )
                             Spacer(Modifier.height(Spacing.xs))
                             Text(
-                                text = "₹${String.format(java.util.Locale.ENGLISH, "%,.0f", totalAmount)}",
+                                text = com.neochildclinic.core.common.CurrencyUtils.formatInr(totalAmount),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFB42318)
@@ -189,7 +189,7 @@ fun ExpenseListScreen(
                             )
                             Spacer(Modifier.height(Spacing.xs))
                             Text(
-                                text = "₹${String.format(java.util.Locale.ENGLISH, "%,.0f", biggestCategoryTotal)} · $biggestCategoryPercent%",
+                                text = "${com.neochildclinic.core.common.CurrencyUtils.formatInr(biggestCategoryTotal)} · $biggestCategoryPercent%",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

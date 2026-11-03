@@ -43,7 +43,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 33,
+    version = 34,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -80,7 +80,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 33
+        const val DB_VERSION = 34
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -434,13 +434,22 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
 
+        val migration33_34 = object : androidx.room.migration.Migration(33, 34) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Adds visit_type column to consultation_todos; existing rows get the
+                // empty-string default (treated as unset/legacy throughout the UI).
+                db.execSQL("ALTER TABLE consultation_todos ADD COLUMN visit_type TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+
         // Exposed for the contiguity unit test: a cleanup once deleted migrations that
         // looked unused and every device pinned at those versions crashed on open (BUG-001).
         internal val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf(
             migration17_18, migration18_19, migration19_20, migration20_21, migration21_22,
             migration22_23, migration23_24, migration24_25, migration25_26, migration26_27,
             migration27_28, migration28_29, migration29_30, migration30_31,
-            migration31_32, migration32_33
+            migration31_32, migration32_33, migration33_34
         )
 
         fun getDatabase(context: Context): AppDatabase {

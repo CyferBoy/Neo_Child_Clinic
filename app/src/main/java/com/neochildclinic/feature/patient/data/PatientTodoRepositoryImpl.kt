@@ -54,53 +54,64 @@ class PatientTodoRepositoryImpl @Inject constructor(
         }
 
         // One queue-guard read plus one local snapshot per table, then only the rows that
-        // change anything are written (see [todoUpsertsForRefresh]). Previously every
-        // remote row did a local lookup and a REPLACE, so even an unchanged pull issued
-        // 2N local queries and rewrote the whole todos table, invalidating every flow
-        // that watches it. Guard + snapshot + writes share one transaction so a local
-        // edit racing the pull keeps its row (the SyncQueueDao.unsyncedIdSet rule).
+        // change anything are written (see [todoUpsertsForRefresh]). Guard + snapshot + writes
+        // share one transaction so a local edit racing the pull keeps its row.
+        syncTodosTable(
+            remote = consultations,
+            queueTag = "CONSULTATION_TODO",
+            getAllLocal = { dao.getAllConsultationTodos() },
+            insert = { dao.insertConsultation(it) },
+            delete = { dao.deleteConsultation(it) },
+            id = { it.id },
+            isSynced = { it.isSynced },
+            markedSynced = { it.copy(isSynced = true) }
+        )
+        syncTodosTable(
+            remote = vaccinations,
+            queueTag = "VACCINATION_TODO",
+            getAllLocal = { dao.getAllVaccinationTodos() },
+            insert = { dao.insertVaccination(it) },
+            delete = { dao.deleteVaccination(it) },
+            id = { it.id },
+            isSynced = { it.isSynced },
+            markedSynced = { it.copy(isSynced = true) }
+        )
+    }
+
+    private suspend fun <T> syncTodosTable(
+        remote: List<T>,
+        queueTag: String,
+        getAllLocal: suspend () -> List<T>,
+        insert: suspend (T) -> Unit,
+        delete: suspend (String) -> Unit,
+        id: (T) -> String,
+        isSynced: (T) -> Boolean,
+        markedSynced: (T) -> T
+    ) {
         transactionRunner.run {
-            val consultLocalById = dao.getAllConsultationTodos().associateBy { it.id }
+            val localById = getAllLocal().associateBy(id)
             val upserted = todoUpsertsForRefresh(
-                remote = consultations,
-                localById = consultLocalById,
-                unsyncedIdSet = syncQueueDao.unsyncedIdSet("CONSULTATION_TODO"),
-                id = { it.id },
-                isSynced = { it.isSynced },
-                markedSynced = { it.copy(isSynced = true) }
+                remote = remote,
+                localById = localById,
+                unsyncedIdSet = syncQueueDao.unsyncedIdSet(queueTag),
+                id = id,
+                isSynced = isSynced,
+                markedSynced = markedSynced
             )
-            upserted.forEach { dao.insertConsultation(it) }
-            // Remote-deletion propagation (NCC-023 / DA-01): synced todo rows the remote set
-            // no longer lists and no queue entry claims are drift (todos are leaf rows).
+            upserted.forEach { insert(it) }
             RemotePrune.computeBatches(
-                localIds = consultLocalById.keys.toList(),
-                syncedIds = consultLocalById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
-                remoteIds = consultations.mapTo(HashSet()) { it.id },
-                pendingIds = syncQueueDao.unsyncedIdSet("CONSULTATION_TODO")
-            ).flatten().forEach { dao.deleteConsultation(it) }
-        }
-        transactionRunner.run {
-            val vaccLocalById = dao.getAllVaccinationTodos().associateBy { it.id }
-            val upserted = todoUpsertsForRefresh(
-                remote = vaccinations,
-                localById = vaccLocalById,
-                unsyncedIdSet = syncQueueDao.unsyncedIdSet("VACCINATION_TODO"),
-                id = { it.id },
-                isSynced = { it.isSynced },
-                markedSynced = { it.copy(isSynced = true) }
-            )
-            upserted.forEach { dao.insertVaccination(it) }
-            RemotePrune.computeBatches(
-                localIds = vaccLocalById.keys.toList(),
-                syncedIds = vaccLocalById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
-                remoteIds = vaccinations.mapTo(HashSet()) { it.id },
-                pendingIds = syncQueueDao.unsyncedIdSet("VACCINATION_TODO")
-            ).flatten().forEach { dao.deleteVaccination(it) }
+                localIds = localById.keys.toList(),
+                syncedIds = localById.values.filter(isSynced).mapTo(HashSet(), id),
+                remoteIds = remote.mapTo(HashSet(), id),
+                pendingIds = syncQueueDao.unsyncedIdSet(queueTag)
+            ).flatten().forEach { delete(it) }
         }
     }
 
     override fun getConsultationsByDateAndStatus(date: String, status: String): Flow<List<ConsultationTodo>> = 
         dao.getConsultationsByDateAndStatus(date, status).map { entities: List<ConsultationTodoEntity> -> entities.map { it.toDomain() } }
+    override fun getConsultationsByDateStatusAndType(date: String, status: String, visitType: String): Flow<List<ConsultationTodo>> =
+        dao.getConsultationsByDateStatusAndType(date, status, visitType).map { it.map { e -> e.toDomain() } }
     override fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodo>> = 
         dao.getVaccinationsByDateAndStatus(date, status).map { entities: List<VaccinationTodoEntity> -> entities.map { it.toDomain() } }
     override fun getDatesWithData(start: String, end: String): Flow<List<String>> = dao.getDatesWithData(start, end)

@@ -47,14 +47,26 @@ fun TodayPatientsScreen(
             if (initialTab == "vaccination") TodayPatientTab.VACCINATION else TodayPatientTab.CONSULTATION
         )
     }
+    // New/Follow-up sub-tab (only active when Consultation is selected)
+    var consultSubTab by rememberSaveable { mutableStateOf(ConsultSubTab.NEW) }
+
     var showSelectionDialog by remember { mutableStateOf(false) }
     var showAddDialogForType by remember { mutableStateOf<TodayPatientTab?>(null) }
     var editingTodo by remember { mutableStateOf<Any?>(null) }
     var showMonthYearPicker by remember { mutableStateOf(false) }
     var pendingHighlightId by remember(highlightId) { mutableStateOf(highlightId) }
 
-    val pendingList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.todayConsultations else uiState.todayVaccinations
-    val visitedList = if (selectedTab == TodayPatientTab.CONSULTATION) uiState.visitedConsultations else uiState.visitedVaccinations
+    // Apply sub-tab filter to consultation lists; vaccination is unfiltered
+    val pendingList = when {
+        selectedTab == TodayPatientTab.VACCINATION -> uiState.todayVaccinations
+        consultSubTab == ConsultSubTab.NEW -> uiState.todayConsultations.filter { it.visitType == "NEW" || it.visitType.isBlank() }
+        else -> uiState.todayConsultations.filter { it.visitType == "FOLLOW_UP" }
+    }
+    val visitedList = when {
+        selectedTab == TodayPatientTab.VACCINATION -> uiState.visitedVaccinations
+        consultSubTab == ConsultSubTab.NEW -> uiState.visitedConsultations.filter { it.visitType == "NEW" || it.visitType.isBlank() }
+        else -> uiState.visitedConsultations.filter { it.visitType == "FOLLOW_UP" }
+    }
     val listState = rememberLazyListState()
 
     LaunchedEffect(pendingHighlightId, pendingList, visitedList) {
@@ -108,7 +120,7 @@ fun TodayPatientsScreen(
                         title = {
                             Column {
                                 Text(
-                                    text = "Today’s Patients",
+                                    text = "Today's Patients",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 20.sp
                                 )
@@ -155,7 +167,7 @@ fun TodayPatientsScreen(
                     .padding(padding)
                     .padding(horizontal = Spacing.lg)
             ) {
-                // Segmented Consultation vs Vaccination Tab Row
+                // Main segmented control: Consultation | Vaccination with counts
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -168,9 +180,6 @@ fun TodayPatientsScreen(
                         modifier = Modifier.padding(3.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        val consultCount = uiState.todayConsultations.size + uiState.visitedConsultations.size
-                        val vaccCount = uiState.todayVaccinations.size + uiState.visitedVaccinations.size
-
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -183,7 +192,7 @@ fun TodayPatientsScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "Consultation $consultCount",
+                                    text = "Consultation (${uiState.consultationCount})",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = if (selectedTab == TodayPatientTab.CONSULTATION) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selectedTab == TodayPatientTab.CONSULTATION) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
@@ -203,11 +212,68 @@ fun TodayPatientsScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "Vaccination $vaccCount",
+                                    text = "Vaccination (${uiState.vaccinationCount})",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = if (selectedTab == TodayPatientTab.VACCINATION) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selectedTab == TodayPatientTab.VACCINATION) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+                    }
+                }
+
+                // Sub-segmented control: New | Follow-up — only visible when Consultation tab is active
+                if (selectedTab == TodayPatientTab.CONSULTATION) {
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable { consultSubTab = ConsultSubTab.NEW },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (consultSubTab == ConsultSubTab.NEW) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                border = if (consultSubTab == ConsultSubTab.NEW) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                                shadowElevation = if (consultSubTab == ConsultSubTab.NEW) 1.dp else 0.dp
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "New (${uiState.newConsultCount})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (consultSubTab == ConsultSubTab.NEW) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (consultSubTab == ConsultSubTab.NEW) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable { consultSubTab = ConsultSubTab.FOLLOW_UP },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (consultSubTab == ConsultSubTab.FOLLOW_UP) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                border = if (consultSubTab == ConsultSubTab.FOLLOW_UP) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                                shadowElevation = if (consultSubTab == ConsultSubTab.FOLLOW_UP) 1.dp else 0.dp
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "Follow-up (${uiState.followUpConsultCount})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (consultSubTab == ConsultSubTab.FOLLOW_UP) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (consultSubTab == ConsultSubTab.FOLLOW_UP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -239,7 +305,6 @@ fun TodayPatientsScreen(
                     }
                 }
 
-                // Eyebrow summary matching today_patients_consultation_light.svg (y=252)
                 val totalCount = pendingList.size + visitedList.size
                 val tabName = if (selectedTab == TodayPatientTab.CONSULTATION) "consultations" else "vaccinations"
                 val dateFormatted = remember(selectedDate) {
@@ -287,7 +352,7 @@ fun TodayPatientsScreen(
                                     modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
                                     icon = Icons.Default.EventAvailable,
                                     title = "No $tabName for this date",
-                                    message = "Tap + to add a patient to today’s queue."
+                                    message = "Tap + to add a patient to today's queue."
                                 )
                             }
                         } else {
@@ -377,7 +442,6 @@ fun TodayPatientsScreen(
                                 }
                             }
 
-                            // Footer scroll note matching today_patients_consultation_light.svg (y=758)
                             item {
                                 Box(
                                     modifier = Modifier
@@ -426,10 +490,19 @@ fun TodayPatientsScreen(
             is VaccinationTodo -> TodayPatientTab.VACCINATION
             else -> showAddDialogForType ?: TodayPatientTab.CONSULTATION
         }
+        // Pre-fill visitType from sub-tab when adding a new consultation
+        val defaultVisitType = if (currentType == TodayPatientTab.CONSULTATION && editingTodo == null) {
+            when (consultSubTab) {
+                ConsultSubTab.FOLLOW_UP -> "FOLLOW_UP"
+                else -> "NEW"
+            }
+        } else ""
+
         EnhancedAddTodoDialog(
             type = currentType,
             patients = uiState.patients,
             initialItem = editingTodo,
+            defaultVisitType = defaultVisitType,
             allDoctors = uiState.allDoctors,
             slotsState = uiState.todoSlotsState,
             onDoctorSelected = { doctorId -> viewModel.loadTodoSlots(doctorId, selectedDate) },
@@ -438,7 +511,7 @@ fun TodayPatientsScreen(
                 editingTodo = null
                 viewModel.clearTodoSlots()
             },
-            onConfirm = { name, mobile, address, vaccineNames, patientId, doctorId, doctorName, slotId ->
+            onConfirm = { name, mobile, address, vaccineNames, patientId, doctorId, doctorName, slotId, visitType ->
                 val id = when (editingTodo) {
                     is ConsultationTodo -> (editingTodo as ConsultationTodo).id
                     is VaccinationTodo -> (editingTodo as VaccinationTodo).id
@@ -447,7 +520,8 @@ fun TodayPatientsScreen(
                 if (currentType == TodayPatientTab.CONSULTATION) {
                     viewModel.addConsultationDirect(
                         id = id, patientId = patientId, name = name, mobile = mobile, address = address,
-                        doctorId = doctorId, doctorName = doctorName, availabilitySlotId = slotId
+                        doctorId = doctorId, doctorName = doctorName, availabilitySlotId = slotId,
+                        visitType = visitType
                     )
                 } else {
                     viewModel.addVaccinationDirect(
