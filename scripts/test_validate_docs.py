@@ -336,6 +336,7 @@ class Citations(unittest.TestCase):
 
 
 class ShippedVault(unittest.TestCase):
+    @unittest.skipUnless(REAL_VAULT.exists(), "docs/Knowledge_Base not present in this workspace")
     def test_real_vault_passes(self):
         argv = ["validate_docs.py", "--vault", str(REAL_VAULT)]
         buf = io.StringIO()

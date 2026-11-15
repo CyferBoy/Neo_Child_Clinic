@@ -2,7 +2,7 @@
 name: documentation-engineer
 description: Authors and maintains technical documentation, Architecture Decision Records (ADRs), API specifications, user runbooks, and the Obsidian knowledge base under docs/. Reconciles documentation with actual source code and enforces exact path:line citations.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]
 permissions:
   - action: edit

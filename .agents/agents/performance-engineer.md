@@ -2,7 +2,7 @@
 name: performance-engineer
 description: Analyzes and optimizes cold-start times, memory allocations, Compose UI recompositions, Room SQLite query execution plans, and LRU cache efficiency.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]
 ---
 

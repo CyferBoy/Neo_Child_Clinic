@@ -75,5 +75,24 @@ The Obsidian vault holds the documentation; every rule above applies to it as we
 - Confirmed defects live in `Quality/Bug Register.md`, unproven risks in
   `Quality/Hypotheses.md`; the registers stay separate, and a `Fixed` status needs evidence
   against the original reproduction, not just a changed code path.
-- The `docs-maintainer` agent may edit `docs/Knowledge_Base/**` and nothing else — its
-  permissions are in `.opencode/agents/docs-maintainer.md` (that file is not tracked by git).
+- The `documentation-engineer` agent may edit `docs/Knowledge_Base/**` and documentation files under `docs/**` — its definition and permissions are in `.agents/agents/documentation-engineer.md`.
+
+## Unified Multi-Agent Engineering Ecosystem
+
+This repository uses a structured multi-agent engineering ecosystem configured under `.agents/` and documented under `docs/agents/`.
+
+- **Orchestrator**: `project-manager` coordinates tasks, enforces file ownership boundaries, and validates deliverables.
+- **Specialists**:
+  - `software-architect`: Clean architecture, MVVM, ADRs, domain boundaries.
+  - `android-developer`: Jetpack Compose, Kotlin 2.4, ViewModels, Room UI, WorkManager.
+  - `backend-engineer`: Supabase Auth, PostgreSQL schema, Edge Functions, Cloudflare Worker.
+  - `database-engineer`: Room v34 schema, SQLCipher, migrations, transactional data integrity.
+  - `qa-engineer`: Unit tests, sync tests, regression coverage, offline verification.
+  - `security-auditor`: CVSS classification, RLS audits, keystore/biometric security.
+  - `documentation-engineer`: Markdown specifications, architecture documentation, citation verification.
+  - `code-reviewer`: Independent read-only peer review on Git diffs.
+  - `performance-engineer`: Memory allocations, Compose recomposition profiling, SQLite EXPLAIN query plans.
+  - `release-engineer`: AGP 9.5 build variants, ProGuard/R8 rules, APK signing, CI/CD workflows.
+  - `research-agent`: Read-only research for Android APIs, Compose BOM, and library migrations.
+- **Permissions**: Follow least-privilege levels documented in `docs/agents/SECURITY_BOUNDARIES.md`.
+- **Coordination & Synchronization**: Follow `docs/agents/AGENT_COORDINATION.md` and `docs/agents/GIT_SYNCHRONIZATION.md`.

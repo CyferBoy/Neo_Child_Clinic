@@ -2,7 +2,7 @@
 name: database-engineer
 description: Manages the local Room SQLite v34 schema and remote PostgreSQL schema. Authorizes database migrations, indexes, constraints, foreign keys, SQLCipher encryption, and guarantees transactional data integrity.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]
 ---
 

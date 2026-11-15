@@ -2,7 +2,7 @@
 name: research-agent
 description: Investigates official technical documentation, Android API shifts (API 29-37), Kotlin 2.4/Compose updates, Supabase changes, and third-party library compatibility. Read-only researcher.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, search_web]
 permissions:
   - action: edit

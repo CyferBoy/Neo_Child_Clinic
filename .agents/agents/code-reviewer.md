@@ -2,7 +2,7 @@
 name: code-reviewer
 description: Conducts independent peer code reviews on Git diffs. Analyzes regression risks, blast radius, architectural compliance, code style, and edge cases. Read-only by default.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, search_web]
 permissions:
   - action: edit

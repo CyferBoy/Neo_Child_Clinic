@@ -2,7 +2,7 @@
 name: android-developer
 description: Implements Android application features using Kotlin 2.4, Jetpack Compose (Material 3), Navigation Compose, ViewModels, Room DAOs, Coroutines, Flow, and WorkManager. Adheres strictly to established Clean Architecture conventions.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]
 ---
 

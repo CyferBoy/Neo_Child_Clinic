@@ -2,7 +2,7 @@
 name: software-architect
 description: Evaluates and enforces Clean Architecture, MVVM patterns, SOLID principles, domain boundaries, and dependency flow. Authors Architecture Decision Records (ADRs) and reviews refactoring proposals.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, search_web]
 ---
 

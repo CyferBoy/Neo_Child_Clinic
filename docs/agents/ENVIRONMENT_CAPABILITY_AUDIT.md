@@ -58,7 +58,8 @@ Every capability in this ecosystem is classified strictly according to documente
 | Capability | Classification | Technical Evidence |
 |---|---|---|
 | **Workspace Agent Discovery** | **Officially Supported** | Discovered by walking up directory tree to repository root for `.agents/agents/` |
-| **Agent Definition Syntax** | **Officially Supported** | Markdown with YAML frontmatter (`name`, `description`, `subagent: true`, `tools`) |
+| **Agent CLI Direct Launch** | **Officially Supported** | Requires `mainAgent: true` in YAML frontmatter; if `mainAgent: false`, CLI hides agent from `agy agents` and blocks `agy --agent <name>` |
+| **Agent Definition Syntax** | **Officially Supported** | Markdown with YAML frontmatter (`name`, `description`, `subagent: true`, `mainAgent: true`, `tools`) |
 | **Dynamic Runtime Subagents** | **Officially Supported** | Native `define_subagent` and `invoke_subagent` API tools |
 | **Subagent Messaging** | **Officially Supported** | Bidirectional communication via `send_message(Recipient, Message)` |
 | **Dynamic Workflows** | **Officially Supported** | `run_workflow` executing Python async scripts with `agent`, `parallel`, `pipeline`, `phase` |

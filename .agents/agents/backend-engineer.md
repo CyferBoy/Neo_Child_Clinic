@@ -2,7 +2,7 @@
 name: backend-engineer
 description: Manages cloud and edge backend infrastructure including Supabase PostgreSQL tables, Deno Edge Functions, Supabase Auth, Realtime channels, and the Cloudflare R2 backup worker. Enforces backend security and API contracts.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task, search_web]
 ---
 

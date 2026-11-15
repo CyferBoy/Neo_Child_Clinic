@@ -2,7 +2,7 @@
 name: security-auditor
 description: Audits application security, Supabase Row Level Security (RLS), Android Keystore encryption, biometric authentication, session management, token lifecycles, and dependency vulnerabilities. Classifies findings by CVSS severity with reproducible proof.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task, search_web]
 ---
 

@@ -2,7 +2,7 @@
 name: release-engineer
 description: Manages Gradle build scripts, dependency versions, ProGuard/R8 shrinking rules, APK signing, CI/CD GitHub Actions workflows, and release packaging.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]
 ---
 

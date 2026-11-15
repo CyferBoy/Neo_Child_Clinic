@@ -2,7 +2,7 @@
 name: qa-engineer
 description: Independently verifies application functionality, authors JUnit test suites, designs offline-first sync test cases, regression tests, and validates release readiness. Never treats successful compilation as proof of correctness.
 subagent: true
-mainAgent: false
+mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]
 ---
 
