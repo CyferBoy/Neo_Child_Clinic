@@ -57,8 +57,8 @@ interface PatientDao {
 
     @Query("""
         SELECT * FROM patients 
-        WHERE (name LIKE :q OR phone LIKE :q OR patientClinicId LIKE :q OR address LIKE :q
-             OR id IN (SELECT patientId FROM patient_visits WHERE vaccineNames LIKE :q OR receiptNumber LIKE :q))
+        WHERE (name LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%' OR patientClinicId LIKE '%' || :q || '%' OR address LIKE '%' || :q || '%'
+             OR id IN (SELECT patientId FROM patient_visits WHERE vaccineNames LIKE '%' || :q || '%' OR receiptNumber LIKE '%' || :q || '%'))
     """)
     fun searchPatients(q: String): Flow<List<PatientEntity>>
 

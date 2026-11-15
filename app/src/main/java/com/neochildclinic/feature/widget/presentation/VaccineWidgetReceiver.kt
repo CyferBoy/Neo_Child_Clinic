@@ -27,8 +27,13 @@ class VaccineWidgetReceiver : GlanceAppWidgetReceiver() {
         when (intent.action) {
             Intent.ACTION_CONFIGURATION_CHANGED,
             Intent.ACTION_LOCALE_CHANGED -> {
+                val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.Default).launch {
-                    WidgetUtils.updateGlanceWidgetsOnly(context)
+                    try {
+                        WidgetUtils.updateGlanceWidgetsOnly(context)
+                    } finally {
+                        pendingResult.finish()
+                    }
                 }
             }
         }

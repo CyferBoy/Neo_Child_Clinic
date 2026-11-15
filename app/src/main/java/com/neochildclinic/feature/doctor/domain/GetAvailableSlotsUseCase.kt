@@ -42,8 +42,12 @@ class GetAvailableSlotsUseCase @Inject constructor(
         val customTimeExceptions = exceptions
             .filter { it.exceptionType == SlotExceptionType.SLOT && it.weeklySlotId == null && it.startMinute != null && it.endMinute != null }
 
+        val dates = normalizeDates(date)
+        val bookedSlotIds = repository.getBookedSlotIds(doctorId, dates)
+
         val available = weeklySlots
             .filterNot { it.id in blockedSlotIds }
+            .filterNot { it.id in bookedSlotIds }
             .filterNot { slot -> customTimeExceptions.any { exc -> rangesOverlap(slot.startMinute, slot.endMinute, exc.startMinute!!, exc.endMinute!!) } }
             .sortedBy { it.startMinute }
             .map { AvailableSlot(it.id, it.doctorId, it.startMinute, it.endMinute) }
@@ -86,6 +90,31 @@ class GetAvailableSlotsUseCase @Inject constructor(
             }
         }
         return null
+    }
+
+    private fun normalizeDates(date: String): List<String> {
+        val formatters = listOf(
+            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE,
+            java.time.format.DateTimeFormatter.ofPattern(
+                com.neochildclinic.core.common.Constants.DATE_FORMAT,
+                java.util.Locale.ENGLISH
+            )
+        )
+        for (formatter in formatters) {
+            try {
+                val parsed = java.time.LocalDate.parse(date, formatter)
+                val iso = parsed.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                val display = parsed.format(
+                    java.time.format.DateTimeFormatter.ofPattern(
+                        com.neochildclinic.core.common.Constants.DATE_FORMAT,
+                        java.util.Locale.ENGLISH
+                    )
+                )
+                return listOf(iso, display).distinct()
+            } catch (_: java.time.format.DateTimeParseException) {
+            }
+        }
+        return listOf(date)
     }
 
     private fun rangesOverlap(aStart: Int, aEnd: Int, bStart: Int, bEnd: Int): Boolean {

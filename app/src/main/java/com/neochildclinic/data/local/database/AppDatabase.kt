@@ -504,24 +504,16 @@ abstract class AppDatabase : RoomDatabase() {
                                 e.message?.contains("not a database", ignoreCase = true) == true ||
                                 e.message?.contains("hmac", ignoreCase = true) == true
                         if (wrongPassphrase) {
-                            val suffix = ".corrupt-" + System.currentTimeMillis()
-                            // Sidecars first, main file last: if any rename fails nothing has
-                            // been destroyed, and the refuse-to-wipe throw below keeps the
-                            // whole database in place for the next attempt.
-                            val moved = listOf("-journal", "-wal", "-shm", "").all { ext ->
-                                val f = java.io.File(dbFile.path + ext)
-                                !f.exists() || f.renameTo(java.io.File(f.path + suffix))
-                            }
-                            if (!moved) {
-                                throw IllegalStateException(
-                                    "Existing database could not be opened and could not be moved aside; refusing to wipe local data. Retry, or restore from backup.",
-                                    e
-                                )
-                            }
-                            Log.w(TAG, "Existing database is unreadable with the stored passphrase (device format/restore or corrupt file). Kept at ${dbFile.path}$suffix; creating a fresh database.", e)
+                            // INTEGRITY-02: Never silently wipe or replace a clinical database.
+                            // Fail closed so doctors are alerted to restart the device or restore from backup
+                            // rather than operating on a deceptively empty database.
+                            throw IllegalStateException(
+                                "Database could not be opened with security credentials. Please restart your device or restore from a recent backup.",
+                                e
+                            )
                         } else {
                             throw IllegalStateException(
-                                "Existing database could not be opened (not a passphrase failure); refusing to wipe local data. Retry, or restore from backup.",
+                                "Existing database could not be opened; refusing to wipe local clinical data. Retry, or restore from backup.",
                                 e
                             )
                         }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,7 +38,7 @@ class ProfileViewModel @Inject constructor(
         val currentUserId = sessionManager.getCurrentUserId() ?: return
         
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            _uiState.update { it.copy(isLoading = true) }
             try {
                 // Try to get from local repository first
                 var profile = profileRepository.getProfileById(currentUserId)
@@ -50,25 +51,27 @@ class ProfileViewModel @Inject constructor(
                 }
 
                 if (profile == null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Unable to load your profile. Check your connection and try again."
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Unable to load your profile. Check your connection and try again."
+                        )
+                    }
                     return@launch
                 }
-                _uiState.value = _uiState.value.copy(profile = profile, isLoading = false)
+                _uiState.update { it.copy(profile = profile, isLoading = false) }
                 
                 // Refresh from remote
                 profileRepository.refreshProfiles()
                 val refreshed = profileRepository.getProfileById(currentUserId)
                 if (refreshed != null) {
-                    _uiState.value = _uiState.value.copy(profile = refreshed)
+                    _uiState.update { it.copy(profile = refreshed) }
                 }
 
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }
     }
@@ -78,7 +81,7 @@ class ProfileViewModel @Inject constructor(
         val currentUserId = sessionManager.getCurrentUserId() ?: return
         
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+            _uiState.update { it.copy(isLoading = true, error = null, success = null) }
             try {
                 // 1. Update Supabase Auth User Metadata (Internal to Auth)
                 profileRepository.updateAuthName(newName)
@@ -89,24 +92,28 @@ class ProfileViewModel @Inject constructor(
                 if (updated == null) {
                     // Silently returning left isLoading = true forever, so Save stayed disabled
                     // with no message (NCC-016).
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Could not load your profile. Please try again.",
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Could not load your profile. Please try again.",
+                        )
+                    }
                     return@launch
                 }
                 
                 profileRepository.updateProfile(updated)
                 
-                _uiState.value = _uiState.value.copy(
-                    profile = updated,
-                    isLoading = false,
-                    success = "Name updated successfully"
-                )
+                _uiState.update {
+                    it.copy(
+                        profile = updated,
+                        isLoading = false,
+                        success = "Name updated successfully"
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Update failed", isLoading = false)
+                _uiState.update { it.copy(error = e.message ?: "Update failed", isLoading = false) }
             }
         }
     }
@@ -114,29 +121,33 @@ class ProfileViewModel @Inject constructor(
     fun updatePhoneNumber(newPhone: String) {
         val currentUserId = sessionManager.getCurrentUserId() ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+            _uiState.update { it.copy(isLoading = true, error = null, success = null) }
             try {
                 val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUserId)
                 val updated = currentProfile?.copy(phoneNumber = newPhone)
                 if (updated == null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Could not load your profile. Please try again.",
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Could not load your profile. Please try again.",
+                        )
+                    }
                     return@launch
                 }
                 
                 profileRepository.updateProfile(updated)
                 
-                _uiState.value = _uiState.value.copy(
-                    profile = updated,
-                    isLoading = false,
-                    success = "Phone number updated"
-                )
+                _uiState.update {
+                    it.copy(
+                        profile = updated,
+                        isLoading = false,
+                        success = "Phone number updated"
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }
     }
@@ -146,26 +157,28 @@ class ProfileViewModel @Inject constructor(
         // minimum_password_length in supabase/config.toml. The admin-provisioning path
         // already enforces 12; letting self-service go lower was audit finding M2, half-fixed.
         if (newPassword.length < 12) {
-            _uiState.value = _uiState.value.copy(error = "Password must be at least 12 characters")
+            _uiState.update { it.copy(error = "Password must be at least 12 characters") }
             return
         }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+            _uiState.update { it.copy(isLoading = true, error = null, success = null) }
             try {
                 profileRepository.updateAuthPassword(newPassword)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = "Password changed successfully"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        success = "Password changed successfully"
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }
     }
 
     fun clearMessages() {
-        _uiState.value = _uiState.value.copy(error = null, success = null)
+        _uiState.update { it.copy(error = null, success = null) }
     }
 }

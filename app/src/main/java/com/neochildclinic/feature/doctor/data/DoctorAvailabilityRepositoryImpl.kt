@@ -52,6 +52,11 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         return dao.getWeeklySlotsByIds(ids).map { it.toDomain() }
     }
 
+    override suspend fun getBookedSlotIds(doctorId: String, dates: List<String>): Set<String> {
+        if (doctorId.isBlank() || dates.isEmpty()) return emptySet()
+        return dao.getBookedSlotIdsForDates(doctorId, dates).filter { it.isNotBlank() }.toSet()
+    }
+
     override suspend fun addWeeklySlot(
         doctorId: String,
         dayOfWeek: Int,
@@ -59,6 +64,15 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         endMinute: Int,
         actor: String?
     ) {
+        require(startMinute < endMinute) { "Slot start time must precede end time." }
+        val activeSlots = dao.getActiveWeeklySlotsForDay(doctorId, dayOfWeek)
+        val overlaps = activeSlots.any { existingSlot ->
+            // Different slot interval that overlaps
+            !(existingSlot.startMinute == startMinute && existingSlot.endMinute == endMinute) &&
+                existingSlot.startMinute < endMinute && startMinute < existingSlot.endMinute
+        }
+        require(!overlaps) { "Slot overlaps with an existing schedule." }
+
         val now = PatientUtils.getCurrentIsoTimestamp()
         val existing = dao.findWeeklySlot(doctorId, dayOfWeek, startMinute, endMinute)
 

@@ -224,7 +224,7 @@ class PatientViewModel @Inject constructor(
 
     fun deleteVaccination(id: String, onResult: (Boolean) -> Unit = {}) {
         if (id in _deletingVaccinationIds.value) return // already in flight; ignore the repeat tap
-        _deletingVaccinationIds.value += id
+        _deletingVaccinationIds.update { it + id }
         viewModelScope.launch {
             try {
                 vaccinationRepository.deleteVaccination(id)
@@ -233,7 +233,7 @@ class PatientViewModel @Inject constructor(
                 android.util.Log.e("PatientVM", "Delete vaccination failed", e)
                 onResult(false)
             } finally {
-                _deletingVaccinationIds.value -= id
+                _deletingVaccinationIds.update { it - id }
             }
         }
     }

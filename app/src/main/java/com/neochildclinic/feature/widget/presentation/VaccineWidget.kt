@@ -74,7 +74,13 @@ class VaccineWidget : GlanceAppWidget() {
             val theme = VaccineWidgetTheme.fromKey(prefs[THEME_KEY])
             val fontScale = (prefs[FONT_SIZE_KEY] ?: DEFAULT_FONT_SIZE) / DESIGN_ROW_SP
             val padding = prefs[PADDING_KEY] ?: DEFAULT_PADDING
-            WidgetContent(context, dueItems, opacity, theme, fontScale, padding)
+            val isLocked = com.neochildclinic.core.security.BiometricLockManager.isAppLocked.value
+            val displayItems = if (isLocked) {
+                dueItems.map { it.copy(patientName = "Patient (Locked)") }
+            } else {
+                dueItems
+            }
+            WidgetContent(context, displayItems, opacity, theme, fontScale, padding)
         }
     }
 

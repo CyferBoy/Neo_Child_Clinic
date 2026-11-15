@@ -11,6 +11,7 @@ interface DoctorAvailabilityRepository {
 
     /** Batch form of [getWeeklySlotById]; one query for many ids. Empty in, empty out. */
     suspend fun getWeeklySlotsByIds(ids: List<String>): List<DoctorWeeklySlot>
+    suspend fun getBookedSlotIds(doctorId: String, dates: List<String>): Set<String>
     suspend fun getActiveWeeklySlotsForDay(doctorId: String, dayOfWeek: Int): List<DoctorWeeklySlot>
     suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotException>
     suspend fun addWeeklySlot(

@@ -22,4 +22,6 @@ interface SyncRepository {
 
     /** Drains the queue; returns true when at least one item ended FAILED (see SyncWorker). */
     suspend fun processNextItems(): Boolean
+
+    suspend fun hasFailedItems(): Boolean
 }

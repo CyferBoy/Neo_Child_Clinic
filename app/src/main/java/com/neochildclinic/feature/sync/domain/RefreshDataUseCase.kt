@@ -46,8 +46,10 @@ class RefreshDataUseCase @Inject constructor(
 ) {
     private val flight = SingleFlight()
 
-    suspend operator fun invoke(vararg tables: RefreshTables) =
-        flight.run { runRefresh(stepsFor(tables.toList())) }
+    suspend operator fun invoke(vararg tables: RefreshTables) {
+        val key = if (tables.isEmpty()) "ALL" else tables.map { it.name }.sorted().joinToString(",")
+        flight.run(key) { runRefresh(stepsFor(tables.toList())) }
+    }
 
     private suspend fun runRefresh(wanted: Set<String>?) = coroutineScope {
         // Audit finding 15: one broken pull used to abort every later step (and the error

@@ -7,5 +7,6 @@ enum class ReminderStatus {
     ACTIVE,
     COMPLETED,
     EXTERNAL,
-    DISMISSED
+    DISMISSED,
+    RESCHEDULED
 }

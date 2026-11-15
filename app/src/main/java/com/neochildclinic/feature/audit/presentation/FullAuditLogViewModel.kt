@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -49,21 +50,23 @@ class FullAuditLogViewModel @Inject constructor(
         if (current.isLoading || current.isRefreshing) return
         val isInitialLoad = current.logs.isEmpty()
         viewModelScope.launch {
-            _isRefreshing.value = true
-            if (isInitialLoad) _uiState.value = current.copy(isLoading = true)
+            _isRefreshing.update { true }
+            if (isInitialLoad) _uiState.update { it.copy(isLoading = true) }
             try {
                 val firstPage = fetchPage(0)
-                _uiState.value = AuditLogUiState(
-                    logs = firstPage,
-                    isLoading = false,
-                    hasMore = firstPage.size == PAGE_SIZE,
-                    error = null
-                )
+                _uiState.update {
+                    AuditLogUiState(
+                        logs = firstPage,
+                        isLoading = false,
+                        hasMore = firstPage.size == PAGE_SIZE,
+                        error = null
+                    )
+                }
             } catch (e: Exception) {
                 // Refresh failures keep the existing rows on screen; only surface the error.
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Unable to load audit logs")
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to load audit logs") }
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
@@ -73,20 +76,24 @@ class FullAuditLogViewModel @Inject constructor(
         if (state.isLoading || state.isRefreshing || state.isLoadingMore || !state.hasMore) return
 
         viewModelScope.launch {
-            _uiState.value = state.copy(isLoadingMore = true, error = null)
+            _uiState.update { it.copy(isLoadingMore = true, error = null) }
             try {
                 val page = fetchPage(state.logs.size)
                 val merged = (state.logs + page).distinctBy { it.id }
-                _uiState.value = _uiState.value.copy(
-                    logs = merged,
-                    isLoadingMore = false,
-                    hasMore = page.size == PAGE_SIZE
-                )
+                _uiState.update {
+                    it.copy(
+                        logs = merged,
+                        isLoadingMore = false,
+                        hasMore = page.size == PAGE_SIZE
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoadingMore = false,
-                    error = e.message ?: "Unable to load more audit logs"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoadingMore = false,
+                        error = e.message ?: "Unable to load more audit logs"
+                    )
+                }
             }
         }
     }

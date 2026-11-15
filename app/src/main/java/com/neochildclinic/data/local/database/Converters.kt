@@ -12,6 +12,12 @@ class Converters {
 
     @TypeConverter
     fun toList(value: String?): List<String>? {
-        return value?.let { Json.decodeFromString<List<String>>(it) }
+        if (value == null) return null
+        if (value.isBlank()) return emptyList()
+        return runCatching {
+            Json.decodeFromString<List<String>>(value)
+        }.getOrElse {
+            value.split(",").map(String::trim).filter(String::isNotEmpty)
+        }
     }
 }

@@ -56,7 +56,8 @@ object SecurityUtils {
                 "The local database exists but its encryption passphrase is missing. Restore the app's secure settings or a backup; the database was not modified."
             }
             Log.i(TAG, "Generating new database passphrase...")
-            passphrase = UUID.randomUUID().toString()
+            val randomBytes = ByteArray(32).apply { java.security.SecureRandom().nextBytes(this) }
+            passphrase = android.util.Base64.encodeToString(randomBytes, android.util.Base64.NO_WRAP)
             if (!sharedPreferences.edit().putString(DB_PASSPHRASE_KEY, passphrase).commit()) {
                 throw GeneralSecurityException("Could not persist the database passphrase")
             }

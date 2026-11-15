@@ -159,6 +159,8 @@ serve(async (req) => {
           app_metadata: { role: body.role },
         })
         if (authUpdateError) throw authUpdateError
+        // Invalidate active sessions immediately so demoted privileges do not persist in existing JWTs
+        await admin.auth.admin.signOut(staffId).catch(() => {})
         return json({ success: true })
       }
 

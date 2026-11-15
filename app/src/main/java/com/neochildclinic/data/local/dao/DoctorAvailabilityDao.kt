@@ -60,6 +60,21 @@ interface DoctorAvailabilityDao {
     @Query("SELECT id FROM doctor_weekly_slots")
     suspend fun getWeeklySlotIds(): List<String>
 
+    @Query("""
+        SELECT availabilitySlotId FROM consultations 
+        WHERE doctorId = :doctorId AND date IN (:dates) AND availabilitySlotId IS NOT NULL
+        UNION
+        SELECT availabilitySlotId FROM patient_visits
+        WHERE doctorId = :doctorId AND dateGiven IN (:dates) AND availabilitySlotId IS NOT NULL
+        UNION
+        SELECT availability_slot_id FROM consultation_todos
+        WHERE doctor_id = :doctorId AND todo_date IN (:dates) AND availability_slot_id IS NOT NULL AND status != 'CANCELLED'
+        UNION
+        SELECT availability_slot_id FROM vaccination_todos
+        WHERE doctor_id = :doctorId AND todo_date IN (:dates) AND availability_slot_id IS NOT NULL AND status != 'CANCELLED'
+    """)
+    suspend fun getBookedSlotIdsForDates(doctorId: String, dates: List<String>): List<String>
+
     @Query("SELECT id FROM doctor_weekly_slots WHERE is_synced = 1")
     suspend fun getSyncedWeeklySlotIds(): List<String>
 

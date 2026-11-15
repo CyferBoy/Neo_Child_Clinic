@@ -19,22 +19,20 @@ import kotlinx.coroutines.sync.Mutex
  */
 class SingleFlight {
     private val mutex = Mutex()
-
-    @Volatile
-    private var inFlight: CompletableDeferred<Any?>? = null
+    private val inFlight = mutableMapOf<String, CompletableDeferred<Any?>>()
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun <T> run(block: suspend () -> T): T {
+    suspend fun <T> run(key: String = "", block: suspend () -> T): T {
         val mine = CompletableDeferred<Any?>()
 
         mutex.lock()
-        val running = inFlight
+        val running = inFlight[key]
         if (running != null) {
-            // Someone else is running: wait for their outcome rather than re-running the work.
+            // Someone else is running this key: wait for their outcome rather than re-running the work.
             mutex.unlock()
             return running.await() as T
         }
-        inFlight = mine
+        inFlight[key] = mine
         mutex.unlock()
 
         try {
@@ -46,7 +44,7 @@ class SingleFlight {
             throw e
         } finally {
             mutex.lock()
-            inFlight = null
+            inFlight.remove(key)
             mutex.unlock()
         }
     }

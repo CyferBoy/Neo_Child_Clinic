@@ -35,7 +35,11 @@ class SyncWorker @AssistedInject constructor(
                 countAndMaybeAlert("Some changes could not be synced")
                 Result.failure()
             } else {
-                sharedPrefs.edit().putInt("failure_count", 0).apply()
+                if (syncRepository.hasFailedItems()) {
+                    countAndMaybeAlert("Some changes could not be synced")
+                } else {
+                    sharedPrefs.edit().putInt("failure_count", 0).apply()
+                }
                 Result.success()
             }
         } catch (e: CancellationException) {

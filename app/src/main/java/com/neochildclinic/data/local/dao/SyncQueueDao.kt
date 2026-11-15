@@ -32,6 +32,12 @@ interface SyncQueueDao {
     @Query("DELETE FROM sync_queue WHERE entityName = :name AND entityId = :id AND operation = :operation AND status = 'PENDING'")
     suspend fun deletePendingDuplicates(name: String, id: String, operation: String)
 
+    @Query("SELECT * FROM sync_queue WHERE entityName = :name AND entityId = :id AND status = 'PENDING'")
+    suspend fun getPendingForEntity(name: String, id: String): List<SyncQueueEntity>
+
+    @Query("DELETE FROM sync_queue WHERE queueId IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
     suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
 
@@ -62,6 +68,9 @@ interface SyncQueueDao {
 
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     suspend fun getPendingCountSync(): Int
+
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status = :status")
+    suspend fun getCountByStatus(status: String): Int
 
     @Query("SELECT * FROM sync_queue ORDER BY updatedAt DESC")
     fun getAllItems(): Flow<List<SyncQueueEntity>>

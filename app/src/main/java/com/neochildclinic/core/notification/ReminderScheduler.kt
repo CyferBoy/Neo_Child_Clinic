@@ -27,9 +27,8 @@ class ReminderScheduler @Inject constructor(
             return
         }
 
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+        // DailySummaryWorker reads exclusively from local Room DAOs (patients, stock, reminders).
+        // It requires no network connection, allowing clinic staff to receive morning summaries offline.
 
         // Calculate delay until the configured time (e.g., 08:00 AM)
         val timeParts = settings.reminderTime.split(":")
@@ -54,7 +53,6 @@ class ReminderScheduler @Inject constructor(
             1, TimeUnit.HOURS
         )
         .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
-        .setConstraints(constraints)
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
         .build()
 

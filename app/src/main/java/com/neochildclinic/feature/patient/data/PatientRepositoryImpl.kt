@@ -208,12 +208,9 @@ class PatientRepositoryImpl @Inject constructor(
         // saves cannot both land on the same ID; the create path uses the ABORT insert
         // so a collision fails loudly instead of REPLACE-deleting the other patient.
         val entity = transactionRunner.run {
-            val finalClinicId = if (patient.patientClinicId.isNullOrBlank()) {
+            val finalClinicId = if (patient.patientClinicId.isNullOrBlank() || patient.patientClinicId.startsWith("TEMP-")) {
                 idGenerator.generateUniqueClinicId()
             } else {
-                if (patient.patientClinicId.startsWith("TEMP-")) {
-                    throw IllegalArgumentException("Invalid Clinic ID format.")
-                }
                 if (!idGenerator.isIdUnique(patient.patientClinicId, patient.id)) {
                     throw IllegalStateException("A patient with Clinic ID ${patient.patientClinicId} already exists.")
                 }

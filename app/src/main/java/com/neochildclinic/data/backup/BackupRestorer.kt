@@ -248,7 +248,10 @@ class BackupRestorer(
         val invDeductionsToApply = insertIfAbsent(
             "inventoryDeductions", payload.inventoryDeductions, invDeductionsExisting
         ) { "${it.vaccinationId}:${it.vaccineId}:${it.batchId}:${it.resolvedAt}" }
-        if (invDeductionsToApply.isNotEmpty()) backupDao.insertInventoryDeductions(invDeductionsToApply)
+        if (invDeductionsToApply.isNotEmpty()) {
+            val freshDeductions = invDeductionsToApply.map { it.copy(id = 0) }
+            backupDao.insertInventoryDeductions(freshDeductions)
+        }
         appliedCounts["inventoryDeductions"] = invDeductionsToApply.size
 
         val financeToApply = insertIfAbsent("financeTransactions", payload.financeTransactions, backupDao.getAllFinanceForBackup(), { it.id })

@@ -42,8 +42,10 @@ class WidgetWorker @AssistedInject constructor(
                 .getNamesByIds(dueList.map { it.patientId }.distinct())
                 .associate { it.id to it.name }
 
+            val isLocked = com.neochildclinic.core.security.BiometricLockManager.isAppLocked.value
             val widgetItems = dueList.map { vacc ->
-                val name = names[vacc.patientId] ?: "Unknown"
+                val rawName = names[vacc.patientId] ?: "Unknown"
+                val name = if (isLocked) "Patient (Locked)" else rawName
                 val category = DateClassifier.classify(vacc.nextDueDate)
                 
                 // Show only day/month for the current running year; include the year for other years.

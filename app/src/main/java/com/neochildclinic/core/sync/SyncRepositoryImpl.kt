@@ -65,13 +65,28 @@ class SyncRepositoryImpl @Inject constructor(
             return
         }
 
-        // Dedup: SyncQueueDao.enqueue is REPLACE on an autoincrement PK, so it never
-        // collapses anything - every repeated save of the same operation used to append
-        // another queue row (and another upload). Collapse PENDING duplicates for the
-        // same entity+operation first. shortcut: no unique index on (entityName,
-        // entityId, operation) - that needs a Room schema/version bump, so concurrent
-        // enqueues of the same op from two coroutines could still double-row.
-        syncDao.deletePendingDuplicates(entityName, entityId, operation.name)
+        // SYNC-06: Outbox coalescing for offline mutation sequences.
+        // - CREATE + UPDATE -> Keep pending CREATE (it reads latest state on upload)
+        // - CREATE + DELETE -> Purge both locally (net-zero operation, nothing to send)
+        // - UPDATE + DELETE -> Purge pending UPDATE, enqueue DELETE
+        // - Identical duplicate operations -> Remove older pending row
+        val existingPending = syncDao.getPendingForEntity(entityName, entityId)
+        if (existingPending.isNotEmpty()) {
+            val hasCreate = existingPending.any { it.operation == SyncOperation.CREATE.name }
+            if (operation == SyncOperation.DELETE) {
+                if (hasCreate) {
+                    syncDao.deleteByIds(existingPending.map { it.queueId })
+                    return
+                } else {
+                    syncDao.deleteByIds(existingPending.map { it.queueId })
+                }
+            } else if (operation == SyncOperation.UPDATE && hasCreate) {
+                // Pending CREATE already exists; it will upload the latest local data.
+                return
+            } else {
+                syncDao.deleteByIds(existingPending.map { it.queueId })
+            }
+        }
         syncDao.enqueue(
             SyncQueueEntity(
                 entityName = entityName,
@@ -102,6 +117,9 @@ class SyncRepositoryImpl @Inject constructor(
 
     override suspend fun processNextItems(): Boolean =
         flight.run { processNextItemsInternal() }
+
+    override suspend fun hasFailedItems(): Boolean =
+        syncDao.getCountByStatus(SyncStatus.FAILED.name) > 0
 
     /**
      * Returns true when at least one queue item ended the run FAILED (permanent, visible
