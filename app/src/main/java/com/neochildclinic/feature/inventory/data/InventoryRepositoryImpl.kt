@@ -636,7 +636,16 @@ action = "DELETED",
     }
 
     override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) {
+        val txIds = vaccineDao.getTransactionIdsForPatient(duplicateId)
         vaccineDao.updatePatientIdInTransactions(duplicateId, masterId)
+        txIds.forEach { txId ->
+            syncRepository.enqueue(
+                entityName = "INVENTORY_TRANSACTION",
+                entityId = txId,
+                operation = SyncOperation.UPDATE,
+                priority = SyncPriority.MEDIUM
+            )
+        }
     }
 
     override suspend fun refreshInventory() = cloudRefresh("InventoryRepo", rethrow = true) {
@@ -686,13 +695,28 @@ action = "DELETED",
                 syncedIds = null,
                 remoteIds = batches.mapTo(HashSet()) { it.batchId },
                 pendingIds = pendingBatchIds
-            ).flatten().forEach { vaccineDao.deleteBatch(it) }
+            ).flatten().forEach { batchId ->
+                if (vaccineDao.getVaccinationCountForBatch(batchId) == 0 &&
+                    vaccineDao.getBorrowCountForBatch(batchId) == 0 &&
+                    vaccineDao.getBorrowReturnCountForBatch(batchId) == 0) {
+                    vaccineDao.deleteBatch(batchId)
+                } else {
+                    android.util.Log.w("InventoryRepo", "Skipping RemotePrune for batch $batchId: historical records reference it")
+                }
+            }
             RemotePrune.computeBatches(
                 localIds = vaccineDao.getVaccineIds(),
                 syncedIds = null,
                 remoteIds = vaccines.mapTo(HashSet()) { it.id },
                 pendingIds = pendingVaccineIds
-            ).flatten().forEach { vaccineDao.deleteVaccine(it) }
+            ).flatten().forEach { vaccineId ->
+                if (vaccineDao.getVaccinationCountForVaccine(vaccineId) == 0 &&
+                    vaccineDao.getBatchCountForVaccine(vaccineId) == 0) {
+                    vaccineDao.deleteVaccine(vaccineId)
+                } else {
+                    android.util.Log.w("InventoryRepo", "Skipping RemotePrune for vaccine $vaccineId: historical records reference it")
+                }
+            }
         }
     }
 }

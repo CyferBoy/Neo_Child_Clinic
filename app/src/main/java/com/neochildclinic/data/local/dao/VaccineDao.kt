@@ -68,6 +68,9 @@ interface VaccineDao {
     @Query("SELECT * FROM inventory_transactions WHERE vaccineId = :vaccineId ORDER BY timestamp DESC")
     fun getTransactionsForVaccine(vaccineId: String): Flow<List<InventoryTransactionEntity>>
 
+    @Query("SELECT transactionId FROM inventory_transactions WHERE patientId = :patientId")
+    suspend fun getTransactionIdsForPatient(patientId: String): List<String>
+
     @Query("UPDATE inventory_transactions SET patientId = :masterId WHERE patientId = :duplicateId")
     suspend fun updatePatientIdInTransactions(duplicateId: String, masterId: String)
 

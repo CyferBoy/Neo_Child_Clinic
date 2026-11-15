@@ -113,12 +113,12 @@ object ReminderDueListProcessor {
         val todayStart = todayCal.timeInMillis
 
         return ReminderStats(
-            dueToday = dueList.count {
+            dueToday = dueList.filter { it.status == ReminderStatus.ACTIVE }.count {
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
                 cat is DateCategory.Today
             },
-            dueTomorrow = dueList.count { DateClassifier.classify(it.nextDueDate, todayCal) is DateCategory.Tomorrow },
-            overdue = dueList.count {
+            dueTomorrow = dueList.filter { it.status == ReminderStatus.ACTIVE }.count { DateClassifier.classify(it.nextDueDate, todayCal) is DateCategory.Tomorrow },
+            overdue = dueList.filter { it.status == ReminderStatus.ACTIVE }.count {
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
                 cat is DateCategory.Overdue
             },

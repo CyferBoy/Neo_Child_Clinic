@@ -42,6 +42,20 @@ interface PatientDao {
     suspend fun deletePatient(id: String)
 
     @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM sync_queue sq
+            WHERE sq.status != 'SYNCED' AND (
+                (sq.entityName = 'PATIENT' AND sq.entityId = :patientId) OR
+                (sq.entityName IN ('VACCINATION', 'PATIENT_VISIT') AND sq.entityId IN (SELECT id FROM patient_visits WHERE patientId = :patientId)) OR
+                (sq.entityName = 'CONSULTATION' AND sq.entityId IN (SELECT id FROM consultations WHERE patientId = :patientId)) OR
+                (sq.entityName = 'PATIENT_NOTE' AND sq.entityId IN (SELECT id FROM patient_notes WHERE patientId = :patientId)) OR
+                (sq.entityName = 'REMINDER' AND sq.entityId IN (SELECT id FROM reminders WHERE patientId = :patientId))
+            )
+        )
+    """)
+    suspend fun hasUnsyncedRecordsForPatient(patientId: String): Boolean
+
+    @Query("""
         SELECT * FROM patients 
         WHERE (name LIKE :q OR phone LIKE :q OR patientClinicId LIKE :q OR address LIKE :q
              OR id IN (SELECT patientId FROM patient_visits WHERE vaccineNames LIKE :q OR receiptNumber LIKE :q))

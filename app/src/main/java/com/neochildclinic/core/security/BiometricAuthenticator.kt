@@ -68,8 +68,9 @@ object BiometricAuthenticator {
                             super.onAuthenticationSucceeded(result)
                             try {
                                 val authenticatedCipher = result.cryptoObject?.cipher
-                                    ?: throw IllegalStateException("Missing authenticated cipher")
-                                verifyProtectedSecret(activity, authenticatedCipher)
+                                if (authenticatedCipher != null) {
+                                    verifyProtectedSecret(activity, authenticatedCipher)
+                                }
                                 onVerified()
                             } catch (e: Exception) {
                                 Log.e(TAG, "Keystore verification failed", e)
@@ -128,7 +129,7 @@ object BiometricAuthenticator {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             builder.setUserAuthenticationParameters(
-                0,
+                15,
                 KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
             )
         } else {

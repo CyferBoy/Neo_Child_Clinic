@@ -248,15 +248,15 @@ class ClinicalVaccinationService @Inject constructor(
     }
 
     private suspend fun satisfyRelatedReminders(vaccination: Vaccination, user: String) {
-        val reminders = reminderRepository.getRemindersByVisitId(vaccination.id)
+        val reminders = reminderRepository.getPatientReminders(vaccination.patientId).first()
         val givenNames = vaccination.items.map {
             PatientUtils.cleanVaccineName(it.vaccineName).lowercase().trim()
         }
         reminders.forEach { reminder ->
-            val reminderNames = reminder.vaccineName.split(", ").map {
+            val reminderNames = reminder.vaccineName.split(",").map {
                 PatientUtils.cleanVaccineName(it).lowercase().trim()
             }.filter { it.isNotBlank() }
-            val matches = reminderNames.isEmpty() || reminderNames.any { it in givenNames }
+            val matches = reminderNames.isNotEmpty() && reminderNames.any { it in givenNames }
             if (matches && reminder.status != "COMPLETED" && reminder.status != "DISMISSED") {
                 reminderRepository.markReminderCompleted(reminder, user, vaccination.id)
             }

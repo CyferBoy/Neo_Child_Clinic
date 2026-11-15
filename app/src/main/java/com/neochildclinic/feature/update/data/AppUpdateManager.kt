@@ -94,6 +94,7 @@ class AppUpdateManager @Inject constructor(
         private val RE_MANDATORY = Regex("(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$")
         private val RE_MAJOR_TAG = Regex("^\\d+\\.0\\.0$")
         private val RE_SHA256_HEX = Regex("^[a-f0-9]{64}$")
+        private val RE_SHA256_LINE = Regex("(?im)^\\s*(?:apk[-_]?)?sha256\\s*:\\s*([a-f0-9]{64})\\s*$")
         private val RE_CONTENT_RANGE_START = Regex("bytes\\s+(\\d+)-")
     }
 
@@ -190,6 +191,9 @@ class AppUpdateManager @Inject constructor(
         val isMajorVersionTag = RE_MAJOR_TAG.matches(tagName)
         val required = explicitlyMandatory || belowMinimumVersion || isMajorVersionTag
 
+        val shaFromReleaseNotes = RE_SHA256_LINE.find(body)?.groupValues?.get(1)
+        val resolvedSha = normalizeDigest(asset.digest) ?: shaFromReleaseNotes?.let { normalizeDigest(it) }
+
         return AppUpdateInfo(
             versionName = tagName,
             versionCode = versionCode,
@@ -199,7 +203,7 @@ class AppUpdateManager @Inject constructor(
             releaseNotes = cleanReleaseNotes(body),
             htmlUrl = release.htmlUrl,
             currentVersionCode = currentVersionCode,
-            apkSha256 = normalizeDigest(asset.digest),
+            apkSha256 = resolvedSha,
             releasesBehind = releasesBehind
         )
     }

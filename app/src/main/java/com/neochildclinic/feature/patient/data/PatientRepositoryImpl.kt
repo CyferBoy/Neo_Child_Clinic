@@ -179,12 +179,20 @@ class PatientRepositoryImpl @Inject constructor(
         // remote set no longer lists (deleteFilterColumn hard-deletes it) and that no queue
         // entry claims is drift: delete it. Room FKs CASCADE the visit/item/consultation/
         // todo/reminder/note rows under it, so the whole cluster goes in one statement.
-        RemotePrune.computeBatches(
+        val candidatesToDelete = RemotePrune.computeBatches(
             localIds = localById.keys.toList(),
             syncedIds = localById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
             remoteIds = entities.mapTo(HashSet()) { it.id },
             pendingIds = pendingPatientIds
-        ).flatten().forEach { patientDao.deletePatient(it) }
+        ).flatten()
+
+        for (patientId in candidatesToDelete) {
+            if (!patientDao.hasUnsyncedRecordsForPatient(patientId)) {
+                patientDao.deletePatient(patientId)
+            } else {
+                android.util.Log.w("PatientRepo", "Skipping RemotePrune for patient $patientId: has unsynced records in sync_queue")
+            }
+        }
 
         val countFlow = patientDao.getPatientCount()
         val totalCount = countFlow.first()

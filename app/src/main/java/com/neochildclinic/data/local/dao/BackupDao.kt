@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.neochildclinic.data.local.entity.*
 
 /**
@@ -31,7 +32,7 @@ interface BackupDao {
     @Query("SELECT * FROM profiles")
     suspend fun getAllProfilesForBackup(): List<ProfileEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertProfiles(items: List<ProfileEntity>)
 
     @Query("DELETE FROM profiles")
@@ -41,7 +42,7 @@ interface BackupDao {
     @Query("SELECT * FROM vaccines")
     suspend fun getAllVaccinesForBackup(): List<VaccineEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVaccines(items: List<VaccineEntity>)
 
     @Query("DELETE FROM vaccines")
@@ -51,7 +52,7 @@ interface BackupDao {
     @Query("SELECT * FROM vaccine_batches")
     suspend fun getAllVaccineBatchesForBackup(): List<VaccineBatchEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVaccineBatches(items: List<VaccineBatchEntity>)
 
     @Query("DELETE FROM vaccine_batches")
@@ -61,7 +62,7 @@ interface BackupDao {
     @Query("SELECT * FROM doctor_weekly_slots")
     suspend fun getAllDoctorWeeklySlotsForBackup(): List<DoctorWeeklySlotEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertDoctorWeeklySlots(items: List<DoctorWeeklySlotEntity>)
 
     @Query("DELETE FROM doctor_weekly_slots")
@@ -71,7 +72,7 @@ interface BackupDao {
     @Query("SELECT * FROM doctor_slot_exceptions")
     suspend fun getAllDoctorSlotExceptionsForBackup(): List<DoctorSlotExceptionEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertDoctorSlotExceptions(items: List<DoctorSlotExceptionEntity>)
 
     @Query("DELETE FROM doctor_slot_exceptions")
@@ -81,7 +82,7 @@ interface BackupDao {
     @Query("SELECT * FROM patients")
     suspend fun getAllPatientsForBackup(): List<PatientEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertPatients(items: List<PatientEntity>)
 
     @Query("DELETE FROM patients")
@@ -91,7 +92,7 @@ interface BackupDao {
     @Query("SELECT * FROM patient_visits")
     suspend fun getAllVisitsForBackup(): List<VisitEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVisits(items: List<VisitEntity>)
 
     @Query("DELETE FROM patient_visits")
@@ -101,7 +102,7 @@ interface BackupDao {
     @Query("SELECT * FROM vaccination_items")
     suspend fun getAllVaccinationItemsForBackup(): List<VaccinationItemEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVaccinationItems(items: List<VaccinationItemEntity>)
 
     @Query("DELETE FROM vaccination_items")
@@ -114,7 +115,7 @@ interface BackupDao {
     @Query("SELECT * FROM consultations")
     suspend fun getAllConsultationsForBackup(): List<ConsultationEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertConsultations(items: List<ConsultationEntity>)
 
     @Query("DELETE FROM consultations")
@@ -124,7 +125,7 @@ interface BackupDao {
     @Query("SELECT * FROM reminders WHERE is_deleted = 0")
     suspend fun getAllRemindersForBackup(): List<ReminderEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertReminders(items: List<ReminderEntity>)
 
     @Query("DELETE FROM reminders")
@@ -134,7 +135,7 @@ interface BackupDao {
     @Query("SELECT * FROM personal_vaccine_reminders")
     suspend fun getAllPersonalRemindersForBackup(): List<PersonalReminderEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertPersonalReminders(items: List<PersonalReminderEntity>)
 
     @Query("DELETE FROM personal_vaccine_reminders")
@@ -144,7 +145,7 @@ interface BackupDao {
     @Query("SELECT * FROM borrow_records")
     suspend fun getAllBorrowRecordsForBackup(): List<BorrowEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertBorrowRecords(items: List<BorrowEntity>)
 
     @Query("DELETE FROM borrow_records")
@@ -154,7 +155,7 @@ interface BackupDao {
     @Query("SELECT * FROM borrow_returns")
     suspend fun getAllBorrowReturnsForBackup(): List<BorrowReturnEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertBorrowReturns(items: List<BorrowReturnEntity>)
 
     @Query("DELETE FROM borrow_returns")
@@ -164,7 +165,7 @@ interface BackupDao {
     @Query("SELECT * FROM waste_records")
     suspend fun getAllWasteForBackup(): List<WasteEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertWaste(items: List<WasteEntity>)
 
     @Query("DELETE FROM waste_records")
@@ -174,7 +175,7 @@ interface BackupDao {
     @Query("SELECT * FROM inventory_transactions")
     suspend fun getAllInventoryTransactionsForBackup(): List<InventoryTransactionEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertInventoryTransactions(items: List<InventoryTransactionEntity>)
 
     @Query("DELETE FROM inventory_transactions")
@@ -184,7 +185,7 @@ interface BackupDao {
     @Query("SELECT * FROM inventory_deductions")
     suspend fun getAllInventoryDeductionsForBackup(): List<InventoryDeductionEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertInventoryDeductions(items: List<InventoryDeductionEntity>)
 
     @Query("DELETE FROM inventory_deductions")
@@ -194,7 +195,7 @@ interface BackupDao {
     @Query("SELECT * FROM finance_transactions")
     suspend fun getAllFinanceForBackup(): List<FinanceEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertFinance(items: List<FinanceEntity>)
 
     @Query("DELETE FROM finance_transactions")
@@ -204,7 +205,7 @@ interface BackupDao {
     @Query("SELECT * FROM expenses")
     suspend fun getAllExpensesForBackup(): List<ExpenseEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertExpenses(items: List<ExpenseEntity>)
 
     @Query("DELETE FROM expenses")
@@ -214,7 +215,7 @@ interface BackupDao {
     @Query("SELECT * FROM patient_notes")
     suspend fun getAllPatientNotesForBackup(): List<PatientNotesEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertPatientNotes(items: List<PatientNotesEntity>)
 
     @Query("DELETE FROM patient_notes")
@@ -224,7 +225,7 @@ interface BackupDao {
     @Query("SELECT * FROM consultation_todos")
     suspend fun getAllConsultationTodosForBackup(): List<ConsultationTodoEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertConsultationTodos(items: List<ConsultationTodoEntity>)
 
     @Query("DELETE FROM consultation_todos")
@@ -233,7 +234,7 @@ interface BackupDao {
     @Query("SELECT * FROM vaccination_todos")
     suspend fun getAllVaccinationTodosForBackup(): List<VaccinationTodoEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVaccinationTodos(items: List<VaccinationTodoEntity>)
 
     @Query("DELETE FROM vaccination_todos")
@@ -243,7 +244,7 @@ interface BackupDao {
     @Query("SELECT * FROM audit_logs")
     suspend fun getAllAuditLogsForBackup(): List<AuditLogEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertAuditLogs(items: List<AuditLogEntity>)
 
     @Query("DELETE FROM audit_logs")
@@ -255,7 +256,7 @@ interface BackupDao {
 
     // ---- backup history ----
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertHistory(entry: BackupHistoryEntity)
 
     @Query("SELECT * FROM backup_history ORDER BY createdAt DESC")

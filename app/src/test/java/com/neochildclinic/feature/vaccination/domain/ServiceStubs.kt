@@ -73,9 +73,9 @@ class FakeFinanceRepository(private val runner: RecordingTransactionRunner) : Fi
 class FakeReminderRepository(private val runner: RecordingTransactionRunner) : ReminderRepository {
     val saved = mutableListOf<ReminderWrite>()
     override fun getDueList( searchQuery: String , filterStatus: List<ReminderStatus>? ): Flow<List<Vaccination>> = TODO()
-    override fun getPatientReminders(patientId: String): Flow<List<Reminder>> = TODO()
+    override fun getPatientReminders(patientId: String): Flow<List<Reminder>> = flowOf(emptyList())
     override suspend fun getRemindersByVisitId(visitId: String): List<Reminder> { return emptyList() }
-    override suspend fun markReminderCompleted( reminder: Reminder, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) = TODO()
+    override suspend fun markReminderCompleted( reminder: Reminder, performedBy: String, linkedVaccinationId: String? , transactionGroupId: String? ) { }
     override suspend fun deleteReminder(reminder: Reminder, performedBy: String) = TODO()
     override suspend fun saveNextVaccination( patientId: String, originalVisitId: String, type: String, vaccineNames: List<String>, nxtVaccineId: List<String> , dueDate: String, notes: String, priority: String , reminderEnabled: Boolean , performedBy: String ) { saved += ReminderWrite(runner.inTransaction, patientId, originalVisitId, type) }
     override suspend fun transferReminders(duplicateId: String, masterId: String) = TODO()
