@@ -17,7 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.*
-import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.feature.auth.presentation.AuthViewModel
 
 /** Reads a required nav argument, "" when absent. */
 internal fun androidx.navigation.NavBackStackEntry.stringArg(key: String, default: String = ""): String =

@@ -1,7 +1,8 @@
-package com.neochildclinic.core.sync
+package com.neochildclinic.app.work
 
 import android.content.Context
 import androidx.work.*
+import com.neochildclinic.core.sync.SyncScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -10,11 +11,11 @@ import javax.inject.Singleton
 @Singleton
 class SyncManagerImpl @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : SyncScheduler {
 
     private val workManager = WorkManager.getInstance(context)
 
-    fun scheduleSync() {
+    override fun scheduleSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -41,7 +42,7 @@ class SyncManagerImpl @Inject constructor(
         )
     }
 
-    fun scheduleImmediateSync() {
+    override fun scheduleImmediateSync() {
         // Same CONNECTED constraint as scheduleSync(): without it this expedited request
         // runs immediately while offline, fails every upload, bumps the failure counter
         // and burns WorkManager retry budget for nothing. Connectivity back only releases

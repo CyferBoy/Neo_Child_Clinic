@@ -1,6 +1,7 @@
 package com.neochildclinic.core.sync
 
 import com.neochildclinic.data.local.entity.SyncQueueEntity
+import com.neochildclinic.feature.sync.data.orderPendingIntoGroups
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

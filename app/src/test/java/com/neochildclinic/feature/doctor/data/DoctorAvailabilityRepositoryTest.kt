@@ -50,7 +50,7 @@ class DoctorAvailabilityRepositoryTest {
         setField(auditLogger, "scope", kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()))
         setField(auditLogger, "auditLogDao", auditLogDaoProxy)
         setField(auditLogger, "sessionManager", sessionManager)
-        setField(auditLogger, "syncRepository", syncRepoProxy)
+        setField(auditLogger, "syncEnqueuer", syncRepoProxy)
 
         setField(repository, "dao", daoProxy)
         setField(repository, "syncRepository", syncRepoProxy)

@@ -26,12 +26,6 @@ interface SyncQueueDao {
     @Query("DELETE FROM sync_queue WHERE entityId = 'kotlin.Unit' OR entityId = 'Unit' OR entityId = 'null'")
     suspend fun cleanCorruptedItems()
 
-    // Queue-row dedup for repeated saves of the same operation (see
-    // SyncRepositoryImpl.enqueue). Only PENDING rows: an in-flight (SYNCING) row is owned
-    // by a running batch and a FAILED row carries its error details for the Sync screen.
-    @Query("DELETE FROM sync_queue WHERE entityName = :name AND entityId = :id AND operation = :operation AND status = 'PENDING'")
-    suspend fun deletePendingDuplicates(name: String, id: String, operation: String)
-
     @Query("SELECT * FROM sync_queue WHERE entityName = :name AND entityId = :id AND status = 'PENDING'")
     suspend fun getPendingForEntity(name: String, id: String): List<SyncQueueEntity>
 

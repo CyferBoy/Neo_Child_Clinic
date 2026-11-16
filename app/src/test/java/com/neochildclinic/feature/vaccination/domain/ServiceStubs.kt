@@ -99,6 +99,8 @@ class FakeSyncRepository(private val runner: RecordingTransactionRunner) : SyncR
     override fun getPendingCount(): kotlinx.coroutines.flow.Flow<Int> = TODO()
     override suspend fun processNextItems(): Boolean = TODO()
     override suspend fun hasFailedItems(): Boolean = false
+    override suspend fun getUnacknowledgedCount(): Int = 0
+    override suspend fun clearLocalData() {}
 }
 
 class FakeInventoryRepository(private val runner: RecordingTransactionRunner) : InventoryRepository {

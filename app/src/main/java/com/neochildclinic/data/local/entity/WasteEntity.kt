@@ -27,10 +27,10 @@ data class WasteEntity(
     val reason: String,
     val quantity: Int,
     @SerialName("updated_at") val updatedAt: String = "",
-    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 fun WasteEntity.toDomain() = WasteRecord(
     id = id,
@@ -58,7 +58,7 @@ fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
     dateWasted = dateWasted,
     reason = reason,
     quantity = quantity,
-    updatedAt = if (updatedAt.isEmpty()) com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() else updatedAt,
+    updatedAt = if (updatedAt.isEmpty()) com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() else updatedAt,
     isSynced = this.isSynced || isSynced,
     createdBy = createdBy,
     updatedBy = updatedBy

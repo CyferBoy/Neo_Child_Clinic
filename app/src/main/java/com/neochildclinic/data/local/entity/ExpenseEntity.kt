@@ -48,13 +48,13 @@ data class ExpenseEntity(
     @SerialName("payment_method") val paymentMethod: String,
     @SerialName("reference_number") val referenceNumber: String? = null,
     @SerialName("attachment_path") val attachmentPath: String? = null,
-    @SerialName("created_at") val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    @SerialName("updated_at") val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    @SerialName("created_at") val createdAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("updated_at") val updatedAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("synced_at") val syncedAt: String? = null
-)
+) : SyncableEntity
 
 fun ExpenseEntity.toDomain() = Expense(
     id = id,
@@ -83,10 +83,10 @@ fun Expense.toEntity(isSynced: Boolean = false) = ExpenseEntity(
     paymentMethod = paymentMethod.name,
     referenceNumber = referenceNumber,
     attachmentPath = attachmentPath,
-    createdAt = createdAt ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    createdAt = createdAt ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     createdBy = createdBy,
     updatedBy = updatedBy,
     isSynced = isSynced,
-    syncedAt = if (isSynced) com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() else null
+    syncedAt = if (isSynced) com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() else null
 )

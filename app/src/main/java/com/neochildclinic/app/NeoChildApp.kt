@@ -7,7 +7,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.neochildclinic.core.notification.ReminderScheduler
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.core.sync.SyncWorker
+import com.neochildclinic.app.work.SyncWorker
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.security.ProviderInstaller
 import android.content.Intent
@@ -17,6 +17,7 @@ import com.neochildclinic.core.preferences.NotificationSettingsManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.drop
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -38,7 +39,7 @@ class NeoChildApp : Application(), Configuration.Provider {
     lateinit var backupAutoScheduler: dagger.Lazy<com.neochildclinic.data.backup.BackupAutoScheduler>
 
     @Inject
-    lateinit var syncReconciler: dagger.Lazy<com.neochildclinic.core.sync.SyncReconciler>
+    lateinit var syncReconciler: dagger.Lazy<com.neochildclinic.app.sync.SyncReconciler>
 
     @Inject
     lateinit var settingsManager: dagger.Lazy<NotificationSettingsManager>
@@ -97,14 +98,16 @@ class NeoChildApp : Application(), Configuration.Provider {
         // mirror the arm flag into DataStore (NotificationSettingsManager.needsAuth) so a
         // screen-off + process-death cycle still locks on the next cold start
         // (MainActivity.checkAppLock reads the same flag).
-        BiometricLockManager.onNeedsAuthChanged = { needsAuth ->
-            scope.launch { settingsManager.get().setNeedsAuth(needsAuth) }
-        }
         // Re-arm before any UI renders: checkAppLock has to wait for the session status to
         // resolve (seconds when offline), and patient data must not be visible meanwhile.
         scope.launch {
             val settings = settingsManager.get().settingsFlow.first()
-            if (settings.biometricLockEnabled && settings.needsAuth) BiometricLockManager.lock()
+            if (settings.biometricLockEnabled && settings.needsAuth) {
+                BiometricLockManager.lock()
+            }
+            BiometricLockManager.needsAuth.drop(1).collect { needsAuth ->
+                settingsManager.get().setNeedsAuth(needsAuth)
+            }
         }
 
         // Register Screen Off Receiver

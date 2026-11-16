@@ -9,13 +9,12 @@ import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
 import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedException
 import com.neochildclinic.feature.inventory.domain.InventoryUtils
-import com.neochildclinic.core.common.PatientUtils.parseDate
+import com.neochildclinic.core.common.DateUtils.parseDate
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.domain.model.Vaccine
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.InventoryTransaction
-import com.neochildclinic.data.remote.PatientRemoteDataSource
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
@@ -45,7 +44,7 @@ class InventoryRepositoryImpl @Inject constructor(
     private val vaccineDao: VaccineDao,
     private val inventoryDeductionDao: InventoryDeductionDao,
     private val postgrest: Postgrest,
-    private val remoteDataSource: PatientRemoteDataSource,
+    private val inventoryRemoteDataSource: InventoryRemoteDataSource,
     private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val settingsManager: NotificationSettingsManager,
@@ -303,7 +302,7 @@ class InventoryRepositoryImpl @Inject constructor(
                 fromDate = fromDateIso, toDate = toDateIso, limit = limit, offset = offset
             )
         } else {
-            remoteDataSource.getStockHistoryPage(
+            inventoryRemoteDataSource.getStockHistoryPage(
                 vaccineId = vaccineId, batchId = batchId, types = types.map { it.name }, typesEmpty = types.isEmpty(),
                 fromDateIso = fromDateIso, toDateIso = toDateIso, limit = limit, offset = offset
             )

@@ -16,7 +16,7 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.BackupHistoryStatus
 import com.neochildclinic.data.local.entity.BackupHistoryType
 import com.neochildclinic.data.local.entity.BackupLocation
-import com.neochildclinic.core.sync.SyncManagerImpl
+import com.neochildclinic.core.sync.SyncScheduler
 import com.neochildclinic.domain.model.*
 import com.neochildclinic.feature.settings.domain.repository.BackupRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,7 +39,7 @@ class BackupRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: AppDatabase,
     private val cloudApi: CloudBackupApi,
-    private val syncManager: SyncManagerImpl,
+    private val syncManager: SyncScheduler,
     private val networkMonitor: NetworkMonitor,
     private val backupSettingsManager: BackupSettingsManager,
     private val auth: Auth

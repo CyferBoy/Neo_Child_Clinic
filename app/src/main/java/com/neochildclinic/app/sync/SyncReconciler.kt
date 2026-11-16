@@ -1,8 +1,9 @@
-package com.neochildclinic.core.sync
+package com.neochildclinic.app.sync
 
 import android.content.Context
 import android.util.Log
 import com.neochildclinic.core.network.NetworkMonitor
+import com.neochildclinic.core.sync.SingleFlight
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.widget.data.WidgetUtils

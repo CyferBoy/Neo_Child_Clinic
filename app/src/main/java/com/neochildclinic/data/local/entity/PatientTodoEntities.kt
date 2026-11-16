@@ -32,14 +32,14 @@ data class ConsultationTodoEntity(
     @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
     @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
     @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,
-    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
     // "NEW" or "FOLLOW_UP"; empty string = unset/legacy (migration 33→34 default).
     @SerialName("visit_type") @ColumnInfo(name = "visit_type", defaultValue = "") val visitType: String = ""
-)
+) : SyncableEntity
 
 @Serializable
 @Entity(
@@ -62,12 +62,12 @@ data class VaccinationTodoEntity(
     @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
     @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
     @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,
-    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 fun ConsultationTodoEntity.toDomain() = ConsultationTodo(
     id = id,
@@ -108,8 +108,8 @@ fun ConsultationTodo.toEntity() = ConsultationTodoEntity(
     doctorId = doctorId,
     doctorName = doctorName,
     availabilitySlotId = availabilitySlotId,
-    createdAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    createdAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     isSynced = false,
     createdBy = null,
     updatedBy = null,
@@ -128,8 +128,8 @@ fun VaccinationTodo.toEntity() = VaccinationTodoEntity(
     doctorId = doctorId,
     doctorName = doctorName,
     availabilitySlotId = availabilitySlotId,
-    createdAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    createdAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     isSynced = false,
     createdBy = null,
     updatedBy = null,

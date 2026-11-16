@@ -1,6 +1,5 @@
 package com.neochildclinic.core.common
 
-import com.neochildclinic.domain.model.Vaccination
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -153,27 +152,18 @@ object DateUtils {
         return "$formatted IST"
     }
 
-    /**
-     * Formats a Date object to the standard app display format.
-     */
     fun formatDate(date: Date): String {
         return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
             .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
 
-    /**
-     * Formats a timestamp to date and time.
-     */
     fun formatDateTime(date: Date): String {
         return DateTimeFormatter.ofPattern("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH)
             .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
 
-    /**
-     * Standardizes any date string to the current app format (e.g. 9 May 2026).
-     */
     fun formatDateForDisplay(dateStr: String): String {
         val date = parseDate(dateStr) ?: return dateStr
         return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
@@ -182,7 +172,7 @@ object DateUtils {
     }
 
     /**
-     * Returns current time in ISO 8601 format.
+     * Formats a byte count into a human-readable binary unit string (B, KB, MB, GB).
      */
     fun formatBytes(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
@@ -198,9 +188,6 @@ object DateUtils {
     // not by baking a device-local offset into the value - see DateUtils.IST.
     fun getCurrentIsoTimestamp(): String = Instant.now().toString()
 
-    /**
-     * Returns ISO 8601 timestamp for some minutes ago.
-     */
     fun getIsoTimestampMinutesAgo(minutes: Int): String =
         Instant.now().minus(minutes.toLong(), ChronoUnit.MINUTES).toString()
 
@@ -229,40 +216,5 @@ object DateUtils {
         } catch (_: Exception) {
             dateStr.toLongOrNull() ?: 0L
         }
-    }
-
-
-    /**
-     * Unified Logic: Filters pending vaccinations based on a string filter (e.g., "Overdue", "Today").
-     * All date comparisons use the clinic's timezone (IST).
-     */
-    fun filterVaccinationsByPeriod(
-        pendingVaccinations: List<Vaccination>,
-        filter: String,
-    ): List<Vaccination> {
-        val today = Instant.now().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
-        val tomorrow = today.plusDays(1)
-        val weekStart = today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-        val weekEnd = weekStart.plusDays(6)
-        val monthStart = today.withDayOfMonth(1)
-        val monthEnd = today.withDayOfMonth(today.lengthOfMonth())
-
-        return pendingVaccinations.filter { v ->
-            val date = parseDate(v.nextDueDate)?.toLocalDate()
-            if (date == null) {
-                filter == "All"
-            } else {
-                when (filter) {
-                    "Overdue" -> date.isBefore(today)
-                    "Today" -> date == today
-                    "Tomorrow" -> date == tomorrow
-                    "This Week" -> !date.isBefore(weekStart) && !date.isAfter(weekEnd)
-                    "Month" -> !date.isBefore(monthStart) && !date.isAfter(monthEnd)
-                    "Upcoming" -> date.isAfter(weekEnd)
-                    "All" -> true
-                    else -> true
-                }
-            }
-        }.sortedBy { DateClassifier.getSortWeight(it.nextDueDate) }
     }
 }

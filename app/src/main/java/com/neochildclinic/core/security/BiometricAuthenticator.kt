@@ -36,8 +36,6 @@ object BiometricAuthenticator {
     private const val SECRET_HASH_KEY = "secret_hash"
     private const val SECRET_SIZE = 32
 
-    private val protectedSecretLabel = "Neo Child Clinic biometric protected secret v3"
-
     fun authenticate(
         activity: FragmentActivity,
         title: String,
@@ -191,7 +189,6 @@ object BiometricAuthenticator {
                 .putString(IV_KEY, Base64.encodeToString(iv, Base64.NO_WRAP))
                 .putString(CIPHERTEXT_KEY, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
                 .putString(SECRET_HASH_KEY, Base64.encodeToString(hash, Base64.NO_WRAP))
-                .putString("label", protectedSecretLabel)
                 .apply()
             return
         }

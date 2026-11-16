@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.feature.auth.presentation.AuthViewModel
 import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
 import com.neochildclinic.core.ui.SkeletonCard

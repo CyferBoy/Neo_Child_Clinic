@@ -9,7 +9,8 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.domain.model.ReminderStats
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.common.DateUtils
+import com.neochildclinic.feature.vaccination.util.VaccinationUtils
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.security.SessionManager
@@ -73,13 +74,13 @@ class DueViewModel @Inject constructor(
     ) { patients, processedVaccinations, activeDue, filter, refreshing ->
         var filtered = when (filter) {
             "Today", "Tomorrow", "This Week", "Upcoming", "Overdue", "Month", "All" ->
-                PatientUtils.filterVaccinationsByPeriod(processedVaccinations, filter)
-            "Week" -> PatientUtils.filterVaccinationsByPeriod(processedVaccinations, "This Week")
+                VaccinationUtils.filterVaccinationsByPeriod(processedVaccinations, filter)
+            "Week" -> VaccinationUtils.filterVaccinationsByPeriod(processedVaccinations, "This Week")
             else -> processedVaccinations
         }
 
         if (filter == "Overdue") {
-            filtered = filtered.sortedByDescending { PatientUtils.parseDate(it.nextDueDate)?.time ?: 0L }
+            filtered = filtered.sortedByDescending { DateUtils.parseDate(it.nextDueDate)?.time ?: 0L }
         }
 
         val overdue = activeDue.count {

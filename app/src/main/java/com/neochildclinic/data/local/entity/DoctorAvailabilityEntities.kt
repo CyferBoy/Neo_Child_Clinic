@@ -32,10 +32,10 @@ data class DoctorWeeklySlotEntity(
     @SerialName("is_active") @ColumnInfo(name = "is_active") val isActive: Boolean = true,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
-    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-) {
+) : SyncableEntity {
     val timeRange: TimeRange get() = TimeRange(startMinute, endMinute)
 }
 
@@ -88,10 +88,10 @@ data class DoctorSlotExceptionEntity(
     val reason: String? = null,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
-    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 fun DoctorSlotExceptionEntity.toDomain() = DoctorSlotException(
     id = id,

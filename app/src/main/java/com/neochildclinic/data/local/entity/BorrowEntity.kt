@@ -39,10 +39,10 @@ data class BorrowEntity(
     @SerialName("returned_date") val returnedDate: String? = null,
     val type: String = "BY", // BY (Borrowed By us from someone), TO (Borrowed from us By someone)
     val notes: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 fun BorrowEntity.toDomain() = BorrowedVaccine(
     id = id,

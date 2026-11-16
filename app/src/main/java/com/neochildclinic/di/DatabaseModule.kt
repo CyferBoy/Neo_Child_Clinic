@@ -1,4 +1,4 @@
-package com.neochildclinic.core.di
+package com.neochildclinic.di
 
 import android.content.Context
 import com.neochildclinic.data.local.database.AppDatabase
@@ -135,9 +135,4 @@ object DatabaseModule {
     fun providePatientTodoDao(database: AppDatabase): PatientTodoDao {
         return database.patientTodoDao()
     }
-
-    // Note: BackupRepositoryImpl (Backup & Restore feature) takes AppDatabase directly
-    // and calls database.backupDao() / database.consultationDao() / etc. itself, matching
-    // the existing convention already used by ConsultationRepositoryImpl, SyncRepositoryImpl,
-    // and others in this file's sibling repositories - so no new DAO providers are needed here.
 }

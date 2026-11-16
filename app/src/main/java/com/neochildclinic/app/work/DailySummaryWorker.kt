@@ -1,26 +1,25 @@
-package com.neochildclinic.core.notification
+package com.neochildclinic.app.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.neochildclinic.core.notification.NotificationHelper
 import com.neochildclinic.core.preferences.NotificationSettingsManager
-import com.neochildclinic.feature.inventory.data.InventoryRepositoryImpl
+import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
 import com.neochildclinic.feature.statistics.domain.ClinicStatsManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @HiltWorker
 class DailySummaryWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val statsManager: ClinicStatsManager,
-    private val inventoryRepository: InventoryRepositoryImpl,
+    private val inventoryRepository: InventoryRepository,
     private val settingsManager: NotificationSettingsManager,
     private val notificationHelper: NotificationHelper
 ) : CoroutineWorker(context, params) {
@@ -58,4 +57,3 @@ class DailySummaryWorker @AssistedInject constructor(
         return Result.success()
     }
 }
-

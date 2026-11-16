@@ -6,7 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.DateClassifier
-import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.dao.PersonalReminderDao
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -15,11 +15,11 @@ import kotlinx.coroutines.flow.first
 class PersonalReminderNotificationWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val database: AppDatabase,
+    private val personalReminderDao: PersonalReminderDao,
     private val notificationHelper: NotificationHelper
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val reminders = database.personalReminderDao().getActiveReminders().first()
+        val reminders = personalReminderDao.getActiveReminders().first()
         for (r in reminders) {
             val date = r.reminderDate
             if (date.isNullOrBlank()) {

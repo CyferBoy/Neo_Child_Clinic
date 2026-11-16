@@ -24,12 +24,12 @@ import com.neochildclinic.core.security.BiometricLockManager
 import com.neochildclinic.core.security.BiometricAuthenticator
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.preferences.PreferenceManager
-import com.neochildclinic.core.ui.LockScreen
+import com.neochildclinic.feature.auth.presentation.ui.LockScreen
 import com.neochildclinic.feature.update.presentation.AppUpdateDialog
 import com.neochildclinic.feature.update.presentation.AppUpdateViewModel
-import com.neochildclinic.core.sync.SyncManagerImpl
+import com.neochildclinic.core.sync.SyncScheduler
 import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
-import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.feature.auth.presentation.AuthViewModel
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.notification.NotificationHelper
 import io.github.jan.supabase.auth.Auth
@@ -60,7 +60,7 @@ class MainActivity : FragmentActivity() {
     lateinit var settingsManager: NotificationSettingsManager
 
     @Inject
-    lateinit var syncManager: SyncManagerImpl
+    lateinit var syncManager: SyncScheduler
 
     @Inject
     lateinit var deviceRepository: DeviceRepository

@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.neochildclinic.app.MainActivity
 import com.neochildclinic.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -90,10 +89,19 @@ class NotificationHelper @Inject constructor(
         }
     }
 
+    /** Returns the launcher Intent for the app's main activity without importing app-layer classes. */
+    private fun launchIntent(extras: (Intent.() -> Unit)? = null): Intent {
+        val base = context.packageManager
+            .getLaunchIntentForPackage(context.packageName)
+            ?: Intent().apply { setPackage(context.packageName) }
+        extras?.invoke(base)
+        return base
+    }
+
     fun showDailySummary(dueToday: Int, overdue: Int, lowStock: Int) {
         if (dueToday == 0 && overdue == 0 && lowStock == 0) return
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = launchIntent {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         
@@ -123,7 +131,7 @@ class NotificationHelper @Inject constructor(
     }
 
     fun showLowStockAlert(vaccineName: String, remaining: Int) {
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = launchIntent {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         
@@ -158,7 +166,7 @@ class NotificationHelper @Inject constructor(
 
 
     fun showPersonalReminderNotification(id: String, patientName: String, vaccineName: String, phone: String, overdueDays: Int? = null, undated: Boolean = false) {
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = launchIntent {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -200,7 +208,7 @@ class NotificationHelper @Inject constructor(
             return
         }
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = launchIntent {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("CHECK_APP_UPDATE", true)
         }
@@ -231,7 +239,7 @@ class NotificationHelper @Inject constructor(
     }
 
     fun showUpdateInstallFailed(reason: String) {
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = launchIntent {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("CHECK_APP_UPDATE", true)
         }

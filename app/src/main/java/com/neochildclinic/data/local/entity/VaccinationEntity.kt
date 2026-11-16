@@ -68,10 +68,10 @@ data class VisitEntity(
     
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = true,
+    @SerialName("is_synced") override val isSynced: Boolean = true,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 // Map legacy VaccinationEntity name to VisitEntity for easier refactoring
 typealias VaccinationEntity = VisitEntity

@@ -1,5 +1,9 @@
 package com.neochildclinic.core.security
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -13,23 +17,19 @@ import org.junit.Test
  */
 class BiometricLockManagerTest {
 
-    private val persisted = mutableListOf<Boolean>()
-
     @Before
     fun reset() {
-        BiometricLockManager.onNeedsAuthChanged = null
         BiometricLockManager.clearLockSuppression()
         BiometricLockManager.setProtectionEnabled(false) // clears lock + screen-off state
         BiometricLockManager.setProtectionEnabled(true)
-        BiometricLockManager.onNeedsAuthChanged = { persisted.add(it) }
+        BiometricLockManager.resetNeedsAuthForTest()
         BiometricLockManager.resetLockStateResolvedForTest()
-        persisted.clear()
     }
 
     @Test
     fun screenOffArmsPersistedNeedsAuth() {
         BiometricLockManager.onScreenOff()
-        assertEquals(listOf(true), persisted)
+        assertTrue(BiometricLockManager.needsAuth.value)
     }
 
     @Test
@@ -42,21 +42,22 @@ class BiometricLockManagerTest {
     fun screenOffIgnoredWhileProtectionDisabled() {
         BiometricLockManager.setProtectionEnabled(false)
         BiometricLockManager.onScreenOff()
-        assertTrue(persisted.isEmpty())
+        assertFalse(BiometricLockManager.needsAuth.value)
     }
 
     @Test
     fun unlockClearsPersistedNeedsAuth() {
         BiometricLockManager.onScreenOff()
+        assertTrue(BiometricLockManager.needsAuth.value)
         BiometricLockManager.unlockAfterKeystoreVerification()
-        assertEquals(listOf(true, false), persisted)
+        assertFalse(BiometricLockManager.needsAuth.value)
         assertFalse(BiometricLockManager.isAppLocked.value)
     }
 
     @Test
     fun lockArmsPersistedNeedsAuth() {
         BiometricLockManager.lock()
-        assertEquals(listOf(true), persisted)
+        assertTrue(BiometricLockManager.needsAuth.value)
         assertTrue(BiometricLockManager.isAppLocked.value)
     }
 
@@ -112,5 +113,25 @@ class BiometricLockManagerTest {
         assertTrue(BiometricLockManager.lockStateResolved.value)
         // Resolving says only that we know. It must not itself unlock a locked app.
         assertFalse(BiometricLockManager.isAppLocked.value)
+    }
+
+    @Test
+    fun coldStartDropFirstIgnoresInitialEmission() = runBlocking {
+        val collected = mutableListOf<Boolean>()
+        val job = launch(Dispatchers.Unconfined) {
+            BiometricLockManager.needsAuth.drop(1).collect { collected.add(it) }
+        }
+        // Initial state (false) dropped
+        assertTrue(collected.isEmpty())
+
+        // Subsequent lock event emitted
+        BiometricLockManager.lock()
+        assertEquals(listOf(true), collected)
+
+        // Unlock event emitted
+        BiometricLockManager.unlockAfterKeystoreVerification()
+        assertEquals(listOf(true, false), collected)
+
+        job.cancel()
     }
 }

@@ -2,13 +2,11 @@ package com.neochildclinic.core.logger
 
 import android.os.Build
 import com.neochildclinic.core.security.SessionManager
+import com.neochildclinic.core.sync.SyncEnqueuer
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,7 +17,7 @@ import javax.inject.Singleton
 class AuditLogger @Inject constructor(
     private val sessionManager: SessionManager,
     private val auditLogDao: AuditLogDao,
-    private val syncRepository: SyncRepository
+    private val syncEnqueuer: SyncEnqueuer
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
@@ -84,7 +82,7 @@ class AuditLogger @Inject constructor(
 
             auditLogDao.insertLog(logEntity)
 
-            syncRepository.enqueue(
+            syncEnqueuer.enqueue(
                 entityName = "AUDIT_LOG",
                 entityId = logEntity.id,
                 operation = SyncOperation.CREATE,

@@ -7,7 +7,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.feature.auth.presentation.AuthViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.staff.presentation.AddStaffScreen
 import com.neochildclinic.feature.staff.presentation.EditStaffScreen

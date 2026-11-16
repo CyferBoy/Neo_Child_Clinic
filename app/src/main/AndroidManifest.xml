@@ -80,7 +80,7 @@
              (notify-update) never arrive, and a rotated FCM token never gets
              re-registered until the user happens to log out and back in. -->
         <service
-            android:name=".core.notification.NeoChildFirebaseMessagingService"
+            android:name=".app.notification.NeoChildFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

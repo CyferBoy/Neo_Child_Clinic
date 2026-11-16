@@ -1,45 +1,44 @@
-package com.neochildclinic.core.security
+package com.neochildclinic.feature.auth.presentation
 
-import androidx.compose.runtime.mutableStateOf
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.cache.CacheRegistry
-import com.neochildclinic.core.sync.SyncManagerImpl
+import com.neochildclinic.core.network.NetworkMonitor
+import com.neochildclinic.core.security.CurrentUserProvider
+import com.neochildclinic.core.sync.SyncScheduler
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
 import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
-import io.github.jan.supabase.auth.status.SessionStatus
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.auth.providers.builtin.Email
-import io.github.jan.supabase.auth.user.UserInfo
-import androidx.compose.runtime.State
-import androidx.lifecycle.viewModelScope
+import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.feature.widget.data.WidgetUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val auth: Auth,
-    private val profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository,
+    private val profileRepository: ProfileRepository,
     private val deviceRepository: DeviceRepository,
-    private val syncManager: SyncManagerImpl,
+    private val syncManager: SyncScheduler,
     private val cacheRegistry: CacheRegistry,
     private val currentUserProvider: CurrentUserProvider,
-    private val syncRepository: com.neochildclinic.feature.sync.domain.repository.SyncRepository,
-    private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
-    private val appDatabase: com.neochildclinic.data.local.database.AppDatabase,
-    private val networkMonitor: com.neochildclinic.core.network.NetworkMonitor,
-    @ApplicationContext private val appContext: android.content.Context
+    private val syncRepository: SyncRepository,
+    private val networkMonitor: NetworkMonitor,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     companion object {
@@ -80,15 +79,15 @@ class AuthViewModel @Inject constructor(
      * their local data rather than being bounced to Login just because there's no signal.
      */
     suspend fun awaitResolvedSessionStatus(): SessionStatus? =
-        kotlinx.coroutines.withTimeoutOrNull(SESSION_STATUS_TIMEOUT_MS) {
+        withTimeoutOrNull(SESSION_STATUS_TIMEOUT_MS) {
             sessionStatus.first { it !is SessionStatus.Initializing }
         }
 
-    private val _isLoading = mutableStateOf(false)
-    val isLoading: State<Boolean> = _isLoading
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = mutableStateOf<String?>(null)
-    val error: State<String?> = _error
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
     private val _profile = MutableStateFlow<Profile?>(null)
     val profile: StateFlow<Profile?> = _profile.asStateFlow()
@@ -103,7 +102,7 @@ class AuthViewModel @Inject constructor(
     val currentUserRole: UserRole? get() = currentUserProvider.getCurrentUserRole()
 
     private val accountPrefs =
-        appContext.getSharedPreferences(ACCOUNT_PREFS, android.content.Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(ACCOUNT_PREFS, Context.MODE_PRIVATE)
 
     // --- Sign-out / account-switch isolation -----------------------------------
     // Sign-out must never silently erase unsynced local work, and must never leave one
@@ -225,7 +224,7 @@ class AuthViewModel @Inject constructor(
                 val lastAccount = accountPrefs.getString(KEY_LAST_ACCOUNT, null)
                 if (userId != null && lastAccount != userId) {
                     // The Room database on this device belongs to a different account (or no previous record).
-                    val unacknowledged = syncQueueDao.getUnacknowledgedCountSync()
+                    val unacknowledged = syncRepository.getUnacknowledgedCount()
                     if (unacknowledged > 0) {
                         // Never erase another account's unsynced work silently - ask.
                         pendingSwitch = PendingAccountSwitch(userId, onSuccess)
@@ -272,7 +271,7 @@ class AuthViewModel @Inject constructor(
 
         _isLoading.value = false
         syncManager.scheduleImmediateSync()
-        com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(appContext)
+        WidgetUtils.updateWidget(appContext)
         onSuccess()
     }
 
@@ -326,7 +325,7 @@ class AuthViewModel @Inject constructor(
                     runCatching { syncRepository.processNextItems() }
                 }
             }
-            val unacknowledged = syncQueueDao.getUnacknowledgedCountSync()
+            val unacknowledged = syncRepository.getUnacknowledgedCount()
             if (unacknowledged > 0) {
                 pendingSignOutCallback = onSignedOut
                 _logoutBlocked.value = unacknowledged
@@ -376,13 +375,12 @@ class AuthViewModel @Inject constructor(
             return false
         }
         accountPrefs.edit().remove(KEY_LAST_ACCOUNT).apply()
-        com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(appContext)
+        WidgetUtils.updateWidget(appContext)
         return true
     }
 
-    /** Room's clearAllTables is a blocking @WorkerThread call; never run it on Main. */
-    private suspend fun clearLocalDatabase() = withContext(Dispatchers.IO) {
-        appDatabase.clearAllTables()
+    private suspend fun clearLocalDatabase() {
+        syncRepository.clearLocalData()
     }
 
     fun refreshSessionStatus() {

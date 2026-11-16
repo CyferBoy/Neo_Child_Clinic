@@ -44,10 +44,10 @@ data class ConsultationEntity(
     @SerialName("next_follow_up_date") val nextFollowUpDate: String = "",
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = true,
+    @SerialName("is_synced") override val isSynced: Boolean = true,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 fun ConsultationEntity.toDomain() = Consultation(
     id = id,

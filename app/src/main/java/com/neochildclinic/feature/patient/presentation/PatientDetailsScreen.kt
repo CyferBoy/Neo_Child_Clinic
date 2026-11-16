@@ -23,7 +23,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.ui.*
-import com.neochildclinic.core.security.AuthViewModel
+import com.neochildclinic.feature.auth.presentation.AuthViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

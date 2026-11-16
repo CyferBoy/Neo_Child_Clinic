@@ -1,11 +1,10 @@
-package com.neochildclinic.core.notification
+package com.neochildclinic.app.notification
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
-import android.content.Intent
-import com.neochildclinic.app.MainActivity
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.common.VersionUtils
+import com.neochildclinic.core.notification.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope

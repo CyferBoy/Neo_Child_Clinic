@@ -85,10 +85,10 @@ data class PersonalReminderEntity(
     @SerialName("completed_at") @ColumnInfo(name = "completed_at") val completedAt: String? = null,
     @SerialName("cancelled_at") @ColumnInfo(name = "cancelled_at") val cancelledAt: String? = null,
 
-    @SerialName("is_synced") @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
-)
+) : SyncableEntity
 
 fun PersonalReminderEntity.toDomain() = PersonalReminder(
     id = id,

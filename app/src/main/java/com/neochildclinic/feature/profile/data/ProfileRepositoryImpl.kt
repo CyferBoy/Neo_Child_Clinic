@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.neochildclinic.core.security.UserDisplayNameProvider
 import com.neochildclinic.core.sync.cloudRefresh
 import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
@@ -30,7 +31,11 @@ class ProfileRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository,
     private val auth: Auth,
     private val transactionRunner: TransactionRunner
-) : ProfileRepository {
+) : ProfileRepository, UserDisplayNameProvider {
+
+    override suspend fun getUserDisplayName(userId: String): String? {
+        return getProfileById(userId)?.displayName
+    }
 
     override val allProfiles: Flow<List<Profile>> = 
         profileDao.getAllProfiles().map { list -> list.map { it.toDomain() } }

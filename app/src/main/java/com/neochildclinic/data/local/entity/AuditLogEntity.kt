@@ -26,7 +26,7 @@ import com.neochildclinic.domain.model.AuditLog
 )
 data class AuditLogEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
-    val timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+    val timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     val user: String,
     val module: String, // PATIENT, VACCINE, FINANCE, INVENTORY, STAFF, USERS, SYNC
     @SerialName("entity_type") val entityType: String, // PATIENT, VISIT, REMINDER, BATCH, PAYMENT, etc.
@@ -36,9 +36,9 @@ data class AuditLogEntity(
     @SerialName("new_value") val newValue: String? = null, // JSON representation
     val remarks: String? = null,
     val device: String? = null,
-    @SerialName("is_synced") val isSynced: Boolean = false,
+    @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("patient_id") val patientId: String? = null // Helper field for fast timeline filtering
-)
+) : SyncableEntity
 
 fun AuditLogEntity.toDomain() = AuditLog(
     id = id,

@@ -1,81 +1,87 @@
-# Project: Neo Child Clinic Android Application Re-Audit & Remediation
+# Project: Neo Child Clinic Android Codebase First-Principles Untangling
 
 ## Architecture
 - **Application Type**: Offline-first Android medical clinic application (Kotlin, Jetpack Compose, Room SQLite, WorkManager, Hilt, SQLCipher, Biometrics).
-- **Backend Infrastructure**: Supabase (PostgreSQL with RLS, Auth, Edge Functions) and Cloudflare Workers (D1/R2 encrypted backup service).
-- **Security Boundary**: Android Keystore hardware-backed cryptography, biometric authentication, encrypted database storage, strict role-based access control (Admin, Doctor, Nurse, Staff).
-- **Data Flow**: Local-first writes to Room database -> Outbox queue (`sync_queue`) -> Background `SyncWorker` with `SyncUploader` -> Supabase PostgREST & Realtime replication -> Cloudflare backup worker.
+- **Clean Architecture Principle**: Dependencies flow strictly inward toward stability:
+  `UI / Presentation -> Feature Domain -> Data Layer -> Core Layer`
+  `core` must contain framework-independent primitives and must never import feature packages. Application wiring (Hilt DI modules) resides in `com.neochildclinic.di`.
+- **Offline-First Synchronization Invariants**:
+  - Local-first writes to encrypted Room database (`PRAGMA busy_timeout = 30000`, WAL mode, fail-closed migrations).
+  - Outbox queue (`sync_queue`) with transaction grouping, single-flight execution, deduplication, and dependency ordering.
+  - Background `SyncWorker` with `SyncUploader` and conflict resolution.
+  - Cloudflare encrypted backup container (`.nccb` format, PBKDF2 + AES-256-GCM).
 
-## Feature Inventory
-Every feature and defect identified in Phase 0 Survey is cataloged below with its assigned milestone:
+## Structured Decision Log (Survey & Problem Inventory)
+Mapping all identified issues across the four core dimensions (Hidden Links, Needless Links, Surplus, Special Cases, Comments, Tests) to first-principles fixes:
 
-| # | Feature / Finding | Description | Milestone | Source |
-|---|-------------------|-------------|-----------|--------|
-| 1 | SEC-01: Keystore Initialization | Time-bound key init throws UserNotAuthenticatedException on API 30+ | M1 | Survey 3 |
-| 2 | SEC-02: Cryptographic Bypass | Null cipher guard in BiometricAuthenticator skips secret verification | M1 | Survey 3 |
-| 3 | SEC-03: Enrollment Invalidation | Missing setInvalidatedByBiometricEnrollment(true) on API 30+ | M1 | Survey 3 |
-| 4 | SEC-04: Launcher PHI Leak | BiometricLockManager.onScreenOff fails to set isAppLocked.value = true | M1 | Survey 3 |
-| 5 | SEC-05: Widget Cache Corruption | WidgetWorker writes masked "Patient (Locked)" strings to SQLite cache | M1 | Survey 3 |
-| 6 | SEC-06: Update Checksum Regex | RE_SHA256_LINE misses standard hyphenated SHA-256 notation | M1 | Survey 3 |
-| 7 | SEC-07: Keystore File Security | Secure file permissions for signing keystores in repository | M1 | Survey 3 |
-| 8 | BACKEND-01: Tenant Isolation | Cloudflare backup worker accountId spoofing via user_metadata | M1 | Survey 3 |
-| 9 | BACKEND-02: Supabase RLS DELETE | 9 clinical & inventory tables retain unconstrained staff DELETE policy | M1 | Survey 3 |
-| 10 | BACKEND-03: Session Invalidation | UPDATE_PROFILE in manage-staff omits signOut on demoted roles | M1 | Survey 3 |
-| 11 | SYNC-01: SingleFlight Cancellation | Coroutine cancellation in finally block deadlocks single-flight gate | M2 | Survey 2 |
-| 12 | SYNC-02: Scoped Refresh Deduplication | RefreshDataUseCase missing @Singleton breaks cross-screen deduplication | M2 | Survey 2 |
-| 13 | SYNC-03: Clock Skew Overwrite | Device clock skew behind server triggers silent overwrite of offline edits | M2 | Survey 2 |
-| 14 | SYNC-04: Outbox FAILED Row Leak | SyncRepositoryImpl.enqueue ignores FAILED items causing chronic alerts | M2 | Survey 2 |
-| 15 | SYNC-05: Realtime Subscription Drop | RealtimeChangeSubscriptions lacks reconnect/retry on socket failure | M2 | Survey 2 |
-| 16 | DB-01: PatientDao Typo & Omission | hasUnsyncedRecordsForPatient typo ('REMINDER') & missing child entities | M2 | Survey 2 |
-| 17 | DB-02: Inventory Prune Safety | RemotePrune omits waste_records and inventory_transactions checks | M2 | Survey 2 |
-| 18 | DB-03: Converters String "null" | Converters.toList decodes literal "null" to listOf("null") | M2 | Survey 2 |
-| 19 | DB-04: Hazardous DAO Annotations | Prune dead PatientDao.insertPatient; migrate VaccinationDao to @Upsert | M2 | Survey 2 |
-| 20 | CLINIC-01: Doctor ID Slot Collision | GetAvailableSlotsUseCase fails to match slots for doctors with employeeId | M3 | Survey 1 |
-| 21 | CLINIC-02: Reschedule Slot Block | Consultation edit does not update visit header slotId, blocking old slot | M3 | Survey 1 |
-| 22 | CLINIC-03: Slot Exception Validation | DoctorAvailabilityRepositoryImpl.addException omits start < end check | M3 | Survey 1 |
-| 23 | CLINIC-04: Receipt Double Billing | ReceiptFormatter adds ₹400 fee twice to already collected totalPaid | M3 | Survey 1 |
-| 24 | CLINIC-05: Newborn Age Off-By-One | AgeUtils.calculateAgeLabel labels 0-6 day infants as "1 week" | M3 | Survey 1 |
-| 25 | CLINIC-06: Reminder Drop & Epoch 1970 | Terminal reminder drop on missing visit; isoToLong(null) yields 1970 | M3 | Survey 1 |
-| 26 | DEAD-01: Non-atomic State Mutations | 42 _uiState.value = ... in Backup, Admin, FullReport, VaccineDetail VM | M4 | Survey 1 |
-| 27 | DEAD-02: Dead DateUtils Function | Prune unused DateUtils.cleanVaccineName | M4 | Survey 1 |
-| 28 | DEAD-03: Redundant PatientUtils Method | Prune redundant forwarder PatientUtils.filterVaccinationsByPeriod | M4 | Survey 1 |
-| 29 | DEAD-04: Orphaned Model Property | Prune unused Vaccine.doseSchedule column and property | M4 | Survey 1 |
-| 30 | DEAD-05: Duplicate Data Class | Consolidate PatientVaccinationCardData with PatientVaccinationCard | M4 | Survey 1 |
-| 31 | DEAD-06: Dead SyncItem Function | Prune unused SyncItem.toEntity() | M4 | Survey 1 |
-| 32 | TEST-01: Test Suite Verification | Run 100% of Gradle unit tests and Python docs validation offline | M5 | Survey 1,2,3 |
-| 33 | TEST-02: Unit Test Hardening | Add unit tests for fixed components (SingleFlight, AgeUtils, etc.) | M5 | Survey 1,2,3 |
-| 34 | REPORT-01: Master Audit Report | Compile final comprehensive audit report per R1 requirements | M5 | Survey 1,2,3 |
+| Issue ID | Dimension | Problem Summary | Root Cause & Evidence | First-Principles Redesign Fix | Milestone |
+|:---|:---|:---|:---|:---|:---:|
+| **UNTANGLE-01** | Needless Links / Layer Inversion | `AuthViewModel` & `LockScreen` placed in `core` | `core.security.AuthViewModel` imports `feature.profile`, `feature.sync`, `feature.widget`, and `data.local.AppDatabase`. `core.ui.LockScreen` is a 217-line Composable. | Relocate `AuthViewModel` to `feature/auth/presentation/` and `LockScreen` to `feature/auth/presentation/ui/`. Convert ViewModel state to `StateFlow`. Inject repositories instead of raw `AppDatabase`. | M1 |
+| **UNTANGLE-02** | Cross-Feature Leak | `PatientRemoteDataSource` handles stock transactions | `getStockHistoryPage()` returning `List<InventoryTransactionEntity>` is declared on `PatientRemoteDataSource`, forcing `InventoryRepositoryImpl` to inject patient data source. | Move `getStockHistoryPage` to `InventoryRemoteDataSource` (or query Postgrest directly in inventory data). Decouple `InventoryRepositoryImpl` from `PatientRemoteDataSource`. | M1 |
+| **UNTANGLE-03** | Needless Links / Shallow Facade | `PatientUtils` 77-line delegating wrapper | Pure pass-through facade over `AgeUtils` and `DateUtils` with misplaced methods (`cleanVaccineName`, deprecated `filterVaccinationsByPeriod`). | Inline calls to `DateUtils` and `AgeUtils` directly; move `cleanVaccineName` to domain helper; move `filterVaccinationsByPeriod` to `VaccinationUtils`. Safely deprecate/prune `PatientUtils`. | M1 |
+| **UNTANGLE-04** | Architecture Layer Inversion | DI wiring located in `core/di` | `core/di/RepositoryModule.kt` binds 19 feature repositories, inverting Clean Architecture stability by making `core` aware of all features. | Move application DI modules from `com.neochildclinic.core.di` to `com.neochildclinic.di`, restoring `core` as an independent leaf layer. | M1 |
+| **UNTANGLE-05** | Special Cases / Type Ladder | 16-type `when` ladder in `isEntityModifiedOffline` | `SyncUploader.kt:775-794` performs 16 manual `is Entity -> !entity.isSynced` checks due to missing interface. | Define `interface SyncableEntity { val isSynced: Boolean }`. Have all 16 syncable entities implement it. Replace 20-line `when` ladder with polymorphic `(entity as? SyncableEntity)?.let { !it.isSynced } ?: false`. | M1 |
+| **UNTANGLE-06** | Surplus / Dead Code | Dead dependencies, dead queries, unread fields | Unused `postgrest` injection and `syncDao` alias in `SyncRepositoryImpl`; uncalled `deletePendingDuplicates` in `SyncQueueDao`; unread `protectedSecretLabel` in `BiometricAuthenticator`; unused imports in `AuditLogger`. | Remove unused `postgrest` injection, `syncDao` alias, uncalled DAO query, unread label, and dead imports. | M1 |
+| **UNTANGLE-07** | Hidden Links & Concurrency | Concrete injections and temporal callbacks in core | Workers (`DailySummaryWorker`, `SyncWorker`, `PersonalReminderNotificationWorker`) inject concrete `*Impl` / `AppDatabase`. `BiometricLockManager` uses a mutable callback pointer. | Inject domain interfaces (`InventoryRepository`, `SyncRepository`, `PersonalReminderDao`) in workers. Convert `BiometricLockManager` to injectable singleton or direct preference observer. | M1 |
+| **UNTANGLE-08** | Comments Cleanup (Core/Data) | Misleading and restating comments | `DateUtils.kt:186` claims `formatBytes` returns current ISO timestamp; restating comments in `DateUtils`, `DatabaseModule`. | Correct misleading KDoc on `formatBytes`; prune restating comments; strictly preserve rationale comments (SQLCipher busy timeout, GoTrue token rotation, PBKDF2 backup encryption). | M1 |
+| **UNTANGLE-09** | Inverted Domain Dependency | Domain models typealiased to Room entities | `Patient`, `WasteRecord`, and `DoctorWeeklySlot` in `domain/model/` are typealiases to Room `@Entity` data classes, coupling domain to SQLite/Room annotations. | Create pure Kotlin data classes in `domain/model/` for `Patient`, `WasteRecord`, `DoctorWeeklySlot`. Provide `toDomain()` and `toEntity()` mappers in data layer. | M2 |
+| **UNTANGLE-10** | Cross-Feature Misplaced Responsibility | `recordConsultation` implemented in `vaccination` package | `ClinicalVaccinationService.kt:193-248` handles consultation records, forcing `AddConsultationViewModel` to inject vaccination service. | Extract `RecordConsultationUseCase` (or clinical visit service) to consultation/clinical domain. Decouple `AddConsultationViewModel` from `ClinicalVaccinationService`. | M2 |
+| **UNTANGLE-11** | Reverse Domain Dependency | `FinanceCalculator` misplaced in `statistics` | `feature/statistics/domain/FinanceCalculator.kt` is used by core transactional code in `ClinicalVaccinationService` and `FinanceRepositoryImpl`. | Move `FinanceCalculator` to `feature/finance/domain/` so `feature/statistics` depends on `feature/finance`, establishing proper dependency flow toward stability. | M2 |
+| **UNTANGLE-12** | Implicit Conventions & Inconsistent Dates | Divergent date string formats | Callers pass `"d MMM yyyy"` and `"yyyy-MM-dd"`, forcing `GetAvailableSlotsUseCase` to regex-normalize and query DB with multiple date permutations. | Standardize domain/entity slot interfaces on ISO (`yyyy-MM-dd`). Confine display formatting (`"d MMM yyyy"`) strictly to UI Composables. Remove dual-format regex parsing in `GetAvailableSlotsUseCase`. | M2 |
+| **UNTANGLE-13** | Surplus / Shallow Feature Splitting | Redundant 2-file `feature/search` module | `SearchScreen` and `SearchViewModel` duplicate `PatientListViewModel` debounced search; `SearchPatientsUseCase` is a 6-line pass-through. | Consolidate `feature/search` into `feature/patient`. Prune shallow pass-through `SearchPatientsUseCase` in favor of direct repository flow. | M2 |
+| **UNTANGLE-14** | Concurrency & Resilience Hazards | 100+ non-atomic `.value = ` and swallowed cancellations | Direct state assignment in ViewModels risks clobbering concurrent updates; catch blocks catching `Exception` swallow coroutine `CancellationException`. | Replace direct `.value = ...` with atomic `.update { ... }`. Add `if (e is CancellationException) throw e` to all coroutine catch blocks. | M3 |
+| **UNTANGLE-15** | Comments Cleanup (Features) | Syntax-restating comments | Comments like `// 1. Search Bar`, `// 1. Patient Summary`, `// 1. Save Locally` clutter feature code. | Prune restating comments; strictly preserve external constraint comments (NCC-004 retry duplicate deduction rationale, URLEncoder `%20` explanation, reversal cap rationale). | M3 |
+| **UNTANGLE-16** | Tautological Tests | Tests testing local test variables or stdlib | Tests in `InventorySettingsAndFilteringTest:32-63, 117-144`, `StatisticsRegressionTest:105-118`, `ExpenseCalculatorTest:70-79`, `InventorySortKeysTest:34-48`, `ExpenseValidatorTest:72-78` test local variables or stdlib. | Prune redundant tests that test local variables; verify that genuine behavior is covered by domain unit tests. | M4 |
+| **UNTANGLE-17** | Brittle & Weak Tests | Tests tied to internals or weak assertions | `BackupCryptoTest` comparing `x == x`; `PatientUtilsTest` using weak `assertNotNull`; `DoctorAvailabilityRepositoryTest` using `sun.misc.Unsafe` and reflection proxies; `AppUpdateManagerTest` testing regex. | Rewrite tests to assert on public behavior: exact SHA-256 hash in `BackupCryptoTest`, exact IST epoch millis in `PatientUtilsTest`, extract validator for `DoctorAvailabilityRepositoryTest`, test public release parser in `AppUpdateManagerTest`. | M4 |
+| **UNTANGLE-18** | Hidden Links & Leaks in Tests | State leaks, timing dependencies, misplaced tests | `DateClassifierTest` leaks `Locale.GERMANY` to JVM worker; `SingleFlightTest` has arbitrary `delay()`; `RefreshStepTest` & `RefreshTablesTest` placed in `core/sync/` instead of `feature/sync/`. | Restore default Locale in `DateClassifierTest.tearDown()`; merge `SingleFlightTest` into deterministic coroutine test suite; relocate misplaced tests to `feature/sync/domain`; clean dead stubs in `ServiceStubs.kt`. | M4 |
+| **UNTANGLE-19** | Verification & Hardening | Full offline test suite and documentation validation | Ensure zero regressions, complete offline verification, clean architecture compliance, and forensic audit clean verdict. | Execute `./gradlew testDebugUnitTest --offline` and `python3 scripts/test_validate_docs.py`. Run challenger stress verification and forensic auditor integrity audit. | M5 |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Security, Cryptography & Cloud Services | SEC-01 to SEC-07, BACKEND-01 to BACKEND-03 | none | DONE |
-| M2 | Offline-First Sync & Room Database Integrity | SYNC-01 to SYNC-05, DB-01 to DB-04 | none | DONE |
-| M3 | Clinical & Business Logic Integrity | CLINIC-01 to CLINIC-06 | none | DONE |
-| M4 | State Mutation Safety & Dead Code Elimination | DEAD-01 to DEAD-06 | none | DONE |
-| M5 | Test Verification, Adversarial Hardening & Audit Report | TEST-01, TEST-02, REPORT-01 | M1, M2, M3, M4 | DONE |
+| M1 | Core & Data Layer Untangling & Clean Architecture Invariants | UNTANGLE-01 to UNTANGLE-08 | none | IN_PROGRESS |
+| M2 | Feature & Domain Layer Clean Architecture & Structural Decoupling | UNTANGLE-09 to UNTANGLE-13 | M1 | PLANNED |
+| M3 | State Mutation Safety, Concurrency & Comments Cleanup | UNTANGLE-14, UNTANGLE-15 | M1, M2 | PLANNED |
+| M4 | Test Architecture Cleanup & Behavior Assertions | UNTANGLE-16, UNTANGLE-17, UNTANGLE-18 | M1, M2, M3 | PLANNED |
+| M5 | Comprehensive Offline Verification, Hardening & Final Gate | UNTANGLE-19 | M1, M2, M3, M4 | PLANNED |
 
 ## Interface Contracts
-### Doctor Availability ↔ Consultation & Vaccination
-- `DoctorAvailabilityDao`: `getBookedSlotIdsForDates(doctorId: String, dates: List<String>)` must check both `doctorId = :doctorId` and match across doctor UUID or employee ID, or caller passes `listOf(doctor.id, doctor.employeeId).filterNotNull()`.
-- `ConsultationRepositoryImpl`: When updating consultation availability slot, update `availabilitySlotId` in both `consultations` and parent `patient_visits`.
 
-### SingleFlight ↔ Concurrency
-- `SingleFlight.run`: Must wrap cleanup in `withContext(NonCancellable) { mutex.withLock { inFlight.remove(key) } }` to ensure mutex lock succeeds even if the outer coroutine is cancelled.
+### SyncableEntity ↔ SyncUploader
+- `com.neochildclinic.data.local.entity.SyncableEntity`:
+  ```kotlin
+  interface SyncableEntity {
+      val isSynced: Boolean
+  }
+  ```
+- All 16 syncable Room entities implement `SyncableEntity`.
+- `SyncUploader.isEntityModifiedOffline(entity: Any?): Boolean`:
+  ```kotlin
+  internal fun isEntityModifiedOffline(entity: Any?): Boolean =
+      (entity as? SyncableEntity)?.let { !it.isSynced } ?: false
+  ```
 
-### Biometric Lock ↔ App Widget
-- `BiometricLockManager.onScreenOff`: Must set `_isAppLocked.value = true` immediately when screen turns off.
-- `WidgetWorker`: Stores raw patient names in `widget_due_cache`. `VaccineWidget` applies masking dynamically when `BiometricLockManager.isAppLocked.value == true`.
+### Pure Domain Models ↔ Room Entities
+- `com.neochildclinic.domain.model.Patient`: Pure Kotlin data class with domain properties, zero Room/KSP annotations.
+- `com.neochildclinic.data.local.entity.PatientEntity`: Room `@Entity` with SQLite metadata.
+- Mapping extensions:
+  - `fun PatientEntity.toDomain(): Patient`
+  - `fun Patient.toEntity(isSynced: Boolean = true): PatientEntity`
 
-### Cloudflare Backup Worker ↔ Supabase Auth
-- `cloudflare/backup-worker/src/index.ts`: Must resolve `accountId` exclusively from `user.app_metadata?.clinic_id || user.sub`. Client-writable `user.user_metadata` must never be used for tenant authorization.
+### Clinical Consultation ↔ Clinical Visit Service
+- `RecordConsultationUseCase` (in `feature/consultation/domain`):
+  Coordinates visit creation, consultation insertion, and financial transaction recording within a single atomic database transaction.
+- `AddConsultationViewModel`: Depends on `RecordConsultationUseCase` rather than `ClinicalVaccinationService`.
+
+### Finance Calculator ↔ Statistics
+- `FinanceCalculator`: Located in `com.neochildclinic.feature.finance.domain`.
+- `feature/statistics` imports `FinanceCalculator` from `feature.finance.domain`, ensuring dependencies flow toward transactional stability.
 
 ## Code Layout
-- `app/src/main/java/com/neochildclinic/core/security/`: Security, biometric authentication, lock manager.
-- `app/src/main/java/com/neochildclinic/core/sync/`: Offline-first sync, SingleFlight, SyncUploader, SyncWorker.
-- `app/src/main/java/com/neochildclinic/data/local/dao/`: Room DAOs (PatientDao, DoctorAvailabilityDao, VaccineDao).
-- `app/src/main/java/com/neochildclinic/data/local/database/`: Room AppDatabase, TypeConverters.
-- `app/src/main/java/com/neochildclinic/feature/`: Feature modules (consultation, vaccination, doctor, patient, reminder, inventory, widget, settings, staff, statistics).
-- `cloudflare/backup-worker/`: Cloudflare D1/R2 backup worker.
-- `supabase/`: Migrations and Edge Functions.
-- `app/src/test/java/com/neochildclinic/`: Offline JUnit tests.
+- `app/src/main/java/com/neochildclinic/core/`: Pure shared primitives (common, cache, preferences, security primitives, network base). No feature imports.
+- `app/src/main/java/com/neochildclinic/di/`: Central application Hilt dependency injection modules (`RepositoryModule`, `DatabaseModule`, `RemoteDataSourceModule`).
+- `app/src/main/java/com/neochildclinic/data/`: Data access layer (Room database, entities, DAOs, converters, remote data sources, outbox repository).
+- `app/src/main/java/com/neochildclinic/domain/model/`: Pure Kotlin business models (`Patient`, `Vaccination`, `Consultation`, `WasteRecord`, `DoctorAvailability`).
+- `app/src/main/java/com/neochildclinic/feature/`: Feature modules (auth, patient, consultation, vaccination, inventory, finance, doctor, reminder, settings, staff, statistics, widget).
+- `app/src/test/java/com/neochildclinic/`: Behavior-driven unit tests executing offline.
+- `scripts/`: Offline validation scripts (`test_validate_docs.py`).

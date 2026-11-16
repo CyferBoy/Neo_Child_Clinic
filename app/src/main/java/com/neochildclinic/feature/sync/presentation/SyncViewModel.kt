@@ -2,7 +2,7 @@ package com.neochildclinic.feature.sync.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.sync.SyncRepositoryImpl
+import com.neochildclinic.feature.sync.data.SyncRepositoryImpl
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.domain.model.SyncItem
 import dagger.hilt.android.lifecycle.HiltViewModel

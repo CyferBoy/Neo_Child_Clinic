@@ -1,4 +1,4 @@
-package com.neochildclinic.core.sync
+package com.neochildclinic.app.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.notification.NotificationHelper
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -15,7 +16,7 @@ import kotlinx.coroutines.flow.first
 class SyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val settingsManager: NotificationSettingsManager,
     private val notificationHelper: NotificationHelper
 ) : CoroutineWorker(appContext, workerParams) {

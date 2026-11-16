@@ -1,13 +1,14 @@
 package com.neochildclinic.core.common
 
-import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar
 import java.util.Date
 
 /**
- * Facade over [AgeUtils] and [DateUtils], kept so existing call sites (`PatientUtils.x`)
- * compile unchanged after the oversized object was decomposed.
+ * Deprecated shallow facade over [AgeUtils], [DateUtils], and [VaccineUtils].
+ * Kept strictly for backward compatibility with external references. Callers should access the specific
+ * utilities directly.
  */
+@Deprecated("Shallow facade. Call DateUtils, AgeUtils, or VaccineUtils directly.")
 object PatientUtils {
 
     typealias AgeMilestone = AgeUtils.AgeMilestone
@@ -50,28 +51,5 @@ object PatientUtils {
 
     fun isoToLong(dateStr: String?): Long = DateUtils.isoToLong(dateStr)
 
-    /**
-     * Removes parentheses from vaccine names if they exist (e.g., "Hepatitis B (HepB)" -> "HepB").
-     */
-    fun cleanVaccineName(name: String): String =
-        if (name.contains("(") && name.endsWith(")")) {
-            name.substringAfter("(").substringBeforeLast(")").trim()
-        } else {
-            name
-        }
-
-    /**
-     * Redundant forwarder to DateUtils.filterVaccinationsByPeriod. Retained for API compatibility with existing callers.
-     */
-    @Deprecated(
-        message = "Use DateUtils.filterVaccinationsByPeriod directly",
-        replaceWith = ReplaceWith(
-            "DateUtils.filterVaccinationsByPeriod(pendingVaccinations, filter)",
-            "com.neochildclinic.core.common.DateUtils"
-        )
-    )
-    fun filterVaccinationsByPeriod(
-        pendingVaccinations: List<Vaccination>,
-        filter: String,
-    ): List<Vaccination> = DateUtils.filterVaccinationsByPeriod(pendingVaccinations, filter)
+    fun cleanVaccineName(name: String): String = VaccineUtils.cleanVaccineName(name)
 }

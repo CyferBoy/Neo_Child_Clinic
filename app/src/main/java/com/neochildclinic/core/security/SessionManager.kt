@@ -1,7 +1,6 @@
 package com.neochildclinic.core.security
 
 import com.neochildclinic.core.common.metadataString
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import io.github.jan.supabase.auth.Auth
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -9,7 +8,7 @@ import javax.inject.Singleton
 @Singleton
 class SessionManager @Inject constructor(
     private val auth: Auth,
-    private val profileRepository: ProfileRepository
+    private val userDisplayNameProvider: UserDisplayNameProvider
 ) {
     /**
      * Returns the human-readable name of the current user.
@@ -19,7 +18,7 @@ class SessionManager @Inject constructor(
         val sessionUser = auth.currentSessionOrNull()?.user ?: return "Unknown"
         
         return try {
-            profileRepository.getProfileById(sessionUser.id)?.displayName?.takeIf { it.isNotBlank() }
+            userDisplayNameProvider.getUserDisplayName(sessionUser.id)?.takeIf { it.isNotBlank() }
                 ?: sessionUser.email
                 ?: "Unknown"
         } catch (e: Exception) {

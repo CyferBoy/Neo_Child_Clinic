@@ -10,7 +10,7 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.core.sync.SyncRepositoryImpl
+import com.neochildclinic.feature.sync.data.SyncRepositoryImpl
 import com.neochildclinic.core.preferences.PreferenceManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

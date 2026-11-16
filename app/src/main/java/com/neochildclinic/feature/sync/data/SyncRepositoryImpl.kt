@@ -1,16 +1,16 @@
-package com.neochildclinic.core.sync
-import com.neochildclinic.core.database.TransactionRunner
-import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+package com.neochildclinic.feature.sync.data
 
+import com.neochildclinic.core.database.TransactionRunner
+import com.neochildclinic.core.sync.*
+import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.*
+import com.neochildclinic.domain.model.SyncErrorDetails
 import com.neochildclinic.domain.model.SyncItem
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
-import com.neochildclinic.domain.model.SyncStatus
-import com.neochildclinic.domain.model.SyncErrorDetails
 import com.neochildclinic.domain.model.SyncState
-import io.github.jan.supabase.postgrest.Postgrest
+import com.neochildclinic.domain.model.SyncStatus
+import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.exceptions.RestException
@@ -22,14 +22,12 @@ import javax.inject.Singleton
 @Singleton
 class SyncRepositoryImpl @Inject constructor(
     private val transactionRunner: TransactionRunner,
-    private val postgrest: Postgrest,
-    private val syncManager: SyncManagerImpl,
+    private val syncManager: SyncScheduler,
     private val auth: Auth,
     private val uploader: SyncUploader,
-    private val syncQueueDao: SyncQueueDao
+    private val syncQueueDao: SyncQueueDao,
+    private val appDatabase: com.neochildclinic.data.local.database.AppDatabase
 ) : SyncRepository {
-
-    private val syncDao = syncQueueDao
 
     // At most one manual session refresh is allowed per processNextItems() run (used both
     // by the batch-start prerequisite and by the per-item 401 retry). This keeps the app
@@ -70,8 +68,8 @@ class SyncRepositoryImpl @Inject constructor(
         // - CREATE + DELETE -> Purge both locally (net-zero operation, nothing to send)
         // - UPDATE + DELETE -> Purge pending/failed items, enqueue DELETE
         // - Identical duplicate operations -> Remove older pending/failed rows, enqueue fresh attempt
-        val existingPending = syncDao.getPendingForEntity(entityName, entityId)
-        val existingFailed = syncDao.getItemsByStatus(SyncStatus.FAILED.name).filter {
+        val existingPending = syncQueueDao.getPendingForEntity(entityName, entityId)
+        val existingFailed = syncQueueDao.getItemsByStatus(SyncStatus.FAILED.name).filter {
             it.entityName == entityName && it.entityId == entityId
         }
         val existingItems = existingPending + existingFailed
@@ -80,7 +78,7 @@ class SyncRepositoryImpl @Inject constructor(
         if (existingItems.isNotEmpty()) {
             val hasCreate = existingItems.any { it.operation == SyncOperation.CREATE.name }
             if (operation == SyncOperation.DELETE) {
-                syncDao.deleteByIds(existingItems.map { it.queueId })
+                syncQueueDao.deleteByIds(existingItems.map { it.queueId })
                 if (hasCreate) {
                     return
                 }
@@ -89,19 +87,19 @@ class SyncRepositoryImpl @Inject constructor(
                 if (hasPendingCreate) {
                     // Pending CREATE already exists; clear any failed rows and let pending CREATE upload latest data.
                     if (existingFailed.isNotEmpty()) {
-                        syncDao.deleteByIds(existingFailed.map { it.queueId })
+                        syncQueueDao.deleteByIds(existingFailed.map { it.queueId })
                     }
                     return
                 } else {
                     // Prior CREATE failed on server; delete old rows and re-enqueue as fresh CREATE so server receives it.
-                    syncDao.deleteByIds(existingItems.map { it.queueId })
+                    syncQueueDao.deleteByIds(existingItems.map { it.queueId })
                     actualOperation = SyncOperation.CREATE
                 }
             } else {
-                syncDao.deleteByIds(existingItems.map { it.queueId })
+                syncQueueDao.deleteByIds(existingItems.map { it.queueId })
             }
         }
-        syncDao.enqueue(
+        syncQueueDao.enqueue(
             SyncQueueEntity(
                 entityName = entityName,
                 entityId = entityId,
@@ -113,13 +111,13 @@ class SyncRepositoryImpl @Inject constructor(
         syncManager.scheduleSync()
     }
 
-    override fun getPendingCount(): Flow<Int> = syncDao.getPendingCount()
+    override fun getPendingCount(): Flow<Int> = syncQueueDao.getPendingCount()
 
     fun getSyncQueue(): Flow<List<SyncItem>> = 
-        syncDao.getAllItems().map { list -> list.map { it.toDomain() } }
+        syncQueueDao.getAllItems().map { list -> list.map { it.toDomain() } }
 
     suspend fun clearSyncedItems() {
-        syncDao.clearSynced()
+        syncQueueDao.clearSynced()
     }
 
     // Single-flight: only one queue run at a time in this process. Three unique
@@ -133,7 +131,7 @@ class SyncRepositoryImpl @Inject constructor(
         flight.run { processNextItemsInternal() }
 
     override suspend fun hasFailedItems(): Boolean =
-        syncDao.getCountByStatus(SyncStatus.FAILED.name) > 0
+        syncQueueDao.getCountByStatus(SyncStatus.FAILED.name) > 0
 
     /**
      * Returns true when at least one queue item ended the run FAILED (permanent, visible
@@ -142,14 +140,14 @@ class SyncRepositoryImpl @Inject constructor(
      * not failures: they are already rescheduled below.
      */
     private suspend fun processNextItemsInternal(): Boolean {
-        syncDao.cleanCorruptedItems()
-        syncDao.requeueStaleSyncingItems(
+        syncQueueDao.cleanCorruptedItems()
+        syncQueueDao.requeueStaleSyncingItems(
             staleBefore = com.neochildclinic.core.common.PatientUtils.getIsoTimestampMinutesAgo(5)
         )
 
         batchRefreshAttempted = false
 
-        val pending = syncDao.getItemsByStatus(SyncStatus.PENDING.name)
+        val pending = syncQueueDao.getItemsByStatus(SyncStatus.PENDING.name)
         if (pending.isEmpty()) {
             _syncState.value = SyncState.IDLE
             return false
@@ -209,7 +207,7 @@ class SyncRepositoryImpl @Inject constructor(
 
         // 3. Loop if more items arrived during processing (inner call: the flight lock
         // above is already held by this coroutine).
-        if (syncDao.getPendingCountSync() > 0 && !hasError) {
+        if (syncQueueDao.getPendingCountSync() > 0 && !hasError) {
             anyFailed = processNextItemsInternal() || anyFailed
         }
         return anyFailed
@@ -312,7 +310,7 @@ class SyncRepositoryImpl @Inject constructor(
         return try {
             transactionRunner.run {
                 for (item in groupItems) {
-                    syncDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
+                    syncQueueDao.updateStatus(item.queueId, SyncStatus.SYNCING.name)
                 }
             }
 
@@ -333,7 +331,7 @@ class SyncRepositoryImpl @Inject constructor(
                     uploader.uploadEntity(item, remoteConflictData)
                 }
                 uploader.markUploaded(item)
-                syncDao.deleteItem(item)
+                syncQueueDao.deleteItem(item)
             }
             GroupResult.SUCCESS
         } catch (e: SessionAuthTransientException) {
@@ -341,7 +339,7 @@ class SyncRepositoryImpl @Inject constructor(
             // refresh the same rows can sync, so leave them PENDING (never FAILED) and
             // let the end-of-batch handler schedule one quieter background run.
             for (item in groupItems) {
-                syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                syncQueueDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
             }
             android.util.Log.w("SyncRepositoryImpl", "Group $groupId deferred: session refresh unavailable", e)
             GroupResult.SESSION_DEFERRED
@@ -359,7 +357,7 @@ class SyncRepositoryImpl @Inject constructor(
             // error that is not its own (finding 17b).
             if (failIndex >= 0) {
                 for (item in groupItems.drop(failIndex + 1)) {
-                    syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                    syncQueueDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
                 }
             }
             if (classifyAndRecordError(errorClassificationTail(groupItems, failIndex), e)) {
@@ -394,14 +392,14 @@ class SyncRepositoryImpl @Inject constructor(
 
         for (item in groupItems) {
             if (rateLimited) {
-                syncDao.requeueRateLimited(item.queueId, buildSyncErrorDetails(e))
+                syncQueueDao.requeueRateLimited(item.queueId, buildSyncErrorDetails(e))
                 requeued = true
             } else if (transient && item.retryCount < 5) {
-                syncDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
-                syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                syncQueueDao.incrementRetryCount(item.queueId, buildSyncErrorDetails(e))
+                syncQueueDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
                 requeued = true
             } else {
-                syncDao.markFailed(item.queueId, SyncStatus.FAILED.name, buildSyncErrorDetails(e))
+                syncQueueDao.markFailed(item.queueId, SyncStatus.FAILED.name, buildSyncErrorDetails(e))
             }
         }
         return requeued
@@ -557,156 +555,37 @@ class SyncRepositoryImpl @Inject constructor(
         SYNC_ENTITY_REGISTRY[entityName]?.priority ?: 100
 
     suspend fun retryFailedItems() {
-        val failed = syncDao.getItemsByStatus(SyncStatus.FAILED.name)
+        val failed = syncQueueDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
-            syncDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+            syncQueueDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
         }
         syncManager.scheduleSync()
     }
 
     suspend fun deleteQueueItem(queueId: Long) {
-        syncDao.getItemById(queueId)?.let { item ->
-            syncDao.deleteItem(item)
+        syncQueueDao.getItemById(queueId)?.let { item ->
+            syncQueueDao.deleteItem(item)
         }
     }
 
     suspend fun retryItem(queueId: Long) {
-        syncDao.updateStatus(queueId, SyncStatus.PENDING.name)
+        syncQueueDao.updateStatus(queueId, SyncStatus.PENDING.name)
         syncManager.scheduleSync()
     }
 
     suspend fun deleteAllFailed() {
-        val failed = syncDao.getItemsByStatus(SyncStatus.FAILED.name)
+        val failed = syncQueueDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
-            syncDao.deleteItem(item)
+            syncQueueDao.deleteItem(item)
         }
     }
-}
 
-// True only when a request failed as a *session/token* problem. A 401 (expired/invalid
-// JWT) always counts, whatever the message. Otherwise we fall back to the message text for
-// non-REST failures only. A genuine RLS rejection - PostgREST 400 with code "42501",
-// "new row violates row-level security policy ..." - is a data-level authorization failure,
-// NOT a token failure, so its status (400) wins and it is never treated as refreshable.
-internal fun shouldRefreshSessionFor(statusCode: Int?, message: String?): Boolean {
-    if (statusCode == 401) return true
-    val text = message.orEmpty()
-    return text.contains("jwt", ignoreCase = true) &&
-        (text.contains("expired", ignoreCase = true) ||
-            text.contains("invalid", ignoreCase = true) ||
-            text.contains("token", ignoreCase = true))
-}
+    override suspend fun getUnacknowledgedCount(): Int =
+        syncQueueDao.getUnacknowledgedCountSync()
 
-// Classifies a sync upload failure as transient (worth retrying with backoff - the same
-// request could well succeed later with nothing else changed) or permanent (will not
-// succeed without a code/data fix, so retrying it is pointless and only delays surfacing
-// the problem). Used by processNextItems' per-group catch to decide PENDING+retry vs
-// FAILED (see "Deletion Failure and Retry Behavior" section D/E - this governs the queued
-// DELETE/CREATE/UPDATE operations a vaccination deletion enqueues, same as every other
-// entity's sync operations).
-//
-// Transient: connectivity-layer failures with no HTTP response at all (no network, DNS,
-// connection reset/refused, a client-side request timeout - java.io.IOException and
-// supabase-kt's own HttpRequestException both represent this), and HTTP responses that are
-// explicitly about server-side or rate-limiting trouble rather than the request itself
-// being wrong: 408 Request Timeout, 429 Too Many Requests, and 5xx (Supabase/Postgres
-// temporarily unavailable).
-//
-// Permanent: any other RestException - a 4xx such as 400 (invalid payload/schema
-// mismatch), 403/a PostgREST 42501 (RLS/permission denial that a retry can't fix), 404,
-// 409 (conflict/duplicate key), or 422 (validation) means the request as sent cannot
-// succeed, and resending it unchanged will fail identically every time.
-//
-// 401 is deliberately not special-cased here: it's already handled earlier in
-// processNextItems via requiresSessionRefresh/handleSessionRefreshOn401, which retries the
-// same item inline after a session refresh or defers the whole group via
-// SessionAuthTransientException (never reaching this function). A 401 that does reach here
-// means that path already gave up on it, so it falls through and is judged as any other
-// RestException would be.
-internal fun isTransientSyncError(error: Throwable): Boolean {
-    var current: Throwable? = error
-    repeat(8) {
-        val t = current
-        if (t is java.io.IOException || t is io.github.jan.supabase.exceptions.HttpRequestException) {
-            return true
-        }
-        if (t is RestException) {
-            return t.statusCode == 408 || t.statusCode == 429 || t.statusCode in 500..599
-        }
-        current = t?.cause
+    override suspend fun clearLocalData() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        appDatabase.clearAllTables()
     }
-    // Unrecognized shape (e.g. a local exception not wrapping a REST/IO failure at all) -
-    // fall back to the message text, same spirit as the network-error check this replaces.
-    val text = error.message.orEmpty()
-    return text.contains("network", ignoreCase = true) ||
-        text.contains("timeout", ignoreCase = true) ||
-        text.contains("unavailable", ignoreCase = true)
-}
-
-// 429 alone. Kept separate from isTransientSyncError because a rate-limited item must be
-// requeued WITHOUT incrementing retryCount - see classifyAndRecordError.
-internal fun isRateLimitedSyncError(error: Throwable): Boolean {
-    var current: Throwable? = error
-    repeat(8) {
-        val t = current
-        if (t is RestException) return t.statusCode == 429
-        current = t?.cause
-    }
-    return false
-}
-
-// Blocks until the SDK has left the Initializing status - i.e. it has restored a persisted
-// session (autoLoadFromStorage) and/or finished any refresh-on-load, settling on
-// Authenticated, NotAuthenticated or RefreshFailure - or until timeoutMs elapses.
-// Returns false ONLY on timeout (session still resolving = transient): a settled
-// NotAuthenticated status still returns true, so callers can tell "genuinely logged out"
-// apart from "still restoring, retry shortly".
-internal suspend fun awaitSessionResolved(
-    sessionStatus: StateFlow<SessionStatus>,
-    timeoutMs: Long
-): Boolean =
-    kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
-        sessionStatus.first { it !is SessionStatus.Initializing }
-    } != null
-
-// Outcome of the auth prerequisite check that every sync batch must clear before writing.
-internal enum class SessionReadiness {
-    /** An authenticated session exists and its access token is usable; proceed with sync. */
-    USABLE,
-
-    /** Auth isn't ready yet (SDK reload/refresh in progress, or a refresh temporarily
-     * failed): proceed later via one quiet background retry. */
-    RETRY_LATER,
-
-    /** The SDK has settled on NotAuthenticated: the user is genuinely logged out - never
-     * write to Supabase, and do not retry-loop. */
-    LOGGED_OUT
-}
-
-// True when the access token remains valid for at least graceMillis from nowMillis.
-// Deliberately skipping a refresh for a comfortably-valid token avoids consuming the same
-// GoTrue refresh token twice when the SDK's own auto-refresh job is alive
-// ("refresh_token_not_found" / "No refresh token found").
-internal fun isSessionTokenUsable(expiresAtEpochMillis: Long, nowMillis: Long, graceMillis: Long): Boolean =
-    expiresAtEpochMillis - nowMillis > graceMillis
-
-// Classifies the outcome of a refresh that failed after it was attempted, purely from the
-// SDK's re-inspected status. Preferring status.session keeps the decision aligned with
-// what the SDK will actually attach to the next PostgREST request.
-internal fun classifySessionReadinessAfterFailedRefresh(
-    status: SessionStatus,
-    nowMillis: Long,
-    graceMillis: Long
-): SessionReadiness = when (status) {
-    is SessionStatus.NotAuthenticated -> SessionReadiness.LOGGED_OUT
-    is SessionStatus.Initializing,
-    is SessionStatus.RefreshFailure -> SessionReadiness.RETRY_LATER
-    is SessionStatus.Authenticated ->
-        if (isSessionTokenUsable(status.session.expiresAt.toEpochMilliseconds(), nowMillis, graceMillis)) {
-            SessionReadiness.USABLE
-        } else {
-            SessionReadiness.RETRY_LATER
-        }
 }
 
 // Groups pending items by transactionGroupId first (an item with no group id still becomes

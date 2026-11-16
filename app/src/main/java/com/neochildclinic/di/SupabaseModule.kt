@@ -1,4 +1,4 @@
-package com.neochildclinic.core.di
+package com.neochildclinic.di
 
 import android.content.Context
 import android.content.SharedPreferences

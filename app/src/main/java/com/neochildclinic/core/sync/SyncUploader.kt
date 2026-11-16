@@ -773,23 +773,31 @@ internal fun isStockCheckViolation(error: Throwable): Boolean {
  * Returns true if the entity has local unpushed offline modifications (i.e. isSynced == false).
  */
 internal fun isEntityModifiedOffline(entity: Any?): Boolean {
-    return when (entity) {
-        is PatientEntity -> !entity.isSynced
-        is VisitEntity -> !entity.isSynced
-        is PatientNotesEntity -> !entity.isSynced
-        is WasteEntity -> !entity.isSynced
-        is ReminderEntity -> !entity.isSynced
-        is FinanceEntity -> !entity.isSynced
-        is ExpenseEntity -> !entity.isSynced
-        is PersonalReminderEntity -> !entity.isSynced
-        is BorrowEntity -> !entity.isSynced
-        is BorrowReturnEntity -> !entity.isSynced
-        is ConsultationEntity -> !entity.isSynced
-        is ConsultationTodoEntity -> !entity.isSynced
-        is VaccinationTodoEntity -> !entity.isSynced
-        is DoctorWeeklySlotEntity -> !entity.isSynced
-        is DoctorSlotExceptionEntity -> !entity.isSynced
-        is AuditLogEntity -> !entity.isSynced
-        else -> false
+    return (entity as? SyncableEntity)?.let { !it.isSynced } ?: false
+}
+
+/**
+ * Returns the slice of [group] that should have their retry budget spent when the item at
+ * [failedIndex] threw during upload.
+ *
+ * Contract:
+ *  - Items BEFORE [failedIndex] were already successfully uploaded (their queue rows were
+ *    deleted by markUploaded); they must NOT be re-classified.
+ *  - The item AT [failedIndex] threw; it alone gets its budget charged.
+ *  - Items AFTER [failedIndex] were never attempted; processGroup releases them back to
+ *    PENDING, so they must NOT be classified here either.
+ *  - If [failedIndex] == -1 (failure before any item was attempted, e.g. in fetchRemote-
+ *    ConflictData), the entire group gets classified.
+ *  - If [failedIndex] is out of bounds (>= group.size), no classification should occur
+ *    (defensive guard; should not arise in normal operation).
+ */
+internal fun errorClassificationTail(
+    group: List<com.neochildclinic.data.local.entity.SyncQueueEntity>,
+    failedIndex: Int
+): List<com.neochildclinic.data.local.entity.SyncQueueEntity> {
+    return when {
+        failedIndex < 0 -> group                        // pre-flight failure — classify all
+        failedIndex >= group.size -> emptyList()        // out-of-range — nothing to classify
+        else -> group.subList(failedIndex, failedIndex + 1) // only the item that threw
     }
 }

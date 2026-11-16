@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.R
 import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.core.security.AuthViewModel
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
@@ -41,8 +40,8 @@ fun LoginScreen(
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
-    val isLoading by viewModel.isLoading
-    val error by viewModel.error
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
     LoginContent(
         email = email,
