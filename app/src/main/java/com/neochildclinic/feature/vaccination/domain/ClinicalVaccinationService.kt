@@ -14,7 +14,7 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.InventoryDeduction
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
 import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedException
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.common.PatientUtils

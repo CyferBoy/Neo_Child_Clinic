@@ -9,7 +9,7 @@ import com.neochildclinic.data.local.entity.FinanceEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.FinanceTransaction
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger

@@ -19,8 +19,8 @@ import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
-import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceSummaryItem
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.util.Locale
 

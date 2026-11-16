@@ -118,7 +118,7 @@ class VaccinationEditEngine @Inject constructor(
                     amount = updated.totalPaid,
                     cashAmount = updated.cashAmount,
                     onlineAmount = updated.onlineAmount,
-                    remarks = com.neochildclinic.feature.statistics.domain.FinanceCalculator.buildVaccinationRemarks(updated),
+                    remarks = com.neochildclinic.feature.finance.domain.FinanceCalculator.buildVaccinationRemarks(updated),
                     recordedBy = user,
                     transactionGroupId = transactionGroupId
                 )

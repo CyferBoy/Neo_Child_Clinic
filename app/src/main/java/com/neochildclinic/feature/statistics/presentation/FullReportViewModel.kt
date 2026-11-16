@@ -10,7 +10,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase

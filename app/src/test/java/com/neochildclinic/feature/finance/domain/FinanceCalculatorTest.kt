@@ -1,4 +1,4 @@
-package com.neochildclinic.feature.statistics.domain
+package com.neochildclinic.feature.finance.domain
 
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory

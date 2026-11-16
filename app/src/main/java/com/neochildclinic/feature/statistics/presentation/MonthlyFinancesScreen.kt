@@ -28,8 +28,8 @@ import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
-import com.neochildclinic.feature.statistics.domain.FinanceSummaryItem
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceSummaryItem
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 @OptIn(ExperimentalMaterial3Api::class)

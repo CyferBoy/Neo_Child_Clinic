@@ -16,7 +16,7 @@ import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRep
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import com.neochildclinic.core.common.PatientUtils
 import java.util.Calendar

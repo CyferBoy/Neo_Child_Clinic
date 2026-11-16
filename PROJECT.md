@@ -39,8 +39,8 @@ Mapping all identified issues across the four core dimensions (Hidden Links, Nee
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Core & Data Layer Untangling & Clean Architecture Invariants | UNTANGLE-01 to UNTANGLE-08 | none | IN_PROGRESS |
-| M2 | Feature & Domain Layer Clean Architecture & Structural Decoupling | UNTANGLE-09 to UNTANGLE-13 | M1 | PLANNED |
+| M1 | Core & Data Layer Untangling & Clean Architecture Invariants | UNTANGLE-01 to UNTANGLE-08 | none | COMPLETE |
+| M2 | Feature & Domain Layer Clean Architecture & Structural Decoupling | UNTANGLE-09 to UNTANGLE-13 | M1 | IN_PROGRESS |
 | M3 | State Mutation Safety, Concurrency & Comments Cleanup | UNTANGLE-14, UNTANGLE-15 | M1, M2 | PLANNED |
 | M4 | Test Architecture Cleanup & Behavior Assertions | UNTANGLE-16, UNTANGLE-17, UNTANGLE-18 | M1, M2, M3 | PLANNED |
 | M5 | Comprehensive Offline Verification, Hardening & Final Gate | UNTANGLE-19 | M1, M2, M3, M4 | PLANNED |

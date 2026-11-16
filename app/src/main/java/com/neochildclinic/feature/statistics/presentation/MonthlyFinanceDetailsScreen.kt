@@ -36,7 +36,7 @@ import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.util.Calendar
 import java.util.Locale

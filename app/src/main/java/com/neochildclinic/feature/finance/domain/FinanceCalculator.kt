@@ -1,4 +1,4 @@
-package com.neochildclinic.feature.statistics.domain
+package com.neochildclinic.feature.finance.domain
 
 import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.startOfDay
@@ -43,6 +43,15 @@ object FinanceCalculator {
     private const val EXPENSE = "EXPENSE"
     private const val VACCINATION = "VACCINATION"
     private const val COGS_MARKER = "[COGS_SNAPSHOT:"
+
+    val MONTH_NAMES = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    fun filterValidVaccinations(vaccinations: List<Vaccination>): List<Vaccination> =
+        vaccinations.filter {
+            it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED ||
+            it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL ||
+            it.source.equals("EXTERNAL", true)
+        }
 
     /**
      * The authoritative reporting date for a finance transaction.
@@ -103,7 +112,7 @@ object FinanceCalculator {
         visitDatesById: Map<String, String>? = null
     ): FinanceStatsData {
         // Cache valid vaccinations once
-        val validVaccinationsForCogs = StatisticsUtils.filterValidVaccinations(vaccinationsForCogs)
+        val validVaccinationsForCogs = filterValidVaccinations(vaccinationsForCogs)
         val vaccinationById = validVaccinationsForCogs.associateBy { it.id }
 
         val cleanTransactions = transactions.filter { isCleanTransaction(it, vaccinationById.keys) }
@@ -153,7 +162,7 @@ object FinanceCalculator {
             allTransactionsForReconciliation.filter { it.type.equals(INCOME, true) }
         ).mapNotNull { it.visitId }.toSet()
         
-        val validReconciliationVaccinations = StatisticsUtils.filterValidVaccinations(vaccinationsForReconciliation)
+        val validReconciliationVaccinations = filterValidVaccinations(vaccinationsForReconciliation)
         val unrecordedVaccinationPaymentCount = validReconciliationVaccinations.count {
             it.totalPaid > 0.0 && it.id !in allRecordedVaccinationVisitIds
         }
@@ -183,7 +192,7 @@ object FinanceCalculator {
         visitDatesById: Map<String, String>? = null,
         expenses: List<Expense> = emptyList()
     ): List<FinanceSummaryItem> {
-        val validVaccinations = StatisticsUtils.filterValidVaccinations(vaccinations)
+        val validVaccinations = filterValidVaccinations(vaccinations)
         val vaccinationById = validVaccinations.associateBy { it.id }
         val validVaccinationIds = vaccinationById.keys
         
@@ -294,7 +303,7 @@ object FinanceCalculator {
             val netProfit = if (isProfitComplete) revenue - monthExpenses - vaccineCost else 0.0
 
             result += FinanceSummaryItem(
-                label = "${StatisticsUtils.monthNames[month]} $year",
+                label = "${MONTH_NAMES[month]} $year",
                 revenue = revenue,
                 expenses = monthExpenses,
                 vaccineCost = vaccineCost,

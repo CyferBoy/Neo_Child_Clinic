@@ -19,8 +19,8 @@ import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.statistics.domain.ExpenseCalculator
-import com.neochildclinic.feature.statistics.domain.FinanceCalculator
-import com.neochildclinic.feature.statistics.domain.FinanceStatsData
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
+import com.neochildclinic.feature.finance.domain.FinanceStatsData
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import com.neochildclinic.feature.statistics.domain.VisitTypeStats
