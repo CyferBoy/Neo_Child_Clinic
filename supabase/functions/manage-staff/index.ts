@@ -143,6 +143,10 @@ serve(async (req) => {
         }
         const { error: authUpdateError } = await admin.auth.admin.updateUserById(staffId, profileUpdate)
         if (authUpdateError) throw authUpdateError
+        if (body.role !== undefined) {
+          // Invalidate active sessions immediately so demoted/updated privileges do not persist in existing JWTs
+          await admin.auth.admin.signOut(staffId).catch(() => {})
+        }
         return json({ success: true })
       }
 

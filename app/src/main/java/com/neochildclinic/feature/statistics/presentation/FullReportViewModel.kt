@@ -134,12 +134,14 @@ class FullReportViewModel @Inject constructor(
                 .catch { e ->
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Full report combine failed", e)
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "Could not load the report."
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = e.message ?: "Could not load the report."
+                        )
+                    }
                 }
-                .collect { _uiState.value = it }
+                .collect { reportState -> _uiState.update { reportState } }
         }
     }
 
@@ -165,13 +167,13 @@ class FullReportViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isRefreshing = true)
+            _uiState.update { it.copy(isRefreshing = true) }
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
                 android.util.Log.e("FullReportVM", "Refresh failed", e)
             } finally {
-                _uiState.value = _uiState.value.copy(isRefreshing = false)
+                _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }

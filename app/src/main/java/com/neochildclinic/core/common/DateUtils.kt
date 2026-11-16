@@ -231,14 +231,6 @@ object DateUtils {
         }
     }
 
-    /**
-     * Removes parentheses from vaccine names if they exist (e.g., "Hepatitis B (HepB)" -> "HepB").
-     */
-    @Deprecated(
-        message = "Moved to PatientUtils for domain cohesion",
-        replaceWith = ReplaceWith("PatientUtils.cleanVaccineName(name)", "com.neochildclinic.core.common.PatientUtils")
-    )
-    fun cleanVaccineName(name: String): String = PatientUtils.cleanVaccineName(name)
 
     /**
      * Unified Logic: Filters pending vaccinations based on a string filter (e.g., "Overdue", "Today").

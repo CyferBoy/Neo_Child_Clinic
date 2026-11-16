@@ -94,7 +94,7 @@ class AppUpdateManager @Inject constructor(
         private val RE_MANDATORY = Regex("(?im)^\\s*update-type\\s*:\\s*mandatory\\s*$")
         private val RE_MAJOR_TAG = Regex("^\\d+\\.0\\.0$")
         private val RE_SHA256_HEX = Regex("^[a-f0-9]{64}$")
-        private val RE_SHA256_LINE = Regex("(?im)^\\s*(?:apk[-_]?)?sha256\\s*:\\s*([a-f0-9]{64})\\s*$")
+        internal val RE_SHA256_LINE = Regex("(?im)^\\s*(?:\\*{1,2}|_)?(?:apk[-_]?)?sha[-_]?256(?:\\*{1,2}|_)?\\s*:\\s*(?:\\*{1,2}|_)?\\s*[`*]?([a-f0-9]{64})[`*]?\\s*$")
         private val RE_CONTENT_RANGE_START = Regex("bytes\\s+(\\d+)-")
     }
 

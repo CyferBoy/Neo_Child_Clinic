@@ -83,7 +83,25 @@ class RealtimeChangeSubscriptions @Inject constructor(
                     }
                 }
 
-                channel.subscribe()
+                var subscribeBackoffMs = INITIAL_RETRY_DELAY_MS
+                while (isActive) {
+                    try {
+                        channel.subscribe()
+                        break
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(
+                            "Realtime",
+                            "Error subscribing to channel $channelName; retrying in ${subscribeBackoffMs}ms",
+                            e
+                        )
+                        delay(subscribeBackoffMs)
+                        subscribeBackoffMs = (subscribeBackoffMs * 2).coerceAtMost(MAX_RETRY_DELAY_MS)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("Realtime", "Error setting up realtime changes for $channelName", e)
             }

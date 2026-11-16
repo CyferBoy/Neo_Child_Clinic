@@ -2,6 +2,7 @@ package com.neochildclinic.core.sync
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -73,5 +74,21 @@ class SingleFlightTest {
         flight.run { executions++ }
         flight.run { executions++ }
         assertEquals(2, executions)
+    }
+
+    @Test
+    fun `cancelled caller releases the gate and does not poison future callers`() = runBlocking {
+        val flight = SingleFlight()
+        val job = launch {
+            flight.run {
+                delay(1000)
+            }
+        }
+        delay(50)
+        job.cancel()
+        job.join()
+        var executed = false
+        flight.run { executed = true }
+        assertTrue("gate must not be poisoned", executed)
     }
 }

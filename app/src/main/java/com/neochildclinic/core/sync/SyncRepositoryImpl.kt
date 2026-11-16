@@ -65,33 +65,47 @@ class SyncRepositoryImpl @Inject constructor(
             return
         }
 
-        // SYNC-06: Outbox coalescing for offline mutation sequences.
-        // - CREATE + UPDATE -> Keep pending CREATE (it reads latest state on upload)
+        // SYNC-04 & SYNC-06: Outbox coalescing for offline mutation sequences, including FAILED items.
+        // - CREATE + UPDATE -> Keep pending CREATE (it reads latest state on upload), reset any failed state
         // - CREATE + DELETE -> Purge both locally (net-zero operation, nothing to send)
-        // - UPDATE + DELETE -> Purge pending UPDATE, enqueue DELETE
-        // - Identical duplicate operations -> Remove older pending row
+        // - UPDATE + DELETE -> Purge pending/failed items, enqueue DELETE
+        // - Identical duplicate operations -> Remove older pending/failed rows, enqueue fresh attempt
         val existingPending = syncDao.getPendingForEntity(entityName, entityId)
-        if (existingPending.isNotEmpty()) {
-            val hasCreate = existingPending.any { it.operation == SyncOperation.CREATE.name }
+        val existingFailed = syncDao.getItemsByStatus(SyncStatus.FAILED.name).filter {
+            it.entityName == entityName && it.entityId == entityId
+        }
+        val existingItems = existingPending + existingFailed
+        var actualOperation = operation
+
+        if (existingItems.isNotEmpty()) {
+            val hasCreate = existingItems.any { it.operation == SyncOperation.CREATE.name }
             if (operation == SyncOperation.DELETE) {
+                syncDao.deleteByIds(existingItems.map { it.queueId })
                 if (hasCreate) {
-                    syncDao.deleteByIds(existingPending.map { it.queueId })
                     return
-                } else {
-                    syncDao.deleteByIds(existingPending.map { it.queueId })
                 }
             } else if (operation == SyncOperation.UPDATE && hasCreate) {
-                // Pending CREATE already exists; it will upload the latest local data.
-                return
+                val hasPendingCreate = existingPending.any { it.operation == SyncOperation.CREATE.name }
+                if (hasPendingCreate) {
+                    // Pending CREATE already exists; clear any failed rows and let pending CREATE upload latest data.
+                    if (existingFailed.isNotEmpty()) {
+                        syncDao.deleteByIds(existingFailed.map { it.queueId })
+                    }
+                    return
+                } else {
+                    // Prior CREATE failed on server; delete old rows and re-enqueue as fresh CREATE so server receives it.
+                    syncDao.deleteByIds(existingItems.map { it.queueId })
+                    actualOperation = SyncOperation.CREATE
+                }
             } else {
-                syncDao.deleteByIds(existingPending.map { it.queueId })
+                syncDao.deleteByIds(existingItems.map { it.queueId })
             }
         }
         syncDao.enqueue(
             SyncQueueEntity(
                 entityName = entityName,
                 entityId = entityId,
-                operation = operation.name,
+                operation = actualOperation.name,
                 priority = priority.name,
                 transactionGroupId = transactionGroupId
             )

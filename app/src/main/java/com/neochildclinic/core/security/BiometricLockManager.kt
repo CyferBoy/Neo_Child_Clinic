@@ -64,6 +64,7 @@ object BiometricLockManager {
     fun onScreenOff() {
         if (protectionEnabled) {
             screenWasOff = true
+            _isAppLocked.value = true
             onNeedsAuthChanged?.invoke(true)
         }
     }

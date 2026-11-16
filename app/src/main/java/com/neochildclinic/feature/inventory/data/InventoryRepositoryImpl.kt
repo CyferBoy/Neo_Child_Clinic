@@ -697,8 +697,10 @@ action = "DELETED",
                 pendingIds = pendingBatchIds
             ).flatten().forEach { batchId ->
                 if (vaccineDao.getVaccinationCountForBatch(batchId) == 0 &&
+                    vaccineDao.getWasteCountForBatch(batchId) == 0 &&
                     vaccineDao.getBorrowCountForBatch(batchId) == 0 &&
-                    vaccineDao.getBorrowReturnCountForBatch(batchId) == 0) {
+                    vaccineDao.getBorrowReturnCountForBatch(batchId) == 0 &&
+                    vaccineDao.getTransactionCountForBatch(batchId) == 0) {
                     vaccineDao.deleteBatch(batchId)
                 } else {
                     android.util.Log.w("InventoryRepo", "Skipping RemotePrune for batch $batchId: historical records reference it")
@@ -711,7 +713,9 @@ action = "DELETED",
                 pendingIds = pendingVaccineIds
             ).flatten().forEach { vaccineId ->
                 if (vaccineDao.getVaccinationCountForVaccine(vaccineId) == 0 &&
-                    vaccineDao.getBatchCountForVaccine(vaccineId) == 0) {
+                    vaccineDao.getBatchCountForVaccine(vaccineId) == 0 &&
+                    vaccineDao.getWasteCountForVaccine(vaccineId) == 0 &&
+                    vaccineDao.getTransactionCountForVaccine(vaccineId) == 0) {
                     vaccineDao.deleteVaccine(vaccineId)
                 } else {
                     android.util.Log.w("InventoryRepo", "Skipping RemotePrune for vaccine $vaccineId: historical records reference it")

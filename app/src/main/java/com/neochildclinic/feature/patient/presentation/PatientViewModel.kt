@@ -18,12 +18,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.neochildclinic.domain.model.PatientVaccinationCard
 import javax.inject.Inject
 
-data class PatientVaccinationCardData(
-    val vaccination: Vaccination,
-    val reminders: List<Reminder>
-)
+typealias PatientVaccinationCardData = PatientVaccinationCard
 
 @HiltViewModel
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -135,7 +133,7 @@ class PatientViewModel @Inject constructor(
                     patientRepository.getNotes(pid)
                 ) { cards, consults, notes ->
                     PatientHistoryUiState.loaded(
-                        cards = cards.map { PatientVaccinationCardData(it.vaccination, it.reminders) },
+                        cards = cards,
                         consultations = consults,
                         notes = notes
                     )

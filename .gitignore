@@ -94,3 +94,7 @@ graphify-out/
 __pycache__/
 *.pyc
 *.deb
+
+# Temporary teamwork multi-agent session state
+.agents/teamwork/
+

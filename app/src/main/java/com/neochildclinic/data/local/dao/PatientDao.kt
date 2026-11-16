@@ -21,9 +21,6 @@ interface PatientDao {
     @Query("SELECT * FROM patients WHERE patientClinicId = :clinicId LIMIT 1")
     suspend fun getPatientByClinicId(clinicId: String): PatientEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPatient(patient: PatientEntity)
-
     // Create path: a unique-clinicId conflict must ABORT instead of REPLACE, which
     // would DELETE the other patient's row and orphan every child record (visits,
     // consultations, reminders, notes) pointing at it.
@@ -32,8 +29,7 @@ interface PatientDao {
 
     // Pull/update path. @Upsert never deletes the row it writes, so the CASCADEs onto
     // patient_visits/consultations/reminders/patient_notes/personal_vaccine_reminders do not
-    // fire. insertPatient() above is REPLACE (= DELETE + INSERT) and does delete them - it is
-    // kept only for rows with no local children. See PullUpsertPreservesChildrenTest.
+    // fire. See PullUpsertPreservesChildrenTest.
     @Upsert
     suspend fun upsertPatient(patient: PatientEntity)
 
@@ -46,10 +42,14 @@ interface PatientDao {
             SELECT 1 FROM sync_queue sq
             WHERE sq.status != 'SYNCED' AND (
                 (sq.entityName = 'PATIENT' AND sq.entityId = :patientId) OR
-                (sq.entityName IN ('VACCINATION', 'PATIENT_VISIT') AND sq.entityId IN (SELECT id FROM patient_visits WHERE patientId = :patientId)) OR
+                (sq.entityName IN ('VACCINATION', 'PATIENT_VISIT', 'VISIT') AND sq.entityId IN (SELECT id FROM patient_visits WHERE patientId = :patientId)) OR
+                (sq.entityName = 'VACCINATION_ITEM' AND sq.entityId IN (SELECT id FROM vaccination_items WHERE vaccinationId IN (SELECT id FROM patient_visits WHERE patientId = :patientId))) OR
                 (sq.entityName = 'CONSULTATION' AND sq.entityId IN (SELECT id FROM consultations WHERE patientId = :patientId)) OR
                 (sq.entityName = 'PATIENT_NOTE' AND sq.entityId IN (SELECT id FROM patient_notes WHERE patientId = :patientId)) OR
-                (sq.entityName = 'REMINDER' AND sq.entityId IN (SELECT id FROM reminders WHERE patientId = :patientId))
+                (sq.entityName IN ('REMINDER', 'REMINDERS') AND sq.entityId IN (SELECT id FROM reminders WHERE patientId = :patientId)) OR
+                (sq.entityName = 'PERSONAL_REMINDER' AND sq.entityId IN (SELECT id FROM personal_vaccine_reminders WHERE patient_id = :patientId)) OR
+                (sq.entityName = 'CONSULTATION_TODO' AND sq.entityId IN (SELECT id FROM consultation_todos WHERE patient_id = :patientId)) OR
+                (sq.entityName = 'VACCINATION_TODO' AND sq.entityId IN (SELECT id FROM vaccination_todos WHERE patient_id = :patientId))
             )
         )
     """)

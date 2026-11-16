@@ -15,6 +15,7 @@ import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.security.keystore.UserNotAuthenticatedException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -43,12 +44,7 @@ object BiometricAuthenticator {
         subtitle: String,
         onVerified: () -> Unit
     ) {
-        val authenticators = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        } else {
-            BiometricManager.Authenticators.BIOMETRIC_STRONG
-        }
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG
 
         when (BiometricManager.from(activity).canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
@@ -68,9 +64,8 @@ object BiometricAuthenticator {
                             super.onAuthenticationSucceeded(result)
                             try {
                                 val authenticatedCipher = result.cryptoObject?.cipher
-                                if (authenticatedCipher != null) {
-                                    verifyProtectedSecret(activity, authenticatedCipher)
-                                }
+                                    ?: throw IllegalStateException("Missing authenticated cipher from biometric prompt")
+                                verifyProtectedSecret(activity, authenticatedCipher)
                                 onVerified()
                             } catch (e: Exception) {
                                 Log.e(TAG, "Keystore verification failed", e)
@@ -90,22 +85,18 @@ object BiometricAuthenticator {
                     }
                 )
 
-                val promptBuilder = BiometricPrompt.PromptInfo.Builder()
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
                     .setTitle(title)
                     .setSubtitle(subtitle)
                     .setAllowedAuthenticators(authenticators)
-
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                    promptBuilder.setNegativeButtonText("Cancel")
-                }
-
-                val promptInfo = promptBuilder.build()
+                    .setNegativeButtonText("Cancel")
+                    .build()
 
                 prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
             }
 
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                Toast.makeText(activity, "Set up fingerprint, face unlock, or a device PIN/password to continue.", Toast.LENGTH_LONG).show()
+                Toast.makeText(activity, "Set up fingerprint or face unlock to continue.", Toast.LENGTH_LONG).show()
             }
 
             else -> {
@@ -129,15 +120,14 @@ object BiometricAuthenticator {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             builder.setUserAuthenticationParameters(
-                15,
-                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                0,
+                KeyProperties.AUTH_BIOMETRIC_STRONG
             )
         } else {
             @Suppress("DEPRECATION")
             builder.setUserAuthenticationValidityDurationSeconds(-1)
-            @Suppress("DEPRECATION")
-            builder.setInvalidatedByBiometricEnrollment(true)
         }
+        builder.setInvalidatedByBiometricEnrollment(true)
 
         keyGenerator.init(builder.build())
         return keyGenerator.generateKey()
@@ -157,8 +147,9 @@ object BiometricAuthenticator {
                 cipher.init(Cipher.DECRYPT_MODE, getOrCreateSecretKey(), GCMParameterSpec(128, ivBytes))
             } catch (e: Exception) {
                 when (e) {
-                    is KeyPermanentlyInvalidatedException -> {
-                        Log.w(TAG, "Key invalidated, resetting biometric state", e)
+                    is KeyPermanentlyInvalidatedException,
+                    is UserNotAuthenticatedException -> {
+                        Log.w(TAG, "Key unusable or invalidated, resetting biometric state", e)
                         resetBiometricState(context)
                         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
                     }
@@ -166,7 +157,19 @@ object BiometricAuthenticator {
                 }
             }
         } else {
-            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+            try {
+                cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+            } catch (e: Exception) {
+                when (e) {
+                    is KeyPermanentlyInvalidatedException,
+                    is UserNotAuthenticatedException -> {
+                        Log.w(TAG, "Key unusable or invalidated, resetting biometric state", e)
+                        resetBiometricState(context)
+                        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+                    }
+                    else -> throw e
+                }
+            }
         }
         return cipher
     }

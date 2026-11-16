@@ -12,11 +12,20 @@ declare
   tables text[] := array[
     'patients',
     'patient_visits',
+    'patient_notes',
     'vaccination_items',
     'finance_transactions',
     'vaccines',
     'vaccine_batches',
-    'inventory_transactions'
+    'inventory_transactions',
+    'waste_records',
+    'borrow_records',
+    'borrow_returns',
+    'reminders',
+    'consultations',
+    'consultation_todos',
+    'vaccination_todos',
+    'personal_vaccine_reminders'
   ];
 begin
   foreach t in array tables loop

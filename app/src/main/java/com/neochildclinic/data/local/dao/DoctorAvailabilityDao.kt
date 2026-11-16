@@ -62,16 +62,20 @@ interface DoctorAvailabilityDao {
 
     @Query("""
         SELECT availabilitySlotId FROM consultations 
-        WHERE doctorId = :doctorId AND date IN (:dates) AND availabilitySlotId IS NOT NULL
+        WHERE (doctorId = :doctorId OR doctorId IN (SELECT employeeId FROM profiles WHERE id = :doctorId) OR doctorId IN (SELECT id FROM profiles WHERE employeeId = :doctorId))
+          AND date IN (:dates) AND availabilitySlotId IS NOT NULL
         UNION
         SELECT availabilitySlotId FROM patient_visits
-        WHERE doctorId = :doctorId AND dateGiven IN (:dates) AND availabilitySlotId IS NOT NULL
+        WHERE (doctorId = :doctorId OR doctorId IN (SELECT employeeId FROM profiles WHERE id = :doctorId) OR doctorId IN (SELECT id FROM profiles WHERE employeeId = :doctorId))
+          AND dateGiven IN (:dates) AND availabilitySlotId IS NOT NULL
         UNION
         SELECT availability_slot_id FROM consultation_todos
-        WHERE doctor_id = :doctorId AND todo_date IN (:dates) AND availability_slot_id IS NOT NULL AND status != 'CANCELLED'
+        WHERE (doctor_id = :doctorId OR doctor_id IN (SELECT employeeId FROM profiles WHERE id = :doctorId) OR doctor_id IN (SELECT id FROM profiles WHERE employeeId = :doctorId))
+          AND todo_date IN (:dates) AND availability_slot_id IS NOT NULL AND status != 'CANCELLED'
         UNION
         SELECT availability_slot_id FROM vaccination_todos
-        WHERE doctor_id = :doctorId AND todo_date IN (:dates) AND availability_slot_id IS NOT NULL AND status != 'CANCELLED'
+        WHERE (doctor_id = :doctorId OR doctor_id IN (SELECT employeeId FROM profiles WHERE id = :doctorId) OR doctor_id IN (SELECT id FROM profiles WHERE employeeId = :doctorId))
+          AND todo_date IN (:dates) AND availability_slot_id IS NOT NULL AND status != 'CANCELLED'
     """)
     suspend fun getBookedSlotIdsForDates(doctorId: String, dates: List<String>): List<String>
 

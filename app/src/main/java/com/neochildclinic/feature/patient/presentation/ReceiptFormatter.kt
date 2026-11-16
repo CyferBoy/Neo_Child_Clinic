@@ -186,12 +186,27 @@ object ReceiptFormatter {
             
             canvas.drawText(batch, batchX, yPos, paint)
             canvas.drawText(expiry, expX, yPos, paint)
+
+            val item = vaccination.items.getOrNull(i)
+            val itemAmount = when {
+                item != null && item.mrp > 0 -> item.mrp * item.quantity.coerceAtLeast(1)
+                vaccination.items.isEmpty() && names.size == 1 && vaccination.totalPaid > 0 -> vaccination.totalPaid
+                else -> null
+            }
+            if (itemAmount != null) {
+                paint.textAlign = Paint.Align.RIGHT
+                canvas.drawText("₹${String.format(Locale.getDefault(), "%.2f", itemAmount)}", pageWidth - MARGIN, yPos, paint)
+                paint.textAlign = Paint.Align.LEFT
+            }
             
             yPos += wrappedLines.size.coerceAtLeast(1) * 12f + 6f
         }
 
         if (vaccination.withFees) {
-            canvas.drawText("Consultation Fee", MARGIN, yPos, paint)
+            canvas.drawText("Consultation Fee (Included)", MARGIN, yPos, paint)
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("Included", pageWidth - MARGIN, yPos, paint)
+            paint.textAlign = Paint.Align.LEFT
             yPos += 18f
         }
 
@@ -202,7 +217,7 @@ object ReceiptFormatter {
         paint.textAlign = Paint.Align.RIGHT
         paint.typeface = Typeface.create("serif", Typeface.BOLD)
         paint.textSize = 12f
-        val displayTotal = if (vaccination.withFees) vaccination.totalPaid + 400.0 else vaccination.totalPaid
+        val displayTotal = vaccination.totalPaid
         canvas.drawText("Total Paid: ₹${String.format(Locale.getDefault(), "%.2f", displayTotal)}", pageWidth - MARGIN, yPos, paint)
 
         yPos += 15f

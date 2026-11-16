@@ -77,8 +77,9 @@ export default {
       const message = e instanceof AuthError ? e.message : "Unauthorized";
       return json({ error: message }, 401);
     }
-    // Scope backups by clinic organization if clinic_id is present, fallback to user.sub
-    const accountId = (user.app_metadata?.clinic_id as string) || (user.user_metadata?.clinic_id as string) || user.sub;
+    // Scope backups by clinic organization if clinic_id is present, fallback to user.sub.
+    // Never allow client-writable user_metadata to determine or override clinic authorization.
+    const accountId = (user.app_metadata?.clinic_id as string) || user.sub;
 
     if (segments[0] !== "backups") return json({ error: "Not found" }, 404);
 

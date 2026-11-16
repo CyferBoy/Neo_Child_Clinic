@@ -10,7 +10,6 @@ data class Vaccine(
     val companyName: String = "",
     val manufacturer: String? = null,
     val category: String? = null,
-    val doseSchedule: String? = null,
     val storageDetails: String? = null,
     val stock: Int = 0,
     val mrp: Double = 0.0,

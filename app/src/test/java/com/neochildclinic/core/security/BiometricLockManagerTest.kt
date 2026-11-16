@@ -33,6 +33,12 @@ class BiometricLockManagerTest {
     }
 
     @Test
+    fun screenOffImmediatelyLocksAppBeforeResume() {
+        BiometricLockManager.onScreenOff()
+        assertTrue(BiometricLockManager.isAppLocked.value)
+    }
+
+    @Test
     fun screenOffIgnoredWhileProtectionDisabled() {
         BiometricLockManager.setProtectionEnabled(false)
         BiometricLockManager.onScreenOff()

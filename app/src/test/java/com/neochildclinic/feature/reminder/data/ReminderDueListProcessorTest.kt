@@ -67,4 +67,99 @@ class ReminderDueListProcessorTest {
         assertEquals("nextDueDate was: $todayString",
             com.neochildclinic.core.common.DateCategory.Today, category)
     }
+
+    @Test
+    fun `completed reminder without parent visit generates fallback shell and is not dropped`() {
+        val reminder = com.neochildclinic.data.local.entity.ReminderEntity(
+            patientId = "patient-1",
+            originalVisitId = "missing-visit-1",
+            vaccineName = "BCG",
+            dueDate = "2026-10-12",
+            status = "COMPLETED",
+            reminderEnabled = false,
+            completionDate = "2026-10-12T10:00:00.000Z"
+        )
+
+        val processed = ReminderDueListProcessor.process(
+            vaccEntities = emptyList(),
+            reminderEntities = listOf(reminder)
+        )
+
+        assertEquals(1, processed.size)
+        val result = processed.first()
+        assertEquals(ReminderStatus.COMPLETED, result.status)
+        assertEquals("patient-1", result.patientId)
+        org.junit.Assert.assertFalse("Date should not format to 1970 epoch", result.statusDate?.contains("1970") == true)
+    }
+
+    @Test
+    fun `dismissed reminder without parent visit generates fallback shell and is not dropped`() {
+        val reminder = com.neochildclinic.data.local.entity.ReminderEntity(
+            patientId = "patient-2",
+            originalVisitId = "missing-visit-2",
+            vaccineName = "OPV",
+            dueDate = "2026-10-12",
+            status = "DISMISSED",
+            reminderEnabled = true,
+            dismissalDate = "2026-10-12T10:00:00.000Z",
+            dismissalReason = "Child relocated"
+        )
+
+        val processed = ReminderDueListProcessor.process(
+            vaccEntities = emptyList(),
+            reminderEntities = listOf(reminder)
+        )
+
+        assertEquals(1, processed.size)
+        val result = processed.first()
+        assertEquals(ReminderStatus.DISMISSED, result.status)
+        assertEquals("patient-2", result.patientId)
+        assertEquals("Child relocated", result.notes)
+    }
+
+    @Test
+    fun `completed reminder with null completionDate does not format to 1970 epoch date`() {
+        val reminder = com.neochildclinic.data.local.entity.ReminderEntity(
+            patientId = "patient-3",
+            originalVisitId = "visit-3",
+            vaccineName = "Hepatitis B",
+            dueDate = "2026-10-12",
+            status = "COMPLETED",
+            reminderEnabled = false,
+            completionDate = null
+        )
+
+        val processed = ReminderDueListProcessor.process(
+            vaccEntities = emptyList(),
+            reminderEntities = listOf(reminder)
+        )
+
+        assertEquals(1, processed.size)
+        val result = processed.first()
+        assertEquals("", result.statusDate)
+        org.junit.Assert.assertFalse("Null completion date must not produce 1970 epoch date", result.statusDate?.contains("1970") == true)
+    }
+
+    @Test
+    fun `dismissed reminder with null dismissalDate does not format to 1970 epoch date`() {
+        val reminder = com.neochildclinic.data.local.entity.ReminderEntity(
+            patientId = "patient-4",
+            originalVisitId = "visit-4",
+            vaccineName = "DPT",
+            dueDate = "2026-10-12",
+            status = "DISMISSED",
+            reminderEnabled = true,
+            dismissalDate = null
+        )
+
+        val processed = ReminderDueListProcessor.process(
+            vaccEntities = emptyList(),
+            reminderEntities = listOf(reminder)
+        )
+
+        assertEquals(1, processed.size)
+        val result = processed.first()
+        assertEquals("", result.statusDate)
+        org.junit.Assert.assertFalse("Null dismissal date must not produce 1970 epoch date", result.statusDate?.contains("1970") == true)
+    }
 }

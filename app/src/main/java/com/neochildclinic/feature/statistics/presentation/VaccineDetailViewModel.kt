@@ -137,9 +137,9 @@ class VaccineDetailViewModel @Inject constructor(
             }.flowOn(Dispatchers.Default)
                 .catch { e ->
                     if (e is CancellationException) throw e
-                    _uiState.value = VaccineDetailUiState(entries = emptyList(), isLoading = false)
+                    _uiState.update { VaccineDetailUiState(entries = emptyList(), isLoading = false) }
                 }
-                .collect { _uiState.value = it }
+                .collect { newState -> _uiState.update { newState } }
         }
     }
 

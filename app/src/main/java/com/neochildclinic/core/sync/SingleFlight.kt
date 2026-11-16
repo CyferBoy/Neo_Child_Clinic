@@ -1,7 +1,10 @@
 package com.neochildclinic.core.sync
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Coalesces concurrent callers onto one in-flight run and hands every caller the owner's
@@ -43,9 +46,11 @@ class SingleFlight {
             mine.completeExceptionally(e)
             throw e
         } finally {
-            mutex.lock()
-            inFlight.remove(key)
-            mutex.unlock()
+            withContext(NonCancellable) {
+                mutex.withLock {
+                    inFlight.remove(key)
+                }
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ class Converters {
 
     @TypeConverter
     fun toList(value: String?): List<String>? {
-        if (value == null) return null
+        if (value == null || value.trim() == "null") return null
         if (value.isBlank()) return emptyList()
         return runCatching {
             Json.decodeFromString<List<String>>(value)

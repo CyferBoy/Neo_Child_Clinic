@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -43,7 +44,7 @@ class AdminViewModel @Inject constructor(
     private fun observeStaff() {
         viewModelScope.launch {
             profileRepository.allProfiles.collect { list ->
-                _uiState.value = _uiState.value.copy(staffList = list)
+                _uiState.update { it.copy(staffList = list) }
             }
         }
     }
@@ -65,7 +66,7 @@ class AdminViewModel @Inject constructor(
     }
 
     fun fetchStaff() {
-        _uiState.value = _uiState.value.copy(isLoading = true)
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             try {
                 profileRepository.refreshProfiles()
@@ -76,18 +77,18 @@ class AdminViewModel @Inject constructor(
                 // generic error would stomp the success message set by staff actions.
                 android.util.Log.e("AdminVM", "Fetch staff failed", e)
             } finally {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
     fun createStaffAccount(name: String, email: String, pass: String, role: UserRole, employeeId: String?, phoneNumber: String?) {
         if (name.isBlank() || email.isBlank() || pass.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Please fill all fields")
+            _uiState.update { it.copy(error = "Please fill all fields") }
             return
         }
 
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+        _uiState.update { it.copy(isLoading = true, error = null, success = null) }
 
         viewModelScope.launch {
             try {
@@ -100,15 +101,17 @@ class AdminViewModel @Inject constructor(
                     phoneNumber = phoneNumber,
                     action = "CREATE" // Explicitly pass the action
                 ))
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = "Staff account created for $name ($role). They can now log in."
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        success = "Staff account created for $name ($role). They can now log in."
+                    )
+                }
                 fetchStaff()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
@@ -121,18 +124,20 @@ class AdminViewModel @Inject constructor(
     }
 
     fun resetStaffPassword(staffId: String) {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+        _uiState.update { it.copy(isLoading = true, error = null, success = null) }
         viewModelScope.launch {
             try {
                 staffRepository.runStaffAction(StaffActionRequest(action = "RESET_PASSWORD_EMAIL", staffId = staffId))
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    success = "Password reset email sent"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        success = "Password reset email sent"
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
@@ -165,21 +170,21 @@ class AdminViewModel @Inject constructor(
     }
 
     private fun runStaffAction(request: StaffActionRequest, successMessage: String) {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+        _uiState.update { it.copy(isLoading = true, error = null, success = null) }
         viewModelScope.launch {
             try {
                 staffRepository.runStaffAction(request)
-                _uiState.value = _uiState.value.copy(isLoading = false, success = successMessage)
+                _uiState.update { it.copy(isLoading = false, success = successMessage) }
                 fetchStaff()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
 
     fun clearMessages() {
-        _uiState.value = _uiState.value.copy(error = null, success = null)
+        _uiState.update { it.copy(error = null, success = null) }
     }
 }

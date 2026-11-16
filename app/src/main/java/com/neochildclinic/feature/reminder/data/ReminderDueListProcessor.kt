@@ -70,30 +70,47 @@ object ReminderDueListProcessor {
             val status = try { ReminderStatus.valueOf(statusStr) } catch (_: Exception) { ReminderStatus.ACTIVE }
 
             val firstState = group.first()
-            val vaccination = allVaccinations.find { it.id == firstState.originalVisitId }
-            if (vaccination != null) {
-                val terminalDateFormatted = when (status) {
-                    ReminderStatus.COMPLETED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.common.PatientUtils.isoToLong(firstState.completionDate)))
-                    ReminderStatus.DISMISSED -> PatientUtils.formatDateTime(Date(com.neochildclinic.core.common.PatientUtils.isoToLong(firstState.dismissalDate)))
-                    else -> ""
+            val baseVaccination = allVaccinations.find { it.id == firstState.originalVisitId } ?: Vaccination(
+                id = UUID.randomUUID().toString(),
+                patientId = patientId,
+                visitType = "VACCINATION",
+                status = status
+            )
+
+            val terminalDateFormatted = when (status) {
+                ReminderStatus.COMPLETED -> {
+                    val rawDate = firstState.completionDate
+                    if (!rawDate.isNullOrBlank()) {
+                        val ts = PatientUtils.isoToLong(rawDate)
+                        if (ts > 0L) PatientUtils.formatDateTime(Date(ts)) else ""
+                    } else ""
                 }
-                result.add(vaccination.copy(
-                    originalDateGiven = vaccination.dateGiven,
-                    statusDate = terminalDateFormatted,
-                    nextVaccinations = group.map {
-                        NextVaccinationSummary(
-                            reminderId = it.id,
-                            type = it.type,
-                            vaccineNames = it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank),
-                            dueDate = it.dueDate
-                        )
-                    },
-                    status = status,
-                    dateGiven = terminalDateFormatted,
-                    performedBy = firstState.performedBy ?: "",
-                    notes = group.mapNotNull { it.notes ?: it.dismissalReason }.distinct().joinToString(", ")
-                ))
+                ReminderStatus.DISMISSED -> {
+                    val rawDate = firstState.dismissalDate
+                    if (!rawDate.isNullOrBlank()) {
+                        val ts = PatientUtils.isoToLong(rawDate)
+                        if (ts > 0L) PatientUtils.formatDateTime(Date(ts)) else ""
+                    } else ""
+                }
+                else -> ""
             }
+
+            result.add(baseVaccination.copy(
+                originalDateGiven = baseVaccination.dateGiven,
+                statusDate = terminalDateFormatted,
+                nextVaccinations = group.map {
+                    NextVaccinationSummary(
+                        reminderId = it.id,
+                        type = it.type,
+                        vaccineNames = it.vaccineName.split(",").map(String::trim).filter(String::isNotBlank),
+                        dueDate = it.dueDate
+                    )
+                },
+                status = status,
+                dateGiven = if (terminalDateFormatted.isNotBlank()) terminalDateFormatted else baseVaccination.dateGiven,
+                performedBy = firstState.performedBy ?: "",
+                notes = group.mapNotNull { it.notes ?: it.dismissalReason }.distinct().joinToString(", ")
+            ))
         }
 
         return result
@@ -122,8 +139,12 @@ object ReminderDueListProcessor {
                 val cat = DateClassifier.classify(it.nextDueDate, todayCal)
                 cat is DateCategory.Overdue
             },
-            completedToday = reminders.count { it.status == "COMPLETED" && com.neochildclinic.core.common.PatientUtils.isoToLong(it.completionDate) >= todayStart },
-            dismissedToday = reminders.count { it.status == "DISMISSED" && com.neochildclinic.core.common.PatientUtils.isoToLong(it.dismissalDate) >= todayStart }
+            completedToday = reminders.count {
+                it.status == "COMPLETED" && !it.completionDate.isNullOrBlank() && com.neochildclinic.core.common.PatientUtils.isoToLong(it.completionDate) >= todayStart
+            },
+            dismissedToday = reminders.count {
+                it.status == "DISMISSED" && !it.dismissalDate.isNullOrBlank() && com.neochildclinic.core.common.PatientUtils.isoToLong(it.dismissalDate) >= todayStart
+            }
         )
     }
 }

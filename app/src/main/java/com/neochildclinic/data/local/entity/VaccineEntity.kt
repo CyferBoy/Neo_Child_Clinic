@@ -23,6 +23,7 @@ data class VaccineEntity(
     // Structure Updates
     val manufacturer: String? = null,
     val category: String? = null, // e.g. Mandatory, Optional, Adult
+    @Deprecated("Retained for Room schema v34 column compatibility; unused in domain logic")
     @SerialName("dose_schedule") val doseSchedule: String? = null,
     @SerialName("storage_details") val storageDetails: String? = null,
     val mrp: Double = 0.0,
@@ -122,7 +123,7 @@ fun VaccineBatchEntity.toDomain() = VaccineBatch(
 
 fun VaccineEntity.toDomain() = Vaccine(
     id = id, type = type, brandName = brandName, companyName = companyName, manufacturer = manufacturer,
-    category = category, doseSchedule = doseSchedule, storageDetails = storageDetails, mrp = mrp, netRate = netRate,
+    category = category, storageDetails = storageDetails, mrp = mrp, netRate = netRate,
     lastUpdated = lastUpdated, createdBy = createdBy, updatedBy = updatedBy
 )
 
@@ -135,7 +136,7 @@ fun InventoryTransactionEntity.toDomain() = InventoryTransaction(
 
 fun com.neochildclinic.domain.model.Vaccine.toEntity() = VaccineEntity(
     id = id, type = type, brandName = brandName, companyName = companyName,
-    manufacturer = manufacturer, category = category, doseSchedule = doseSchedule,
+    manufacturer = manufacturer, category = category, doseSchedule = null,
     storageDetails = storageDetails, mrp = mrp, netRate = netRate,
     lastUpdated = lastUpdated, createdBy = createdBy, updatedBy = updatedBy
 )

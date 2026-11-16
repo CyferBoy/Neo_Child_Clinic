@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -66,21 +67,23 @@ class BackupViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             backupRepository.observeHistory().collect { history ->
-                _uiState.value = _uiState.value.copy(history = history)
+                _uiState.update { it.copy(history = history) }
             }
         }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                autoBackupSettings = backupRepository.getAutoBackupSettings(),
-                cloudConfigured = backupRepository.isCloudConfigured(),
-                hasSafetyBackup = backupRepository.hasSafetyBackup()
-            )
+            _uiState.update {
+                it.copy(
+                    autoBackupSettings = backupRepository.getAutoBackupSettings(),
+                    cloudConfigured = backupRepository.isCloudConfigured(),
+                    hasSafetyBackup = backupRepository.hasSafetyBackup()
+                )
+            }
             if (_uiState.value.cloudConfigured) refreshCloudBackups()
         }
     }
 
     private fun setBusy(label: String?) {
-        _uiState.value = _uiState.value.copy(isBusy = label != null, progressLabel = label)
+        _uiState.update { it.copy(isBusy = label != null, progressLabel = label) }
     }
 
     private fun onProgress(progress: BackupProgress) {
@@ -89,20 +92,22 @@ class BackupViewModel @Inject constructor(
             is BackupProgress.TableDone -> "${progress.tableLabel} done"
             BackupProgress.Done -> null
         }
-        if (label != null) _uiState.value = _uiState.value.copy(progressLabel = label)
+        if (label != null) _uiState.update { it.copy(progressLabel = label) }
     }
 
     private fun showResult(result: BackupOperationResult, successText: String) {
-        _uiState.value = _uiState.value.copy(
-            isBusy = false,
-            progressLabel = null,
-            message = if (result.success) BackupUiMessage(successText, false)
-            else BackupUiMessage(result.userMessage ?: "Backup failed.\nPlease try again.", true)
-        )
+        _uiState.update {
+            it.copy(
+                isBusy = false,
+                progressLabel = null,
+                message = if (result.success) BackupUiMessage(successText, false)
+                else BackupUiMessage(result.userMessage ?: "Backup failed.\nPlease try again.", true)
+            )
+        }
     }
 
     fun dismissMessage() {
-        _uiState.value = _uiState.value.copy(message = null)
+        _uiState.update { it.copy(message = null) }
     }
 
     fun dismissRestoreSummary() {
@@ -110,7 +115,7 @@ class BackupViewModel @Inject constructor(
         // (confirmRestore() is what normally triggers the repository to clear it) - clear
         // it ourselves so an abandoned restore doesn't leave a live password in memory.
         _uiState.value.pendingRestoreSource?.clearPassword()
-        _uiState.value = _uiState.value.copy(pendingRestoreSummary = null, pendingRestoreSource = null)
+        _uiState.update { it.copy(pendingRestoreSummary = null, pendingRestoreSource = null) }
     }
 
     // ---- Local export ----
@@ -131,17 +136,21 @@ class BackupViewModel @Inject constructor(
         // ahead - so peek gets its own copy, and the original survives in RestoreSource
         // until the terminal restore call (or dismissRestoreSummary()) clears it.
         when (val validation = backupRepository.peekBackupFromUri(uri.toString(), password.copyOf())) {
-            is BackupValidationResult.Valid -> _uiState.value = _uiState.value.copy(
-                isBusy = false, progressLabel = null,
-                pendingRestoreSummary = validation.summary,
-                pendingRestoreSource = RestoreSource.Local(uri, password)
-            )
+            is BackupValidationResult.Valid -> _uiState.update {
+                it.copy(
+                    isBusy = false, progressLabel = null,
+                    pendingRestoreSummary = validation.summary,
+                    pendingRestoreSource = RestoreSource.Local(uri, password)
+                )
+            }
             is BackupValidationResult.Invalid -> {
                 password.fill('\u0000')
-                _uiState.value = _uiState.value.copy(
-                    isBusy = false, progressLabel = null,
-                    message = BackupUiMessage(validation.message, true)
-                )
+                _uiState.update {
+                    it.copy(
+                        isBusy = false, progressLabel = null,
+                        message = BackupUiMessage(validation.message, true)
+                    )
+                }
             }
         }
     }
@@ -151,23 +160,23 @@ class BackupViewModel @Inject constructor(
         val source = _uiState.value.pendingRestoreSource ?: return@launch
         // Clear pendingRestoreSource from state (not the password itself - the repository
         // call below still needs it and will clear it once the restore completes).
-        _uiState.value = _uiState.value.copy(pendingRestoreSummary = null, pendingRestoreSource = null)
+        _uiState.update { it.copy(pendingRestoreSummary = null, pendingRestoreSource = null) }
         setBusy("Preparing restore...")
         val result = when (source) {
             is RestoreSource.Local -> backupRepository.restoreBackupFromUri(source.uri.toString(), source.password, mode) { onProgress(it) }
             is RestoreSource.Cloud -> backupRepository.cloudRestore(source.backupId, source.password, mode) { onProgress(it) }
         }
-        _uiState.value = _uiState.value.copy(hasSafetyBackup = backupRepository.hasSafetyBackup())
+        _uiState.update { it.copy(hasSafetyBackup = backupRepository.hasSafetyBackup()) }
         showResult(result, "Restore completed successfully.")
     }
 
     // ---- Cloud ----
 
     fun refreshCloudBackups() = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(cloudBackupsLoading = true, cloudBackupsError = null)
+        _uiState.update { it.copy(cloudBackupsLoading = true, cloudBackupsError = null) }
         backupRepository.listCloudBackups().fold(
-            onSuccess = { list -> _uiState.value = _uiState.value.copy(cloudBackups = list, cloudBackupsLoading = false) },
-            onFailure = { e -> _uiState.value = _uiState.value.copy(cloudBackupsLoading = false, cloudBackupsError = e.message) }
+            onSuccess = { list -> _uiState.update { it.copy(cloudBackups = list, cloudBackupsLoading = false) } },
+            onFailure = { e -> _uiState.update { it.copy(cloudBackupsLoading = false, cloudBackupsError = e.message) } }
         )
     }
 
@@ -182,17 +191,21 @@ class BackupViewModel @Inject constructor(
         setBusy("Downloading backup...")
         // Same copy-for-peek reasoning as peekLocalBackup() above.
         when (val validation = backupRepository.peekCloudBackup(backupId, password.copyOf())) {
-            is BackupValidationResult.Valid -> _uiState.value = _uiState.value.copy(
-                isBusy = false, progressLabel = null,
-                pendingRestoreSummary = validation.summary,
-                pendingRestoreSource = RestoreSource.Cloud(backupId, password)
-            )
+            is BackupValidationResult.Valid -> _uiState.update {
+                it.copy(
+                    isBusy = false, progressLabel = null,
+                    pendingRestoreSummary = validation.summary,
+                    pendingRestoreSource = RestoreSource.Cloud(backupId, password)
+                )
+            }
             is BackupValidationResult.Invalid -> {
                 password.fill('\u0000')
-                _uiState.value = _uiState.value.copy(
-                    isBusy = false, progressLabel = null,
-                    message = BackupUiMessage(validation.message, true)
-                )
+                _uiState.update {
+                    it.copy(
+                        isBusy = false, progressLabel = null,
+                        message = BackupUiMessage(validation.message, true)
+                    )
+                }
             }
         }
     }
@@ -201,11 +214,11 @@ class BackupViewModel @Inject constructor(
         setBusy("Deleting...")
         backupRepository.deleteCloudBackup(backupId).fold(
             onSuccess = {
-                _uiState.value = _uiState.value.copy(isBusy = false, progressLabel = null, message = BackupUiMessage("Backup deleted.", false))
+                _uiState.update { it.copy(isBusy = false, progressLabel = null, message = BackupUiMessage("Backup deleted.", false)) }
                 refreshCloudBackups()
             },
             onFailure = { e ->
-                _uiState.value = _uiState.value.copy(isBusy = false, progressLabel = null, message = BackupUiMessage(e.message ?: "Delete failed.", true))
+                _uiState.update { it.copy(isBusy = false, progressLabel = null, message = BackupUiMessage(e.message ?: "Delete failed.", true)) }
             }
         )
     }
@@ -215,19 +228,19 @@ class BackupViewModel @Inject constructor(
     fun enableAutomaticBackup(password: CharArray, settings: AutoBackupSettings) = viewModelScope.launch {
         backupRepository.enableAutomaticBackup(password, settings)
         backupAutoScheduler.schedule(backupRepository.getAutoBackupSettings())
-        _uiState.value = _uiState.value.copy(autoBackupSettings = backupRepository.getAutoBackupSettings())
+        _uiState.update { it.copy(autoBackupSettings = backupRepository.getAutoBackupSettings()) }
     }
 
     fun updateAutomaticBackupSettings(settings: AutoBackupSettings) = viewModelScope.launch {
         backupRepository.updateAutomaticBackupSettings(settings)
         backupAutoScheduler.schedule(backupRepository.getAutoBackupSettings())
-        _uiState.value = _uiState.value.copy(autoBackupSettings = backupRepository.getAutoBackupSettings())
+        _uiState.update { it.copy(autoBackupSettings = backupRepository.getAutoBackupSettings()) }
     }
 
     fun disableAutomaticBackup() = viewModelScope.launch {
         backupRepository.disableAutomaticBackup()
         backupAutoScheduler.cancel()
-        _uiState.value = _uiState.value.copy(autoBackupSettings = backupRepository.getAutoBackupSettings())
+        _uiState.update { it.copy(autoBackupSettings = backupRepository.getAutoBackupSettings()) }
     }
 
     // ---- Safety ----
@@ -237,7 +250,7 @@ class BackupViewModel @Inject constructor(
         val result = backupRepository.restoreSafetyBackup { onProgress(it) }
         // Undo consumes the snapshot - refresh so the Undo section disappears with it
         // (same pattern as confirmRestore() above).
-        _uiState.value = _uiState.value.copy(hasSafetyBackup = backupRepository.hasSafetyBackup())
+        _uiState.update { it.copy(hasSafetyBackup = backupRepository.hasSafetyBackup()) }
         showResult(result, "Previous data restored.")
     }
 }

@@ -60,6 +60,16 @@ object PatientUtils {
             name
         }
 
+    /**
+     * Redundant forwarder to DateUtils.filterVaccinationsByPeriod. Retained for API compatibility with existing callers.
+     */
+    @Deprecated(
+        message = "Use DateUtils.filterVaccinationsByPeriod directly",
+        replaceWith = ReplaceWith(
+            "DateUtils.filterVaccinationsByPeriod(pendingVaccinations, filter)",
+            "com.neochildclinic.core.common.DateUtils"
+        )
+    )
     fun filterVaccinationsByPeriod(
         pendingVaccinations: List<Vaccination>,
         filter: String,

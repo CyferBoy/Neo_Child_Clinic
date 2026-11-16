@@ -127,6 +127,13 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addException(exception: DoctorSlotException, actor: String?) {
+        if (exception.startMinute != null || exception.endMinute != null) {
+            require(exception.startMinute != null && exception.endMinute != null) {
+                "Both startMinute and endMinute must be provided"
+            }
+            require(exception.startMinute < exception.endMinute) { "startMinute must be strictly before endMinute" }
+            require(exception.startMinute >= 0 && exception.endMinute <= 1440) { "Minutes must be between 0 and 1440" }
+        }
         val now = PatientUtils.getCurrentIsoTimestamp()
         val entity = exception.copy(
             createdAt = exception.createdAt.ifBlank { now },

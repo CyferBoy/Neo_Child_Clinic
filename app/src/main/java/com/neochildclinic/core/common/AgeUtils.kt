@@ -114,7 +114,7 @@ object AgeUtils {
             val years = period.years
             val months = period.months
 
-            if (years < 0) return null
+            if (years < 0 || birth.isAfter(today)) return null
 
             return when {
                 years > 0 -> {
@@ -124,8 +124,13 @@ object AgeUtils {
                 months > 0 -> "$months months"
                 else -> {
                     val diffDays = ChronoUnit.DAYS.between(birth, today).toInt()
-                    val weeks = diffDays / 7
-                    if (weeks <= 1) "1 week" else "$weeks weeks"
+                    if (diffDays < 0) return null
+                    if (diffDays in 0..6) {
+                        if (diffDays == 1) "1 day" else "$diffDays days"
+                    } else {
+                        val weeks = diffDays / 7
+                        if (weeks <= 1) "1 week" else "$weeks weeks"
+                    }
                 }
             }
         } catch (_: Exception) {

@@ -53,10 +53,10 @@ interface VaccinationDao {
     @Query("SELECT * FROM patient_visits WHERE id = :id")
     suspend fun getVaccinationById(id: String): VisitEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVaccination(vaccination: VisitEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertVaccinations(vaccinations: List<VisitEntity>)
 
     // Pull/edit path for a visit row that already exists locally. REPLACE would delete the

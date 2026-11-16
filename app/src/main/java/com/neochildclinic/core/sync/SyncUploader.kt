@@ -538,10 +538,12 @@ class SyncUploader @Inject constructor(
                 // the queued local edit: the download overwrites it locally and the queue row
                 // is then deleted as "uploaded", so the edit is lost with no trace.
                 //
-                // The in-flight item is excluded (NCC-020). It is SYNCING right now, not
-                // SYNCED, so testing it too made this whole branch unreachable - the remote
-                // never won, and the conflict policy below never ran for anybody.
+                // Clock-skew & offline modification guard (Finding SYNC-04): If the local entity was modified offline
+                // (!isSynced), do not trigger self-healing download based purely on wall-clock timestamp comparison.
+                // Doing so would silently overwrite local unpushed clinical changes with stale remote data and delete
+                // the queue item.
                 if (remoteUpdatedAt > localUpdatedAtLong && localUpdatedAtLong > 0 &&
+                    !isEntityModifiedOffline(localData) &&
                     !database.syncQueueDao()
                         .isUnsyncedExcluding(item.entityName, item.entityId, item.queueId)
                 ) {
@@ -765,4 +767,29 @@ internal fun isStockCheckViolation(error: Throwable): Boolean {
         current = t?.cause
     }
     return false
+}
+
+/**
+ * Returns true if the entity has local unpushed offline modifications (i.e. isSynced == false).
+ */
+internal fun isEntityModifiedOffline(entity: Any?): Boolean {
+    return when (entity) {
+        is PatientEntity -> !entity.isSynced
+        is VisitEntity -> !entity.isSynced
+        is PatientNotesEntity -> !entity.isSynced
+        is WasteEntity -> !entity.isSynced
+        is ReminderEntity -> !entity.isSynced
+        is FinanceEntity -> !entity.isSynced
+        is ExpenseEntity -> !entity.isSynced
+        is PersonalReminderEntity -> !entity.isSynced
+        is BorrowEntity -> !entity.isSynced
+        is BorrowReturnEntity -> !entity.isSynced
+        is ConsultationEntity -> !entity.isSynced
+        is ConsultationTodoEntity -> !entity.isSynced
+        is VaccinationTodoEntity -> !entity.isSynced
+        is DoctorWeeklySlotEntity -> !entity.isSynced
+        is DoctorSlotExceptionEntity -> !entity.isSynced
+        is AuditLogEntity -> !entity.isSynced
+        else -> false
+    }
 }

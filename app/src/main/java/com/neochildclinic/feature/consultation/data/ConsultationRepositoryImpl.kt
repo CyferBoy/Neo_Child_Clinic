@@ -102,7 +102,8 @@ class ConsultationRepositoryImpl @Inject constructor(
                         visit.notes != updatedEntity.problem ||
                         visit.cashAmount != updatedEntity.cashAmount ||
                         visit.onlineAmount != updatedEntity.onlineAmount ||
-                        visit.totalPaid != updatedEntity.amount
+                        visit.totalPaid != updatedEntity.amount ||
+                        visit.availabilitySlotId != updatedEntity.availabilitySlotId
 
                     if (visitChanged) {
                         // Upsert: REPLACE would delete the linked visit row and cascade away
@@ -116,6 +117,7 @@ class ConsultationRepositoryImpl @Inject constructor(
                                 cashAmount = updatedEntity.cashAmount,
                                 onlineAmount = updatedEntity.onlineAmount,
                                 totalPaid = updatedEntity.amount,
+                                availabilitySlotId = updatedEntity.availabilitySlotId,
                                 updatedAt = now,
                                 isSynced = false
                             )
