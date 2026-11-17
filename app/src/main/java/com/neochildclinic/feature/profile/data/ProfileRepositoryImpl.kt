@@ -25,12 +25,12 @@ import com.neochildclinic.core.sync.RemotePrune
 
 @Singleton
 class ProfileRepositoryImpl @Inject constructor(
-    private val profileDao: ProfileDao,
-    private val syncQueueDao: SyncQueueDao,
-    private val postgrest: Postgrest,
-    private val syncRepository: SyncRepository,
-    private val auth: Auth,
-    private val transactionRunner: TransactionRunner
+    private val profileDao: dagger.Lazy<ProfileDao>,
+    private val syncQueueDao: dagger.Lazy<SyncQueueDao>,
+    private val postgrest: dagger.Lazy<Postgrest>,
+    private val syncRepository: dagger.Lazy<SyncRepository>,
+    private val auth: dagger.Lazy<Auth>,
+    private val transactionRunner: dagger.Lazy<TransactionRunner>
 ) : ProfileRepository, UserDisplayNameProvider {
 
     override suspend fun getUserDisplayName(userId: String): String? {
@@ -38,14 +38,14 @@ class ProfileRepositoryImpl @Inject constructor(
     }
 
     override val allProfiles: Flow<List<Profile>> = 
-        profileDao.getAllProfiles().map { list -> list.map { it.toDomain() } }
+        profileDao.get().getAllProfiles().map { list -> list.map { it.toDomain() } }
 
     override suspend fun getProfileById(id: String): Profile? =
-        profileDao.getProfileById(id)?.toDomain()
+        profileDao.get().getProfileById(id)?.toDomain()
 
     override suspend fun getProfileByEmail(email: String): Profile? {
         return try {
-            postgrest.from("profiles")
+            postgrest.get().from("profiles")
                 .select { filter { eq("email", email); eq("is_deleted", false) } }
                 .decodeSingleOrNull<Profile>()
         } catch (e: Exception) {
@@ -56,14 +56,14 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun fetchProfileFromRemote(id: String): Profile? {
         return try {
-            postgrest.from("profiles")
+            postgrest.get().from("profiles")
                 .select { filter { eq("id", id); eq("is_deleted", false) } }
                 .decodeSingleOrNull<Profile>()
                 ?.also {
                     // profiles has no isSynced column - the queue is the only local-pending
                     // signal. Never clobber a row that still has a local edit waiting to upload.
-                    if (!syncQueueDao.isUnsynced("PROFILE", it.id)) {
-                        profileDao.insertProfile(it.toEntity())
+                    if (!syncQueueDao.get().isUnsynced("PROFILE", it.id)) {
+                        profileDao.get().insertProfile(it.toEntity())
                     }
                 }
         } catch (e: Exception) {
@@ -74,7 +74,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun refreshProfiles() = cloudRefresh("ProfileRepo", rethrow = true) {
         val profiles = fetchAllPages { from, to ->
-            postgrest.from("profiles")
+            postgrest.get().from("profiles")
                 .select {
                     filter { eq("is_deleted", false) }
                     order("id", Order.ASCENDING)
@@ -84,21 +84,21 @@ class ProfileRepositoryImpl @Inject constructor(
         }
         // One bulk queue read per refresh instead of one per row (same semantics as the
         // per-row isUnsynced this replaces).
-        val pendingProfileIds = syncQueueDao.unsyncedIdSet("PROFILE")
+        val pendingProfileIds = syncQueueDao.get().unsyncedIdSet("PROFILE")
         profiles.forEach { profile ->
             if (profile.id !in pendingProfileIds) {
-                profileDao.insertProfile(profile.toEntity())
+                profileDao.get().insertProfile(profile.toEntity())
             }
         }
         // Remote-deletion propagation (NCC-023 / DA-01): profiles has no isSynced column, so
         // the queue guard alone protects rows whose edit is still local; any other row absent
         // from the remote set is a staff profile deleted elsewhere.
         RemotePrune.computeBatches(
-            localIds = profileDao.getProfileIds(),
+            localIds = profileDao.get().getProfileIds(),
             syncedIds = null,
             remoteIds = profiles.mapTo(HashSet()) { it.id },
             pendingIds = pendingProfileIds
-        ).flatten().forEach { profileDao.deleteProfileById(it) }
+        ).flatten().forEach { profileDao.get().deleteProfileById(it) }
     }
 
     override suspend fun updateProfile(profile: Profile) {
@@ -107,9 +107,9 @@ class ProfileRepositoryImpl @Inject constructor(
         // profile and enqueueing in two separate statements let a kill between them lose the edit
         // silently (it was reverted by the next pull). One transaction, like every other
         // repository write path.
-        transactionRunner.run {
-            profileDao.insertProfile(profile.toEntity())
-            syncRepository.enqueue(
+        transactionRunner.get().run {
+            profileDao.get().insertProfile(profile.toEntity())
+            syncRepository.get().enqueue(
                 entityName = "PROFILE",
                 entityId = profile.id,
                 operation = SyncOperation.UPDATE,
@@ -119,7 +119,7 @@ class ProfileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateAuthName(name: String) {
-        auth.updateUser {
+        auth.get().updateUser {
             data {
                 put("name", name)
             }
@@ -127,7 +127,7 @@ class ProfileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateAuthPassword(newPassword: String) {
-        auth.updateUser {
+        auth.get().updateUser {
             password = newPassword
         }
     }

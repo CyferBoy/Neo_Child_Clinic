@@ -1,4 +1,5 @@
 package com.neochildclinic.core.common
+import com.neochildclinic.core.common.DateUtils
 
 import java.time.temporal.ChronoUnit
 import java.util.Calendar
@@ -23,7 +24,7 @@ object DateClassifier {
      * Dates before today are strictly classified as Overdue.
      */
     fun classify(dateStr: String, todayStart: Calendar = getTodayStart()): DateCategory {
-        val targetDate = PatientUtils.parseDate(dateStr) ?: return DateCategory.Future(dateStr)
+        val targetDate = DateUtils.parseDate(dateStr) ?: return DateCategory.Future(dateStr)
 
         val target = targetDate.toLocalDate()
         val today = todayStart.toLocalDate()
@@ -35,7 +36,7 @@ object DateClassifier {
             diffDays < 0 -> DateCategory.Overdue(-diffDays)
             diffDays == 0 -> DateCategory.Today
             diffDays == 1 -> DateCategory.Tomorrow
-            else -> DateCategory.Future(PatientUtils.formatDateForDisplay(dateStr))
+            else -> DateCategory.Future(DateUtils.formatDateForDisplay(dateStr))
         }
     }
 
@@ -44,7 +45,7 @@ object DateClassifier {
      */
     fun formatDisplay(dateStr: String, todayStart: Calendar = getTodayStart()): String {
         return when (val category = classify(dateStr, todayStart)) {
-            is DateCategory.Overdue -> PatientUtils.formatDateForDisplay(dateStr)
+            is DateCategory.Overdue -> DateUtils.formatDateForDisplay(dateStr)
             is DateCategory.Today -> "Today"
             is DateCategory.Tomorrow -> "Tomorrow"
             is DateCategory.Future -> category.dateStr
@@ -59,7 +60,7 @@ object DateClassifier {
      * together, which should use [dueDateComparator] instead.
      */
     fun getSortWeight(dateStr: String): Long {
-        val targetDate = PatientUtils.parseDate(dateStr) ?: return Long.MAX_VALUE
+        val targetDate = DateUtils.parseDate(dateStr) ?: return Long.MAX_VALUE
         return targetDate.time
     }
 
@@ -76,8 +77,8 @@ object DateClassifier {
     fun dueDateComparator(todayStart: Calendar = getTodayStart()): Comparator<String> =
         compareBy<String> { classify(it, todayStart) is DateCategory.Overdue }
             .thenComparator { a, b ->
-                val timeA = PatientUtils.parseDate(a)?.time ?: Long.MAX_VALUE
-                val timeB = PatientUtils.parseDate(b)?.time ?: Long.MAX_VALUE
+                val timeA = DateUtils.parseDate(a)?.time ?: Long.MAX_VALUE
+                val timeB = DateUtils.parseDate(b)?.time ?: Long.MAX_VALUE
                 val isOverdue = classify(a, todayStart) is DateCategory.Overdue
                 // Overdue: newest date first (descending). Everything else: nearest date first (ascending).
                 if (isOverdue) timeB.compareTo(timeA) else timeA.compareTo(timeB)

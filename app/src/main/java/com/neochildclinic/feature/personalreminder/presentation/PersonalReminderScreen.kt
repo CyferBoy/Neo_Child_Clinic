@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.EmptyState
@@ -35,7 +36,7 @@ fun PersonalReminderScreen(
     onPatientClick: (String) -> Unit,
     viewModel: PersonalReminderViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedReminder by remember { mutableStateOf<PersonalReminder?>(null) }
 
     AppBackground {

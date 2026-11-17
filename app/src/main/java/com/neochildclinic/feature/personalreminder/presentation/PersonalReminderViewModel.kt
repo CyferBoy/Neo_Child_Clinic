@@ -96,12 +96,12 @@ class PersonalReminderViewModel @Inject constructor(
     }
 
     fun selectTab(tab: PersonalReminderTab) {
-        _selectedTab.value = tab
+        _selectedTab.update { tab }
     }
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 repository.refresh()
             } catch (e: CancellationException) {
@@ -110,7 +110,7 @@ class PersonalReminderViewModel @Inject constructor(
                 // Best-effort refresh; local data remains authoritative offline.
                 android.util.Log.e("PersonalReminderVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
@@ -138,7 +138,7 @@ class PersonalReminderViewModel @Inject constructor(
     fun markCompleted(id: String) = viewModelScope.launch {
         try {
             repository.markCompleted(id)
-            _selectedTab.value = PersonalReminderTab.COMPLETED
+            _selectedTab.update { PersonalReminderTab.COMPLETED }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -149,7 +149,7 @@ class PersonalReminderViewModel @Inject constructor(
     fun cancel(id: String) = viewModelScope.launch {
         try {
             repository.cancel(id)
-            _selectedTab.value = PersonalReminderTab.CANCELLED
+            _selectedTab.update { PersonalReminderTab.CANCELLED }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

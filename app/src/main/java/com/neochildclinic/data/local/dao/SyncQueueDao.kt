@@ -1,4 +1,5 @@
 package com.neochildclinic.data.local.dao
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.*
 import com.neochildclinic.data.local.entity.SyncQueueEntity
@@ -18,10 +19,10 @@ interface SyncQueueDao {
     suspend fun getItemById(id: Long): SyncQueueEntity?
 
     @Query("UPDATE sync_queue SET status = :status, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun updateStatus(id: Long, status: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun updateStatus(id: Long, status: String, timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp())
 
     @Query("UPDATE sync_queue SET status = :status, retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun markFailed(id: Long, status: String, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun markFailed(id: Long, status: String, error: String, timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp())
 
     @Query("DELETE FROM sync_queue WHERE entityId = 'kotlin.Unit' OR entityId = 'Unit' OR entityId = 'null'")
     suspend fun cleanCorruptedItems()
@@ -33,12 +34,12 @@ interface SyncQueueDao {
     suspend fun deleteByIds(ids: List<Long>)
 
     @Query("UPDATE sync_queue SET retryCount = retryCount + 1, lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun incrementRetryCount(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp())
 
     // 429 is the server asking us to slow down, not this item failing: requeue it and keep
     // its retry budget intact so a busy afternoon cannot exhaust five attempts.
     @Query("UPDATE sync_queue SET status = 'PENDING', lastError = :error, updatedAt = :timestamp WHERE queueId = :id")
-    suspend fun requeueRateLimited(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp())
+    suspend fun requeueRateLimited(id: Long, error: String, timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp())
 
     @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND updatedAt < :staleBefore")
     suspend fun requeueStaleSyncingItems(staleBefore: String)

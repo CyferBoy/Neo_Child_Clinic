@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.reminder.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.domain.model.Reminder
@@ -24,7 +25,6 @@ import kotlinx.serialization.json.Json
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.sync.cloudRefresh
 import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
@@ -169,7 +169,7 @@ class ReminderRepositoryImpl @Inject constructor(
 
         withContext(Dispatchers.IO) {
             transactionRunner.run {
-                val now = PatientUtils.getCurrentIsoTimestamp()
+                val now = DateUtils.getCurrentIsoTimestamp()
                 val userName = sessionManager.getCurrentUserName()
 
                 // Pair each selected vaccine name with its corresponding vaccines.id.
@@ -310,7 +310,7 @@ class ReminderRepositoryImpl @Inject constructor(
                 val updated = existing.copy(
                     dueDate = newDate,
                     status = "ACTIVE",
-                    updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                    updatedAt = DateUtils.getCurrentIsoTimestamp(),
                     isSynced = false,
                     updatedBy = userName
                 )
@@ -351,7 +351,7 @@ class ReminderRepositoryImpl @Inject constructor(
                         nxtVaccineId = ids.ifEmpty { null },
                         status = "ACTIVE",
                         reminderEnabled = true,
-                        updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                        updatedAt = DateUtils.getCurrentIsoTimestamp(),
                         updatedBy = userName,
                         isSynced = false
                     )
@@ -386,7 +386,7 @@ class ReminderRepositoryImpl @Inject constructor(
                 val restored = existing.copy(
                     status = "ACTIVE",
                     reminderEnabled = true,
-                    updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                    updatedAt = DateUtils.getCurrentIsoTimestamp(),
                     isSynced = false,
                     updatedBy = userName
                 )
@@ -400,7 +400,7 @@ class ReminderRepositoryImpl @Inject constructor(
 
     override suspend fun deleteReminder(reminder: Reminder, performedBy: String) {
         withContext(Dispatchers.IO) {
-            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             transactionRunner.run {
                 val existing = dueReminderDao.getReminderById(reminder.id) ?: return@run
                 logReminderUndoableChange(existing, "DELETED", "Deleted by $performedBy")

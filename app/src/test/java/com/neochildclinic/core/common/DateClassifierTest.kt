@@ -1,4 +1,5 @@
 package com.neochildclinic.core.common
+import com.neochildclinic.core.common.DateUtils
 
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -17,6 +18,7 @@ import java.util.TimeZone
 class DateClassifierTest {
 
     private val originalZone = TimeZone.getDefault()
+    private val originalLocale = Locale.getDefault()
 
     @Before
     fun setUp() = Unit
@@ -24,6 +26,7 @@ class DateClassifierTest {
     @After
     fun tearDown() {
         TimeZone.setDefault(originalZone)
+        Locale.setDefault(originalLocale)
     }
 
     /** Midnight IST on the given date. */
@@ -57,7 +60,7 @@ class DateClassifierTest {
         TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Honolulu"))
         assertEquals(
             LocalDate.of(2032, 5, 21),
-            PatientUtils.parseDate("21 May 2032")?.toInstant()
+            DateUtils.parseDate("21 May 2032")?.toInstant()
                 ?.atZone(java.time.ZoneId.of("Asia/Kolkata"))?.toLocalDate()
         )
     }
@@ -94,7 +97,7 @@ class DateClassifierTest {
     @Test
     fun `parseDate still honours an explicit offset in an iso timestamp`() {
         // The IST fix must not break timestamps that carry their own UTC offset.
-        val parsed = PatientUtils.parseDate("2026-08-22T03:48:08.105121+00:00")
+        val parsed = DateUtils.parseDate("2026-08-22T03:48:08.105121+00:00")
         assertTrue(parsed != null)
         val istDate = parsed!!.toInstant().atZone(java.time.ZoneId.of("Asia/Kolkata")).toLocalDate()
         assertEquals(LocalDate.of(2026, 8, 22), istDate)
@@ -103,7 +106,7 @@ class DateClassifierTest {
     @Test
     fun `legacy date formats keep parsing`() {
         listOf("2026-10-16", "16/10/2026", "16 Oct 2026", "2026-10-16 09:30:00").forEach { raw ->
-            val istDate = PatientUtils.parseDate(raw)?.toInstant()
+            val istDate = DateUtils.parseDate(raw)?.toInstant()
                 ?.atZone(java.time.ZoneId.of("Asia/Kolkata"))?.toLocalDate()
             assertEquals("failed to parse $raw", LocalDate.of(2026, 10, 16), istDate)
         }

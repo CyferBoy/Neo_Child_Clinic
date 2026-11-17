@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.borrowed.domain
+import com.neochildclinic.core.common.DateUtils
 
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.feature.inventory.domain.InventoryUtils
 
@@ -36,6 +36,6 @@ fun selectBorrowBatch(
     // Soonest expiry first, so the dose on loan is the one closest to expiry. An unparseable
     // expiry date sorts last instead of first so it is only used when nothing better exists.
     return usable.minByOrNull { batch ->
-        PatientUtils.parseDate(batch.expiryDate)?.time ?: Long.MAX_VALUE
+        DateUtils.parseDate(batch.expiryDate)?.time ?: Long.MAX_VALUE
     }
 }

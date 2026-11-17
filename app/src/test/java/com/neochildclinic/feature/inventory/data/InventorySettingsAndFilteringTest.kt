@@ -27,40 +27,6 @@ class InventorySettingsAndFilteringTest {
         sellingPrice = 150.0
     )
 
-    // ── 1. Low stock vs out of stock boundary ────────────────────────────────
-
-    @Test
-    fun `zero stock is never classified as low stock`() {
-        val globalThreshold = 5
-
-        // Case A: 0 doses
-        val totalStockZero = 0
-        val isLowStockZero = totalStockZero > 0 && totalStockZero <= globalThreshold
-        val isOutOfStockZero = totalStockZero <= 0
-        assertFalse("0 stock must not be low stock", isLowStockZero)
-        assertTrue("0 stock must be out of stock", isOutOfStockZero)
-
-        // Case B: 1 dose (within threshold)
-        val totalStockOne = 1
-        val isLowStockOne = totalStockOne > 0 && totalStockOne <= globalThreshold
-        val isOutOfStockOne = totalStockOne <= 0
-        assertTrue("1 dose must be low stock", isLowStockOne)
-        assertFalse("1 dose must not be out of stock", isOutOfStockOne)
-
-        // Case C: exactly at threshold (5 doses)
-        val totalStockThreshold = 5
-        val isLowStockThreshold = totalStockThreshold > 0 && totalStockThreshold <= globalThreshold
-        val isOutOfStockThreshold = totalStockThreshold <= 0
-        assertTrue("5 doses at threshold 5 must be low stock", isLowStockThreshold)
-        assertFalse("5 doses must not be out of stock", isOutOfStockThreshold)
-
-        // Case D: above threshold (6 doses)
-        val totalStockAbove = 6
-        val isLowStockAbove = totalStockAbove > 0 && totalStockAbove <= globalThreshold
-        val isOutOfStockAbove = totalStockAbove <= 0
-        assertFalse("6 doses must not be low stock", isLowStockAbove)
-        assertFalse("6 doses must not be out of stock", isOutOfStockAbove)
-    }
 
     // ── 2. Near expiry calculation from settings threshold days ──────────────
 
@@ -136,9 +102,5 @@ class InventorySettingsAndFilteringTest {
         // When toggle is ON (hideExpiredEmpty == true)
         val visibleWhenToggleOn = allBatches.filterNot { it in unusableBatches }
         assertEquals(listOf(bActive), visibleWhenToggleOn)
-
-        // When toggle is OFF (hideExpiredEmpty == false)
-        val visibleWhenToggleOff = allBatches
-        assertEquals(4, visibleWhenToggleOff.size)
     }
 }

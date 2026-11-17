@@ -15,12 +15,6 @@ interface ProfileDao {
     @Query("SELECT * FROM profiles ORDER BY displayName ASC")
     fun getAllProfiles(): Flow<List<ProfileEntity>>
 
-    @Query("SELECT * FROM profiles WHERE isActive = 1")
-    fun getActiveProfiles(): Flow<List<ProfileEntity>>
-
-    @Query("SELECT * FROM profiles WHERE email = :email LIMIT 1")
-    suspend fun getProfileByEmail(email: String): ProfileEntity?
-
     // Remote-deletion propagation (RemotePrune wiring, Phase 2 Batch 1 / NCC-023).
     @Query("SELECT id FROM profiles")
     suspend fun getProfileIds(): List<String>

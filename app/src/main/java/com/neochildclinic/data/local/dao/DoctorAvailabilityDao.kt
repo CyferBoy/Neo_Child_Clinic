@@ -33,12 +33,6 @@ interface DoctorAvailabilityDao {
     @Query("UPDATE doctor_weekly_slots SET is_active = :isActive, updated_at = :updatedAt, is_synced = 0, updated_by = :updatedBy WHERE id = :id")
     suspend fun setWeeklySlotActive(id: String, isActive: Boolean, updatedAt: String, updatedBy: String?)
 
-    @Query("UPDATE doctor_weekly_slots SET startMinute = :startMinute, endMinute = :endMinute, updated_at = :updatedAt, is_synced = 0, updated_by = :updatedBy WHERE id = :id")
-    suspend fun updateWeeklySlotTimes(id: String, startMinute: Int, endMinute: Int, updatedAt: String, updatedBy: String?)
-
-    @Query("SELECT COUNT(*) FROM doctor_weekly_slots WHERE doctorId = :doctorId AND dayOfWeek = :dayOfWeek AND is_active = 1")
-    suspend fun countActiveSlotsForDay(doctorId: String, dayOfWeek: Int): Int
-
     // ---- Date exceptions ----
 
     @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId ORDER BY exceptionDate DESC")
@@ -46,6 +40,9 @@ interface DoctorAvailabilityDao {
 
     @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId AND exceptionDate = :date")
     suspend fun getExceptionsForDate(doctorId: String, date: String): List<DoctorSlotExceptionEntity>
+
+    @Query("SELECT * FROM doctor_slot_exceptions WHERE doctorId = :doctorId AND exceptionDate IN (:dates)")
+    suspend fun getExceptionsForDates(doctorId: String, dates: List<String>): List<DoctorSlotExceptionEntity>
 
     @Query("SELECT * FROM doctor_slot_exceptions WHERE id = :id LIMIT 1")
     suspend fun getExceptionById(id: String): DoctorSlotExceptionEntity?

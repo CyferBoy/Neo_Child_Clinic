@@ -2,7 +2,6 @@ package com.neochildclinic.app
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -73,7 +72,6 @@ class VaccineDetailRouteTest {
             // Query params are decoded by Navigation, so no second decode here - this
             // assertion only confirms the value survives the encode.
             assertEquals("vac-1", dec(rawId))
-            assertTrue(route.startsWith("vaccine_detail/"))
         }
     }
 
@@ -95,8 +93,6 @@ class VaccineDetailRouteTest {
             "vaccine_detail/{type}?vaccineId={vaccineId}",
             Routes.VACCINE_DETAIL
         )
-        assertTrue(Routes.VACCINE_DETAIL.contains("{type}"))
-        assertTrue(Routes.VACCINE_DETAIL.contains("?vaccineId={vaccineId}"))
     }
 
     @Test

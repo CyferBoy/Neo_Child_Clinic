@@ -1,4 +1,5 @@
 package com.neochildclinic.data.local.entity
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -19,7 +20,7 @@ import kotlinx.serialization.Serializable
  *  - created_by/updated_by: @ColumnInfo(name = "created_by"/"updated_by") snake_case,
  *    matching migration22_23 and the migration17_18 pattern that added these columns to
  *    every other table.
- *  - createdAt/updatedAt: ISO-8601 strings via PatientUtils.getCurrentIsoTimestamp(),
+ *  - createdAt/updatedAt: ISO-8601 strings via DateUtils.getCurrentIsoTimestamp(),
  *    matching AuditLogEntity/InventoryTransactionEntity.
  *  - isSynced/syncedAt: offline-first sync bookkeeping, matching every other entity.
  *
@@ -35,15 +36,16 @@ import kotlinx.serialization.Serializable
         Index("expenseDate"),
         Index("category"),
         Index(name = "index_expenses_created_by", value = ["created_by"]),
-        Index("updatedAt")
+        Index("updatedAt"),
+        Index("createdAt")
     ]
 )
 data class ExpenseEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
     @SerialName("expense_date") val expenseDate: String,
-    val category: String,
-    val title: String,
-    val description: String? = null,
+    @SerialName("category") val category: String,
+    @SerialName("title") val title: String,
+    @SerialName("description") val description: String? = null,
     @SerialName("amount_paise") val amountPaise: Long,
     @SerialName("payment_method") val paymentMethod: String,
     @SerialName("reference_number") val referenceNumber: String? = null,

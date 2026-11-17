@@ -1,4 +1,5 @@
 package com.neochildclinic.data.local.entity
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -19,17 +20,17 @@ import kotlinx.serialization.Serializable
     ]
 )
 data class PatientEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey @SerialName("id") val id: String,
     @SerialName("patient_clinic_id") val patientClinicId: String? = null,
-    val name: String,
-    val phone: String,
+    @SerialName("name") val name: String,
+    @SerialName("phone") val phone: String,
     @SerialName("alternate_phone") val alternatePhone: String? = null,
-    val dob: String,
-    val gender: String,
-    val address: String? = null,
+    @SerialName("dob") val dob: String,
+    @SerialName("gender") val gender: String,
+    @SerialName("address") val address: String? = null,
     @SerialName("registration_date") val registrationDate: String? = null,
     
-    val attachments: String? = null, // JSON path or metadata
+    @SerialName("attachments") val attachments: String? = null, // JSON path or metadata
 
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("is_synced") override val isSynced: Boolean = true,
@@ -53,6 +54,8 @@ fun PatientEntity.toPatient() = Patient(
     updatedBy = updatedBy
 )
 
+fun PatientEntity.toDomain(): Patient = toPatient()
+
 fun Patient.toEntity(isSynced: Boolean = true) = PatientEntity(
     id = id,
     patientClinicId = patientClinicId,
@@ -63,7 +66,7 @@ fun Patient.toEntity(isSynced: Boolean = true) = PatientEntity(
     gender = gender,
     address = address,
     registrationDate = registrationDate,
-    updatedAt = if (updatedAt.isNullOrEmpty()) com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() else updatedAt,
+    updatedAt = if (updatedAt.isNullOrEmpty()) com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() else updatedAt,
     isSynced = isSynced,
     attachments = attachments,
     createdBy = createdBy,

@@ -1,9 +1,10 @@
 package com.neochildclinic.core.sync
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,33 +23,54 @@ class SingleFlightTest {
     @Test
     fun `concurrent callers execute the block exactly once`() = runBlocking {
         val flight = SingleFlight()
+        val firstInside = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
         var executions = 0
 
-        val a = async { flight.run { executions++; delay(50) } }
-        val b = async { flight.run { executions++; delay(50) } }
-        a.await()
-        b.await()
+        val first = async {
+            flight.run {
+                executions++
+                firstInside.complete(Unit)
+                releaseFirst.await()
+            }
+        }
+        firstInside.await() // the first caller now owns the gate
 
+        val second = async { flight.run { executions++ } }
+        yield() // let the second caller reach the gate and start waiting
+        releaseFirst.complete(Unit)
+
+        first.await()
+        second.await()
         assertEquals(1, executions)
     }
 
     @Test
     fun `second caller only returns after the first run finished`() = runBlocking {
         val flight = SingleFlight()
+        val firstInside = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
         var firstDone = false
         var observedFirstDoneOnReturn = false
 
         val first = async {
-            flight.run { delay(80); firstDone = true }
+            flight.run {
+                firstInside.complete(Unit)
+                releaseFirst.await()
+                firstDone = true
+            }
         }
-        delay(10) // make sure first is inside the block
+        firstInside.await()
+
         val second = async {
             flight.run { /* join only: the block is not re-run */ }
             observedFirstDoneOnReturn = firstDone
         }
+        yield() // second is waiting on the first run
+        releaseFirst.complete(Unit)
+
         first.await()
         second.await()
-
         assertTrue(observedFirstDoneOnReturn)
     }
 
@@ -79,14 +101,18 @@ class SingleFlightTest {
     @Test
     fun `cancelled caller releases the gate and does not poison future callers`() = runBlocking {
         val flight = SingleFlight()
+        val firstInside = CompletableDeferred<Unit>()
+        val neverCompletes = CompletableDeferred<Unit>()
         val job = launch {
             flight.run {
-                delay(1000)
+                firstInside.complete(Unit)
+                neverCompletes.await()
             }
         }
-        delay(50)
+        firstInside.await()
         job.cancel()
         job.join()
+
         var executed = false
         flight.run { executed = true }
         assertTrue("gate must not be poisoned", executed)

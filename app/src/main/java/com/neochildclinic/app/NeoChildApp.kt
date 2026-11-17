@@ -110,15 +110,38 @@ class NeoChildApp : Application(), Configuration.Provider {
             }
         }
 
-        // Register Screen Off Receiver
-        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        // Register Screen Off and User Present Receivers to refresh widget privacy
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
         registerReceiver(object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context?, intent: Intent?) {
-                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
-                    BiometricLockManager.onScreenOff()
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> {
+                        BiometricLockManager.onScreenOff()
+                        context?.let { ctx ->
+                            scope.launch {
+                                com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(ctx)
+                            }
+                        }
+                    }
+                    Intent.ACTION_USER_PRESENT -> {
+                        context?.let { ctx ->
+                            scope.launch {
+                                com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(ctx)
+                            }
+                        }
+                    }
                 }
             }
         }, filter)
+
+        scope.launch {
+            BiometricLockManager.isAppLocked.collect {
+                com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(this@NeoChildApp)
+            }
+        }
 
         scope.launch {
             reminderScheduler.get().scheduleDailySummary()
@@ -167,6 +190,7 @@ class NeoChildApp : Application(), Configuration.Provider {
     private fun setupSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
 
         val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)

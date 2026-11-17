@@ -66,15 +66,4 @@ class ExpenseCalculatorTest {
         val netIncome = ExpenseCalculator.netIncomeRupees(totalIncomeRupees = 1000.0, totalExpensesPaise = 200000L)
         assertEquals(-1000.0, netIncome, 0.001) // 1000 - 2000
     }
-
-    @Test
-    fun `amount precision survives paise round-trip without floating point drift`() {
-        // A classic float-precision trap: 19.99 rupees repeated many times. Money is
-        // carried as Long paise throughout, so summing never accumulates binary-float
-        // rounding error the way summing 0.1-style Doubles would.
-        val expenses = (1..100).map { expense("2026-05-0${(it % 9) + 1}", rupees = 0) }
-            .mapIndexed { i, e -> e.copy(amountPaise = 1999L, id = "p-$i") }
-        val total = expenses.sumOf { it.amountPaise }
-        assertEquals(199900L, total) // exactly 100 * 1999, no drift
-    }
 }

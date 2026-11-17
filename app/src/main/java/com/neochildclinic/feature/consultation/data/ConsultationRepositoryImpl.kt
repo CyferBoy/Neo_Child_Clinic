@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.consultation.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.ConsultationDao
 import com.neochildclinic.data.local.dao.VaccinationDao
@@ -74,7 +75,7 @@ class ConsultationRepositoryImpl @Inject constructor(
             val existing = consultationDao.getConsultationById(consultation.id)
                 ?: throw IllegalArgumentException("Consultation not found")
 
-            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             val userName = sessionManager.getCurrentUserName()
             val visitId = if (consultation.visitId.isBlank()) existing.visitId else consultation.visitId
             val updatedEntity = consultation.copy(
@@ -157,12 +158,11 @@ class ConsultationRepositoryImpl @Inject constructor(
 
     override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
 
         transactionRunner.run {
             val existing = consultationDao.getConsultationById(id) ?: return@run
 
-            // 1. Delete Consultation (Child)
             consultationDao.deleteConsultation(id)
             syncRepository.enqueue(
                 entityName = "CONSULTATION",
@@ -171,7 +171,6 @@ class ConsultationRepositoryImpl @Inject constructor(
                 priority = SyncPriority.MEDIUM
             )
 
-            // 2. Delete associated finance transactions for the visit
             if (existing.visitId.isNotBlank()) {
                 val visitFinanceTxns = financeDao.getTransactionsByVisitId(existing.visitId)
                 for (txn in visitFinanceTxns) {
@@ -185,7 +184,6 @@ class ConsultationRepositoryImpl @Inject constructor(
                 }
             }
 
-            // 3. Delete Visit Header (Mother) - enqueued last, after its children.
             if (existing.visitId.isNotBlank()) {
                 vaccinationDao.deleteVaccination(existing.visitId)
                 syncRepository.enqueue(

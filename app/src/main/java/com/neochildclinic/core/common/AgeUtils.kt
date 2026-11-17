@@ -1,4 +1,5 @@
 package com.neochildclinic.core.common
+import com.neochildclinic.core.common.DateUtils
 
 import java.time.LocalDate
 import java.time.Period
@@ -23,7 +24,7 @@ object AgeUtils {
         fromDate: Calendar = Calendar.getInstance(),
         windowEnd: Calendar = (Calendar.getInstance()).apply { add(Calendar.MONTH, 2) }
     ): AgeMilestone? {
-        val birthDate = PatientUtils.parseDate(dob) ?: return null
+        val birthDate = DateUtils.parseDate(dob) ?: return null
         val birth = birthDate.toLocalDate()
         val start = fromDate.toLocalDate()
         val end = windowEnd.toLocalDate()
@@ -66,7 +67,7 @@ object AgeUtils {
      * only looks ahead within its 2-month window.
      */
     fun isOlderThanMonths(dob: String, months: Int, onDate: Calendar = Calendar.getInstance()): Boolean {
-        val birthDate = PatientUtils.parseDate(dob) ?: return false
+        val birthDate = DateUtils.parseDate(dob) ?: return false
         val birth = birthDate.toLocalDate()
         val threshold = birth.plusMonths(months.toLong())
         val today = onDate.toLocalDate()
@@ -83,7 +84,7 @@ object AgeUtils {
      * Returns null for an unparseable or future dob, same as the other age helpers.
      */
     fun formatAgeYearsMonths(dob: String, onDate: Calendar = Calendar.getInstance()): String? {
-        val birthDate = PatientUtils.parseDate(dob) ?: return null
+        val birthDate = DateUtils.parseDate(dob) ?: return null
         val birth = birthDate.toLocalDate()
         val today = onDate.toLocalDate()
         if (birth.isAfter(today)) return null
@@ -106,7 +107,7 @@ object AgeUtils {
      */
     fun calculateAgeLabel(dob: String): String? {
         try {
-            val birthDate = PatientUtils.parseDate(dob) ?: return null
+            val birthDate = DateUtils.parseDate(dob) ?: return null
             val today = LocalDate.now(ZoneId.of(IST_ZONE_ID))
             val birth = birthDate.toLocalDate()
 
@@ -144,7 +145,7 @@ object AgeUtils {
      */
     fun calculateDetailedAge(dob: String): Pair<Int, String> {
         try {
-            val birthDate = PatientUtils.parseDate(dob) ?: return 0 to "Years"
+            val birthDate = DateUtils.parseDate(dob) ?: return 0 to "Years"
             val today = LocalDate.now(ZoneId.of(IST_ZONE_ID))
             val birth = birthDate.toLocalDate()
 

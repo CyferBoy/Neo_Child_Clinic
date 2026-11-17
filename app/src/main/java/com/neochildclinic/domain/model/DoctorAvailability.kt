@@ -28,7 +28,21 @@ data class TimeRange(val startMinute: Int, val endMinute: Int) {
  * A doctor's normal recurring weekly availability block.
  * dayOfWeek follows java.util.Calendar.DAY_OF_WEEK: Sunday=1 ... Saturday=7.
  */
-typealias DoctorWeeklySlot = com.neochildclinic.data.local.entity.DoctorWeeklySlotEntity
+@Serializable
+data class DoctorWeeklySlot(
+    val id: String,
+    @SerialName("doctor_id") val doctorId: String,
+    @SerialName("day_of_week") val dayOfWeek: Int,
+    @SerialName("start_minute") val startMinute: Int,
+    @SerialName("end_minute") val endMinute: Int,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("created_by") val createdBy: String? = null,
+    @SerialName("updated_by") val updatedBy: String? = null
+) {
+    val timeRange: TimeRange get() = TimeRange(startMinute, endMinute)
+}
 
 enum class SlotExceptionType { FULL_DAY, SLOT }
 

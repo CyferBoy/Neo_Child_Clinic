@@ -1,8 +1,9 @@
 package com.neochildclinic.feature.personalreminder.presentation
+import com.neochildclinic.core.common.CurrencyUtils
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.designsystem.*
 
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 
 import android.content.Intent
 import android.net.Uri
@@ -20,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.PersonalReminderStatus
@@ -100,7 +100,7 @@ fun PersonalReminderDetailsSheet(
             } else {
                 DetailRow(label = "Phone Number", value = "Not provided")
             }
-            DetailRow(label = "Reminder Date", value = if (reminder.reminderDate.isNullOrBlank()) "Not set — daily reminder" else PatientUtils.formatDateForDisplay(reminder.reminderDate))
+            DetailRow(label = "Reminder Date", value = if (reminder.reminderDate.isNullOrBlank()) "Not set — daily reminder" else DateUtils.formatDateForDisplay(reminder.reminderDate))
 
             if (!reminder.note.isNullOrBlank()) {
                 DetailRow(label = "Requirement / Note", value = reminder.note)
@@ -112,22 +112,22 @@ fun PersonalReminderDetailsSheet(
             )
             if (reminder.advanceReceived) {
                 reminder.advanceAmount?.let {
-                    DetailRow(label = "Advance Amount", value = StatisticsUtils.formatRupees(it))
+                    DetailRow(label = "Advance Amount", value = CurrencyUtils.formatInr(it))
                 }
                 reminder.advanceDate?.let {
-                    DetailRow(label = "Advance Date", value = PatientUtils.formatDateForDisplay(it))
+                    DetailRow(label = "Advance Date", value = DateUtils.formatDateForDisplay(it))
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.md))
 
-            DetailRow(label = "Created", value = PatientUtils.formatDateTimeForDisplay(reminder.createdAt))
-            DetailRow(label = "Last Updated", value = PatientUtils.formatDateTimeForDisplay(reminder.updatedAt))
+            DetailRow(label = "Created", value = DateUtils.formatDateTimeForDisplay(reminder.createdAt))
+            DetailRow(label = "Last Updated", value = DateUtils.formatDateTimeForDisplay(reminder.updatedAt))
             reminder.completedAt?.let {
-                DetailRow(label = "Completed", value = PatientUtils.formatDateTimeForDisplay(it))
+                DetailRow(label = "Completed", value = DateUtils.formatDateTimeForDisplay(it))
             }
             reminder.cancelledAt?.let {
-                DetailRow(label = "Cancelled", value = PatientUtils.formatDateTimeForDisplay(it))
+                DetailRow(label = "Cancelled", value = DateUtils.formatDateTimeForDisplay(it))
             }
 
             Spacer(modifier = Modifier.height(20.dp))

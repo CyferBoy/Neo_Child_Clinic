@@ -14,6 +14,7 @@ import com.neochildclinic.feature.sync.data.SyncRepositoryImpl
 import com.neochildclinic.core.preferences.PreferenceManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 @HiltWorker
 class PatientClinicIdMigrationWorker @AssistedInject constructor(
@@ -47,14 +48,12 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                     // suffix that prevents cross-device clinic-ID collisions.
                     val clinicId = idGenerator.generateUniqueClinicId()
 
-                    // Update Room
                     val updatedPatient = patient.copy(
                         patientClinicId = clinicId,
                         isSynced = false
                     )
                     patientDao.upsertPatient(updatedPatient)
 
-                    // Queue for cloud sync
                     syncRepository.enqueue(
                         entityName = "PATIENT",
                         entityId = patient.id,
@@ -62,7 +61,6 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                         priority = SyncPriority.MEDIUM
                     )
 
-                    // Log the change
                     auditLogger.recordLog(
                         module = "SYSTEM",
                         entityType = "PATIENT",
@@ -81,6 +79,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
             return Result.success()
 
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "Migration failed", e)
             return Result.retry()
         }

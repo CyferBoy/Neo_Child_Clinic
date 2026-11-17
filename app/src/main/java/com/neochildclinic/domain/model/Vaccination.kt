@@ -1,4 +1,5 @@
 package com.neochildclinic.domain.model
+import com.neochildclinic.core.common.DateUtils
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -63,7 +64,7 @@ data class Vaccination(
     // so "16 Oct 2026" sorts BEFORE "9 Oct 2026" as text while being a month later as a date.
     val nextDueDate: String
         get() = nextVaccinations
-            .minByOrNull { com.neochildclinic.core.common.PatientUtils.parseDate(it.dueDate)?.time ?: Long.MAX_VALUE }
+            .minByOrNull { com.neochildclinic.core.common.DateUtils.parseDate(it.dueDate)?.time ?: Long.MAX_VALUE }
             ?.dueDate
             ?: ""
 }

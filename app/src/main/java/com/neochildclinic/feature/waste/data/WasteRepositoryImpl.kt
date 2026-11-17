@@ -1,7 +1,10 @@
 package com.neochildclinic.feature.waste.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.WasteDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
+import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.feature.waste.domain.repository.WasteRepository
 
 import com.neochildclinic.domain.model.InventoryTransactionType
@@ -13,6 +16,7 @@ import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
@@ -32,22 +36,21 @@ class WasteRepositoryImpl @Inject constructor(
 ) : WasteRepository {
 
     override fun getAllWaste(): Flow<List<WasteRecord>> =
-        wasteDao.getAllWaste()
+        wasteDao.getAllWaste().map { list -> list.map { it.toDomain() } }
 
     override suspend fun getWasteById(id: String): WasteRecord? =
-        wasteDao.getWasteById(id)
+        wasteDao.getWasteById(id)?.toDomain()
 
     override suspend fun recordWaste(record: WasteRecord, user: String) {
         transactionRunner.run {
             val userName = sessionManager.getCurrentUserName()
-            // 1. Save Locally
-            wasteDao.insertWaste(record.copy(
+            wasteDao.insertWaste(record.toEntity(isSynced = false).copy(
                 createdBy = userName,
                 updatedBy = userName,
-                updatedAt = record.updatedAt.ifEmpty { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
+                updatedAt = record.updatedAt.ifEmpty { com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() },
+                isSynced = false
             ))
 
-            // 2. Deduct Inventory from the specific batch
             inventoryRepository.deductStockFromBatch(
                 batchId = record.batchId,
                 quantity = record.quantity,
@@ -56,7 +59,6 @@ class WasteRepositoryImpl @Inject constructor(
                 notes = "Waste Record: ${record.id}"
             )
 
-            // 3. Queue Sync
             syncRepository.enqueue(
                 entityName = "WASTE",
                 entityId = record.id,
@@ -77,7 +79,6 @@ class WasteRepositoryImpl @Inject constructor(
     override suspend fun updateWaste(oldRecord: WasteRecord, newRecord: WasteRecord, user: String) {
         transactionRunner.run {
             val userName = sessionManager.getCurrentUserName()
-            // 1. Restore old stock
             inventoryRepository.addStockToBatch(
                 batchId = oldRecord.batchId,
                 quantity = oldRecord.quantity,
@@ -86,7 +87,6 @@ class WasteRepositoryImpl @Inject constructor(
                 notes = "Reversing waste for update: ${oldRecord.id}"
             )
 
-            // 2. Deduct new stock
             inventoryRepository.deductStockFromBatch(
                 batchId = newRecord.batchId,
                 quantity = newRecord.quantity,
@@ -95,11 +95,11 @@ class WasteRepositoryImpl @Inject constructor(
                 notes = "Waste update: ${newRecord.id}"
             )
 
-            // 3. Update Waste Record
-            wasteDao.insertWaste(newRecord.copy(
+            wasteDao.insertWaste(newRecord.toEntity(isSynced = false).copy(
                 createdBy = oldRecord.createdBy ?: userName,
                 updatedBy = userName,
-                updatedAt = newRecord.updatedAt.ifEmpty { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
+                updatedAt = newRecord.updatedAt.ifEmpty { com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() },
+                isSynced = false
             ))
 
             auditLogger.recordLog(
@@ -110,7 +110,6 @@ class WasteRepositoryImpl @Inject constructor(
                 remarks = "${newRecord.brandName} x${newRecord.quantity} - ${newRecord.reason}"
             )
 
-            // 4. Queue Sync
             syncRepository.enqueue(
                 entityName = "WASTE",
                 entityId = newRecord.id,
@@ -125,7 +124,6 @@ class WasteRepositoryImpl @Inject constructor(
             val record = wasteDao.getWasteById(id) ?: return@run
             val userName = sessionManager.getCurrentUserName()
 
-            // 1. Restore stock
             inventoryRepository.addStockToBatch(
                 batchId = record.batchId,
                 quantity = record.quantity,
@@ -134,11 +132,9 @@ class WasteRepositoryImpl @Inject constructor(
                 notes = "Restored from deleted waste: ${record.id}"
             )
 
-            // 2. Delete the waste record locally
-            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             wasteDao.deleteWaste(id)
 
-            // 3. Queue Sync as a real DELETE so the row is removed server-side too;
             // an UPDATE here leaves it on Supabase and the next refreshWaste re-imports it.
             syncRepository.enqueue(
                 entityName = "WASTE",
@@ -157,7 +153,7 @@ class WasteRepositoryImpl @Inject constructor(
                     order("id", Order.ASCENDING)
                     range(from, to)
                 }
-                .decodeList<WasteRecord>()
+                .decodeList<com.neochildclinic.data.local.entity.WasteEntity>()
         }
         transactionRunner.run {
             val pendingWasteIds = syncQueueDao.unsyncedIdSet("WASTE")
@@ -165,7 +161,7 @@ class WasteRepositoryImpl @Inject constructor(
                 if (remote.id !in pendingWasteIds) {
                     wasteDao.insertWaste(remote.copy(
                         isSynced = true,
-                        updatedAt = remote.updatedAt.ifEmpty { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
+                        updatedAt = remote.updatedAt.ifEmpty { com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() }
                     ))
                 }
             }

@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.reminder.data
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.domain.model.NextVaccinationSummary
@@ -17,7 +18,7 @@ class ReminderDueListProcessorTest {
 
     private fun due(today: Boolean, status: ReminderStatus): Vaccination {
         val date = if (today) DateClassifier.getTodayStart().let {
-            com.neochildclinic.core.common.PatientUtils.formatDate(
+            com.neochildclinic.core.common.DateUtils.formatDate(
                 java.util.Date(it.timeInMillis)
             )
         } else "1 Dec 2099"

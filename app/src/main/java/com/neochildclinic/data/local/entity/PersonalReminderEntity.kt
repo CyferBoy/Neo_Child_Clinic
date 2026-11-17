@@ -43,11 +43,12 @@ import com.neochildclinic.domain.model.PersonalReminder
         Index("patient_id"),
         Index("vaccine_id"),
         Index("status"),
-        Index("reminder_date")
+        Index("reminder_date"),
+        Index("created_at")
     ]
 )
 data class PersonalReminderEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
 
     @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String? = null,
 
@@ -69,7 +70,7 @@ data class PersonalReminderEntity(
     @SerialName("vaccine_label") @ColumnInfo(name = "vaccine_label") val vaccineLabel: String? = null,
 
     // Free-form personal note / requirement description.
-    val note: String? = null,
+    @SerialName("note") val note: String? = null,
 
     @SerialName("advance_received") @ColumnInfo(name = "advance_received") val advanceReceived: Boolean = false,
     @SerialName("advance_amount") @ColumnInfo(name = "advance_amount") val advanceAmount: Double? = null,
@@ -78,7 +79,7 @@ data class PersonalReminderEntity(
     @SerialName("reminder_date") @ColumnInfo(name = "reminder_date") val reminderDate: String? = null,
 
     // PersonalReminderStatus name: PENDING | READY | COMPLETED | CANCELLED
-    val status: String = "PENDING",
+    @SerialName("status") val status: String = "PENDING",
 
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",

@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.finance.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.ExpenseDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
@@ -8,7 +9,6 @@ import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.security.SessionManager
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.data.local.entity.ExpenseEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
@@ -97,7 +97,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteExpense(id: String, user: String) {
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
         transactionRunner.run {
             val existing = expenseDao.getExpenseById(id) ?: return@run
             expenseDao.deleteExpense(id)

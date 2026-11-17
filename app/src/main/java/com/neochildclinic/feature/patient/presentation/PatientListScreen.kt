@@ -30,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -41,7 +42,7 @@ import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.EmptyState
 import com.neochildclinic.core.ui.ErrorState
 import com.neochildclinic.core.designsystem.*
-import com.neochildclinic.core.common.PatientUtils.calculateAgeLabel
+import com.neochildclinic.core.common.AgeUtils.calculateAgeLabel
 
 @Composable
 fun PatientListScreen(
@@ -49,11 +50,17 @@ fun PatientListScreen(
     onAddPatient: () -> Unit = {},
     onPatientClick: (String) -> Unit = {},
     onEditPatient: (String) -> Unit = {},
+    initialSearchQuery: String? = null,
     viewModel: PatientListViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+
+    // Non-null means "opened for search": prefill the query and start with the search bar active.
+    LaunchedEffect(initialSearchQuery) {
+        if (initialSearchQuery != null) viewModel.updateSearchQuery(initialSearchQuery)
+    }
     val role = viewModel.currentUserRole
     val isAdmin = role == UserRole.admin
     val canEditOrDelete = isAdmin || role == UserRole.doctor
@@ -90,6 +97,7 @@ fun PatientListScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         searchQuery = searchQuery,
+        searchActiveInitially = initialSearchQuery != null,
         isAdmin = isAdmin,
         canEditOrDelete = canEditOrDelete,
         onBack = {
@@ -119,6 +127,7 @@ private fun PatientListContent(
     uiState: PatientListUiState,
     snackbarHostState: SnackbarHostState,
     searchQuery: String,
+    searchActiveInitially: Boolean,
     isAdmin: Boolean,
     canEditOrDelete: Boolean,
     onBack: () -> Unit,
@@ -139,6 +148,7 @@ private fun PatientListContent(
             PatientListTopBar(
                 uiState = uiState,
                 searchQuery = searchQuery,
+                searchActiveInitially = searchActiveInitially,
                 onSearchQueryChange = onSearchQueryChange,
                 onBack = onBack,
                 onMergeClick = onMergeClick
@@ -255,11 +265,12 @@ private fun PatientListContent(
 private fun PatientListTopBar(
     uiState: PatientListUiState,
     searchQuery: String,
+    searchActiveInitially: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onBack: () -> Unit,
     onMergeClick: () -> Unit
 ) {
-    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    var isSearchActive by rememberSaveable { mutableStateOf(searchActiveInitially) }
 
     SearchTopAppBar(
         title = if (uiState.isMergeSelectionMode) "${uiState.selectedPatients.size} Selected" else "Patients",
@@ -515,12 +526,13 @@ private fun PatientListPreview() {
         PatientListContent(
             uiState = PatientListUiState(
                 patients = listOf(
-                    Patient("1", "John Doe", "1234567890", "", "2020-01-01", "Male", "Address", "2024-01-01"),
-                    Patient("2", "Jane Smith", "0987654321", "", "2021-05-15", "Female", "", "2024-02-10")
+                    Patient(id = "1", name = "John Doe", phone = "1234567890", dob = "2020-01-01", gender = "Male", address = "Address", registrationDate = "2024-01-01"),
+                    Patient(id = "2", name = "Jane Smith", phone = "0987654321", dob = "2021-05-15", gender = "Female", address = "", registrationDate = "2024-02-10")
                 )
             ),
             snackbarHostState = remember { SnackbarHostState() },
             searchQuery = "",
+            searchActiveInitially = false,
             isAdmin = true,
             canEditOrDelete = true,
             onBack = {},

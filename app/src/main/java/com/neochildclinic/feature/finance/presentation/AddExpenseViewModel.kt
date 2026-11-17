@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.finance.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,7 +8,6 @@ import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.toLocalDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.SessionManager
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
 import java.time.format.DateTimeFormatter
@@ -69,7 +70,7 @@ class AddExpenseViewModel @Inject constructor(
                         // range filters/sorts work correctly (see ExpenseDao) - converted
                         // here to the display format DateDropdownPicker expects, matching
                         // the rest of the app's date pickers.
-                        expenseDate = PatientUtils.formatDateForDisplay(expense.expenseDate),
+                        expenseDate = DateUtils.formatDateForDisplay(expense.expenseDate),
                         category = expense.category,
                         title = expense.title,
                         description = expense.description ?: "",
@@ -114,6 +115,7 @@ class AddExpenseViewModel @Inject constructor(
                 val path = documentRepository.uploadDocument(_uiState.value.expenseId, fileName, bytes)
                 _uiState.update { it.copy(isUploadingAttachment = false, attachmentPath = path) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(isUploadingAttachment = false, error = "Failed to attach receipt: ${e.message}") }
             }
         }
@@ -124,6 +126,8 @@ class AddExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 documentRepository.deleteDocument(path)
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Non-fatal: proceed to clear the reference locally either way.
             }
@@ -160,7 +164,7 @@ class AddExpenseViewModel @Inject constructor(
                 // Persist as ISO (yyyy-MM-dd), not the picker's display format - a plain
                 // string comparison in SQL only sorts/range-filters correctly on ISO dates
                 // (see ExpenseDao.getFilteredExpensesPage).
-                val isoDate = PatientUtils.parseDate(state.expenseDate)
+                val isoDate = DateUtils.parseDate(state.expenseDate)
                     ?.toLocalDate().toString()
                     ?: state.expenseDate
                 val expense = Expense(
@@ -181,6 +185,7 @@ class AddExpenseViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(isSaving = false, isSaved = true) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(isSaving = false, error = e.message ?: "Failed to save expense.") }
             }
         }

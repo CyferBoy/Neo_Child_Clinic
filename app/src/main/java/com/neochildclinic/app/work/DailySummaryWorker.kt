@@ -28,7 +28,6 @@ class DailySummaryWorker @AssistedInject constructor(
         val settings = settingsManager.settingsFlow.first()
         val todayStr = LocalDate.now(ZoneId.of("Asia/Kolkata")).toString()
 
-        // 1. Daily Summary Logic
         if (settings.dailySummaryEnabled && settings.lastSummarySentDate != todayStr) {
             val stats = statsManager.getClinicStats().first()
             
@@ -38,7 +37,6 @@ class DailySummaryWorker @AssistedInject constructor(
             }
         }
 
-        // 2. Individual Low Stock Logic
         if (settings.lowStockEnabled) {
             val inventory = inventoryRepository.getInventoryItems().first()
             for (item in inventory) {

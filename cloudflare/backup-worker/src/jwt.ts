@@ -14,6 +14,11 @@ export interface VerifiedUser {
   email?: string;
   role?: string;
   exp: number;
+  app_metadata?: {
+    role?: string;
+    clinic_id?: string;
+    [key: string]: unknown;
+  };
 }
 
 class AuthError extends Error {}

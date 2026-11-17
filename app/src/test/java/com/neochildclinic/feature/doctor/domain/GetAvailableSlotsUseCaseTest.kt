@@ -135,4 +135,39 @@ class GetAvailableSlotsUseCaseTest {
         val result = useCase(doctorId, date)
         assertEquals(DoctorAvailabilityResult.NoScheduleConfigured, result)
     }
+
+    @Test
+    fun `full day exception honored when display date format is passed`() = runBlocking {
+        fakeRepo.weeklySlots = listOf(slot1, slot2, slot3)
+        fakeRepo.exceptions = listOf(
+            DoctorSlotException(
+                doctorId = doctorId,
+                exceptionDate = "2026-10-12",
+                exceptionType = SlotExceptionType.FULL_DAY,
+                reason = "Attending Conference"
+            )
+        )
+
+        val result = useCase(doctorId, "12 Oct 2026")
+        assertTrue(result is DoctorAvailabilityResult.FullDayUnavailable)
+        assertEquals("Attending Conference", (result as DoctorAvailabilityResult.FullDayUnavailable).reason)
+    }
+
+    @Test
+    fun `slot exception honored when display date format is passed`() = runBlocking {
+        fakeRepo.weeklySlots = listOf(slot1, slot2, slot3)
+        fakeRepo.exceptions = listOf(
+            DoctorSlotException(
+                doctorId = doctorId,
+                exceptionDate = "2026-10-12",
+                exceptionType = SlotExceptionType.SLOT,
+                weeklySlotId = "slot-2"
+            )
+        )
+
+        val result = useCase(doctorId, "12 Oct 2026")
+        assertTrue(result is DoctorAvailabilityResult.Available)
+        val available = (result as DoctorAvailabilityResult.Available).slots
+        assertEquals(listOf("slot-1", "slot-3"), available.map { it.weeklySlotId })
+    }
 }

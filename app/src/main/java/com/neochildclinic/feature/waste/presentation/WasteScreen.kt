@@ -30,9 +30,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.Constants
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.common.DateUtils
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.*
@@ -54,7 +54,7 @@ fun WasteScreen(
     onBack: () -> Unit,
     viewModel: WasteViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var editingRecord by remember { mutableStateOf<WasteRecord?>(null) }
@@ -173,7 +173,6 @@ private fun WasteContent(
                         contentPadding = PaddingValues(bottom = 100.dp, top = Spacing.sm),
                         verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        // 1. Hero Waste Summary Banner
                         item {
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
@@ -208,7 +207,6 @@ private fun WasteContent(
                             }
                         }
 
-                        // 2. Filter Pills Row
                         item {
                             Row(
                                 modifier = Modifier
@@ -244,7 +242,6 @@ private fun WasteContent(
                             }
                         }
 
-                        // 3. Eyebrow Header
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -267,7 +264,6 @@ private fun WasteContent(
                             }
                         }
 
-                        // 4. Waste Item Cards
                         if (filteredRecords.isEmpty()) {
                             item {
                                 EmptyState(

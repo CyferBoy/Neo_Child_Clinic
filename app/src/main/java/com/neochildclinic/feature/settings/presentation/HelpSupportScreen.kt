@@ -86,7 +86,6 @@ fun HelpSupportScreen(onBack: () -> Unit) {
                 contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. Top Banner Card (104dp height, matching help_support_light.svg)
                 item {
                     HelpBannerCard(
                         email = SUPPORT_EMAIL,
@@ -94,7 +93,6 @@ fun HelpSupportScreen(onBack: () -> Unit) {
                     )
                 }
 
-                // 2. Quick Help Section
                 item {
                     Text(
                         text = "Quick help",
@@ -127,12 +125,10 @@ fun HelpSupportScreen(onBack: () -> Unit) {
                     }
                 }
 
-                // 3. Email Support Card (96dp height, soft warm container #F0ECE3)
                 item {
                     EmailSupportCard(onSendEmail = { contactSupport() })
                 }
 
-                // 4. About & Legal Section
                 item {
                     Text(
                         text = "About & legal",

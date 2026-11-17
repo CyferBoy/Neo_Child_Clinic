@@ -86,7 +86,7 @@ class FullReportViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(FullReportUiState())
     val uiState: StateFlow<FullReportUiState> = _uiState.asStateFlow()
 
-    private val _filterMode = MutableStateFlow(StatisticsUtils.getCurrentFinancialYear())
+    private val _filterMode = MutableStateFlow(FinanceCalculator.getCurrentFinancialYear())
     private val _fyQuarter = MutableStateFlow(0)
     private val _selectedMonth = MutableStateFlow(-1)
     private val _chartMode = MutableStateFlow(ChartMode.BAR)
@@ -146,21 +146,21 @@ class FullReportViewModel @Inject constructor(
     }
 
     fun updateFilter(filterMode: String, fyQuarter: Int, selectedMonth: Int) {
-        _filterMode.value = filterMode
-        _fyQuarter.value = fyQuarter
-        _selectedMonth.value = selectedMonth
+        _filterMode.update { filterMode }
+        _fyQuarter.update { fyQuarter }
+        _selectedMonth.update { selectedMonth }
     }
 
     fun setChartMode(mode: ChartMode) {
-        _chartMode.value = mode
-        _viewMode.value = if (mode == ChartMode.LINE) ReportViewMode.LINE else ReportViewMode.BAR
+        _chartMode.update { mode }
+        _viewMode.update { if (mode == ChartMode.LINE) ReportViewMode.LINE else ReportViewMode.BAR }
     }
 
     fun setViewMode(mode: ReportViewMode) {
-        _viewMode.value = mode
+        _viewMode.update { mode }
         when (mode) {
-            ReportViewMode.LINE -> _chartMode.value = ChartMode.LINE
-            ReportViewMode.BAR -> _chartMode.value = ChartMode.BAR
+            ReportViewMode.LINE -> _chartMode.update { ChartMode.LINE }
+            ReportViewMode.BAR -> _chartMode.update { ChartMode.BAR }
             ReportViewMode.TABLE -> Unit
         }
     }
@@ -196,7 +196,7 @@ class FullReportViewModel @Inject constructor(
                 validVaccinations.map { it.dateGiven } +
                 transactions.map { FinanceCalculator.resolveReportingDate(it) } +
                 expenses.map { it.expenseDate }
-        val availableYears = StatisticsUtils.getAvailableFinancialYears(allDates).sorted().reversed()
+        val availableYears = FinanceCalculator.getAvailableFinancialYears(allDates).sorted().reversed()
 
         return if (isDaily) {
             computeDaily(

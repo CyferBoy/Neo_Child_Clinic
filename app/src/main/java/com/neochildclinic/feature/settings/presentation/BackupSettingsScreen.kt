@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.settings.presentation
+import com.neochildclinic.core.common.Constants
+import com.neochildclinic.core.common.DateUtils
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.domain.model.*
@@ -39,7 +41,7 @@ fun BackupSettingsScreen(
     onRestore: () -> Unit,
     viewModel: BackupViewModel = hiltViewModel()
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val customColors = LocalCustomColors.current
 
     var pendingAction by remember { mutableStateOf<PendingPasswordAction?>(null) }
@@ -82,14 +84,13 @@ fun BackupSettingsScreen(
                 contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Health Status Banner Card (108dp, matching backup_settings_light.svg)
                 item {
                     val latestBackup = state.history.firstOrNull { it.status == "SUCCESS" }
                     val timestampText = latestBackup?.let {
-                        PatientUtils.formatDateTimeForDisplay(it.createdAt)
+                        DateUtils.formatDateTimeForDisplay(it.createdAt)
                     } ?: "Yesterday, 11:40 PM"
                     val sizeText = latestBackup?.takeIf { it.sizeBytes > 0 }?.let {
-                        PatientUtils.formatBytes(it.sizeBytes)
+                        DateUtils.formatBytes(it.sizeBytes)
                     } ?: "2.4 MB"
 
                     BackupStatusBannerCard(
@@ -99,7 +100,6 @@ fun BackupSettingsScreen(
                     )
                 }
 
-                // 2. Action Buttons Row (Backup now & Restore)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -189,7 +189,6 @@ fun BackupSettingsScreen(
                     }
                 }
 
-                // 3. Card 1: Automatic Backup Settings Card (matching SVG)
                 item {
                     val settings = state.autoBackupSettings
                     Surface(
@@ -354,7 +353,6 @@ fun BackupSettingsScreen(
                     }
                 }
 
-                // 4. Recent Backups Cards (Local export & Cloud backup matching SVG)
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Local export card
@@ -377,7 +375,6 @@ fun BackupSettingsScreen(
                     }
                 }
 
-                // 5. Encrypted note
                 item {
                     Text(
                         text = "Backups are encrypted with your backup password.",
@@ -387,7 +384,6 @@ fun BackupSettingsScreen(
                     )
                 }
 
-                // 6. Bottom "Export backup file" outlined button
                 item {
                     OutlinedButton(
                         onClick = { exportLauncher.launch(defaultBackupFileName()) },
@@ -640,7 +636,7 @@ private fun BackupFileItemCard(
 }
 
 private fun defaultBackupFileName(): String {
-    val ts = PatientUtils.getCurrentIsoTimestamp().replace(":", "").replace("-", "").take(13).replace("T", "_")
+    val ts = DateUtils.getCurrentIsoTimestamp().replace(":", "").replace("-", "").take(13).replace("T", "_")
     return "NeoChildClinic_Backup_$ts.nccb"
 }
 
@@ -672,7 +668,7 @@ fun RestoreSummaryDialog(
         title = { Text("Restore Backup") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text("Created: ${PatientUtils.formatDateTimeForDisplay(summary.createdAt)}", style = MaterialTheme.typography.bodyMedium)
+                Text("Created: ${DateUtils.formatDateTimeForDisplay(summary.createdAt)}", style = MaterialTheme.typography.bodyMedium)
                 Text("App version: ${summary.appVersion}", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(Spacing.sm))
                 summary.recordCounts.entries.filter { it.value > 0 }.forEach { (label, count) ->
@@ -728,7 +724,7 @@ fun PasswordPromptDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
-                    "Backups are encrypted with your backup password. Minimum 12 characters required for data security.",
+                    "Backups are encrypted with your backup password. Minimum ${Constants.MIN_PASSWORD_LENGTH} characters required for data security.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 OutlinedTextField(
@@ -738,11 +734,11 @@ fun PasswordPromptDialog(
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     supportingText = {
-                        if (password.isNotEmpty() && password.length < 12) {
-                            Text("Password must be at least 12 characters (${password.length}/12)")
+                        if (password.isNotEmpty() && password.length < Constants.MIN_PASSWORD_LENGTH) {
+                            Text("${Constants.PASSWORD_MIN_LENGTH_ERROR} (${password.length}/${Constants.MIN_PASSWORD_LENGTH})")
                         }
                     },
-                    isError = password.isNotEmpty() && password.length < 12,
+                    isError = password.isNotEmpty() && password.length < Constants.MIN_PASSWORD_LENGTH,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -750,7 +746,7 @@ fun PasswordPromptDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(password, null) },
-                enabled = password.length >= 12
+                enabled = password.length >= Constants.MIN_PASSWORD_LENGTH
             ) {
                 Text("Continue")
             }

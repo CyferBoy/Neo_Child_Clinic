@@ -49,7 +49,9 @@ interface PatientDao {
                 (sq.entityName IN ('REMINDER', 'REMINDERS') AND sq.entityId IN (SELECT id FROM reminders WHERE patientId = :patientId)) OR
                 (sq.entityName = 'PERSONAL_REMINDER' AND sq.entityId IN (SELECT id FROM personal_vaccine_reminders WHERE patient_id = :patientId)) OR
                 (sq.entityName = 'CONSULTATION_TODO' AND sq.entityId IN (SELECT id FROM consultation_todos WHERE patient_id = :patientId)) OR
-                (sq.entityName = 'VACCINATION_TODO' AND sq.entityId IN (SELECT id FROM vaccination_todos WHERE patient_id = :patientId))
+                (sq.entityName = 'VACCINATION_TODO' AND sq.entityId IN (SELECT id FROM vaccination_todos WHERE patient_id = :patientId)) OR
+                (sq.entityName IN ('FINANCE', 'FINANCE_TRANSACTION') AND sq.entityId IN (SELECT id FROM finance_transactions WHERE patientId = :patientId OR visitId IN (SELECT id FROM patient_visits WHERE patientId = :patientId))) OR
+                (sq.entityName IN ('TRANSACTION', 'INVENTORY_TRANSACTION') AND sq.entityId IN (SELECT transactionId FROM inventory_transactions WHERE patientId = :patientId OR visitId IN (SELECT id FROM patient_visits WHERE patientId = :patientId)))
             )
         )
     """)
@@ -73,9 +75,6 @@ interface PatientDao {
     // 31->32 dropped that column from patient_visits; local deletes are hard deletes.
     @Query("SELECT DISTINCT patientId FROM patient_visits WHERE totalPaid <= 0.0")
     fun getPatientIdsWithMissingPrice(): Flow<List<String>>
-
-    @Query("SELECT COUNT(*) FROM patients")
-    suspend fun getTotalPatientCount(): Int
 
     @Query("SELECT * FROM patients WHERE (patientClinicId IS NULL OR TRIM(patientClinicId) = '' OR patientClinicId LIKE 'TEMP-%' OR patientClinicId LIKE '%-DUP-%')")
     suspend fun getPatientsNeedingId(): List<PatientEntity>

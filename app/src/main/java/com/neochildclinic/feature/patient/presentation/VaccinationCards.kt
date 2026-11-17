@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -23,8 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.core.common.PatientUtils.cleanVaccineName
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.VaccineUtils.cleanVaccineName
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import com.neochildclinic.core.designsystem.*
 
 /**
@@ -74,7 +75,7 @@ fun VaccinationRecordCard(
                 val label = labels.joinToString(", ")
                 label to dueDate
             }
-            .sortedBy { com.neochildclinic.core.common.PatientUtils.parseDate(it.second)?.time ?: Long.MAX_VALUE }
+            .sortedBy { com.neochildclinic.core.common.DateUtils.parseDate(it.second)?.time ?: Long.MAX_VALUE }
     }
 
     var isExpanded by remember { mutableStateOf(false) }

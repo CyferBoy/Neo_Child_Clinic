@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.feature.patient.domain.MergePatientsUseCase
-import com.neochildclinic.feature.patient.domain.SearchPatientsUseCase
 import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
 import com.neochildclinic.feature.sync.domain.RefreshTables
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
@@ -41,7 +40,6 @@ data class PatientListUiState(
 @HiltViewModel
 class PatientListViewModel @Inject constructor(
     private val mergePatientsUseCase: MergePatientsUseCase,
-    private val searchPatientsUseCase: SearchPatientsUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
     private val currentUserProvider: CurrentUserProvider,
@@ -66,7 +64,10 @@ class PatientListViewModel @Inject constructor(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
     val uiState: StateFlow<PatientListUiState> = combine(
-        _debouncedSearchQuery.flatMapLatest { searchPatientsUseCase(it) },
+        _debouncedSearchQuery.flatMapLatest { query ->
+            if (query.isBlank()) patientRepository.allPatients
+            else patientRepository.searchPatients("%$query%")
+        },
         _sortOption,
         patientRepository.patientIdsWithMissingPrice,
         combine(_isMergeSelectionMode, _selectedPatients, _isMerging, _error, _isRefreshing) { mode, selected, merging, err, refreshing ->
@@ -132,46 +133,49 @@ class PatientListViewModel @Inject constructor(
         // A refresh already in flight will pick up everything the burst contains anyway.
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 refreshDataUseCase(*tables)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _error.value = "Refresh failed: ${e.message}"
+                _error.update { "Refresh failed: ${e.message}" }
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
 
     fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
+        _searchQuery.update { query }
     }
 
     fun updateSortOption(option: PatientSortOption) {
-        _sortOption.value = option
+        _sortOption.update { option }
     }
 
     fun toggleSelection(patient: Patient) {
-        val currentSelected = _selectedPatients.value
-        val newSelected = if (currentSelected.contains(patient)) {
-            currentSelected - patient
-        } else {
-            currentSelected + patient
+        var isNowMergeMode = false
+        _selectedPatients.update { currentSelected ->
+            val newSelected = if (currentSelected.contains(patient)) {
+                currentSelected - patient
+            } else {
+                currentSelected + patient
+            }
+            isNowMergeMode = newSelected.isNotEmpty()
+            newSelected
         }
-        _selectedPatients.value = newSelected
-        _isMergeSelectionMode.value = newSelected.isNotEmpty()
+        _isMergeSelectionMode.update { isNowMergeMode }
     }
 
     fun clearSelection() {
-        _selectedPatients.value = emptySet()
-        _isMergeSelectionMode.value = false
+        _selectedPatients.update { emptySet() }
+        _isMergeSelectionMode.update { false }
     }
 
     fun enterMergeMode(initialPatient: Patient) {
-        _selectedPatients.value = setOf(initialPatient)
-        _isMergeSelectionMode.value = true
+        _selectedPatients.update { setOf(initialPatient) }
+        _isMergeSelectionMode.update { true }
     }
 
     fun deletePatient(id: String) {
@@ -182,7 +186,7 @@ class PatientListViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.e("PatientListVM", "Delete patient failed", e)
-                _error.value = "Delete failed: ${e.message}"
+                _error.update { "Delete failed: ${e.message}" }
             }
         }
     }
@@ -192,23 +196,23 @@ class PatientListViewModel @Inject constructor(
         val secondary = selected.find { it != master }
         if (secondary != null) {
             viewModelScope.launch {
-                _isMerging.value = true
+                _isMerging.update { true }
                 try {
                     mergePatientsUseCase(master.id, listOf(secondary.id))
                     clearSelection()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    _error.value = e.message
+                    _error.update { e.message }
                 } finally {
-                    _isMerging.value = false
+                    _isMerging.update { false }
                 }
             }
         }
     }
 
     fun clearError() {
-        _error.value = null
+        _error.update { null }
     }
 }
 

@@ -22,6 +22,8 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+class BiometricLockoutException(message: String, cause: Throwable? = null) : SecurityException(message, cause)
+
 /**
  * Centralized biometric authentication backed by Android Keystore.
  * The biometric callback alone is never trusted. A Keystore-protected
@@ -34,7 +36,46 @@ object BiometricAuthenticator {
     private const val IV_KEY = "iv"
     private const val CIPHERTEXT_KEY = "ciphertext"
     private const val SECRET_HASH_KEY = "secret_hash"
+    private const val BIOMETRIC_LOCKED_OUT_KEY = "is_biometric_locked_out"
     private const val SECRET_SIZE = 32
+
+    fun isBiometricLockedOut(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(BIOMETRIC_LOCKED_OUT_KEY, false)
+    }
+
+    fun clearBiometricLockout(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(BIOMETRIC_LOCKED_OUT_KEY, false)
+            .apply()
+        Log.i(TAG, "Biometric lockout cleared after primary password authentication")
+    }
+
+    private fun handlePermanentInvalidation(context: Context, e: KeyPermanentlyInvalidatedException): Nothing {
+        Log.e(TAG, "Security alert: Biometric key permanently invalidated by new enrollment. Locking out biometrics.", e)
+
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            keyStore.deleteEntry(KEY_ALIAS)
+        } catch (ex: Exception) {
+            Log.e(TAG, "Failed to delete invalidated Keystore entry", ex)
+        }
+
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(BIOMETRIC_LOCKED_OUT_KEY, true)
+            .remove(IV_KEY)
+            .remove(CIPHERTEXT_KEY)
+            .remove(SECRET_HASH_KEY)
+            .apply()
+
+        BiometricLockManager.lock()
+
+        throw BiometricLockoutException(
+            "Biometric key permanently invalidated. Primary clinic account password re-authentication required.",
+            e
+        )
+    }
 
     fun authenticate(
         activity: FragmentActivity,
@@ -42,12 +83,31 @@ object BiometricAuthenticator {
         subtitle: String,
         onVerified: () -> Unit
     ) {
+        if (isBiometricLockedOut(activity)) {
+            Log.w(TAG, "Authentication rejected: Biometrics permanently locked out")
+            Toast.makeText(
+                activity,
+                "Biometrics locked due to security changes. Please authenticate with your clinic password.",
+                Toast.LENGTH_LONG
+            ).show()
+            BiometricLockManager.lock()
+            return
+        }
+
         val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG
 
         when (BiometricManager.from(activity).canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 val cipher = try {
                     createCipherForAuthentication(activity)
+                } catch (e: BiometricLockoutException) {
+                    Toast.makeText(
+                        activity,
+                        "Biometrics locked due to security changes. Please authenticate with your clinic password.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    BiometricLockManager.lock()
+                    return
                 } catch (e: Exception) {
                     Log.e(TAG, "Unable to initialize secure authentication", e)
                     Toast.makeText(activity, "Unable to initialize secure authentication.", Toast.LENGTH_SHORT).show()
@@ -65,6 +125,13 @@ object BiometricAuthenticator {
                                     ?: throw IllegalStateException("Missing authenticated cipher from biometric prompt")
                                 verifyProtectedSecret(activity, authenticatedCipher)
                                 onVerified()
+                            } catch (e: BiometricLockoutException) {
+                                Toast.makeText(
+                                    activity,
+                                    "Biometrics locked due to security changes. Please authenticate with your clinic password.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                BiometricLockManager.lock()
                             } catch (e: Exception) {
                                 Log.e(TAG, "Keystore verification failed", e)
                                 BiometricLockManager.lock()
@@ -132,6 +199,10 @@ object BiometricAuthenticator {
     }
 
     private fun createCipherForAuthentication(context: Context): Cipher {
+        if (isBiometricLockedOut(context)) {
+            throw BiometricLockoutException("Biometrics locked out.")
+        }
+
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val iv = prefs.getString(IV_KEY, null)
         val ciphertext = prefs.getString(CIPHERTEXT_KEY, null)
@@ -145,9 +216,11 @@ object BiometricAuthenticator {
                 cipher.init(Cipher.DECRYPT_MODE, getOrCreateSecretKey(), GCMParameterSpec(128, ivBytes))
             } catch (e: Exception) {
                 when (e) {
-                    is KeyPermanentlyInvalidatedException,
+                    is KeyPermanentlyInvalidatedException -> {
+                        handlePermanentInvalidation(context, e)
+                    }
                     is UserNotAuthenticatedException -> {
-                        Log.w(TAG, "Key unusable or invalidated, resetting biometric state", e)
+                        Log.w(TAG, "Key unusable: user not authenticated, resetting biometric state", e)
                         resetBiometricState(context)
                         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
                     }
@@ -159,9 +232,11 @@ object BiometricAuthenticator {
                 cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
             } catch (e: Exception) {
                 when (e) {
-                    is KeyPermanentlyInvalidatedException,
+                    is KeyPermanentlyInvalidatedException -> {
+                        handlePermanentInvalidation(context, e)
+                    }
                     is UserNotAuthenticatedException -> {
-                        Log.w(TAG, "Key unusable or invalidated, resetting biometric state", e)
+                        Log.w(TAG, "Key unusable: user not authenticated, resetting biometric state", e)
                         resetBiometricState(context)
                         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
                     }
@@ -204,7 +279,10 @@ object BiometricAuthenticator {
             }
         } catch (e: Exception) {
             when (e) {
-                is AEADBadTagException, is KeyPermanentlyInvalidatedException -> {
+                is KeyPermanentlyInvalidatedException -> {
+                    handlePermanentInvalidation(context, e)
+                }
+                is AEADBadTagException -> {
                     Log.e(TAG, "Fatal Keystore error during verification, resetting state", e)
                     resetBiometricState(context)
                     throw SecurityException("Secure verification failed and state was reset. Please try again.", e)
@@ -226,7 +304,11 @@ object BiometricAuthenticator {
             Log.e(TAG, "Failed to delete Keystore entry", e)
         }
 
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(IV_KEY)
+            .remove(CIPHERTEXT_KEY)
+            .remove(SECRET_HASH_KEY)
+            .apply()
         Log.i(TAG, "Biometric state and keys have been reset")
     }
 }

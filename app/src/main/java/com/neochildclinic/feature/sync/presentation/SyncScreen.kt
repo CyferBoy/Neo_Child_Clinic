@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.domain.model.SyncItem
 import com.neochildclinic.domain.model.SyncStatus
@@ -35,9 +36,9 @@ fun SyncScreen(
     isAdmin: Boolean = false,
     viewModel: SyncViewModel = hiltViewModel()
 ) {
-    val syncQueue by viewModel.syncQueue.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
-    val refreshError by viewModel.refreshError.collectAsState()
+    val syncQueue by viewModel.syncQueue.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val refreshError by viewModel.refreshError.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var wasRefreshing by remember { mutableStateOf(false) }

@@ -2,9 +2,7 @@ package com.neochildclinic.feature.personalreminder.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.common.DateUtils
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccine
@@ -14,6 +12,7 @@ import com.neochildclinic.feature.inventory.domain.repository.InventoryRepositor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -75,7 +74,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
             }
         }
 
-        // Live patient search-as-you-type, mirroring SearchViewModel's debounce pattern.
+        // Live patient search-as-you-type, debounced like the patient list search.
         viewModelScope.launch {
             searchPatientResults().collect { results ->
                 _uiState.update { it.copy(patientResults = results) }
@@ -131,7 +130,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
 
     fun onPatientQueryChange(query: String) {
         _uiState.update { it.copy(patientQuery = query, patientError = false) }
-        _patientQuery.value = query
+        _patientQuery.update { query }
     }
 
     fun selectPatient(patient: Patient) {
@@ -255,6 +254,7 @@ class AddEditPersonalReminderViewModel @Inject constructor(
 
                 _uiState.update { it.copy(isSaving = false, isSaved = true) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(isSaving = false, error = e.message ?: "Failed to save reminder.") }
             }
         }

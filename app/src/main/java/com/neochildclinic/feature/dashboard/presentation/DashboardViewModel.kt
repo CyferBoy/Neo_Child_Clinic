@@ -18,7 +18,6 @@ import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
-import com.neochildclinic.core.common.PatientUtils
 import java.util.Calendar
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.TimeRange
@@ -192,31 +191,31 @@ class DashboardViewModel @Inject constructor(
     private fun observeDoctors() {
         profileRepository.allProfiles
             .map { profiles -> profiles.filter { it.role == UserRole.doctor && it.isActive }.sortedBy { it.displayName } }
-            .onEach { doctors -> _allDoctors.value = doctors }
+            .onEach { doctors -> _allDoctors.update { doctors } }
             .launchIn(viewModelScope)
     }
 
     /** Loads available slots for the Today's Patient quick-add dialog (req. 15/16/22). */
     fun loadTodoSlots(doctorId: String?, date: String) {
         if (doctorId.isNullOrBlank() || date.isBlank()) {
-            _todoSlotsState.value = SlotsUiState.Idle
+            _todoSlotsState.update { SlotsUiState.Idle }
             return
         }
         val token = ++todoSlotLoadToken
-        _todoSlotsState.value = SlotsUiState.Loading
+        _todoSlotsState.update { SlotsUiState.Loading }
         viewModelScope.launch {
             val result = getAvailableSlotsUseCase.loadUiState(doctorId, date)
             if (token != todoSlotLoadToken) return@launch
-            _todoSlotsState.value = result
+            _todoSlotsState.update { result }
         }
     }
 
     fun clearTodoSlots() {
-        _todoSlotsState.value = SlotsUiState.Idle
+        _todoSlotsState.update { SlotsUiState.Idle }
     }
 
     fun setSelectedSlot(key: String) {
-        _selectedSlotKey.value = key
+        _selectedSlotKey.update { key }
     }
 
     /**
@@ -422,7 +421,7 @@ class DashboardViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 
     fun setSelectedDate(date: String) {
-        _selectedDate.value = date
+        _selectedDate.update { date }
     }
 
     fun toggleTodoStatus(item: Any) {
@@ -546,13 +545,13 @@ class DashboardViewModel @Inject constructor(
 
     /** Clears [DashboardUiState.errorMessage] once the snackbar has been shown. */
     fun clearError() {
-        _refreshError.value = null
+        _refreshError.update { null }
     }
 
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 syncRepository.processNextItems()
                 // Push AND pull. This screen only uploaded before, so the spinner meant
@@ -564,10 +563,11 @@ class DashboardViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 android.util.Log.e("DashboardVM", "Sync refresh failed", e)
-                _refreshError.value = e.message
+                val errMsg = e.message
                     ?: "Could not sync. Your data is saved on this device and will upload when the connection returns."
+                _refreshError.update { errMsg }
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

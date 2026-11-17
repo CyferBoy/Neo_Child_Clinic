@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.settings.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -25,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.domain.model.*
@@ -37,7 +38,7 @@ fun RestoreScreen(
     onBack: () -> Unit,
     viewModel: BackupViewModel = hiltViewModel()
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val customColors = LocalCustomColors.current
 
     var pendingAction by remember { mutableStateOf<PendingPasswordAction?>(null) }
@@ -420,13 +421,13 @@ private fun CloudBackupItemCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = PatientUtils.formatDateTimeForDisplay(backup.createdAt),
+                    text = DateUtils.formatDateTimeForDisplay(backup.createdAt),
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "${PatientUtils.formatBytes(backup.sizeBytes)} · v${backup.appVersion}",
+                    text = "${DateUtils.formatBytes(backup.sizeBytes)} · v${backup.appVersion}",
                     fontSize = 10.sp,
                     color = customColors.textGrey
                 )

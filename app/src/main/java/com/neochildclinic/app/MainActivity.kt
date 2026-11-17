@@ -13,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
@@ -32,9 +33,10 @@ import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
 import com.neochildclinic.feature.auth.presentation.AuthViewModel
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.notification.NotificationHelper
+import com.neochildclinic.feature.auth.domain.model.AuthSessionStatus
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.handleDeeplinks
-import io.github.jan.supabase.postgrest.Postgrest
+import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -45,14 +47,11 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     
     @Inject
-    lateinit var supabaseClient: io.github.jan.supabase.SupabaseClient
+    lateinit var supabaseClient: Lazy<io.github.jan.supabase.SupabaseClient>
 
     @Inject
-    lateinit var auth: Auth
-    
-    @Inject
-    lateinit var postgrest: Postgrest
-    
+    lateinit var auth: Lazy<Auth>
+
     @Inject
     lateinit var notificationHelper: NotificationHelper
 
@@ -60,19 +59,19 @@ class MainActivity : FragmentActivity() {
     lateinit var settingsManager: NotificationSettingsManager
 
     @Inject
-    lateinit var syncManager: SyncScheduler
+    lateinit var syncManager: Lazy<SyncScheduler>
 
     @Inject
-    lateinit var deviceRepository: DeviceRepository
+    lateinit var deviceRepository: Lazy<DeviceRepository>
 
     @Inject
     lateinit var preferenceManager: PreferenceManager
 
     @Inject
-    lateinit var sessionManager: com.neochildclinic.core.security.SessionManager
+    lateinit var sessionManager: Lazy<com.neochildclinic.core.security.SessionManager>
 
     @Inject
-    lateinit var profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+    lateinit var profileRepository: Lazy<com.neochildclinic.feature.profile.domain.repository.ProfileRepository>
 
     private val authViewModel: AuthViewModel by viewModels()
     private val appUpdateViewModel: AppUpdateViewModel by viewModels()
@@ -89,11 +88,13 @@ class MainActivity : FragmentActivity() {
         // SECURITY: Prevent screenshots and recording of patient data
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         
-        syncManager.scheduleSync()
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            syncManager.get().scheduleSync()
+        }
 
         enableEdgeToEdge()
         setContent {
-            val themeMode by preferenceManager.themeMode.collectAsState(initial = "system")
+            val themeMode by preferenceManager.themeMode.collectAsStateWithLifecycle(initialValue = "system")
             val darkTheme = when (themeMode) {
                 "light" -> false
                 "dark" -> true
@@ -101,25 +102,25 @@ class MainActivity : FragmentActivity() {
             }
 
             NeoChildTheme(darkTheme = darkTheme) {
-                val isLocked by BiometricLockManager.isAppLocked.collectAsState()
-                val lockStateResolved by BiometricLockManager.lockStateResolved.collectAsState()
-                val currentProfile by authViewModel.profile.collectAsState()
-                val allProfiles by profileRepository.allProfiles.collectAsState(initial = emptyList())
-                val currentUserId = remember { auth.currentSessionOrNull()?.user?.id }
+                val isLocked by BiometricLockManager.isAppLocked.collectAsStateWithLifecycle()
+                val lockStateResolved by BiometricLockManager.lockStateResolved.collectAsStateWithLifecycle()
+                val currentProfile by authViewModel.profile.collectAsStateWithLifecycle()
+                val allProfiles by profileRepository.get().allProfiles.collectAsStateWithLifecycle(initialValue = emptyList())
+                val currentUserId = remember { auth.get().currentSessionOrNull()?.user?.id }
 
                 val currentUserName = remember(currentProfile, allProfiles, currentUserId) {
                     currentProfile?.displayName?.takeIf { it.isNotBlank() }
                         ?: allProfiles.find { it.id == currentUserId }?.displayName?.takeIf { it.isNotBlank() }
-                        ?: sessionManager.getCurrentUserDisplayName("").takeIf { it.isNotBlank() && it != "Unknown" }
-                        ?: auth.currentSessionOrNull()?.user?.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+                        ?: sessionManager.get().getCurrentUserDisplayName("").takeIf { it.isNotBlank() && it != "Unknown" }
+                        ?: auth.get().currentSessionOrNull()?.user?.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
                         ?: ""
                 }
 
                 val navController = rememberNavController()
-                val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
-                val startupPopup by appUpdateViewModel.startupPopup.collectAsState()
-                val installingUpdate by appUpdateViewModel.installing.collectAsState()
-                val downloadProgress by appUpdateViewModel.downloadProgress.collectAsState()
+                val updateInfo by appUpdateViewModel.updateInfo.collectAsStateWithLifecycle()
+                val startupPopup by appUpdateViewModel.startupPopup.collectAsStateWithLifecycle()
+                val installingUpdate by appUpdateViewModel.installing.collectAsStateWithLifecycle()
+                val downloadProgress by appUpdateViewModel.downloadProgress.collectAsStateWithLifecycle()
                 
                 Box(modifier = Modifier.fillMaxSize()) {
                     // The navigation tree - and every ViewModel scoped to it - is only composed
@@ -221,10 +222,10 @@ class MainActivity : FragmentActivity() {
             checkAppLock()
             // Device heartbeat is non-critical; DeviceRepositoryImpl handles failures so
             // a user_devices timeout can never prevent the main data sync from being queued.
-            deviceRepository.updateActivity()
+            deviceRepository.get().updateActivity()
             settingsManager.updateLastOpenTimestamp()
-            syncManager.scheduleSync()
-            if (auth.currentSessionOrNull() != null) {
+            syncManager.get().scheduleSync()
+            if (auth.get().currentSessionOrNull() != null) {
                 appUpdateViewModel.checkForUpdates()
                 com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
             }
@@ -240,7 +241,7 @@ class MainActivity : FragmentActivity() {
                 // logged in" - and app-lock exists specifically to protect an already logged-in
                 // user's local data, so it should still apply in that case rather than being
                 // silently skipped.
-                val isAuthenticated = status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated ||
+                val isAuthenticated = status is AuthSessionStatus.Authenticated ||
                     (status == null && authViewModel.currentUser != null)
                 if (!isAuthenticated) return@launch
 
@@ -287,6 +288,7 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             val result = authViewModel.reauthenticateWithPassword(password)
             if (result.isSuccess) {
+                BiometricAuthenticator.clearBiometricLockout(this@MainActivity)
                 BiometricLockManager.unlockAfterKeystoreVerification()
                 com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
             } else if (result.exceptionOrNull()?.message == "No account email is available.") {
@@ -296,7 +298,8 @@ class MainActivity : FragmentActivity() {
             } else {
                 Log.e("ACCOUNT_AUTH", "Account password authentication failed", result.exceptionOrNull())
                 BiometricLockManager.lock()
-                Toast.makeText(this@MainActivity, "Incorrect account password.", Toast.LENGTH_SHORT).show()
+                val msg = result.exceptionOrNull()?.message?.takeIf { it.isNotBlank() } ?: "Incorrect account password."
+                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -310,10 +313,14 @@ class MainActivity : FragmentActivity() {
 
     private fun handleAuthDeeplink(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme.equals("neochild", ignoreCase = true) &&
+        val isCustomScheme = uri.scheme.equals("neochild", ignoreCase = true) &&
             uri.host.equals("auth-callback", ignoreCase = true)
-        ) {
-            supabaseClient.handleDeeplinks(intent)
+        val isVerifiedAppLink = uri.scheme.equals("https", ignoreCase = true) &&
+            uri.host.equals("app.neochildclinic.com", ignoreCase = true) &&
+            (uri.path?.startsWith("/auth-callback") == true)
+
+        if (isCustomScheme || isVerifiedAppLink) {
+            supabaseClient.get().handleDeeplinks(intent)
         }
     }
 
@@ -325,7 +332,7 @@ class MainActivity : FragmentActivity() {
             openDueTab = intent.getBooleanExtra("OPEN_DUE_TAB", false)
         }
         if (intent?.getBooleanExtra("CHECK_APP_UPDATE", false) == true) {
-            if (auth.currentSessionOrNull() != null) {
+            if (auth.get().currentSessionOrNull() != null) {
                 // Reached only by tapping the existing update notification (see
                 // NotificationHelper.showUpdateNotification/showUpdateInstallFailed) - that
                 // notification's own contract is "tap it -> the full dialog opens", distinct

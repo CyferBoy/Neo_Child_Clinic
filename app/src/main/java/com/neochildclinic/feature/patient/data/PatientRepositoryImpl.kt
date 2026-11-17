@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.data
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.core.security.SessionManager
@@ -13,6 +14,7 @@ import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.PatientEntity
 import com.neochildclinic.data.local.entity.PatientNotesEntity
 import com.neochildclinic.data.local.entity.toDomain
+import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
@@ -62,12 +64,6 @@ class PatientRepositoryImpl @Inject constructor(
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        // Room is the source of truth. Any write to `patients` - including ones that bypass
-        // this repository (sync pull/upload, backup restore, ID migration worker) - drops the
-        // in-memory copies so they can never outlive the row they mirror.
-        database.invalidationTracker.addObserver(object : InvalidationTracker.Observer("patients") {
-            override fun onInvalidated(tables: Set<String>) = patientCache.clear()
-        })
         repositoryScope.launch {
             if (!preferenceManager.isPatientIdMigrationCompleted.first()) {
                 schedulePatientIdMigration()
@@ -85,10 +81,11 @@ class PatientRepositoryImpl @Inject constructor(
     }
 
     // Room Flow -> UI directly. Flows are never cached.
-    override val allPatients: Flow<List<Patient>> = patientDao.getAllPatients()
+    override val allPatients: Flow<List<Patient>> =
+        patientDao.getAllPatients().map { list -> list.map { it.toDomain() } }
 
     override suspend fun getPatientById(id: String): Patient? =
-        patientCache.getOrLoad(id) { patientDao.getPatientById(id) }
+        patientCache.getOrLoad(id) { patientDao.getPatientById(id)?.toDomain() }
 
     override suspend fun refreshPatients() = cloudRefresh("PatientRepo", rethrow = true) {
         val entities = remoteDataSource.fetchAllPatients()
@@ -147,7 +144,7 @@ class PatientRepositoryImpl @Inject constructor(
                             // pulled again) and a REPLACE would delete it and cascade its children.
                             patientDao.upsertPatient(entity.copy(
                                 patientClinicId = resolvedId,
-                                updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+                                updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
                                 isSynced = true
                             ))
                             clinicIdOwner[resolvedId] = entity.id
@@ -161,7 +158,7 @@ class PatientRepositoryImpl @Inject constructor(
                     // visit/item/consultation/reminder/note under it.
                     patientDao.upsertPatient(entity.copy(
                         patientClinicId = localClinicId,
-                        updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+                        updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
                         isSynced = true
                     ))
                     // Keep the map in step with the writes this loop just made, the way the
@@ -169,6 +166,7 @@ class PatientRepositoryImpl @Inject constructor(
                     clinicIdOwner[localClinicId] = entity.id
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 android.util.Log.e("PatientRepo", "Insert failed for patient ${entity.id}", e)
             }
         }
@@ -198,7 +196,12 @@ class PatientRepositoryImpl @Inject constructor(
         val totalCount = countFlow.first()
         android.util.Log.d("PatientRepo", "Refresh complete. Total local: $totalCount")
         
-        patientCache.clear()
+        entities.forEach { entity ->
+            patientCache.invalidate(entity.id)
+        }
+        candidatesToDelete.forEach { patientId ->
+            patientCache.invalidate(patientId)
+        }
     }
 
     override suspend fun addPatient(patient: Patient) {
@@ -217,11 +220,11 @@ class PatientRepositoryImpl @Inject constructor(
                 patient.patientClinicId
             }
 
-            val built = patient.copy(
+            val built = patient.toEntity(isSynced = false).copy(
                 patientClinicId = finalClinicId,
                 createdBy = if (isUpdate) patient.createdBy else userName,
                 updatedBy = userName,
-                updatedAt = patient.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+                updatedAt = patient.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
                 isSynced = false
             )
             if (isUpdate) patientDao.upsertPatient(built) else patientDao.insertPatientStrict(built)
@@ -255,7 +258,7 @@ class PatientRepositoryImpl @Inject constructor(
         transactionGroupId: String
     ) {
         transactionRunner.run {
-            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
 
             val consultationIds = consultationDao.getConsultationIdsForPatient(duplicateId)
             if (consultationIds.isNotEmpty()) {
@@ -319,7 +322,6 @@ class PatientRepositoryImpl @Inject constructor(
             val personalReminderIds = personalReminderDao.getActiveReminders().first().filter { it.patientId == id }.map { it.id }
             val consultationIds = consultationDao.getConsultationsForPatient(id).first().map { it.id }
 
-            // Delete Reminders
             dueReminderDao.deleteRemindersByPatientId(id)
             reminders.forEach { reminder ->
                 syncRepository.enqueue(
@@ -401,7 +403,7 @@ class PatientRepositoryImpl @Inject constructor(
 
     // Reactive Room query: always live, never served from memory.
     override fun searchPatients(query: String): Flow<List<Patient>> =
-        patientDao.searchPatients(query)
+        patientDao.searchPatients(query).map { list -> list.map { it.toDomain() } }
 
     override fun getPatientCount(): Flow<Int> = patientDao.getPatientCount()
 

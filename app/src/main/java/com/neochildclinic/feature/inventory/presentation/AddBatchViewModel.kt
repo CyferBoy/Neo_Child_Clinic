@@ -1,8 +1,8 @@
 package com.neochildclinic.feature.inventory.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.common.Constants
 import com.neochildclinic.feature.inventory.data.newestBatch
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.BatchStatus
@@ -10,6 +10,7 @@ import com.neochildclinic.feature.inventory.domain.repository.InventoryRepositor
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -58,7 +59,7 @@ class AddBatchViewModel @Inject constructor(
                 // textual max picked the OLDEST batch (NCC-040).
                 ?.let { batches ->
                     batches.newestBatch()
-                        ?: batches.maxByOrNull { com.neochildclinic.core.common.PatientUtils.parseDate(it.expiryDate)?.time ?: Long.MIN_VALUE }
+                        ?: batches.maxByOrNull { com.neochildclinic.core.common.DateUtils.parseDate(it.expiryDate)?.time ?: Long.MIN_VALUE }
 
                 }
 
@@ -137,6 +138,7 @@ class AddBatchViewModel @Inject constructor(
 
                 _uiState.update { it.copy(isSaved = true, isLoading = false) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }

@@ -31,8 +31,8 @@ import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientDocument
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
-import com.neochildclinic.core.common.PatientUtils.formatAgeYearsMonths
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
+import com.neochildclinic.core.common.AgeUtils.formatAgeYearsMonths
 import com.neochildclinic.core.designsystem.*
 import kotlinx.coroutines.launch
 

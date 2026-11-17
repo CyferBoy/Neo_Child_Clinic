@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.AgeUtils
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,16 +22,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,9 +39,9 @@ fun MilestonePatientsScreen(
     onPatientClick: (String) -> Unit,
     viewModel: MilestonePatientsViewModel = hiltViewModel()
 ) {
-    val patients by viewModel.patients.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val patients by viewModel.patients.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val label = remember(milestoneKey) { StatisticsUtils.milestoneLabelForKey(milestoneKey) ?: "" }
 
     val today = remember { Calendar.getInstance() }
@@ -53,20 +53,19 @@ fun MilestonePatientsScreen(
     // identified the same way the summary card counts them, and sorted oldest DOB first as
     // the natural analog of "earliest milestone date first".
     val entries = remember(patients, label, milestoneKey) {
-        val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
         if (milestoneKey == "older") {
             patients
-                .filter { PatientUtils.getNextAgeMilestone(it.dob, today, windowEnd) == null && PatientUtils.isOlderThanMonths(it.dob, 19, today) }
+                .filter { AgeUtils.getNextAgeMilestone(it.dob, today, windowEnd) == null && AgeUtils.isOlderThanMonths(it.dob, 19, today) }
                 .mapNotNull { patient ->
-                    val birthMillis = PatientUtils.parseDate(patient.dob)?.time ?: return@mapNotNull null
+                    val birthMillis = DateUtils.parseDate(patient.dob)?.time ?: return@mapNotNull null
                     Quadruple(patient, birthMillis, "Older", null)
                 }
                 .sortedBy { it.second }
         } else {
             patients.mapNotNull { patient ->
-                val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
+                val milestone = AgeUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
                 if (milestone.label != label) return@mapNotNull null
-                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.of("Asia/Kolkata")).format(dateFormat))
+                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.of("Asia/Kolkata")).format(DateUtils.LEGACY_PADDED_DATE_FORMATTER))
             }.sortedBy { it.second }
         }
     }
@@ -220,8 +219,8 @@ private fun MilestonePatientCard(
     onClick: () -> Unit
 ) {
     val customColors = LocalCustomColors.current
-    val age = remember(patient.dob) { PatientUtils.formatAgeYearsMonths(patient.dob) }
-    val dob = remember(patient.dob) { PatientUtils.formatDateForDisplay(patient.dob) }
+    val age = remember(patient.dob) { AgeUtils.formatAgeYearsMonths(patient.dob) }
+    val dob = remember(patient.dob) { DateUtils.formatDateForDisplay(patient.dob) }
     val milestoneColor = if (milestoneDate == null) {
         customColors.textOrange
     } else {

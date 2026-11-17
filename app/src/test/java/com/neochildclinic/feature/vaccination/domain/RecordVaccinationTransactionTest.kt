@@ -33,7 +33,6 @@ class RecordVaccinationTransactionTest {
     private val service = ClinicalVaccinationService(
         transactionRunner = runner,
         vaccinationRepository = vaccinations,
-        consultationRepository = FakeConsultationRepository(runner),
         financeRepository = finance,
         reminderRepository = reminders,
         syncRepository = FakeSyncRepository(runner),
@@ -112,7 +111,6 @@ class RecordVaccinationTransactionTest {
         val failing = ClinicalVaccinationService(
             transactionRunner = runner,
             vaccinationRepository = vaccinations,
-            consultationRepository = FakeConsultationRepository(runner),
             financeRepository = finance,
             reminderRepository = throwing,
             syncRepository = FakeSyncRepository(runner),

@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 
 private fun statusColor(status: BorrowStatus): Color = when (status) {
     BorrowStatus.BORROWED -> Color(0xFFE65100)

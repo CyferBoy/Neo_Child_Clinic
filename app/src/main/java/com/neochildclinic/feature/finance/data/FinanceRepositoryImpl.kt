@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.finance.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
@@ -58,7 +59,7 @@ class FinanceRepositoryImpl @Inject constructor(
         val dateGiven = vaccinationDao.getVaccinationById(visitId)?.dateGiven
         if (dateGiven.isNullOrBlank()) return null
         
-        val parsed = com.neochildclinic.core.common.PatientUtils.parseDate(dateGiven) ?: return null
+        val parsed = com.neochildclinic.core.common.DateUtils.parseDate(dateGiven) ?: return null
         return parsed.toLocalDate().toString()
     }
 
@@ -413,7 +414,7 @@ class FinanceRepositoryImpl @Inject constructor(
                         val visitId = remote.visitId
                         val visitDate = if (!visitId.isNullOrBlank()) {
                             visitDao.getVaccinationById(visitId)?.dateGiven
-                                ?.let { com.neochildclinic.core.common.PatientUtils.parseDate(it) }
+                                ?.let { com.neochildclinic.core.common.DateUtils.parseDate(it) }
                                 ?.toLocalDate()?.toString()
                         } else null
                         val normalizedRemote = if (visitDate != null && remote.transactionDate != visitDate) {

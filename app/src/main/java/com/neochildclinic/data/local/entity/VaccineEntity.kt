@@ -15,18 +15,18 @@ import com.neochildclinic.domain.model.VaccineBatch
 @Serializable
 @Entity(tableName = "vaccines")
 data class VaccineEntity(
-    @PrimaryKey val id: String,
-    val type: String,
+    @PrimaryKey @SerialName("id") val id: String,
+    @SerialName("type") val type: String,
     @SerialName("brand_name") val brandName: String,
     @SerialName("company_name") val companyName: String,
     
     // Structure Updates
-    val manufacturer: String? = null,
-    val category: String? = null, // e.g. Mandatory, Optional, Adult
+    @SerialName("manufacturer") val manufacturer: String? = null,
+    @SerialName("category") val category: String? = null, // e.g. Mandatory, Optional, Adult
     @Deprecated("Retained for Room schema v34 column compatibility; unused in domain logic")
     @SerialName("dose_schedule") val doseSchedule: String? = null,
     @SerialName("storage_details") val storageDetails: String? = null,
-    val mrp: Double = 0.0,
+    @SerialName("mrp") val mrp: Double = 0.0,
     @SerialName("net_rate") val netRate: Double = 0.0,
     
     @SerialName("last_updated") val lastUpdated: String = "",
@@ -45,13 +45,13 @@ data class VaccineEntity(
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("vaccineId"), Index("batchNumber")]
+    indices = [Index("vaccineId"), Index("batchNumber"), Index("status")]
 )
 data class VaccineBatchEntity(
     @PrimaryKey @SerialName("id") val batchId: String,
     @SerialName("vaccine_id") val vaccineId: String,
     @SerialName("batch_number") val batchNumber: String,
-    val manufacturer: String,
+    @SerialName("manufacturer") val manufacturer: String,
     @SerialName("purchase_date") val purchaseDate: String,
     @SerialName("expiry_date") val expiryDate: String,
     @SerialName("purchase_quantity") val purchaseQuantity: Int,
@@ -63,10 +63,10 @@ data class VaccineBatchEntity(
     @SerialName("wasted_quantity") val wastedQuantity: Int = 0,
     @SerialName("borrowed_quantity") val borrowedQuantity: Int = 0,
 
-    val supplier: String,
+    @SerialName("supplier") val supplier: String,
     @SerialName("purchase_cost") val purchaseCost: Double,
     @SerialName("selling_price") val sellingPrice: Double,
-    val status: String = BatchStatus.ACTIVE.name,
+    @SerialName("status") val status: String = BatchStatus.ACTIVE.name,
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
@@ -75,7 +75,14 @@ data class VaccineBatchEntity(
 @Serializable
 @Entity(
     tableName = "inventory_transactions",
-    indices = [Index("vaccineId"), Index("batchId"), Index("visitId")]
+    indices = [
+        Index("vaccineId"),
+        Index("batchId"),
+        Index("visitId"),
+        Index("patientId"),
+        Index("status"),
+        Index("timestamp")
+    ]
 )
 data class InventoryTransactionEntity(
     @PrimaryKey @SerialName("id") val transactionId: String = java.util.UUID.randomUUID().toString(),
@@ -84,12 +91,12 @@ data class InventoryTransactionEntity(
     @SerialName("patient_id") val patientId: String? = null,
     @SerialName("visit_id") val visitId: String? = null,
     @SerialName("transaction_type") val transactionType: String, // InventoryTransactionType
-    val quantity: Int, 
+    @SerialName("quantity") val quantity: Int, 
     @SerialName("previous_quantity") val previousQuantity: Int,
     @SerialName("current_quantity") val currentQuantity: Int,
-    val timestamp: String = "",
-    val user: String,
-    val notes: String? = null,
+    @SerialName("timestamp") val timestamp: String = "",
+    @SerialName("user") val user: String,
+    @SerialName("notes") val notes: String? = null,
     
     // Detailed tracking - Local Only
     @kotlinx.serialization.Transient val status: String = "COMPLETED", // InventoryStatus

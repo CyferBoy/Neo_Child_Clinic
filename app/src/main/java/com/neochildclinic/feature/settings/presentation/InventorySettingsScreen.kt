@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 
@@ -31,7 +32,7 @@ fun InventorySettingsScreen(
     onBack: () -> Unit,
     viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
-    val settings by viewModel.settings.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val customColors = LocalCustomColors.current
 
     AppBackground {
@@ -68,7 +69,6 @@ fun InventorySettingsScreen(
                     contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // 1. Top Low Stock Threshold Card (116dp, peach background #F8E4D7, matching SVG)
                     item {
                         LowStockThresholdBannerCard(
                             threshold = s.lowStockThreshold,
@@ -85,7 +85,6 @@ fun InventorySettingsScreen(
                         )
                     }
 
-                    // 2. Card 1: Alert Toggles (Low stock alerts, Expiry warnings, Hide expired & empty)
                     item {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -136,7 +135,6 @@ fun InventorySettingsScreen(
                         }
                     }
 
-                    // 3. Card 2: Warning Window (64dp height, matching SVG)
                     item {
                         Surface(
                             modifier = Modifier
@@ -196,7 +194,6 @@ fun InventorySettingsScreen(
                         }
                     }
 
-                    // 4. Card 3: Sorting & Display (Sort inventory by & Show stock value)
                     item {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -276,7 +273,6 @@ fun InventorySettingsScreen(
                         }
                     }
 
-                    // 5. Bottom Info Notice (54dp, #EEF0F2 background, 14dp corners)
                     item {
                         Surface(
                             modifier = Modifier

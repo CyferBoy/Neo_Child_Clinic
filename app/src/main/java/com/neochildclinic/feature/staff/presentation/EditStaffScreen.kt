@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.ShowSnackbar
 import com.neochildclinic.core.ui.BackTopAppBar
@@ -27,7 +28,7 @@ fun EditStaffScreen(
     onBack: () -> Unit,
     viewModel: AdminViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 val snackbarHostState = remember { SnackbarHostState() }
     val staff = remember(uiState.staffList, staffId) {
         uiState.staffList.find { it.id == staffId }

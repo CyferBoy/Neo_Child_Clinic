@@ -51,9 +51,14 @@ class ReminderSchedulerImpl @Inject constructor(
 
         // We run it every hour internally to check for low stock transitions, 
         // but the Summary logic inside the worker will only trigger once per day.
+        val summaryConstraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .build()
+
         val request = PeriodicWorkRequestBuilder<DailySummaryWorker>(
             1, TimeUnit.HOURS
         )
+        .setConstraints(summaryConstraints)
         .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
         .build()
@@ -77,7 +82,11 @@ class ReminderSchedulerImpl @Inject constructor(
             set(Calendar.MILLISECOND, 0)
         }
         if (calendar.timeInMillis <= System.currentTimeMillis()) calendar.add(Calendar.DAY_OF_YEAR, 1)
+        val reminderConstraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .build()
         val request = PeriodicWorkRequestBuilder<PersonalReminderNotificationWorker>(24, TimeUnit.HOURS)
+            .setConstraints(reminderConstraints)
             .setInitialDelay(calendar.timeInMillis - System.currentTimeMillis(), TimeUnit.MILLISECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERSONAL_REMINDER_WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)

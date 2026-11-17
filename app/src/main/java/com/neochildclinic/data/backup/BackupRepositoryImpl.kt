@@ -1,4 +1,5 @@
 package com.neochildclinic.data.backup
+import com.neochildclinic.core.common.DateUtils
 
 import android.content.Context
 import android.net.Uri
@@ -7,7 +8,6 @@ import android.provider.OpenableColumns
 import android.util.Log
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.network.NetworkMonitor
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.security.SecurityUtils
 import com.neochildclinic.data.backup.*
 import com.neochildclinic.data.local.database.AppDatabase
@@ -369,7 +369,7 @@ class BackupRepositoryImpl @Inject constructor(
             }
 
             backupSettingsManager.recordRun(
-                atIso = PatientUtils.getCurrentIsoTimestamp(),
+                atIso = DateUtils.getCurrentIsoTimestamp(),
                 status = if (result.success) "SUCCESS" else "FAILED"
             )
             result
@@ -427,7 +427,7 @@ class BackupRepositoryImpl @Inject constructor(
             databaseVersion = AppDatabase.DB_VERSION,
             createdByUserId = auth.currentSessionOrNull()?.user?.id,
             deviceInfo = BackupDeviceInfo(platform = "Android", osVersion = Build.VERSION.RELEASE ?: "", model = Build.MODEL ?: ""),
-            createdAtIso = PatientUtils.getCurrentIsoTimestamp()
+            createdAtIso = DateUtils.getCurrentIsoTimestamp()
         )
     }
 
@@ -481,7 +481,7 @@ class BackupRepositoryImpl @Inject constructor(
         val counts = overrideCounts ?: envelope.recordCounts
         backupDao.upsertHistory(
             BackupHistoryEntity(
-                id = id, type = type.name, location = location.name, createdAt = PatientUtils.getCurrentIsoTimestamp(),
+                id = id, type = type.name, location = location.name, createdAt = DateUtils.getCurrentIsoTimestamp(),
                 sizeBytes = sizeBytes, backupVersion = envelope.backupVersion, appVersion = envelope.appVersionName,
                 status = status.name, storagePath = storagePath,
                 recordCountsJson = BackupSerializer.json.encodeToString(counts), triggeredBy = triggeredBy
@@ -505,7 +505,7 @@ class BackupRepositoryImpl @Inject constructor(
             backupDao.upsertHistory(
                 BackupHistoryEntity(
                     id = UUID.randomUUID().toString(), type = type.name, location = location.name,
-                    createdAt = PatientUtils.getCurrentIsoTimestamp(), status = BackupHistoryStatus.FAILED.name,
+                    createdAt = DateUtils.getCurrentIsoTimestamp(), status = BackupHistoryStatus.FAILED.name,
                     errorMessage = backupException.reason.name, triggeredBy = triggeredBy
                 )
             )

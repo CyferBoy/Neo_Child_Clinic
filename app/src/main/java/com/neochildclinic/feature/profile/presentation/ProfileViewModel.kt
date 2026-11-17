@@ -2,6 +2,7 @@ package com.neochildclinic.feature.profile.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.core.common.Constants
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.core.security.SessionManager
@@ -40,7 +41,6 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                // Try to get from local repository first
                 var profile = profileRepository.getProfileById(currentUserId)
 
                 if (profile == null) {
@@ -61,7 +61,6 @@ class ProfileViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(profile = profile, isLoading = false) }
                 
-                // Refresh from remote
                 profileRepository.refreshProfiles()
                 val refreshed = profileRepository.getProfileById(currentUserId)
                 if (refreshed != null) {
@@ -83,10 +82,8 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, success = null) }
             try {
-                // 1. Update Supabase Auth User Metadata (Internal to Auth)
                 profileRepository.updateAuthName(newName)
 
-                // 2. Update via Repository (Handles local DB + Sync)
                 val currentProfile = _uiState.value.profile ?: profileRepository.getProfileById(currentUserId)
                 val updated = currentProfile?.copy(displayName = newName)
                 if (updated == null) {
@@ -156,8 +153,8 @@ class ProfileViewModel @Inject constructor(
         // Must match MIN_PASSWORD_LENGTH in supabase/functions/manage-staff/index.ts and
         // minimum_password_length in supabase/config.toml. The admin-provisioning path
         // already enforces 12; letting self-service go lower was audit finding M2, half-fixed.
-        if (newPassword.length < 12) {
-            _uiState.update { it.copy(error = "Password must be at least 12 characters") }
+        if (newPassword.length < Constants.MIN_PASSWORD_LENGTH) {
+            _uiState.update { it.copy(error = Constants.PASSWORD_MIN_LENGTH_ERROR) }
             return
         }
         viewModelScope.launch {

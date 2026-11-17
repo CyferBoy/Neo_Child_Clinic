@@ -12,6 +12,8 @@ class Converters {
 
     @TypeConverter
     fun toList(value: String?): List<String>? {
+        // fromList stores null as SQL NULL, never the literal "null"; that string is only
+        // legacy/foreign-data tolerance. Dropping this check would decode it as ["null"].
         if (value == null || value.trim() == "null") return null
         if (value.isBlank()) return emptyList()
         return runCatching {

@@ -169,7 +169,7 @@ class BorrowedViewModel @Inject constructor(
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 borrowRepository.refreshBorrows()
                 inventoryRepository.refreshInventory()
@@ -177,17 +177,17 @@ class BorrowedViewModel @Inject constructor(
                 if (e is CancellationException) throw e
                 Log.e("BorrowedViewModel", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
 
     fun selectMainTab(tab: BorrowMainTab) {
-        _mainTab.value = tab
+        _mainTab.update { tab }
     }
 
     fun updateTab(tab: Int) {
-        _selectedTab.value = tab
+        _selectedTab.update { tab }
     }
 
     fun saveBorrowedItem(item: BorrowedVaccine) {
@@ -196,19 +196,20 @@ class BorrowedViewModel @Inject constructor(
             // crashed the process (NCC-014, NCC-036).
             try {
                 borrowRepository.saveBorrowedItem(item)
-                _actionError.value = null
+                _actionError.update { null }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Save borrowed item failed", e)
-                _actionError.value = e.message ?: "Could not record the borrow."
+                val msg = e.message ?: "Could not record the borrow."
+                _actionError.update { msg }
             }
         }
     }
 
     /** Clears [BorrowedUiState.actionError] once the snackbar has been shown. */
     fun clearActionError() {
-        _actionError.value = null
+        _actionError.update { null }
     }
 
     /**
@@ -239,7 +240,8 @@ class BorrowedViewModel @Inject constructor(
                 Log.e(TAG, "Return failed", e)
                 // Was log-only: the screen had no error surface at all, so a rejected
                 // return looked identical to a successful one (NCC-014).
-                _actionError.value = e.message ?: "Could not record the return."
+                val msg = e.message ?: "Could not record the return."
+                _actionError.update { msg }
             }
         }
     }
@@ -252,7 +254,8 @@ class BorrowedViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Delete borrowed item failed", e)
-                _actionError.value = e.message ?: "Could not delete the borrow."
+                val msg = e.message ?: "Could not delete the borrow."
+                _actionError.update { msg }
             }
         }
     }

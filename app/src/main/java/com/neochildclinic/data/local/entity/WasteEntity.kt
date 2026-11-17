@@ -14,18 +14,18 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "waste_records",
-    indices = [Index("vaccineId"), Index("dateWasted"), Index("isSynced")]
+    indices = [Index("vaccineId"), Index("dateWasted"), Index("isSynced"), Index("batchId")]
 )
 data class WasteEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey @SerialName("id") val id: String,
     @SerialName("vaccine_id") val vaccineId: String,
     @SerialName("batch_id") val batchId: String,
     @SerialName("brand_name") val brandName: String,
     @SerialName("batch_number") val batchNumber: String,
     @SerialName("expiry_date") val expiryDate: String,
     @SerialName("date_wasted") val dateWasted: String,
-    val reason: String,
-    val quantity: Int,
+    @SerialName("reason") val reason: String,
+    @SerialName("quantity") val quantity: Int,
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
@@ -43,7 +43,6 @@ fun WasteEntity.toDomain() = WasteRecord(
     reason = reason,
     quantity = quantity,
     updatedAt = updatedAt,
-    isSynced = isSynced,
     createdBy = createdBy,
     updatedBy = updatedBy
 )
@@ -59,7 +58,7 @@ fun WasteRecord.toEntity(isSynced: Boolean = false) = WasteEntity(
     reason = reason,
     quantity = quantity,
     updatedAt = if (updatedAt.isEmpty()) com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() else updatedAt,
-    isSynced = this.isSynced || isSynced,
+    isSynced = isSynced,
     createdBy = createdBy,
     updatedBy = updatedBy
 )

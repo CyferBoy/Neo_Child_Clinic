@@ -117,6 +117,7 @@ class RealtimeChangeSubscriptions @Inject constructor(
                         realtime.removeChannel(old)
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e("Realtime", "Error removing channel $channelName", e)
                 } finally {
                     changeScope.cancel()

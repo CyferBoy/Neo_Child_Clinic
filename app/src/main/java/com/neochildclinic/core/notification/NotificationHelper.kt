@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class NotificationHelper @Inject constructor(
+open class NotificationHelper @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -86,6 +86,7 @@ class NotificationHelper @Inject constructor(
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
         } catch (_: SecurityException) {
+            // POST_NOTIFICATIONS can be revoked after the check above (API 33+); skipping this one notification is harmless, no state to unwind.
         }
     }
 
@@ -153,7 +154,7 @@ class NotificationHelper @Inject constructor(
         notify(vaccineName.hashCode(), builder.build())
     }
 
-    fun showSyncAlert(error: String) {
+    open fun showSyncAlert(error: String) {
         val builder = NotificationCompat.Builder(context, CHANNEL_SYNC_BACKUP)
             .setSmallIcon(R.drawable.app_logo)
             .setContentTitle("❌ Sync Failure")

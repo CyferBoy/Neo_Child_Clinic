@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.CurrencyUtils
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,12 +37,12 @@ fun OverviewTab(
     showFilters: Boolean = false,
     onFullReportClick: () -> Unit = {}
 ) {
-    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
+    var filterMode by rememberSaveable { mutableStateOf(FinanceCalculator.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
     val availableYears = remember(patients, vaccinations, financeTransactions) {
-        StatisticsUtils.getAvailableFinancialYears(
+        FinanceCalculator.getAvailableFinancialYears(
             patients.map { it.registrationDate ?: "" } +
                     vaccinations.map { it.dateGiven } +
                     financeTransactions.map { FinanceCalculator.resolveReportingDate(it) }
@@ -362,7 +363,7 @@ private fun OverviewContent(
                     SummaryCard(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         title = "Revenue",
-                        value = StatisticsUtils.formatRupees(currentStats.totalRevenue),
+                        value = CurrencyUtils.formatInr(currentStats.totalRevenue),
                         accentColor = MaterialTheme.colorScheme.primary,
                         supportingText = "vaccination + consultation",
                         growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.totalRevenue, prevStats.totalRevenue)
@@ -370,7 +371,7 @@ private fun OverviewContent(
                     SummaryCard(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         title = "Net Profit",
-                        value = if (currentStats.isProfitComplete) StatisticsUtils.formatRupees(currentStats.netProfit) else "Unavailable",
+                        value = if (currentStats.isProfitComplete) CurrencyUtils.formatInr(currentStats.netProfit) else "Unavailable",
                         accentColor = when {
                             !currentStats.isProfitComplete -> MaterialTheme.colorScheme.onSurfaceVariant
                             currentStats.netProfit >= 0 -> customColors.textSuccess
@@ -388,7 +389,7 @@ private fun OverviewContent(
                     SummaryCard(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         title = "Cash",
-                        value = StatisticsUtils.formatRupees(currentStats.cashTotal),
+                        value = CurrencyUtils.formatInr(currentStats.cashTotal),
                         accentColor = customColors.textSuccess,
                         supportingText = "cash payments",
                         growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
@@ -396,7 +397,7 @@ private fun OverviewContent(
                     SummaryCard(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         title = "Online",
-                        value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
+                        value = CurrencyUtils.formatInr(currentStats.onlineTotal),
                         accentColor = customColors.textBlue,
                         supportingText = "online payments",
                         growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)

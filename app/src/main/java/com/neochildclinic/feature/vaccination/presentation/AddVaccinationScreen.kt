@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.feature.doctor.presentation.DoctorDropdown
 import com.neochildclinic.core.designsystem.*
@@ -29,7 +30,7 @@ fun AddVaccinationScreen(
     onBack: () -> Unit,
     viewModel: AddVaccinationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val isEdit = vaccinationId != null
     var editGivenDate by rememberSaveable { mutableStateOf(false) }
@@ -120,12 +121,10 @@ fun AddVaccinationScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 contentPadding = PaddingValues(top = Spacing.lg, bottom = 100.dp)
             ) {
-                // 1. Patient Summary
                 uiState.patient?.let { patient ->
                     item { PatientSummaryCard(patient) }
                 }
 
-                // 2. Given Date
                 item {
                     EditSectionHeader(
                         title = "Given Date",
@@ -144,7 +143,6 @@ fun AddVaccinationScreen(
                     }
                 }
 
-                // 2.5 Doctor Selection
                 item {
                     EditSectionHeader(
                         title = "Doctor",
@@ -164,7 +162,6 @@ fun AddVaccinationScreen(
                     }
                 }
 
-                // 3. Vaccine & Batch + Quantity
                 item {
                     EditSectionHeader(
                         title = "Vaccine & Batch",
@@ -216,7 +213,6 @@ fun AddVaccinationScreen(
                     }
                 }
 
-                // 4. Payment Section
                 item {
                     EditSectionHeader(
                         title = "Payment",
@@ -241,7 +237,6 @@ fun AddVaccinationScreen(
                     }
                 }
 
-                // 5. Next Vaccination Section
                 item {
                     EditSectionHeader(
                         title = "Next Vaccination",

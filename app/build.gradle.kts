@@ -9,7 +9,7 @@ plugins {
     kotlin("plugin.serialization") version libs.versions.kotlin.get()
 }
 
-// Helper to read .env.local
+// Helper to read .env.local, local.properties, and keystore.properties
 val env = Properties().apply {
     val envFile = rootProject.file(".env.local")
     if (envFile.exists()) {
@@ -17,8 +17,30 @@ val env = Properties().apply {
     }
 }
 
+val localProperties = Properties().apply {
+    val localPropFile = rootProject.file("local.properties")
+    if (localPropFile.exists()) {
+        localPropFile.inputStream().use { load(it) }
+    }
+}
+
+val keystoreProperties = Properties().apply {
+    val keystorePropFile = rootProject.file("keystore.properties")
+    if (keystorePropFile.exists()) {
+        keystorePropFile.inputStream().use { load(it) }
+    }
+}
+
+fun getPropOrEnv(key: String, default: String = ""): String {
+    return keystoreProperties.getProperty(key)
+        ?: localProperties.getProperty(key)
+        ?: env.getProperty(key)
+        ?: System.getenv(key)
+        ?: default
+}
+
 fun getEnv(key: String, default: String = ""): String {
-    return env.getProperty(key) ?: System.getenv(key) ?: default
+    return getPropOrEnv(key, default)
 }
 
 // Emit AppDatabase/<version>.json so MigrationTestHelper can validate a migration against
@@ -55,6 +77,24 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = getPropOrEnv("KEYSTORE_FILE", getPropOrEnv("RELEASE_STORE_FILE"))
+            val keystoreFile = when {
+                keystorePath.isNotBlank() && file(keystorePath).exists() -> file(keystorePath)
+                keystorePath.isNotBlank() && rootProject.file(keystorePath).exists() -> rootProject.file(keystorePath)
+                rootProject.file("neochildclinic-release.jks").exists() -> rootProject.file("neochildclinic-release.jks")
+                else -> null
+            }
+            if (keystoreFile != null && keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = getPropOrEnv("KEYSTORE_PASSWORD", getPropOrEnv("RELEASE_STORE_PASSWORD", ""))
+                keyAlias = getPropOrEnv("KEY_ALIAS", getPropOrEnv("RELEASE_KEY_ALIAS", "key0"))
+                keyPassword = getPropOrEnv("KEY_PASSWORD", getPropOrEnv("RELEASE_KEY_PASSWORD", storePassword ?: ""))
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isDebuggable = true
@@ -76,6 +116,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning?.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
     }
 
@@ -122,6 +166,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

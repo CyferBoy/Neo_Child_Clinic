@@ -2,13 +2,14 @@ package com.neochildclinic.feature.settings.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.notification.ReminderScheduler
 import com.neochildclinic.core.preferences.NotificationSettings
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.security.BiometricLockManager
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.feature.auth.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +25,7 @@ class NotificationSettingsViewModel @Inject constructor(
     // process start (NCC-010).
     private val reminderScheduler: ReminderScheduler,
     private val profileRepository: ProfileRepository,
-    private val auth: Auth
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     val settings: StateFlow<NotificationSettings?> = settingsManager.settingsFlow
@@ -49,8 +50,8 @@ class NotificationSettingsViewModel @Inject constructor(
     }
 
     fun changePassword(newPassword: String, onResult: (Result<Unit>) -> Unit) {
-        if (newPassword.length < 12) {
-            onResult(Result.failure(IllegalArgumentException("Password must be at least 12 characters")))
+        if (newPassword.length < Constants.MIN_PASSWORD_LENGTH) {
+            onResult(Result.failure(IllegalArgumentException(Constants.PASSWORD_MIN_LENGTH_ERROR)))
             return
         }
         viewModelScope.launch {
@@ -68,8 +69,8 @@ class NotificationSettingsViewModel @Inject constructor(
     fun signOutAllDevices(onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
-                auth.signOut()
-                onResult(Result.success(Unit))
+                val res = authRepository.signOut()
+                onResult(res)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

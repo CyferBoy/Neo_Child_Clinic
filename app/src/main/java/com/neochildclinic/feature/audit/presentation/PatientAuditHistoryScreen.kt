@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,8 +55,8 @@ fun PatientAuditHistoryScreen(
     onBack: () -> Unit,
     viewModel: PatientAuditViewModel = hiltViewModel()
 ) {
-    val auditState by viewModel.auditLogPager.state.collectAsState()
-    val patient by viewModel.getPatient(patientId).collectAsState(initial = null)
+    val auditState by viewModel.auditLogPager.state.collectAsStateWithLifecycle()
+    val patient by viewModel.getPatient(patientId).collectAsStateWithLifecycle(initialValue = null)
 
     LaunchedEffect(patientId) {
         viewModel.auditLogPager.load(patientId)
@@ -140,7 +141,6 @@ fun PatientAuditHistoryScreen(
                         contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.sm),
                         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
-                        // 1. Filter Chips Row
                         item {
                             Row(
                                 modifier = Modifier
@@ -177,7 +177,6 @@ fun PatientAuditHistoryScreen(
                             }
                         }
 
-                        // 2. Section Eyebrow Row
                         item {
                             Row(
                                 modifier = Modifier
@@ -201,7 +200,6 @@ fun PatientAuditHistoryScreen(
                             }
                         }
 
-                        // 3. Grouped Audit Items
                         if (filteredLogs.isEmpty()) {
                             item {
                                 EmptyState(

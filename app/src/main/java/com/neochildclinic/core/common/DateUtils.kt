@@ -19,9 +19,6 @@ import java.util.TimeZone
 // (today, tomorrow, date bucketing, age, due dates) must use this.
 internal const val IST_ZONE_ID = "Asia/Kolkata"
 
-// Extension functions for IST-based date conversions. Placed here (not in PatientUtils)
-// to break circular dependency: PatientUtils -> DateUtils -> StatisticsDateUtils -> PatientUtils
-// and PatientUtils -> AgeUtils -> PatientUtils
 internal fun Date.toLocalDate(): java.time.LocalDate =
     toInstant().atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
 
@@ -43,6 +40,10 @@ object DateUtils {
     val APP_DATE_FORMATTER: DateTimeFormatter =
         DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
 
+    /** Legacy zero-padded display format used by the milestone patient list. */
+    val LEGACY_PADDED_DATE_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
+
     val FULL_DATE_FORMATTER: DateTimeFormatter =
         DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.US)
 
@@ -54,6 +55,35 @@ object DateUtils {
      */
     fun todayDateString(): String =
         LocalDate.now(ZoneId.of(IST_ZONE_ID)).format(APP_DATE_FORMATTER)
+
+    /**
+     * Single parser for every date/date-time string form callers exchange. Delegates to
+     * [parseDate] (all 8 supported formats plus the display format) and reads the calendar
+     * date in IST, so date-only input is never shifted through the device timezone.
+     */
+    fun parseFlexibleDate(dateStr: String): LocalDate? {
+        if (dateStr.isBlank()) return null
+        // parseDate anchors SimpleDateFormat to IST; read the date back in the same zone
+        // so date-only input is never shifted by the device/JVM default timezone.
+        return parseDate(dateStr)?.toInstant()?.atZone(java.time.ZoneId.of(IST_ZONE_ID))?.toLocalDate()
+    }
+
+    /** Normalizes any [parseFlexibleDate]-supported string to ISO "yyyy-MM-dd"; unparseable input is returned unchanged. */
+    fun toIsoDate(dateStr: String): String =
+        parseFlexibleDate(dateStr)?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: dateStr
+
+    /**
+     * Formats a date as "15 Jun" when it is in the current IST year, otherwise "15 Jun 25".
+     * Unparseable input is returned unchanged. Shared so every year-trimming display makes
+     * the same decision using the clinic's (not the device's) current year.
+     */
+    fun formatDateWithOptionalYear(dateStr: String): String {
+        val date = parseDate(dateStr) ?: return dateStr
+        val dateInIST = date.toInstant().atZone(ZoneId.of(IST_ZONE_ID))
+        val currentYear = Instant.now().atZone(ZoneId.of(IST_ZONE_ID)).year
+        val pattern = if (dateInIST.year == currentYear) "d MMM" else "d MMM yy"
+        return dateInIST.format(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH))
+    }
 
     // parseDate() is called for essentially every date across every Statistics screen
     // (often the same string many times over, e.g. once per filter pass and again for

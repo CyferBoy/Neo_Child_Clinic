@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.feature.patient.domain.repository.PatientTodoRepository
 import com.neochildclinic.data.local.dao.PatientTodoDao
 
@@ -117,7 +118,7 @@ class PatientTodoRepositoryImpl @Inject constructor(
     override fun getDatesWithData(start: String, end: String): Flow<List<String>> = dao.getDatesWithData(start, end)
 
     override suspend fun updateStatus(type: String, id: String, status: String) {
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
         if (type == "CONSULTATION_TODO") {
             dao.updateConsultationStatus(id, status, now)
         } else {
@@ -140,14 +141,14 @@ class PatientTodoRepositoryImpl @Inject constructor(
 
     override suspend fun deleteConsultation(id: String) {
         val userName = sessionManager.getCurrentUserName()
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
 dao.deleteConsultation(id)
           syncRepository.enqueue("CONSULTATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteVaccination(id: String) {
         val userName = sessionManager.getCurrentUserName()
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
 dao.deleteVaccination(id)
           syncRepository.enqueue("VACCINATION_TODO", id, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }

@@ -1,6 +1,7 @@
 package com.neochildclinic.core.sync
 
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.feature.sync.data.batchUpsert
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals

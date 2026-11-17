@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -38,13 +39,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.common.CurrencyUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.SkeletonCard
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -54,11 +55,11 @@ fun FullReportScreen(
     onBack: () -> Unit,
     viewModel: FullReportViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
+    var filterMode by rememberSaveable { mutableStateOf(FinanceCalculator.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
     var showFilter by rememberSaveable { mutableStateOf(false) }

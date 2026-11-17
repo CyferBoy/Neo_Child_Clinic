@@ -15,17 +15,20 @@ import com.neochildclinic.domain.model.VaccinationTodo
     indices = [
         Index("todo_date"),
         Index("status"),
-        Index("patient_id")
+        Index("patient_id"),
+        Index("doctor_id"),
+        Index("availability_slot_id"),
+        Index("created_at")
     ]
 )
 data class ConsultationTodoEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
     @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String? = null,
-    val name: String,
-    val mobile: String,
-    val address: String,
+    @SerialName("name") val name: String,
+    @SerialName("mobile") val mobile: String,
+    @SerialName("address") val address: String,
     @SerialName("todo_date") @ColumnInfo(name = "todo_date") val todoDate: String,
-    val status: String = "PENDING",
+    @SerialName("status") val status: String = "PENDING",
     // Doctor assignment (req. 15/16): the assigned doctor's device is the one that gets
     // the Today's Patient FCM notification. doctorId is the profiles.id/employeeId used
     // elsewhere for doctor attribution; availabilitySlotId references doctor_weekly_slots.
@@ -47,18 +50,21 @@ data class ConsultationTodoEntity(
     indices = [
         Index("todo_date"),
         Index("status"),
-        Index("patient_id")
+        Index("patient_id"),
+        Index("doctor_id"),
+        Index("availability_slot_id"),
+        Index("created_at")
     ]
 )
 data class VaccinationTodoEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
     @SerialName("patient_id") @ColumnInfo(name = "patient_id") val patientId: String? = null,
-    val name: String,
-    val mobile: String,
+    @SerialName("name") val name: String,
+    @SerialName("mobile") val mobile: String,
     @SerialName("vaccine_names") @ColumnInfo(name = "vaccine_names") val vaccineNames: String,
-    val address: String,
+    @SerialName("address") val address: String,
     @SerialName("todo_date") @ColumnInfo(name = "todo_date") val todoDate: String,
-    val status: String = "PENDING",
+    @SerialName("status") val status: String = "PENDING",
     @SerialName("doctor_id") @ColumnInfo(name = "doctor_id") val doctorId: String? = null,
     @SerialName("doctor_name") @ColumnInfo(name = "doctor_name") val doctorName: String? = null,
     @SerialName("availability_slot_id") @ColumnInfo(name = "availability_slot_id") val availabilitySlotId: String? = null,

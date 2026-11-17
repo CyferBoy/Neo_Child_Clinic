@@ -13,24 +13,25 @@ import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.widget.data.WidgetUtils
+import com.neochildclinic.core.security.OfflineAuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.auth.providers.builtin.Email
-import io.github.jan.supabase.auth.status.SessionStatus
-import io.github.jan.supabase.auth.user.UserInfo
+import com.neochildclinic.feature.auth.domain.model.AuthSessionStatus
+import com.neochildclinic.feature.auth.domain.model.AuthUser
+import com.neochildclinic.feature.auth.domain.repository.AuthRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val auth: Auth,
+    private val authRepository: AuthRepository,
     private val profileRepository: ProfileRepository,
     private val deviceRepository: DeviceRepository,
     private val syncManager: SyncScheduler,
@@ -38,6 +39,7 @@ class AuthViewModel @Inject constructor(
     private val currentUserProvider: CurrentUserProvider,
     private val syncRepository: SyncRepository,
     private val networkMonitor: NetworkMonitor,
+    private val offlineAuthManager: OfflineAuthManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -56,32 +58,12 @@ class AuthViewModel @Inject constructor(
         private const val KEY_LAST_ACCOUNT = "last_account_id"
     }
 
-    val currentUser: UserInfo? get() = auth.currentSessionOrNull()?.user
+    val currentUser: AuthUser? get() = authRepository.currentUser
 
-    // The SDK resolves any session saved to disk asynchronously (autoLoadFromStorage).
-    // Callers that need to know "is there really a session" on cold start should wait
-    // for this to leave Initializing rather than reading currentUser synchronously,
-    // which races the storage load and returns null before it's had a chance to finish.
-    val sessionStatus: StateFlow<SessionStatus> = auth.sessionStatus
+    val sessionStatus: StateFlow<AuthSessionStatus> = authRepository.sessionStatus
 
-    /**
-     * Waits for sessionStatus to leave Initializing, but never indefinitely. With
-     * autoLoadFromStorage + the SDK's default alwaysAutoRefresh, a session that's expired
-     * or close to it on disk triggers a network token-refresh attempt before the status
-     * resolves - and that refresh call has no bounded timeout of its own. This app is
-     * offline-first (Room is the source of truth), so a cold start with no network must
-     * never sit on a loading screen forever waiting for a refresh that can't complete -
-     * that was exactly this bug.
-     *
-     * Returns null on timeout (status is still Initializing). Callers should treat a null
-     * result the same as "fall back to whatever's already cached in memory" via
-     * [currentUser], since a previously logged-in user should keep full offline access to
-     * their local data rather than being bounced to Login just because there's no signal.
-     */
-    suspend fun awaitResolvedSessionStatus(): SessionStatus? =
-        withTimeoutOrNull(SESSION_STATUS_TIMEOUT_MS) {
-            sessionStatus.first { it !is SessionStatus.Initializing }
-        }
+    suspend fun awaitResolvedSessionStatus(): AuthSessionStatus? =
+        authRepository.awaitResolvedSessionStatus(SESSION_STATUS_TIMEOUT_MS)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -127,31 +109,31 @@ class AuthViewModel @Inject constructor(
         // On cold start, auth.currentSessionOrNull() can return null briefly while
         // Supabase resolves the stored session, causing the ?.let below to skip
         // fetchProfile entirely — leaving isProfileLoading=false prematurely.
-        _isProfileLoading.value = true
+        _isProfileLoading.update { true }
         viewModelScope.launch {
-            val userId = auth.currentSessionOrNull()?.user?.id
+            val userId = authRepository.currentUser?.id
             if (userId != null) {
                 fetchProfile(userId)
             } else {
                 // Session not yet resolved from storage — wait for it
                 val status = awaitResolvedSessionStatus()
-                val resolvedUserId = auth.currentSessionOrNull()?.user?.id
-                if (status is SessionStatus.Authenticated && resolvedUserId != null) {
+                val resolvedUserId = (status as? AuthSessionStatus.Authenticated)?.user?.id ?: authRepository.currentUser?.id
+                if (status is AuthSessionStatus.Authenticated && resolvedUserId != null) {
                     fetchProfile(resolvedUserId)
                 } else {
                     // Offline or timed out — no profile available
-                    _isProfileLoading.value = false
+                    _isProfileLoading.update { false }
                 }
             }
         }
     }
 
     private suspend fun fetchProfile(userId: String): Boolean {
-        _isProfileLoading.value = true
+        _isProfileLoading.update { true }
         try {
             // Get from repository (handles local fallback and remote sync)
             var p = profileRepository.getProfileById(userId)
-            val authLastLogin = auth.currentSessionOrNull()?.user?.lastSignInAt?.toString()
+            val authLastLogin = authRepository.currentUser?.lastSignInAt
 
             if (p == null) {
                 // The profiles table is business/display data (name, phone, activation).
@@ -165,7 +147,7 @@ class AuthViewModel @Inject constructor(
                 // no metadata-based fallback (user_metadata no longer carries a role;
                 // app_metadata.role is read separately via CurrentUserProvider for
                 // authorization). Fail loudly instead of guessing a profile/role.
-                _error.value = "Unable to load your profile. Check your connection and try again."
+                _error.update { "Unable to load your profile. Check your connection and try again." }
                 return false
             } else if (p.lastLogin != authLastLogin) {
                 p = p.copy(lastLogin = authLastLogin)
@@ -174,53 +156,54 @@ class AuthViewModel @Inject constructor(
 
             if (!p.isActive) {
                 logout()
-                _error.value = "Account Disabled: Please contact administrator."
+                _error.update { "Account Disabled: Please contact administrator." }
                 return false
             }
 
-            _profile.value = p
+            val currentP = p
+            _profile.update { currentP }
 
             // Background refresh
             profileRepository.refreshProfiles()
             profileRepository.getProfileById(userId)?.let { refreshed ->
                 if (!refreshed.isActive) {
                     logout()
-                    _error.value = "Account Disabled: Please contact administrator."
+                    _error.update { "Account Disabled: Please contact administrator." }
                     return false
                 } else {
-                    _profile.value = refreshed
+                    _profile.update { refreshed }
                 }
             }
             return true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _error.value = "Failed to load profile: ${e.message}"
+            val msg = "Failed to load profile: ${e.message}"
+            _error.update { msg }
             return false
         } finally {
-            _isProfileLoading.value = false
+            _isProfileLoading.update { false }
         }
     }
 
     fun login(email: String, pass: String, onSuccess: () -> Unit) {
         if (email.isBlank() || pass.isBlank()) {
-            _error.value = "Please fill all fields"
+            _error.update { "Please fill all fields" }
             return
         }
-        _isLoading.value = true
-        _error.value = null
+        _isLoading.update { true }
+        _error.update { null }
 
         viewModelScope.launch {
             try {
                 // A session can end without logout() (revoked/expired token); never let the
                 // next sign-in inherit the previous user's in-memory data.
                 cacheRegistry.clearAll()
-                auth.signInWith(Email) {
-                    this.email = email
-                    this.password = pass
+                val loginResult = authRepository.login(email, pass)
+                if (loginResult.isFailure) {
+                    throw loginResult.exceptionOrNull()!!
                 }
-
-                val userId = auth.currentSessionOrNull()?.user?.id
+                val userId = loginResult.getOrNull()?.id
                 val lastAccount = accountPrefs.getString(KEY_LAST_ACCOUNT, null)
                 if (userId != null && lastAccount != userId) {
                     // The Room database on this device belongs to a different account (or no previous record).
@@ -228,8 +211,8 @@ class AuthViewModel @Inject constructor(
                     if (unacknowledged > 0) {
                         // Never erase another account's unsynced work silently - ask.
                         pendingSwitch = PendingAccountSwitch(userId, onSuccess)
-                        _loginSwitchBlocked.value = unacknowledged
-                        _isLoading.value = false
+                        _loginSwitchBlocked.update { unacknowledged }
+                        _isLoading.update { false }
                         return@launch
                     }
                     // Everything is already acknowledged: dropping the cached rows is a
@@ -241,9 +224,10 @@ class AuthViewModel @Inject constructor(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        _isLoading.value = false
-                        _error.value = "Could not clear the previous account's local data: ${e.message}"
-                        runCatching { auth.clearSession() }
+                        _isLoading.update { false }
+                        val clearErr = "Could not clear the previous account's local data: ${e.message}"
+                        _error.update { clearErr }
+                        authRepository.clearSession()
                         return@launch
                     }
                 }
@@ -251,8 +235,9 @@ class AuthViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _isLoading.value = false
-                _error.value = e.message
+                _isLoading.update { false }
+                val err = e.message
+                _error.update { err }
             }
         }
     }
@@ -261,7 +246,7 @@ class AuthViewModel @Inject constructor(
         if (userId != null) {
             accountPrefs.edit().putString(KEY_LAST_ACCOUNT, userId).apply()
             if (!fetchProfile(userId)) {
-                _isLoading.value = false
+                _isLoading.update { false }
                 return // stay on the login screen; error is already set
             }
             // Device registration is best-effort and must not delay or block
@@ -269,7 +254,7 @@ class AuthViewModel @Inject constructor(
             viewModelScope.launch { deviceRepository.registerCurrentDevice() }
         }
 
-        _isLoading.value = false
+        _isLoading.update { false }
         syncManager.scheduleImmediateSync()
         WidgetUtils.updateWidget(appContext)
         onSuccess()
@@ -284,11 +269,12 @@ class AuthViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _error.value = "Could not clear the previous account's local data: ${e.message}"
+                val clearErr = "Could not clear the previous account's local data: ${e.message}"
+                _error.update { clearErr }
                 return@launch
             }
             pendingSwitch = null
-            _loginSwitchBlocked.value = null
+            _loginSwitchBlocked.update { null }
             finishLogin(pending.userId, pending.onSuccess)
         }
     }
@@ -296,15 +282,12 @@ class AuthViewModel @Inject constructor(
     /** User declined: drop the new session so nothing is written under it, keep old data. */
     fun cancelAccountSwitch() {
         pendingSwitch = null
-        _loginSwitchBlocked.value = null
+        _loginSwitchBlocked.update { null }
         viewModelScope.launch {
-            runCatching { auth.signOut() }
-            // signOut() only clears the local session after its network call resolves;
-            // clearSession() guarantees the new session is gone even offline, so a
-            // declined switch never leaves the new account signed in over old data.
-            runCatching { auth.clearSession() }
-            _isLoading.value = false
-            _error.value = "Sign-in cancelled. The previous account's unsynced changes were kept."
+            authRepository.signOut()
+            authRepository.clearSession()
+            _isLoading.update { false }
+            _error.update { "Sign-in cancelled. The previous account's unsynced changes were kept." }
         }
     }
 
@@ -328,7 +311,7 @@ class AuthViewModel @Inject constructor(
             val unacknowledged = syncRepository.getUnacknowledgedCount()
             if (unacknowledged > 0) {
                 pendingSignOutCallback = onSignedOut
-                _logoutBlocked.value = unacknowledged
+                _logoutBlocked.update { unacknowledged }
                 return@launch
             }
             if (!completeSignOut()) return@launch
@@ -340,14 +323,14 @@ class AuthViewModel @Inject constructor(
         val continuation = pendingSignOutCallback
         viewModelScope.launch {
             pendingSignOutCallback = null
-            _logoutBlocked.value = null
+            _logoutBlocked.update { null }
             if (completeSignOut()) continuation?.invoke()
         }
     }
 
     fun cancelSignOut() {
         pendingSignOutCallback = null
-        _logoutBlocked.value = null
+        _logoutBlocked.update { null }
     }
 
     private suspend fun completeSignOut(): Boolean {
@@ -355,15 +338,13 @@ class AuthViewModel @Inject constructor(
         // revocation must not leave a half-signed-out session pointing at another
         // account's (now erased) data.
         runCatching { deviceRepository.deactivateCurrentDevice() }
-        runCatching { auth.signOut() }
-        // signOut() clears the local session only after its network call resolves; this
-        // guarantees the session is gone even when signing out offline.
-        runCatching { auth.clearSession() }
+        authRepository.signOut()
+        authRepository.clearSession()
         // Session isolation: in-memory caches AND the Room database must never carry
         // User A's data to User B. Safe here: only reached when the queue has no
         // unacknowledged rows or the user explicitly confirmed the erase.
         cacheRegistry.clearAll()
-        _profile.value = null
+        _profile.update { null }
         try {
             clearLocalDatabase()
         } catch (e: CancellationException) {
@@ -371,9 +352,11 @@ class AuthViewModel @Inject constructor(
         } catch (e: Exception) {
             // Keep KEY_LAST_ACCOUNT so the next login still detects the account mismatch
             // and asks before exposing the old rows. Do not report a successful sign-out.
-            _error.value = "Could not erase local data: ${e.message}"
+            val eraseErr = "Could not erase local data: ${e.message}"
+            _error.update { eraseErr }
             return false
         }
+        offlineAuthManager.clearCredential()
         accountPrefs.edit().remove(KEY_LAST_ACCOUNT).apply()
         WidgetUtils.updateWidget(appContext)
         return true
@@ -384,7 +367,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun refreshSessionStatus() {
-        val userId = auth.currentSessionOrNull()?.user?.id ?: return
+        val userId = authRepository.currentUser?.id ?: return
         viewModelScope.launch {
             fetchProfile(userId)
         }
@@ -396,14 +379,6 @@ class AuthViewModel @Inject constructor(
      * password or a missing account email surfaces as a failed Result - the caller decides
      * how to present it.
      */
-    suspend fun reauthenticateWithPassword(password: String): Result<Unit> = runCatching {
-        val email = auth.currentSessionOrNull()?.user?.email
-        if (email.isNullOrBlank()) {
-            throw IllegalStateException("No account email is available.")
-        }
-        auth.signInWith(Email) {
-            this.email = email
-            this.password = password
-        }
-    }
+    suspend fun reauthenticateWithPassword(password: String): Result<Unit> =
+        authRepository.reauthenticateWithPassword(password)
 }

@@ -14,7 +14,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.ui.StandardButton
 import com.neochildclinic.core.ui.StandardTextField
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo

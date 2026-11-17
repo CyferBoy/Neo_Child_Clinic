@@ -16,7 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -61,7 +63,7 @@ class FinanceDetailsViewModel @Inject constructor(
                 expensesFlow.first()
             } finally {
                 // Without this the spinner never clears if any Room flow throws (NCC-016).
-                _isLoading.value = false
+                _isLoading.update { false }
             }
         }
     }
@@ -69,13 +71,14 @@ class FinanceDetailsViewModel @Inject constructor(
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 android.util.Log.e("FinanceDetailsVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

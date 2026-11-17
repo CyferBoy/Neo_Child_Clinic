@@ -43,7 +43,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         DoctorSlotExceptionEntity::class,
         BackupHistoryEntity::class,
     ], 
-    version = 34,
+    version = 35,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -80,7 +80,7 @@ abstract class AppDatabase : RoomDatabase() {
         // Kept in sync with the @Database(version = ...) annotation above; used by
         // BackupRepositoryImpl so the backup envelope records which schema version
         // produced it, without needing reflection to read the annotation at runtime.
-        const val DB_VERSION = 34
+        const val DB_VERSION = 35
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -442,6 +442,49 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val migration34_35 = object : androidx.room.migration.Migration(34, 35) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_patient_visits_doctorId` ON `patient_visits` (`doctorId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_patient_visits_availabilitySlotId` ON `patient_visits` (`availabilitySlotId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_patient_visits_createdAt` ON `patient_visits` (`createdAt`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_consultations_doctorId` ON `consultations` (`doctorId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_consultations_availabilitySlotId` ON `consultations` (`availabilitySlotId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_consultations_createdAt` ON `consultations` (`createdAt`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_consultation_todos_doctor_id` ON `consultation_todos` (`doctor_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_consultation_todos_availability_slot_id` ON `consultation_todos` (`availability_slot_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_consultation_todos_created_at` ON `consultation_todos` (`created_at`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_vaccination_todos_doctor_id` ON `vaccination_todos` (`doctor_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_vaccination_todos_availability_slot_id` ON `vaccination_todos` (`availability_slot_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_vaccination_todos_created_at` ON `vaccination_todos` (`created_at`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inventory_transactions_patientId` ON `inventory_transactions` (`patientId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inventory_transactions_status` ON `inventory_transactions` (`status`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inventory_transactions_timestamp` ON `inventory_transactions` (`timestamp`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_waste_records_batchId` ON `waste_records` (`batchId`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sync_queue_entityName_entityId` ON `sync_queue` (`entityName`, `entityId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sync_queue_createdAt` ON `sync_queue` (`createdAt`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_employeeId` ON `profiles` (`employeeId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_role` ON `profiles` (`role`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reminders_priority` ON `reminders` (`priority`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reminders_createdAt` ON `reminders` (`createdAt`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_vaccine_batches_status` ON `vaccine_batches` (`status`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inventory_deductions_batchId` ON `inventory_deductions` (`batchId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inventory_deductions_vaccineId` ON `inventory_deductions` (`vaccineId`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_personal_vaccine_reminders_created_at` ON `personal_vaccine_reminders` (`created_at`)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_expenses_createdAt` ON `expenses` (`createdAt`)")
+            }
+        }
 
         // Exposed for the contiguity unit test: a cleanup once deleted migrations that
         // looked unused and every device pinned at those versions crashed on open (BUG-001).
@@ -449,7 +492,7 @@ abstract class AppDatabase : RoomDatabase() {
             migration17_18, migration18_19, migration19_20, migration20_21, migration21_22,
             migration22_23, migration23_24, migration24_25, migration25_26, migration26_27,
             migration27_28, migration28_29, migration29_30, migration30_31,
-            migration31_32, migration32_33, migration33_34
+            migration31_32, migration32_33, migration33_34, migration34_35
         )
 
         fun getDatabase(context: Context): AppDatabase {
@@ -470,13 +513,15 @@ abstract class AppDatabase : RoomDatabase() {
                         // No-op
                     }
                     override fun postKey(connection: SQLiteConnection) {
+                        // PRAGMA foreign_keys = ON enforces foreign key integrity across all connection pool instances.
                         // PRAGMA busy_timeout prevents SQLiteDatabaseLockedException (code 5)
                         // when concurrent background tasks (sync, InvalidationTracker, repositories)
                         // access the database simultaneously.
                         try {
+                            connection.execute("PRAGMA foreign_keys = ON;", null, null)
                             connection.execute("PRAGMA busy_timeout = 30000;", null, null)
                         } catch (e: Exception) {
-                            Log.w(TAG, "Failed to set busy_timeout in SQLiteDatabaseHook postKey", e)
+                            Log.w(TAG, "Failed to configure SQLite connection in SQLiteDatabaseHook postKey", e)
                         }
                     }
                 }

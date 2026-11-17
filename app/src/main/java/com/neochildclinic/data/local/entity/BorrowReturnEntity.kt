@@ -38,7 +38,7 @@ import kotlinx.serialization.Serializable
     indices = [Index("borrow_record_id"), Index("batch_id")]
 )
 data class BorrowReturnEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
 
     @SerialName("borrow_record_id") @ColumnInfo(name = "borrow_record_id") val borrowRecordId: String,
 
@@ -46,11 +46,11 @@ data class BorrowReturnEntity(
     // was originally borrowed from ("Same Batch & Expiry") or a different one.
     @SerialName("batch_id") @ColumnInfo(name = "batch_id") val batchId: String,
 
-    val quantity: Int,
+    @SerialName("quantity") val quantity: Int,
 
     @SerialName("returned_date") @ColumnInfo(name = "returned_date") val returnedDate: String,
 
-    val notes: String? = null,
+    @SerialName("notes") val notes: String? = null,
 
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,

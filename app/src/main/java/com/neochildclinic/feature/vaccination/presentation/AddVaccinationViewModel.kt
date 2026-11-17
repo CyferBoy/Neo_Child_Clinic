@@ -18,6 +18,7 @@ import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.core.common.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.*
@@ -146,7 +147,7 @@ class AddVaccinationViewModel @Inject constructor(
             }
 
             if (vaccination.doctorId.isNotBlank()) {
-                editingDoctorId.value = vaccination.doctorId
+                editingDoctorId.update { vaccination.doctorId }
                 // Wait for the doctor list to include this doctor (covers the inactive-doctor
                 // case above). Falls back to "list is non-empty" so we don't hang forever if the
                 // doctor record was deleted entirely rather than just deactivated.
@@ -432,6 +433,7 @@ class AddVaccinationViewModel @Inject constructor(
                     state.copy(nextVaccinationGroups = state.nextVaccinationGroups.filter { it.id != groupId })
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel group") }
             }
         }
@@ -476,6 +478,7 @@ class AddVaccinationViewModel @Inject constructor(
                     })
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(errorMessage = e.message ?: "Unable to cancel item") }
             }
         }
@@ -629,14 +632,6 @@ class AddVaccinationViewModel @Inject constructor(
                 val reminderSpecs = nextGroups.flatMap { group ->
                     // Group items by Type under the same Date to keep compatibility with existing ReminderRepository logic
                     // which expects a list of vaccines for a single type.
-                    // Actually, the requirements say "Each Type + Vaccine combination creates a separate reminder item".
-                    // But the existing repository saveNextVaccination takes List<String> vaccineNames.
-                    // If we want "separate reminder item" for each combo, we should send them one by one.
-                    // HOWEVER, if they have the same Type and same Date, they are usually grouped in this app.
-                    // Let's stick to the "Each combo is a row" in UI, but keep the "Type-based grouping" for saving
-                    // if they share the same Type and Date, OR just send them as individual specs.
-                    // The requirement says: 15 Oct 2026 Booster -> DPT, Primary -> MMR, Optional -> NULL
-                    // creates 3 separate reminders.
                     group.items.map { item ->
                         VaccinationEditEngine.ReminderSpec(
                             reminderId = item.reminderId,
@@ -676,6 +671,7 @@ class AddVaccinationViewModel @Inject constructor(
 
                 _uiState.update { it.copy(isLoading = false, saveSuccess = true) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
             }
         }

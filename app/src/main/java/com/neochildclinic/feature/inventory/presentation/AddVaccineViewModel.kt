@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -102,6 +103,7 @@ class AddVaccineViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(isSaved = true, isLoading = false) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }

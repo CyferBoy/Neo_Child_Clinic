@@ -1,4 +1,5 @@
 package com.neochildclinic.data.local.dao
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.*
 import com.neochildclinic.data.local.entity.*
@@ -138,10 +139,10 @@ interface DueReminderDao {
         val updated = reminder.copy(
             status = "COMPLETED",
             reminderEnabled = false,
-            completionDate = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+            completionDate = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
             performedBy = completedBy,
             notes = notes ?: reminder.notes,
-            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+            updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         insertReminder(updated)
@@ -152,10 +153,10 @@ interface DueReminderDao {
         val updated = reminder.copy(
             status = "DISMISSED",
             reminderEnabled = true,
-            dismissalDate = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+            dismissalDate = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
             performedBy = dismissedBy,
             dismissalReason = reason,
-            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+            updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
             isSynced = false
         )
         insertReminder(updated)

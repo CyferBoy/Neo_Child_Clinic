@@ -9,6 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -73,11 +74,11 @@ class AppUpdateViewModel @Inject constructor(
     fun checkForUpdates(isManual: Boolean = false) {
         if (_checking.value) return
         viewModelScope.launch {
-            _checking.value = true
-            _message.value = null
+            _checking.update { true }
+            _message.update { null }
             if (isManual) {
                 // When manually triggered, reset upToDate state so checking animation runs
-                _upToDate.value = false
+                _upToDate.update { false }
             }
             val startTime = System.currentTimeMillis()
             runCatching { updateManager.checkForUpdate(isManual) }
@@ -97,20 +98,20 @@ class AppUpdateViewModel @Inject constructor(
                         // through an explicit manual check (App Update screen).
                         if (info != null && !startupPopupShown) {
                             startupPopupShown = true
-                            _startupPopup.value = info
+                            _startupPopup.update { info }
                         }
                     } else {
-                        _updateInfo.value = info
-                        _lastCheckedTimestamp.value = System.currentTimeMillis()
-                        if (info == null) _upToDate.value = true
+                        _updateInfo.update { info }
+                        _lastCheckedTimestamp.update { System.currentTimeMillis() }
+                        if (info == null) _upToDate.update { true }
                     }
                 }
-                .onFailure {
-                    if (it !is kotlinx.coroutines.CancellationException) {
-                        _message.value = it.message ?: "Unable to check for updates."
+                .onFailure { error ->
+                    if (error !is kotlinx.coroutines.CancellationException) {
+                        _message.update { error.message ?: "Unable to check for updates." }
                     }
                 }
-            _checking.value = false
+            _checking.update { false }
         }
     }
 
@@ -118,19 +119,19 @@ class AppUpdateViewModel @Inject constructor(
      * info, reusing AppUpdateDialog/_updateInfo exactly as a manual check does. */
     fun openUpdateFromStartupPopup() {
         val info = _startupPopup.value ?: return
-        _startupPopup.value = null
-        _updateInfo.value = info
+        _startupPopup.update { null }
+        _updateInfo.update { info }
     }
 
     /** Startup popup's auto-dismiss timer (or any other dismissal) elapsed without a tap. */
     fun dismissStartupPopup() {
-        _startupPopup.value = null
+        _startupPopup.update { null }
     }
 
     fun dismissUpdate() {
         cancelInstallIfRunning()
         _updateInfo.value?.let { updateManager.dismiss(it.versionCode) }
-        _updateInfo.value = null
+        _updateInfo.update { null }
     }
 
     /** "Don't remind me" on the update dialog - disables the silent startup/resume check
@@ -139,7 +140,7 @@ class AppUpdateViewModel @Inject constructor(
      * one-way trap. */
     fun setAutoChecksEnabled(enabled: Boolean) {
         updateManager.setAutoChecksDisabled(!enabled)
-        _autoChecksEnabled.value = enabled
+        _autoChecksEnabled.update { enabled }
     }
 
     fun dontRemindMe() {
@@ -151,14 +152,14 @@ class AppUpdateViewModel @Inject constructor(
         val info = _updateInfo.value ?: return
         if (_installing.value) return
         installJob = viewModelScope.launch {
-            _installing.value = true
-            _downloadProgress.value = DownloadProgress()
+            _installing.update { true }
+            _downloadProgress.update { DownloadProgress() }
             updateManager.downloadAndInstall(info) { percent, downloaded, total ->
-                _downloadProgress.value = DownloadProgress(percent, downloaded, total)
-            }.onFailure {
-                _message.value = it.message ?: "Unable to install the update."
+                _downloadProgress.update { DownloadProgress(percent, downloaded, total) }
+            }.onFailure { error ->
+                _message.update { error.message ?: "Unable to install the update." }
             }
-            _installing.value = false
+            _installing.update { false }
         }
     }
 
@@ -167,12 +168,12 @@ class AppUpdateViewModel @Inject constructor(
         if (_installing.value) {
             installJob?.cancel()
             installJob = null
-            _installing.value = false
-            _downloadProgress.value = DownloadProgress()
+            _installing.update { false }
+            _downloadProgress.update { DownloadProgress() }
         }
     }
 
-    fun clearMessage() { _message.value = null }
+    fun clearMessage() { _message.update { null } }
 
-    fun dismissUpToDate() { _upToDate.value = false }
+    fun dismissUpToDate() { _upToDate.update { false } }
 }

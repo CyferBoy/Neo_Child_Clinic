@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.AgeUtils
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,9 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.DateClassifier
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -37,7 +39,7 @@ fun VaccineDetailScreen(
     onPatientClick: (String) -> Unit,
     viewModel: VaccineDetailViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Brand name is resolved from the catalog by id, so it may still be loading (or absent
     // for a catalog row since removed) - fall back to the vaccine type alone rather than
@@ -211,7 +213,7 @@ private fun VaccinePatientCard(
 ) {
     val customColors = LocalCustomColors.current
     val patient = entry.patient
-    val age = remember(patient?.dob) { patient?.dob?.let { PatientUtils.formatAgeYearsMonths(it) } }
+    val age = remember(patient?.dob) { patient?.dob?.let { AgeUtils.formatAgeYearsMonths(it) } }
     val category = remember(entry.reminder.dueDate) { DateClassifier.classify(entry.reminder.dueDate) }
     val overdue = category is DateCategory.Overdue
     val today = category is DateCategory.Today
@@ -270,7 +272,7 @@ private fun VaccinePatientCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = listOfNotNull(
-                        "Due ${PatientUtils.formatDateForDisplay(entry.reminder.dueDate)}",
+                        "Due ${DateUtils.formatDateForDisplay(entry.reminder.dueDate)}",
                         age?.let { "$it old" },
                         patient?.gender?.takeIf { it.isNotBlank() }
                     ).joinToString("  \u00b7  "),

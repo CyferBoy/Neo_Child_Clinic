@@ -55,9 +55,8 @@ sealed class PendingPasswordAction {
 @HiltViewModel
 class BackupViewModel @Inject constructor(
     private val backupRepository: BackupRepository,
-    // BackupAutoScheduler.schedule() had ZERO call sites, so enabling or changing
-    // automatic backup did nothing until the next process start, and disabling left the
-    // worker enqueued until then too (NCC-011).
+    // Re-arms the periodic worker on enable/change and cancels it on disable (NCC-011),
+    // instead of leaving it stale until the next process start.
     private val backupAutoScheduler: BackupAutoScheduler
 ) : ViewModel() {
 

@@ -3,6 +3,7 @@ package com.neochildclinic.app.work
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.notification.NotificationHelper
@@ -11,6 +12,39 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+
+internal enum class SyncFailureAction { INCREMENT, RESET }
+
+internal data class SyncWorkOutcome(
+    val result: ListenableWorker.Result,
+    val failureAction: SyncFailureAction,
+    val alertMessage: String? = null
+)
+
+// Pure decision logic, kept out of doWork() so it can be unit-tested without a WorkManager
+// runtime (which needs a real Context/worker params that JVM tests cannot build).
+internal fun classifySyncWork(
+    permanentFailure: Boolean,
+    hasFailedItems: Boolean,
+    error: Throwable?
+): SyncWorkOutcome = when {
+    error != null -> SyncWorkOutcome(
+        ListenableWorker.Result.retry(), SyncFailureAction.INCREMENT, error.message ?: "Unknown error"
+    )
+    permanentFailure -> SyncWorkOutcome(
+        ListenableWorker.Result.failure(), SyncFailureAction.INCREMENT, "Some changes could not be synced"
+    )
+    hasFailedItems -> SyncWorkOutcome(
+        ListenableWorker.Result.success(), SyncFailureAction.INCREMENT, "Some changes could not be synced"
+    )
+    else -> SyncWorkOutcome(ListenableWorker.Result.success(), SyncFailureAction.RESET)
+}
+
+internal fun nextFailureCount(current: Int, action: SyncFailureAction): Int =
+    if (action == SyncFailureAction.INCREMENT) current + 1 else 0
+
+internal fun shouldRaiseSyncAlert(failureCount: Int, syncAlertsEnabled: Boolean): Boolean =
+    failureCount >= 5 && syncAlertsEnabled
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -24,43 +58,32 @@ class SyncWorker @AssistedInject constructor(
     private val sharedPrefs = appContext.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
 
     override suspend fun doWork(): Result {
-        return try {
-            // Check for network before starting? WorkManager usually handles this via constraints
-            // Process entire queue in a loop
-            if (syncRepository.processNextItems()) {
-                // At least one queue item ended FAILED (permanent) instead of uploading.
-                // Previously this still returned success(), so failure_count never grew
-                // and the sync-alert notification below could never fire. failure() stops
-                // this request retrying (FAILED rows are retried manually from the Sync
-                // screen); the periodic worker keeps running on its own schedule.
-                countAndMaybeAlert("Some changes could not be synced")
-                Result.failure()
-            } else {
-                if (syncRepository.hasFailedItems()) {
-                    countAndMaybeAlert("Some changes could not be synced")
-                } else {
-                    sharedPrefs.edit().putInt("failure_count", 0).apply()
-                }
-                Result.success()
-            }
+        // Process entire queue in a loop. A permanent FAILED item makes this request fail
+        // (FAILED rows are retried manually from the Sync screen); transient errors retry.
+        val outcome = try {
+            val permanentFailure = syncRepository.processNextItems()
+            classifySyncWork(
+                permanentFailure = permanentFailure,
+                hasFailedItems = !permanentFailure && syncRepository.hasFailedItems(),
+                error = null
+            )
         } catch (e: CancellationException) {
             // WorkManager cancellation is not a sync failure: never count/alert it.
             throw e
         } catch (e: Exception) {
-            countAndMaybeAlert(e.message ?: "Unknown error")
-            Result.retry()
+            classifySyncWork(permanentFailure = false, hasFailedItems = false, error = e)
         }
-    }
 
-    // Shared failure-count/alert path: grows the consecutive-failure counter and raises
-    // the sync alert once it keeps happening (>= 5) and the user hasn't turned alerts off.
-    private suspend fun countAndMaybeAlert(message: String) {
-        val count = sharedPrefs.getInt("failure_count", 0) + 1
+        val count = nextFailureCount(sharedPrefs.getInt("failure_count", 0), outcome.failureAction)
         sharedPrefs.edit().putInt("failure_count", count).apply()
-
-        val settings = settingsManager.settingsFlow.first()
-        if (count >= 5 && settings.syncAlertsEnabled) {
-            notificationHelper.showSyncAlert(message)
+        // Alerts are only consulted on the failure path, once the consecutive count hits 5
+        // and the user has not turned sync alerts off.
+        if (outcome.failureAction == SyncFailureAction.INCREMENT) {
+            val settings = settingsManager.settingsFlow.first()
+            if (shouldRaiseSyncAlert(count, settings.syncAlertsEnabled)) {
+                notificationHelper.showSyncAlert(outcome.alertMessage ?: "Unknown error")
+            }
         }
+        return outcome.result
     }
 }

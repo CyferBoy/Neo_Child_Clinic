@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.borrowed.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.designsystem.*
 
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.BorrowedVaccine
 import com.neochildclinic.domain.model.InventoryItem
@@ -47,7 +48,7 @@ fun BorrowedScreen(
     onBack: () -> Unit,
     viewModel: BorrowedViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     ShowSnackbar(uiState.actionError, snackbarHostState, duration = SnackbarDuration.Short) {
         viewModel.clearActionError()
@@ -182,15 +183,15 @@ private fun BorrowedContent(
                     }.thenByDescending {
                         it.status == BorrowStatus.PARTIALLY_RETURNED
                     }.thenByDescending {
-                        PatientUtils.parseDate(it.latestDate)?.time ?: 0L
+                        DateUtils.parseDate(it.latestDate)?.time ?: 0L
                     }
                     BorrowFilter.RETURNED -> compareByDescending {
-                        PatientUtils.parseDate(it.latestDate)?.time ?: 0L
+                        DateUtils.parseDate(it.latestDate)?.time ?: 0L
                     }
                     BorrowFilter.ALL -> compareByDescending<BorrowedDisplayItem> {
                         it.status != BorrowStatus.RETURNED
                     }.thenByDescending {
-                        PatientUtils.parseDate(it.latestDate)?.time ?: 0L
+                        DateUtils.parseDate(it.latestDate)?.time ?: 0L
                     }
                 }
             )
@@ -291,7 +292,6 @@ private fun BorrowedContent(
                         }
                     }
 
-                    // 1. Summary Stats Card (353 x 68dp card, rx 20)
                     item {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -372,7 +372,6 @@ private fun BorrowedContent(
                         }
                     }
 
-                    // 2. Filter Pills (Outstanding, Returned, All)
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -421,7 +420,6 @@ private fun BorrowedContent(
                         }
                     }
 
-                    // 3. Section Header
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -456,7 +454,6 @@ private fun BorrowedContent(
                         }
                     }
 
-                    // 4. Cards or Empty State
                     if (uiState.isLoading && uiState.borrowedList.isEmpty()) {
                         item {
                             SkeletonList(
@@ -490,7 +487,6 @@ private fun BorrowedContent(
                             )
                         }
 
-                        // 5. Footer Note matching SVG
                         item {
                             Text(
                                 text = "Returns reduce stock only after confirmation.",

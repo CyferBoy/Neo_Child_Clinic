@@ -1,10 +1,10 @@
 package com.neochildclinic.feature.inventory.domain
+import com.neochildclinic.core.common.DateUtils
 
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import com.neochildclinic.core.common.IST_ZONE_ID
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.toLocalDate
 
 object InventoryUtils {
@@ -34,7 +34,7 @@ object InventoryUtils {
      * fails deserialization loudly instead of arriving as "".
      */
     fun isExpired(expiryDateStr: String, today: LocalDate = clinicToday()): Boolean {
-        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
+        val expiryDate = DateUtils.parseDate(expiryDateStr) ?: return false
         return expiryDate.toLocalDate().isBefore(today)
     }
 
@@ -48,8 +48,8 @@ object InventoryUtils {
      * parsed, matching this object's existing safe-default behavior.
      */
     fun isExpiredAsOf(expiryDateStr: String, referenceDateStr: String): Boolean {
-        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
-        val referenceDate = PatientUtils.parseDate(referenceDateStr) ?: return isExpired(expiryDateStr)
+        val expiryDate = DateUtils.parseDate(expiryDateStr) ?: return false
+        val referenceDate = DateUtils.parseDate(referenceDateStr) ?: return isExpired(expiryDateStr)
 
         return expiryDate.toLocalDate().isBefore(referenceDate.toLocalDate())
     }
@@ -58,7 +58,7 @@ object InventoryUtils {
      * Checks if a batch is expiring on the given day (defaults to today in the clinic timezone).
      */
     fun isExpiringToday(expiryDateStr: String, today: LocalDate = clinicToday()): Boolean {
-        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
+        val expiryDate = DateUtils.parseDate(expiryDateStr) ?: return false
         return expiryDate.toLocalDate() == today
     }
 
@@ -66,7 +66,7 @@ object InventoryUtils {
      * Checks if a batch is expiring within the given number of days (default 30).
      */
     fun isNearExpiry(expiryDateStr: String, thresholdDays: Int = 30, today: LocalDate = clinicToday()): Boolean {
-        val expiryDate = PatientUtils.parseDate(expiryDateStr) ?: return false
+        val expiryDate = DateUtils.parseDate(expiryDateStr) ?: return false
         if (isExpired(expiryDateStr, today) || isExpiringToday(expiryDateStr, today)) return false
 
         val diffInDays = ChronoUnit.DAYS.between(today, expiryDate.toLocalDate())

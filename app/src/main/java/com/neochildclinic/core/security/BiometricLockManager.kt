@@ -3,6 +3,7 @@ package com.neochildclinic.core.security
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 object BiometricLockManager {
     private val _isAppLocked = MutableStateFlow(false)
@@ -24,12 +25,12 @@ object BiometricLockManager {
     val lockStateResolved: StateFlow<Boolean> = _lockStateResolved.asStateFlow()
 
     fun markLockStateResolved() {
-        _lockStateResolved.value = true
+        _lockStateResolved.update { true }
     }
 
     /** Test-only: restores the unknown state so each test starts from the same place. */
     internal fun resetLockStateResolvedForTest() {
-        _lockStateResolved.value = false
+        _lockStateResolved.update { false }
     }
 
     private var screenWasOff = false
@@ -62,20 +63,20 @@ object BiometricLockManager {
     val needsAuth: StateFlow<Boolean> = _needsAuth.asStateFlow()
 
     internal fun resetNeedsAuthForTest() {
-        _needsAuth.value = false
+        _needsAuth.update { false }
     }
 
     fun onScreenOff() {
         if (protectionEnabled) {
             screenWasOff = true
-            _isAppLocked.value = true
-            _needsAuth.value = true
+            _isAppLocked.update { true }
+            _needsAuth.update { true }
         }
     }
 
     fun onAppResume() {
         if (!protectionEnabled || isLockSuppressed()) {
-            _isAppLocked.value = false
+            _isAppLocked.update { false }
             screenWasOff = false
             onUserActive()
             return
@@ -91,7 +92,7 @@ object BiometricLockManager {
     fun setProtectionEnabled(enabled: Boolean) {
         protectionEnabled = enabled
         if (!enabled) {
-            _isAppLocked.value = false
+            _isAppLocked.update { false }
             screenWasOff = false
             onUserActive()
         }
@@ -103,20 +104,28 @@ object BiometricLockManager {
 
     /** Called only after BiometricAuthenticator completes the Keystore operation. */
     fun unlockAfterKeystoreVerification() {
-        _isAppLocked.value = false
+        _isAppLocked.update { false }
         // The persisted arm flag is cleared only here - a real unlock, never on resume.
-        _needsAuth.value = false
+        _needsAuth.update { false }
         onUserActive()
     }
 
     /** Protection is intentionally disabled by the user after authentication. */
     fun unlockBecauseProtectionIsDisabled() {
-        _isAppLocked.value = false
+        _isAppLocked.update { false }
         onUserActive()
     }
 
+    fun isLocked(context: android.content.Context? = null): Boolean {
+        if (!protectionEnabled) return false
+        val keyguardLocked = context?.let { ctx ->
+            (ctx.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager)?.isKeyguardLocked == true
+        } ?: false
+        return _isAppLocked.value || _needsAuth.value || !_lockStateResolved.value || keyguardLocked
+    }
+
     fun lock() {
-        _isAppLocked.value = true
-        _needsAuth.value = true
+        _isAppLocked.update { true }
+        _needsAuth.update { true }
     }
 }

@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.neochildclinic.feature.settings.domain.repository.BackupRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 /**
  * Runs Automatic Backup on the schedule set in Settings -> Backup & Restore
@@ -30,6 +31,7 @@ class AutoBackupWorker @AssistedInject constructor(
             val result = backupRepository.performAutomaticBackup()
             if (result.success) Result.success() else Result.retry()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.retry()
         }
     }

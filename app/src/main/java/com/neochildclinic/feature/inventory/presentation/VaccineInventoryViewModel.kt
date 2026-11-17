@@ -12,6 +12,7 @@ import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -77,27 +78,28 @@ class VaccineInventoryViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 inventoryRepository.refreshInventory()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 android.util.Log.e("VaccineInventoryVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
 
     fun onSearchQueryChange(query: String) {
-        _searchQuery.value = query
+        _searchQuery.update { query }
     }
 
     fun onFilterChange(filter: InventoryFilter) {
-        _filter.value = filter
+        _filter.update { filter }
     }
 
     fun onSortChange(sort: InventorySort) {
-        _sort.value = sort
+        _sort.update { sort }
     }
 
     fun deleteBatch(batchId: String, onError: (String) -> Unit = {}) {
@@ -106,6 +108,7 @@ class VaccineInventoryViewModel @Inject constructor(
                 val user = sessionManager.getCurrentUserEmail()
                 inventoryRepository.deleteBatch(batchId, user)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 android.util.Log.e("VaccineInventoryVM", "Delete batch failed", e)
                 onError(e.message ?: "Failed to delete batch")
             }
@@ -118,6 +121,7 @@ class VaccineInventoryViewModel @Inject constructor(
                 val user = sessionManager.getCurrentUserEmail()
                 inventoryRepository.deleteVaccine(vaccineId, user)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 onError(e.message ?: "Failed to delete vaccine")
             }
         }

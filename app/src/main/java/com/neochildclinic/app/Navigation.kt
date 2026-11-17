@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -17,6 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.*
+import com.neochildclinic.feature.auth.domain.model.AuthSessionStatus
 import com.neochildclinic.feature.auth.presentation.AuthViewModel
 
 /** Reads a required nav argument, "" when absent. */
@@ -33,8 +34,8 @@ fun AppNavigation(
     appUpdateViewModel: com.neochildclinic.feature.update.presentation.AppUpdateViewModel = hiltViewModel()
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
-    val authProfile by authViewModel.profile.collectAsState()
-    val sessionStatus by authViewModel.sessionStatus.collectAsState()
+    val authProfile by authViewModel.profile.collectAsStateWithLifecycle()
+    val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
     // Read sessionStatus so this scope subscribes to it; the role getter is a
     // plain read, so this read is what invalidates userRole on session change.
     val userRole = sessionStatus.let { authViewModel.currentUserRole }
@@ -48,7 +49,7 @@ fun AppNavigation(
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val status = authViewModel.awaitResolvedSessionStatus()
         resolvedStartDest = when {
-            status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated -> Routes.DASHBOARD
+            status is AuthSessionStatus.Authenticated -> Routes.DASHBOARD
             status != null -> Routes.LOGIN
             // status == null means awaitResolvedSessionStatus() timed out (see its doc) -
             // almost always no network at launch while a stored session still needs a
@@ -103,8 +104,8 @@ fun AppNavigation(
  */
 @Composable
 private fun AccountIsolationDialogs(authViewModel: AuthViewModel) {
-    val logoutBlocked by authViewModel.logoutBlocked.collectAsState()
-    val switchBlocked by authViewModel.loginSwitchBlocked.collectAsState()
+    val logoutBlocked by authViewModel.logoutBlocked.collectAsStateWithLifecycle()
+    val switchBlocked by authViewModel.loginSwitchBlocked.collectAsStateWithLifecycle()
 
     logoutBlocked?.let { unacknowledged ->
         androidx.compose.material3.AlertDialog(

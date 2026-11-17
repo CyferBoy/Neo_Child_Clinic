@@ -4,7 +4,8 @@ import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.SlotExceptionType
 import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
-import java.util.Calendar
+import com.neochildclinic.core.common.DateUtils
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /**
@@ -27,7 +28,8 @@ class GetAvailableSlotsUseCase @Inject constructor(
         val weeklySlots = repository.getActiveWeeklySlotsForDay(doctorId, dayOfWeek)
         if (weeklySlots.isEmpty()) return DoctorAvailabilityResult.NoScheduleConfigured
 
-        val exceptions = repository.getExceptionsForDate(doctorId, date)
+        val isoDate = DateUtils.toIsoDate(date)
+        val exceptions = repository.getExceptionsForDate(doctorId, isoDate)
 
         val fullDayException = exceptions.firstOrNull { it.exceptionType == SlotExceptionType.FULL_DAY }
         if (fullDayException != null) {
@@ -65,56 +67,18 @@ class GetAvailableSlotsUseCase @Inject constructor(
         return result is DoctorAvailabilityResult.Available && result.slots.any { it.weeklySlotId == slotId }
     }
 
-    // Callers don't agree on date string format: Add Consultation and Add Vaccination
-    // pass the app's display format (Constants.DATE_FORMAT, "d MMM yyyy" - e.g.
-    // "17 Sep 2026"), while the Today's Patient quick-add dialog (DashboardViewModel)
-    // passes ISO "yyyy-MM-dd". This previously only accepted "yyyy-MM-dd" with strict
-    // parsing, so every call from Add Consultation/Add Vaccination silently failed to
-    // parse, fell through to `return DoctorAvailabilityResult.Available(emptyList())`,
-    // and the Available Slot dropdown always showed "No slots available" regardless of
-    // what was actually configured on the Weekly Doctor Slots screen. Accept both
-    // formats here instead of touching every call site's date convention.
-    private fun dayOfWeekFor(date: String): Int? {
-        val formatters = listOf(
-            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE,
-            java.time.format.DateTimeFormatter.ofPattern(
-                com.neochildclinic.core.common.Constants.DATE_FORMAT,
-                java.util.Locale.ENGLISH
-            )
-        )
-        for (formatter in formatters) {
-            try {
-                val parsed = java.time.LocalDate.parse(date, formatter)
-                return parsed.dayOfWeek.value % 7 + 1 // Calendar.SUNDAY(1) .. Calendar.SATURDAY(7)
-            } catch (_: java.time.format.DateTimeParseException) {
-            }
-        }
-        return null
-    }
+    // Callers don't agree on date string format: Add Consultation and Add Vaccination pass
+    // the display format, the Today's Patient dialog passes ISO. DateUtils is the single
+    // parser/formatter for both; only the Calendar-day and date-variant mappings stay here.
+    private fun dayOfWeekFor(date: String): Int? =
+        DateUtils.parseFlexibleDate(date)?.dayOfWeek?.value?.let { it % 7 + 1 } // Calendar.SUNDAY(1)..SATURDAY(7)
 
     private fun normalizeDates(date: String): List<String> {
-        val formatters = listOf(
-            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE,
-            java.time.format.DateTimeFormatter.ofPattern(
-                com.neochildclinic.core.common.Constants.DATE_FORMAT,
-                java.util.Locale.ENGLISH
-            )
-        )
-        for (formatter in formatters) {
-            try {
-                val parsed = java.time.LocalDate.parse(date, formatter)
-                val iso = parsed.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
-                val display = parsed.format(
-                    java.time.format.DateTimeFormatter.ofPattern(
-                        com.neochildclinic.core.common.Constants.DATE_FORMAT,
-                        java.util.Locale.ENGLISH
-                    )
-                )
-                return listOf(iso, display).distinct()
-            } catch (_: java.time.format.DateTimeParseException) {
-            }
-        }
-        return listOf(date)
+        val parsed = DateUtils.parseFlexibleDate(date) ?: return listOf(date)
+        return listOf(
+            parsed.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            parsed.format(DateUtils.APP_DATE_FORMATTER)
+        ).distinct()
     }
 
     private fun rangesOverlap(aStart: Int, aEnd: Int, bStart: Int, bEnd: Int): Boolean {

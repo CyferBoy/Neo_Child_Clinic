@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.CurrencyUtils
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -39,12 +41,12 @@ fun MonthlyFinancesScreen(
     onMonthClick: (String) -> Unit,
     viewModel: FinanceDetailsViewModel = hiltViewModel()
 ) {
-    val transactions by viewModel.transactions.collectAsState()
-    val vaccinations by viewModel.vaccinations.collectAsState()
-    val expenses by viewModel.expenses.collectAsState()
-    val patients by viewModel.patients.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val vaccinations by viewModel.vaccinations.collectAsStateWithLifecycle()
+    val expenses by viewModel.expenses.collectAsStateWithLifecycle()
+    val patients by viewModel.patients.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     var selectedFilter by rememberSaveable { mutableStateOf("Overall") }
 
@@ -75,7 +77,7 @@ fun MonthlyFinancesScreen(
     }
 
     val availableYears = remember(transactionsWithDates, validVaccinations) {
-        StatisticsUtils.getAvailableFinancialYears(
+        FinanceCalculator.getAvailableFinancialYears(
             transactionsWithDates.map { it.second } + validVaccinations.map { it.dateGiven }
         )
     }
@@ -268,7 +270,7 @@ private fun MonthlyFinancesHero(
             Spacer(modifier = Modifier.height(Spacing.sm))
 
             Text(
-                text = StatisticsUtils.formatRupees(netProfit),
+                text = CurrencyUtils.formatInr(netProfit),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (netProfit >= 0) {
@@ -300,7 +302,7 @@ private fun MonthlyFinancesHero(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = StatisticsUtils.formatRupees(revenue),
+                        text = CurrencyUtils.formatInr(revenue),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -315,7 +317,7 @@ private fun MonthlyFinancesHero(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = StatisticsUtils.formatRupees(cogs),
+                        text = CurrencyUtils.formatInr(cogs),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -330,7 +332,7 @@ private fun MonthlyFinancesHero(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = StatisticsUtils.formatRupees(expenses),
+                        text = CurrencyUtils.formatInr(expenses),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = LocalCustomColors.current.textPink
@@ -383,7 +385,7 @@ private fun MonthFinanceCard(
                         )
                         Text(
                             text = if (item.isProfitComplete) {
-                                "Net: ${StatisticsUtils.formatRupees(item.netProfit)}"
+                                "Net: ${CurrencyUtils.formatInr(item.netProfit)}"
                             } else {
                                 "Net: Unavailable (missing cost)"
                             },
@@ -411,19 +413,19 @@ private fun MonthFinanceCard(
             ) {
                 FinanceMiniCardMetric(
                     label = "Revenue",
-                    value = StatisticsUtils.formatRupees(item.revenue),
+                    value = CurrencyUtils.formatInr(item.revenue),
                     accentColor = customColors.textBlue,
                     modifier = Modifier.weight(1f)
                 )
                 FinanceMiniCardMetric(
                     label = "COGS",
-                    value = if (item.isProfitComplete) StatisticsUtils.formatRupees(item.vaccineCost) else "—",
+                    value = if (item.isProfitComplete) CurrencyUtils.formatInr(item.vaccineCost) else "—",
                     accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
                 FinanceMiniCardMetric(
                     label = "Expense",
-                    value = StatisticsUtils.formatRupees(item.expenses),
+                    value = CurrencyUtils.formatInr(item.expenses),
                     accentColor = customColors.textPink,
                     modifier = Modifier.weight(1f)
                 )

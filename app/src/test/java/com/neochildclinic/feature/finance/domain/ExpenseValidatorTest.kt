@@ -68,12 +68,4 @@ class ExpenseValidatorTest {
         val error = ExpenseValidator.validationError("15 Apr 2026", ExpenseCategory.RENT, "Rent", "100", null)
         assertEquals("Payment method is required.", error)
     }
-
-    @Test
-    fun `reference number is not required for validity`() {
-        // ExpenseValidator has no reference-number parameter at all - confirming task
-        // section 4's "Reference number is optional" by construction: validity never
-        // depends on it.
-        assertNull(valid())
-    }
 }

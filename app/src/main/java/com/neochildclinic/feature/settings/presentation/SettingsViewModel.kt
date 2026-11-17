@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -48,6 +49,7 @@ class SettingsViewModel @Inject constructor(
             try {
                 profileRepository.refreshProfiles()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 // Offline or initial load failure: Room cache will be emitted
                 android.util.Log.e("SettingsVM", "Initial profile refresh failed", e)
             }

@@ -167,23 +167,38 @@ async function handleUpload(request: Request, env: Env, accountId: string, backu
   }
 
   const declaredLength = request.headers.get("Content-Length");
+  if (declaredLength === "0") {
+    return json({ error: "Empty body" }, 400);
+  }
   if (declaredLength && Number(declaredLength) > MAX_BACKUP_BYTES) {
     return json({ error: `Backup exceeds maximum allowed size of ${MAX_BACKUP_BYTES} bytes` }, 413);
   }
 
-  const body = await request.arrayBuffer();
-  if (body.byteLength === 0) return json({ error: "Empty body" }, 400);
-  if (body.byteLength > MAX_BACKUP_BYTES) {
-    return json({ error: `Backup exceeds maximum allowed size of ${MAX_BACKUP_BYTES} bytes` }, 413);
+  if (!request.body) {
+    return json({ error: "Empty body" }, 400);
   }
 
   const key = objectKey(accountId, backupId);
+  let object: R2Object | null;
   try {
-    await env.BACKUP_BUCKET.put(key, body);
+    object = await env.BACKUP_BUCKET.put(key, request.body, {
+      httpMetadata: { contentType: "application/octet-stream" }
+    });
   } catch (e) {
     return json({ error: "Upload failed" }, 502);
   }
-  return json({ backupId, sizeBytes: body.byteLength });
+
+  if (!object || object.size === 0) {
+    await env.BACKUP_BUCKET.delete(key);
+    return json({ error: "Empty body" }, 400);
+  }
+
+  if (object.size > MAX_BACKUP_BYTES) {
+    await env.BACKUP_BUCKET.delete(key);
+    return json({ error: `Backup exceeds maximum allowed size of ${MAX_BACKUP_BYTES} bytes` }, 413);
+  }
+
+  return json({ backupId, sizeBytes: object.size });
 }
 
 async function handleConfirm(request: Request, env: Env, accountId: string, backupId: string): Promise<Response> {

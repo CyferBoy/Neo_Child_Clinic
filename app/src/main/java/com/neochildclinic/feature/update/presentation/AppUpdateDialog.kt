@@ -1,8 +1,8 @@
 package com.neochildclinic.feature.update.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.designsystem.*
 
-import com.neochildclinic.core.common.PatientUtils
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -135,9 +135,9 @@ fun AppUpdateDialog(
                                 ) {
                                     Text(
                                         if (progress.totalBytes > 0)
-                                            "${PatientUtils.formatBytes(progress.downloadedBytes)} / ${PatientUtils.formatBytes(progress.totalBytes)}"
+                                            "${DateUtils.formatBytes(progress.downloadedBytes)} / ${DateUtils.formatBytes(progress.totalBytes)}"
                                         else
-                                            PatientUtils.formatBytes(progress.downloadedBytes),
+                                            DateUtils.formatBytes(progress.downloadedBytes),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                     Text(

@@ -63,10 +63,6 @@ object BackupCrypto {
         val iv = ByteArray(IV_LEN).also { secureRandom.nextBytes(it) }
         val key = deriveKey(password, salt, PBKDF2_ITERATIONS)
 
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
-        val ciphertext = cipher.doFinal(plaintext)
-
         val header = ByteBuffer.allocate(4 + 1 + 1 + SALT_LEN + 1 + IV_LEN + 4)
             .order(ByteOrder.BIG_ENDIAN)
             .put(MAGIC.toByteArray(Charsets.US_ASCII))
@@ -75,6 +71,11 @@ object BackupCrypto {
             .put(IV_LEN.toByte()).put(iv)
             .putInt(PBKDF2_ITERATIONS)
             .array()
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
+        cipher.updateAAD(header)
+        val ciphertext = cipher.doFinal(plaintext)
 
         return header + ciphertext
     }
@@ -102,11 +103,14 @@ object BackupCrypto {
             if (iterations < MIN_ALLOWED_ITERATIONS || iterations > MAX_ALLOWED_ITERATIONS) {
                 throw BackupException.Corrupted("Unreasonable PBKDF2 iteration count: $iterations")
             }
+            val headerLength = buffer.position()
+            val headerBytes = container.copyOfRange(0, headerLength)
             val ciphertext = ByteArray(buffer.remaining()).also { buffer.get(it) }
 
             val key = deriveKey(password, salt, iterations)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
+            cipher.updateAAD(headerBytes)
             return cipher.doFinal(ciphertext)
         } catch (e: AEADBadTagException) {
             // Either the wrong password, or the file was tampered with/corrupted in transit -

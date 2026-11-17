@@ -212,3 +212,55 @@ describe("retention ordering", () => {
     expect(rows.map((row) => row.backupId)).toEqual(["retention-client-new-1"]);
   });
 });
+
+describe("streaming upload", () => {
+  it("streams body directly to R2 bucket without buffering", async () => {
+    const token = await tokenFor("clinic-stream");
+    const streamPayload = new TextEncoder().encode("streamed-backup-data-payload");
+    const { readable, writable } = new FixedLengthStream(streamPayload.byteLength);
+    const writer = writable.getWriter();
+    writer.write(streamPayload);
+    writer.close();
+
+    const res = await SELF.fetch("https://worker.example/backups/stream-backup-1", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/octet-stream"
+      },
+      body: readable
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { backupId: string; sizeBytes: number };
+    expect(body.backupId).toBe("stream-backup-1");
+    expect(body.sizeBytes).toBe(streamPayload.byteLength);
+
+    const head = await (env as any).BACKUP_BUCKET.head("backups/clinic-stream/stream-backup-1/backup.nccb");
+    expect(head).not.toBeNull();
+    expect(head?.size).toBe(streamPayload.byteLength);
+  });
+
+  it("rejects an empty stream with 400", async () => {
+    const token = await tokenFor("clinic-empty");
+    const emptyStream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      }
+    });
+
+    const res = await SELF.fetch("https://worker.example/backups/empty-backup-1", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/octet-stream",
+        "Content-Length": "0"
+      },
+      body: emptyStream
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Empty body");
+  });
+});

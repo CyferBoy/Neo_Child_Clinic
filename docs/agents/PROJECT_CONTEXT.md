@@ -10,7 +10,7 @@
 ## 1. Domain Background & Clinical Purpose
 
 Pediatric clinics face unique operational challenges that differ substantially from adult general medicine:
-1. **Dynamic Immunization Schedules**: Vaccine schedules vary strictly based on child age in days/months/years, previous dose intervals, vaccine brand compatibilities, and catch-up schedules (e.g., IAP - Indian Academy of Pediatrics and WHO immunization guidelines).
+1. **Dynamic Immunization Schedules**: Vaccine schedules vary based on child age in days/months/years, previous dose intervals, vaccine brand compatibilities, and manual scheduling based on clinic protocols.
 2. **Batch and Vial Expiry Tracking**: Vaccines are temperature-sensitive, multi-vial biologics with specific batch numbers, manufacturer expiries, and wastage risks.
 3. **Inter-Clinic Vaccine Borrowing**: Clinics routinely borrow or lend vaccine vials to neighboring pediatric practitioners during stockouts, requiring rigorous double-entry tracking of lent/returned inventory.
 4. **Offline Resilience**: Pediatricians in consultation rooms or mobile vaccination camps often experience erratic internet connectivity. The application must never block patient triage, vaccine administration, or billing due to network drops.
@@ -35,7 +35,7 @@ The application organizes functionality into 20 modular business features:
 | **Doctor Availability** | `feature/doctor/` | Weekly schedule templates, holiday and exception slots |
 | **Financial Ledger** | `feature/finance/` | Fee collection, daily income, clinic expenses, server-allocated receipts |
 | **Clinic Profile** | `feature/profile/` | Clinic identity, registration numbers, header/footer for printable receipts |
-| **Staff Administration** | `feature/staff/` | Role-based staff access (Doctor, Nurse, Receptionist, Admin), PIN auth |
+| **Staff Administration** | `feature/staff/` | Role-based staff access (Doctor, Nurse, Receptionist, Admin) |
 | **Audit Logs** | `feature/audit/` | Tamper-evident mutation logging, who edited what, retention pruning |
 | **Search Engine** | `feature/search/` | Unified search across patients, guardians, phones, and vaccines |
 | **Clinic Analytics** | `feature/statistics/` | Vaccination uptake trends, revenue summaries, PDF export |
@@ -51,5 +51,5 @@ The application organizes functionality into 20 modular business features:
 The clinic stores Protected Health Information (PHI) and financial records. The following principles govern all data operations:
 - **Zero Data Loss**: Offline changes are staged in an encrypted local database (`AppDatabase`, SQLCipher) before syncing.
 - **Atomic Multi-Table Transactions**: Administering a vaccine atomically creates a `VisitEntity`, updates `ReminderEntity`, inserts `VaccinationItemEntity`, decrements `VaccineBatchEntity`, logs `InventoryTransactionEntity`, and queues `SyncQueueEntity`.
-- **Soft-Delete with Retention**: Clinical and patient records are soft-deleted with business audit trails to preserve historical immunization records.
+- **Hard Deletes with Cascading Integrity**: Clinical and patient records use hard deletes with cascading integrity (Room v35) and business audit trails to preserve historical immunization audit history.
 - **Idempotent Synchronization**: Remote mutations carry client-generated UUIDs and version timestamps to prevent duplicate rows during network retries.

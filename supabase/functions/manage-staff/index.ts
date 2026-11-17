@@ -99,8 +99,16 @@ serve(async (req) => {
 
     const staffId = body.staffId
     if (!staffId) throw new Error("staffId is required")
-    if (staffId === user.id && ["CHANGE_ROLE", "SET_STATUS", "SOFT_DELETE"].includes(action)) {
-      throw new Error("An administrator cannot disable or delete their own account")
+    if (staffId === user.id) {
+      if (["SET_STATUS", "SOFT_DELETE"].includes(action)) {
+        throw new Error("An administrator cannot disable or delete their own account")
+      }
+      if (action === "CHANGE_ROLE" && body.role !== actorRole) {
+        throw new Error("Admins cannot modify or demote their own role")
+      }
+      if (action === "UPDATE_PROFILE" && body.role !== undefined && body.role !== actorRole) {
+        throw new Error("Admins cannot modify or demote their own role")
+      }
     }
 
     const { data: target, error: targetError } = await admin
@@ -116,6 +124,9 @@ serve(async (req) => {
         if (body.name !== undefined) update.display_name = body.name
         if (body.phoneNumber !== undefined) update.phone_number = body.phoneNumber
         if (body.role !== undefined) {
+          if (staffId === user.id && body.role !== actorRole) {
+            throw new Error("Admins cannot modify or demote their own role")
+          }
           validateRole(body.role)
           update.role = body.role
         }

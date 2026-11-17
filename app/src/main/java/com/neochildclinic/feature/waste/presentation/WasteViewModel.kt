@@ -75,7 +75,7 @@ class WasteViewModel @Inject constructor(
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 wasteRepository.refreshWaste()
                 inventoryRepository.refreshInventory()
@@ -83,7 +83,7 @@ class WasteViewModel @Inject constructor(
                 if (e is CancellationException) throw e
                 android.util.Log.e("WasteViewModel", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
@@ -112,11 +112,11 @@ class WasteViewModel @Inject constructor(
             }
 
             if (isDuplicate) {
-                _error.value = "Duplicate entry detected. This waste record already exists."
+                _error.update { "Duplicate entry detected. This waste record already exists." }
                 return@launch
             }
 
-            _isSaving.value = true
+            _isSaving.update { true }
             val record = WasteRecord(
                 id = UUID.randomUUID().toString(),
                 vaccineId = vaccineId,
@@ -133,9 +133,9 @@ class WasteViewModel @Inject constructor(
                 wasteRepository.recordWaste(record, getCurrentUser())
                 onSuccess()
             } catch (e: Exception) {
-                _error.value = e.message
+                _error.update { e.message }
             } finally {
-                _isSaving.value = false
+                _isSaving.update { false }
             }
         }
     }
@@ -155,7 +155,7 @@ class WasteViewModel @Inject constructor(
         if (!validateInput(vaccineId, batchId, quantity, dateWasted, reason, isEdit = true, wasteId = id)) return
 
         viewModelScope.launch {
-            _isSaving.value = true
+            _isSaving.update { true }
             try {
                 val oldRecord = wasteRepository.getWasteById(id) 
                     ?: throw IllegalStateException("Original record not found")
@@ -175,9 +175,9 @@ class WasteViewModel @Inject constructor(
                 wasteRepository.updateWaste(oldRecord, newRecord, getCurrentUser())
                 onSuccess()
             } catch (e: Exception) {
-                _error.value = e.message
+                _error.update { e.message }
             } finally {
-                _isSaving.value = false
+                _isSaving.update { false }
             }
         }
     }
@@ -192,19 +192,19 @@ class WasteViewModel @Inject constructor(
         wasteId: String? = null
     ): Boolean {
         if (vaccineId.isBlank() || batchId.isBlank()) {
-            _error.value = "Please select a vaccine and batch"
+            _error.update { "Please select a vaccine and batch" }
             return false
         }
         if (quantity <= 0) {
-            _error.value = "Quantity must be greater than zero"
+            _error.update { "Quantity must be greater than zero" }
             return false
         }
         if (date.isBlank()) {
-            _error.value = "Please select a valid date"
+            _error.update { "Please select a valid date" }
             return false
         }
         if (reason.isBlank()) {
-            _error.value = "Please provide a reason"
+            _error.update { "Please provide a reason" }
             return false
         }
 
@@ -220,7 +220,7 @@ class WasteViewModel @Inject constructor(
         }
 
         if (effectiveStock < quantity) {
-            _error.value = "Requested quantity exceeds available stock ($effectiveStock)"
+            _error.update { "Requested quantity exceeds available stock ($effectiveStock)" }
             return false
         }
 
@@ -232,7 +232,7 @@ class WasteViewModel @Inject constructor(
             try {
                 wasteRepository.deleteWaste(id, getCurrentUser())
             } catch (e: Exception) {
-                _error.value = e.message
+                _error.update { e.message }
             }
         }
     }
@@ -240,6 +240,6 @@ class WasteViewModel @Inject constructor(
     private fun getCurrentUser(): String = sessionManager.getCurrentUserDisplayName("System User")
 
     fun clearError() {
-        _error.value = null
+        _error.update { null }
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import java.util.Locale
@@ -31,7 +32,7 @@ fun NotificationSettingsScreen(
     onBack: () -> Unit,
     viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
-    val settings by viewModel.settings.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val customColors = LocalCustomColors.current
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()

@@ -9,7 +9,6 @@ import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.domain.model.*
 import kotlinx.coroutines.flow.*
 import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
@@ -49,15 +48,6 @@ class FakeVaccinationRepository(private val runner: RecordingTransactionRunner) 
     override fun getVaccinationCardsForPatient(patientId: String): Flow<List<PatientVaccinationCard>> = TODO()
     override suspend fun insertVisit(visit: Visit) = TODO()
     override suspend fun updateVisitInventoryStatus(vaccinationId: String, status: String) = TODO()
-}
-
-class FakeConsultationRepository(private val runner: RecordingTransactionRunner) : ConsultationRepository {
-    override suspend fun addConsultation(consultation: Consultation, transactionGroupId: String? ) = TODO()
-    override suspend fun updateConsultation(consultation: Consultation, transactionGroupId: String? ) = TODO()
-    override suspend fun deleteConsultation(id: String) = TODO()
-    override suspend fun getConsultationById(id: String): Consultation? = TODO()
-    override fun getConsultationsForPatient(patientId: String): Flow<List<Consultation>> = TODO()
-    override suspend fun refreshConsultations() = TODO()
 }
 
 class FakeFinanceRepository(private val runner: RecordingTransactionRunner) : FinanceRepository {

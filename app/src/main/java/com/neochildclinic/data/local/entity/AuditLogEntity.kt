@@ -26,16 +26,16 @@ import com.neochildclinic.domain.model.AuditLog
 )
 data class AuditLogEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
-    val timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
-    val user: String,
-    val module: String, // PATIENT, VACCINE, FINANCE, INVENTORY, STAFF, USERS, SYNC
+    @SerialName("timestamp") val timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("user") val user: String,
+    @SerialName("module") val module: String, // PATIENT, VACCINE, FINANCE, INVENTORY, STAFF, USERS, SYNC
     @SerialName("entity_type") val entityType: String, // PATIENT, VISIT, REMINDER, BATCH, PAYMENT, etc.
     @SerialName("entity_id") val entityId: String,
-    val action: String, // CREATED, UPDATED, DELETED, COMPLETED, DISMISSED, etc.
+    @SerialName("action") val action: String, // CREATED, UPDATED, DELETED, COMPLETED, DISMISSED, etc.
     @SerialName("old_value") val oldValue: String? = null, // JSON representation
     @SerialName("new_value") val newValue: String? = null, // JSON representation
-    val remarks: String? = null,
-    val device: String? = null,
+    @SerialName("remarks") val remarks: String? = null,
+    @SerialName("device") val device: String? = null,
     @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("patient_id") val patientId: String? = null // Helper field for fast timeline filtering
 ) : SyncableEntity
@@ -48,6 +48,9 @@ fun AuditLogEntity.toDomain() = AuditLog(
     entityType = entityType,
     entityId = entityId,
     action = action,
+    oldValue = oldValue,
+    newValue = newValue,
     remarks = remarks,
-    device = device
+    device = device,
+    patientId = patientId
 )

@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.borrowed.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.database.TransactionRunner
 
@@ -165,7 +166,7 @@ class BorrowRepositoryImpl @Inject constructor(
 
     override suspend fun deleteBorrowedItem(id: String) {
         val userName = sessionManager.getCurrentUserName()
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
         transactionRunner.run {
             borrowDao.getRecordById(id)?.let { record ->
                 // Reverse whatever stock this borrow still holds: quantity minus what the
@@ -240,7 +241,7 @@ syncRepository.enqueue(
                     supplier = "Returned",
                     purchaseCost = 0.0,
                     sellingPrice = newBatchInfo.sellingPrice,
-                    updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                    updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
                 )
                 inventoryRepository.addBatch(newBatch.toDomain(), user, transactionGroupId)
                 newBatch.batchId
@@ -248,7 +249,6 @@ syncRepository.enqueue(
                 batchId
             }
 
-            // Physically restores stock
             inventoryRepository.returnBorrowedStock(
                 originalBatchId = originalBatchId,
                 returnToBatchId = effectiveBatchId,
@@ -265,7 +265,7 @@ syncRepository.enqueue(
                 quantity = quantity,
                 returnedDate = today,
                 notes = notes,
-                createdAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+                createdAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
                 isSynced = false
             )
             val entity = returnRecord.toEntity(isSynced = false)

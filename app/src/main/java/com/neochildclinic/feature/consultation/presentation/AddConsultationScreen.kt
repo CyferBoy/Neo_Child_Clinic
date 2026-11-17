@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,7 +18,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.feature.doctor.presentation.AvailableSlotDropdown
 import com.neochildclinic.feature.doctor.presentation.DoctorDropdown
@@ -35,7 +35,7 @@ fun AddConsultationScreen(
     onBack: () -> Unit,
     viewModel: AddConsultationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 val snackbarHostState = remember { SnackbarHostState() }
 val scope = rememberCoroutineScope()
     val context = LocalContext.current

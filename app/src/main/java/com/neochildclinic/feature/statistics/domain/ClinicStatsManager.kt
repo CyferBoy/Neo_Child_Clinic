@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.statistics.domain
+import com.neochildclinic.core.common.VaccineUtils
 
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.toLocalDate
@@ -116,7 +116,7 @@ class ClinicStatsManager @Inject constructor(
             .forEach { vaccination ->
                 vaccination.items.forEachIndexed { index, item ->
                     val rawName = item.vaccineName.ifBlank { vaccination.vaccineNames.getOrNull(index).orEmpty() }
-                    val name = PatientUtils.cleanVaccineName(rawName)
+                    val name = VaccineUtils.cleanVaccineName(rawName)
                     if (name.isNotBlank()) counts[name] = (counts[name] ?: 0) + item.quantity.coerceAtLeast(0)
                 }
             }

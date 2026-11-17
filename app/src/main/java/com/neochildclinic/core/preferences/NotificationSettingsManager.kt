@@ -16,7 +16,6 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class NotificationSettingsManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    // Notification Settings
     private val DUE_VACCINATIONS_ENABLED = booleanPreferencesKey("due_vaccinations_enabled")
     private val PERSONAL_REMINDERS_ENABLED = booleanPreferencesKey("personal_reminders_enabled")
     private val APP_UPDATES_ENABLED = booleanPreferencesKey("app_updates_enabled")
@@ -31,12 +30,10 @@ class NotificationSettingsManager @Inject constructor(
     private val SHOW_STOCK_VALUE_ENABLED = booleanPreferencesKey("show_stock_value_enabled")
     private val INVENTORY_SORT_METHOD = stringPreferencesKey("inventory_sort_method")
     
-    // Security Settings
     private val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("biometric_lock_enabled")
     private val INACTIVITY_DAYS_THRESHOLD = intPreferencesKey("inactivity_days_threshold")
     private val AUTH_ON_EVERY_OPEN = booleanPreferencesKey("auth_on_every_open")
     
-    // Internal Tracking
     private val LAST_APP_OPEN_TIMESTAMP = longPreferencesKey("last_app_open_timestamp")
     private val NEEDS_AUTH = booleanPreferencesKey("needs_auth")
     private val LAST_SUMMARY_SENT_DATE = stringPreferencesKey("last_summary_sent_date")

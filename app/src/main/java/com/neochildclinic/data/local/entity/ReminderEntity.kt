@@ -29,26 +29,28 @@ import kotlinx.serialization.Transient
         // originalVisitId is looked up on its own (getRemindersByVisitId, and the
         // PatientVaccinationCardEntity @Relation join) but wasn't a leftmost-prefix
         // column of any existing index, so those queries were full table scans.
-        Index("originalVisitId")
+        Index("originalVisitId"),
+        Index("priority"),
+        Index("createdAt")
     ]
 )
 @Serializable
 data class ReminderEntity(
-    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
-    val serverId: String? = null,
-    val patientId: String,
-    val originalVisitId: String,
-    val vaccineName: String,
-    val dueDate: String,
-    val status: String,
-    val priority: String = "NORMAL",
-    val reminderEnabled: Boolean = true,
-    val category: String = "VACCINATION",
+    @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
+    @SerialName("server_id") val serverId: String? = null,
+    @SerialName("patient_id") val patientId: String,
+    @SerialName("original_visit_id") val originalVisitId: String,
+    @SerialName("vaccine_name") val vaccineName: String,
+    @SerialName("due_date") val dueDate: String,
+    @SerialName("status") val status: String,
+    @SerialName("priority") val priority: String = "NORMAL",
+    @SerialName("reminder_enabled") val reminderEnabled: Boolean = true,
+    @SerialName("category") val category: String = "VACCINATION",
 
     // Next Vaccination "Type" (mandatory on the Add Vaccination screen, e.g. "Booster").
     // Kept separate from `category` (which distinguishes VACCINATION vs other reminder
     // sources) and separate from `vaccineName` -- Type is never inferred from the vaccine.
-    val type: String = "",
+    @SerialName("type") val type: String = "",
 
     // Vaccine catalog IDs for the vaccine(s) selected alongside Type
     // (optional -- may be blank/null if no vaccine was selected).
@@ -57,22 +59,22 @@ data class ReminderEntity(
     // used to claim a comma-separated convention borrowed from patient_visits.vaccine_ids;
     // DueReminderDao.getUpcomingVaccinationsByVaccineId was written against that claim and
     // silently matched nothing for every brand. Query this column as JSON (see that query).
-    @ColumnInfo(name = "nxt_vaccine_id")
+    @SerialName("nxt_vaccine_id") @ColumnInfo(name = "nxt_vaccine_id")
     val nxtVaccineId: List<String>? = null,
     
     // Local-only or derived fields
     @Transient val vaccinationSource: String? = null,
     @Transient val source: String? = null,
     
-    val notes: String? = null,
-    val completionDate: String? = null, // Changed to String? for TEXT compatibility
-    val performedBy: String? = null,
-    val dismissalDate: String? = null, // Changed to String? for TEXT compatibility
-    val dismissalReason: String? = null,
+    @SerialName("notes") val notes: String? = null,
+    @SerialName("completion_date") val completionDate: String? = null, // Changed to String? for TEXT compatibility
+    @SerialName("performed_by") val performedBy: String? = null,
+    @SerialName("dismissal_date") val dismissalDate: String? = null, // Changed to String? for TEXT compatibility
+    @SerialName("dismissal_reason") val dismissalReason: String? = null,
     
-    val createdAt: String = "",
-    val updatedAt: String = "",
-    override val isSynced: Boolean = false,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null,
     @SerialName("is_deleted") @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
@@ -118,18 +120,18 @@ fun ReminderEntity.toDomain() = Reminder(
 data class RemoteReminder(
     // The app generates the UUID locally and uses the same ID in Supabase.
     // This keeps Room and Supabase identity stable and avoids NULL primary-key inserts.
-    val id: String? = null,
+    @SerialName("id") val id: String? = null,
     @SerialName("patient_id") val patientId: String,
     @SerialName("original_visit_id") val originalVisitId: String,
     @SerialName("vaccine_name") val vaccineName: String,
     @SerialName("due_date") val dueDate: String,
-    val status: String,
-    val priority: String = "NORMAL",
+    @SerialName("status") val status: String,
+    @SerialName("priority") val priority: String = "NORMAL",
     @SerialName("reminder_enabled") val reminderEnabled: Boolean = true,
-    val category: String = "VACCINATION",
-    val type: String = "",
+    @SerialName("category") val category: String = "VACCINATION",
+    @SerialName("type") val type: String = "",
     @SerialName("nxt_vaccine_id") val nxtVaccineId: List<String>? = null,
-    val notes: String? = null,
+    @SerialName("notes") val notes: String? = null,
     @SerialName("completion_date") val completionDate: String? = null,
     @SerialName("performed_by") val performedBy: String? = null,
     @SerialName("dismissal_date") val dismissalDate: String? = null,

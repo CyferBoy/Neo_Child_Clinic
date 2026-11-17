@@ -40,10 +40,22 @@ Mapping all identified issues across the four core dimensions (Hidden Links, Nee
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Core & Data Layer Untangling & Clean Architecture Invariants | UNTANGLE-01 to UNTANGLE-08 | none | COMPLETE |
-| M2 | Feature & Domain Layer Clean Architecture & Structural Decoupling | UNTANGLE-09 to UNTANGLE-13 | M1 | IN_PROGRESS |
-| M3 | State Mutation Safety, Concurrency & Comments Cleanup | UNTANGLE-14, UNTANGLE-15 | M1, M2 | PLANNED |
-| M4 | Test Architecture Cleanup & Behavior Assertions | UNTANGLE-16, UNTANGLE-17, UNTANGLE-18 | M1, M2, M3 | PLANNED |
-| M5 | Comprehensive Offline Verification, Hardening & Final Gate | UNTANGLE-19 | M1, M2, M3, M4 | PLANNED |
+| M2 | Feature & Domain Layer Clean Architecture & Structural Decoupling | UNTANGLE-09 to UNTANGLE-13 | M1 | COMPLETE |
+| M3 | State Mutation Safety, Concurrency & Comments Cleanup | UNTANGLE-14, UNTANGLE-15 | M1, M2 | COMPLETE |
+| M4 | Test Architecture Cleanup & Behavior Assertions | UNTANGLE-16, UNTANGLE-17, UNTANGLE-18 | M1, M2, M3 | COMPLETE |
+| M5 | Comprehensive Offline Verification, Hardening & Final Gate | UNTANGLE-19 | M1, M2, M3, M4 | COMPLETE |
+
+## Session 2026-11-17 follow-up (see `docs/audit/untangle-2026-11-17.md`)
+
+Resumed the decision log from the committed M1/M2 state and closed the remaining items:
+PatientUtils facade inlined and deleted (UN-03), ISO date contract unified (UN-12),
+`feature/search` consolidated (UN-13), cancellation guards completed (UN-14),
+restating comments pruned (UN-15), tautological/reflection/timing tests cleaned
+(UN-16/17/18), and full offline verification run (UN-19). Additional first-principles
+fixes: one cause-chain walker, one refresh-step key set, one password minimum, one
+clinical vaccination predicate, 43 zero-caller DAO methods deleted across both passes.
+Verification: `./gradlew testDebugUnitTest --offline` — 493 tests, 0 failures;
+`python3 scripts/validate_docs.py --strict` — 0 errors.
 
 ## Interface Contracts
 

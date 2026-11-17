@@ -34,6 +34,7 @@ class BackupAutoScheduler @Inject constructor(
         }
         val constraints = Constraints.Builder()
             .setRequiresBatteryNotLow(true)
+            .setRequiresStorageNotLow(true)
             .apply { if (settings.cloudEnabled) setRequiredNetworkType(NetworkType.CONNECTED) }
             .build()
 

@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.CurrencyUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -39,7 +40,7 @@ fun FinanceTab(
     showFilters: Boolean = false,
     onMonthClick: (String) -> Unit = {}
 ) {
-    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
+    var filterMode by rememberSaveable { mutableStateOf(FinanceCalculator.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
@@ -59,7 +60,7 @@ fun FinanceTab(
     }
 
     val availableYears = remember(transactionsWithDates, vaccinations) {
-        StatisticsUtils.getAvailableFinancialYears(
+        FinanceCalculator.getAvailableFinancialYears(
             transactionsWithDates.map { it.second } + vaccinations.map { it.dateGiven }
         )
     }
@@ -237,7 +238,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Cash",
-                value = StatisticsUtils.formatRupees(currentStats.cashTotal),
+                value = CurrencyUtils.formatInr(currentStats.cashTotal),
                 accentColor = customColors.textSuccess,
                 supportingText = cashShare?.let { "$it% of revenue" } ?: "cash payments",
                 growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.cashTotal, prevStats.cashTotal)
@@ -245,7 +246,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Online",
-                value = StatisticsUtils.formatRupees(currentStats.onlineTotal),
+                value = CurrencyUtils.formatInr(currentStats.onlineTotal),
                 accentColor = customColors.textBlue,
                 supportingText = onlineShare?.let { "$it% of revenue" } ?: "online payments",
                 growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentStats.onlineTotal, prevStats.onlineTotal)
@@ -302,7 +303,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Total Expenses",
-                value = StatisticsUtils.formatRupees(currentExpensesRupees),
+                value = CurrencyUtils.formatInr(currentExpensesRupees),
                 accentColor = customColors.textPink,
                 supportingText = "expense records",
                 growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(currentExpensesRupees, prevExpensesRupees)
@@ -310,7 +311,7 @@ private fun FinanceContent(
             SummaryCard(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 title = "Net Income",
-                value = StatisticsUtils.formatRupees(netIncome),
+                value = CurrencyUtils.formatInr(netIncome),
                 accentColor = if (netIncome >= 0) customColors.textSuccess else MaterialTheme.colorScheme.error,
                 supportingText = "revenue minus expenses",
                 growthPercentage = if (overall) null else StatisticsUtils.calculateGrowth(netIncome, prevNetIncome)
@@ -359,8 +360,8 @@ private fun NetProfitHero(
     } else {
         StatisticsUtils.calculateGrowth(currentNetProfit, previousNetProfit)
     }
-    val revenue = StatisticsUtils.formatRupees(stats.totalRevenue)
-    val costs = StatisticsUtils.formatRupees(stats.vaccineCost + stats.totalExpenses + currentExpensesRupees)
+    val revenue = CurrencyUtils.formatInr(stats.totalRevenue)
+    val costs = CurrencyUtils.formatInr(stats.vaccineCost + stats.totalExpenses + currentExpensesRupees)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -376,7 +377,7 @@ private fun NetProfitHero(
             )
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
-                text = if (stats.isProfitComplete) StatisticsUtils.formatRupees(currentNetProfit) else "Unavailable",
+                text = if (stats.isProfitComplete) CurrencyUtils.formatInr(currentNetProfit) else "Unavailable",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,

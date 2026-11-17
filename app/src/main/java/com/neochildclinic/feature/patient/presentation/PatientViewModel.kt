@@ -57,10 +57,11 @@ class PatientViewModel @Inject constructor(
     fun loadDocuments(patientId: String) {
         viewModelScope.launch {
             try {
-                _documents.value = documentRepository.listDocuments(patientId)
-                _documentError.value = null
+                val docs = documentRepository.listDocuments(patientId)
+                _documents.update { docs }
+                _documentError.update { null }
             } catch (e: Exception) {
-                _documentError.value = e.message ?: "Failed to load documents"
+                _documentError.update { e.message ?: "Failed to load documents" }
             }
         }
     }
@@ -71,7 +72,7 @@ class PatientViewModel @Inject constructor(
                 documentRepository.uploadDocument(patientId, fileName, bytes)
                 loadDocuments(patientId)
             } catch (e: Exception) {
-                _documentError.value = e.message ?: "Upload failed"
+                _documentError.update { e.message ?: "Upload failed" }
             }
         }
     }
@@ -86,13 +87,13 @@ class PatientViewModel @Inject constructor(
                 documentRepository.deleteDocument(path)
                 loadDocuments(patientId)
             } catch (e: Exception) {
-                _documentError.value = e.message ?: "Delete failed"
+                _documentError.update { e.message ?: "Delete failed" }
             }
         }
     }
 
     fun clearDocumentError() {
-        _documentError.value = null
+        _documentError.update { null }
     }
     
     // null = Room has not emitted yet. Callers must distinguish that from "no patients
@@ -113,7 +114,7 @@ class PatientViewModel @Inject constructor(
 
     /** Binds the history flows to one patient; re-attaching switches flows atomically. */
     fun attachPatient(patientId: String) {
-        attachedPatientId.value = patientId
+        attachedPatientId.update { patientId }
     }
 
     init {
@@ -167,14 +168,14 @@ class PatientViewModel @Inject constructor(
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 android.util.Log.e("PatientVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

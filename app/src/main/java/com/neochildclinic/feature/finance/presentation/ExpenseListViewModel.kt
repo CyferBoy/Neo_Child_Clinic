@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.finance.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,17 +10,14 @@ import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
-import com.neochildclinic.core.common.PatientUtils
-import com.neochildclinic.core.common.toLocalDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import javax.inject.Inject
 
 enum class ExpenseSortOption(val label: String, val sqlKey: String) {
@@ -36,7 +34,7 @@ data class ExpenseListUiState(
     val query: String = "",
     val categoryFilter: ExpenseCategory? = null,
     val paymentMethodFilter: ExpensePaymentMethod? = null,
-    val selectedFinancialYear: String = StatisticsUtils.getCurrentFinancialYear(),
+    val selectedFinancialYear: String = FinanceCalculator.getCurrentFinancialYear(),
     val availableFinancialYears: List<String> = emptyList(),
     val fromDate: String = "",
     val toDate: String = "",
@@ -72,8 +70,8 @@ class ExpenseListViewModel @Inject constructor(
         viewModelScope.launch {
             expenseRepository.getAllExpenses().collect { allExpenses ->
                 val dates = allExpenses.map { it.expenseDate }
-                val years = StatisticsUtils.getAvailableFinancialYears(dates).map { "FY $it" }
-                val currentFy = StatisticsUtils.getCurrentFinancialYear()
+                val years = FinanceCalculator.getAvailableFinancialYears(dates).map { "FY $it" }
+                val currentFy = FinanceCalculator.getCurrentFinancialYear()
                 val merged = (listOf(currentFy) + years).distinct().sortedDescending()
                 _uiState.update { it.copy(availableFinancialYears = merged) }
             }
@@ -125,7 +123,7 @@ class ExpenseListViewModel @Inject constructor(
                 paymentMethodFilter = null,
                 fromDate = "",
                 toDate = "",
-                selectedFinancialYear = StatisticsUtils.getCurrentFinancialYear()
+                selectedFinancialYear = FinanceCalculator.getCurrentFinancialYear()
             )
         }
         loadPage(reset = true)
@@ -148,17 +146,6 @@ class ExpenseListViewModel @Inject constructor(
         }
     }
 
-    // fromDate/toDate in state are display-format strings (DateDropdownPicker's format,
-    // "d MMM yyyy") - converted to ISO (yyyy-MM-dd) here since that's what expenseDate is
-    // actually stored/sorted as (see ExpenseEntity/AddExpenseViewModel.submit). Filtering
-    // happens entirely in SQL (ExpenseDao.getFilteredExpensesPage), never by loading the
-    // full table and filtering in Kotlin.
-    private fun toIsoDate(displayDate: String): String? {
-        if (displayDate.isBlank()) return null
-        val date = PatientUtils.parseDate(displayDate) ?: return null
-        return date.toLocalDate().toString()
-    }
-
     private fun loadPage(reset: Boolean) {
         viewModelScope.launch {
             loadPageInternal(reset)
@@ -177,8 +164,10 @@ class ExpenseListViewModel @Inject constructor(
         try {
             val offset = if (reset) 0 else state.expenses.size
             val (fyFrom, fyTo) = getFyDateRange(state.selectedFinancialYear)
-            val effectiveFrom = toIsoDate(state.fromDate) ?: fyFrom
-            val effectiveTo = toIsoDate(state.toDate) ?: fyTo
+            // fromDate/toDate are display-format strings (DateDropdownPicker); expenseDate is
+            // stored/sorted as ISO, so normalize via the shared parser before the SQL filter.
+            val effectiveFrom = DateUtils.parseFlexibleDate(state.fromDate)?.toString() ?: fyFrom
+            val effectiveTo = DateUtils.parseFlexibleDate(state.toDate)?.toString() ?: fyTo
 
             val page = expenseRepository.getFilteredExpensesPage(
                 category = state.categoryFilter?.name,
@@ -201,6 +190,7 @@ class ExpenseListViewModel @Inject constructor(
                 )
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             _uiState.update { it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "Failed to load expenses") }
         }
     }
@@ -213,6 +203,7 @@ class ExpenseListViewModel @Inject constructor(
                 _uiState.update { it.copy(deletedMessage = "Expense deleted") }
                 loadPage(reset = true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(error = e.message ?: "Failed to delete expense") }
             }
         }

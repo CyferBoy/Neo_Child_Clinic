@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.ui.*
@@ -36,7 +37,7 @@ fun ManageStaffScreen(
     onStaffClick: (String) -> Unit,
     viewModel: AdminViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     var selectedRoleFilter by remember { mutableStateOf<UserRole?>(null) }
@@ -89,7 +90,7 @@ fun ManageStaffScreen(
             },
             containerColor = Color.Transparent
         ) { padding ->
-            val isRefreshing by viewModel.isRefreshing.collectAsState()
+            val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
             AppPullToRefresh(
                 isRefreshing = isRefreshing,
                 onRefresh = viewModel::refreshStaff,

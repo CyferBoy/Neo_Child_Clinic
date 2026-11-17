@@ -10,7 +10,6 @@ import com.neochildclinic.feature.patient.presentation.AddPatientScreen
 import com.neochildclinic.feature.consultation.presentation.AddConsultationScreen
 import com.neochildclinic.feature.patient.presentation.PatientDetailsScreen
 import com.neochildclinic.feature.patient.presentation.PatientListScreen
-import com.neochildclinic.feature.search.presentation.SearchScreen
 import com.neochildclinic.feature.vaccination.presentation.AddVaccinationScreen
 import com.neochildclinic.feature.audit.presentation.PatientAuditHistoryScreen
 
@@ -18,12 +17,19 @@ internal fun NavGraphBuilder.patientGraph(
     navController: NavHostController,
     goBack: () -> Unit
 ) {
+    // shortcut: SEARCH stays an alias route because NavigationDashboardGraph still navigates to
+    // Routes.SEARCH and is not owned here; fold it into PATIENT_LIST once that caller can change.
     composable(Routes.SEARCH) {
-        SearchScreen(
+        PatientListScreen(
             onBack = goBack,
+            onAddPatient = { navController.navigate(Routes.ADD_PATIENT) },
             onPatientClick = { patientId ->
                 navController.navigate("patient_details/$patientId")
-            }
+            },
+            onEditPatient = { patientId ->
+                navController.navigate("edit_patient/$patientId")
+            },
+            initialSearchQuery = "",
         )
     }
 

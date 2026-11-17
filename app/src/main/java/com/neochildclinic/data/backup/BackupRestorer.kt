@@ -1,8 +1,8 @@
 package com.neochildclinic.data.backup
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.data.local.dao.BackupDao
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.*
@@ -305,7 +305,7 @@ class BackupRestorer(
      * touched in the DB, so it must not be re-queued here either).
      */
     private suspend fun enqueueUnsyncedForResync(payload: BackupPayloadV1, appliedIds: Map<String, Set<String>>?) {
-        val now = PatientUtils.getCurrentIsoTimestamp()
+        val now = DateUtils.getCurrentIsoTimestamp()
         val entries = mutableListOf<SyncQueueEntity>()
 
         fun <T> collect(table: String, entityName: String, items: List<T>, idOf: (T) -> String, isSyncedOf: (T) -> Boolean) {

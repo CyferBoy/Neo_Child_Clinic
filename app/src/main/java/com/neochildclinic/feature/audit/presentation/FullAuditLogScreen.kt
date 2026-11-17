@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.audit.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.designsystem.*
 
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,7 +33,6 @@ import com.neochildclinic.core.ui.ErrorState
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.AuditLog
 import java.time.Instant
 import java.time.LocalDate
@@ -45,7 +46,7 @@ fun FullAuditLogScreen(
     onBack: () -> Unit,
     viewModel: FullAuditLogViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedFilter by remember { mutableStateOf("All") }
     val filterOptions = remember { listOf("All", "Patients", "Inventory", "Finance", "Staff") }
 
@@ -113,7 +114,6 @@ fun FullAuditLogScreen(
                         contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.sm),
                         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
-                        // 1. Filter Pills Row (matches audit_log_light.svg: 36dp height, 18dp rx)
                         item {
                             Row(
                                 modifier = Modifier
@@ -150,7 +150,6 @@ fun FullAuditLogScreen(
                             }
                         }
 
-                        // 2. Section Eyebrow Row
                         item {
                             Row(
                                 modifier = Modifier
@@ -174,7 +173,6 @@ fun FullAuditLogScreen(
                             }
                         }
 
-                        // 3. Audit Log Items or Empty State
                         if (filteredLogs.isEmpty()) {
                             item {
                                 EmptyState(
@@ -226,7 +224,6 @@ fun FullAuditLogScreen(
                             }
                         }
 
-                        // 4. Retention note at bottom
                         item {
                             Text(
                                 text = "Audit events are retained for 90 days.",

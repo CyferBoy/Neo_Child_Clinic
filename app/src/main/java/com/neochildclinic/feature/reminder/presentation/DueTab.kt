@@ -58,7 +58,6 @@ fun DueTab(
         contentPadding = PaddingValues(bottom = 80.dp, top = Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        // 1. Search Bar
         item {
             StandardTextField(
                 value = searchQuery,
@@ -73,7 +72,6 @@ fun DueTab(
             )
         }
 
-        // 2. Filter Pills Row
         item {
             FilterTabRow(
                 filters = filters,
@@ -82,13 +80,11 @@ fun DueTab(
             )
         }
 
-        // 3. Status Summary Cards Row (Overdue, Today, This Week)
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                // OVERDUE Card
                 Surface(
                     modifier = Modifier.weight(1f).height(76.dp),
                     shape = RoundedCornerShape(20.dp),
@@ -114,7 +110,6 @@ fun DueTab(
                     }
                 }
 
-                // TODAY Card
                 Surface(
                     modifier = Modifier.weight(1f).height(76.dp),
                     shape = RoundedCornerShape(20.dp),
@@ -140,7 +135,6 @@ fun DueTab(
                     }
                 }
 
-                // THIS WEEK Card
                 Surface(
                     modifier = Modifier.weight(1f).height(76.dp),
                     shape = RoundedCornerShape(20.dp),
@@ -168,7 +162,6 @@ fun DueTab(
             }
         }
 
-        // 4. Completed & Dismissed Quick Links
         item {
             CompletedDismissedSummaryCards(
                 completedCount = stats.completedToday,
@@ -178,7 +171,6 @@ fun DueTab(
             )
         }
 
-        // 5. Section Header Eyebrow
         if (filteredVaccinations.isNotEmpty()) {
             item {
                 Row(
@@ -218,7 +210,6 @@ fun DueTab(
             }
         }
 
-        // 6. Vaccine List or Empty State
         if (filteredVaccinations.isEmpty()) {
             item {
                 EmptyState(

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,10 +60,10 @@ fun DashboardScreen(
     authViewModel: AuthViewModel,
     dashboardViewModel: DashboardViewModel = hiltViewModel()
 ) {
-    val uiState by dashboardViewModel.uiState.collectAsState()
-    val authProfile by authViewModel.profile.collectAsState()
-    val isProfileLoading by authViewModel.isProfileLoading.collectAsState()
-    val sessionStatus by authViewModel.sessionStatus.collectAsState()
+    val uiState by dashboardViewModel.uiState.collectAsStateWithLifecycle()
+    val authProfile by authViewModel.profile.collectAsStateWithLifecycle()
+    val isProfileLoading by authViewModel.isProfileLoading.collectAsStateWithLifecycle()
+    val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -243,7 +244,7 @@ fun DashboardScreen(
                         .padding(horizontal = Spacing.screen)
                 ) {
                     val isWideScreen = maxWidth > 600.dp
-                    val isRefreshing by dashboardViewModel.isRefreshing.collectAsState()
+                    val isRefreshing by dashboardViewModel.isRefreshing.collectAsStateWithLifecycle()
                     
                     AppPullToRefresh(
                         isRefreshing = isRefreshing,

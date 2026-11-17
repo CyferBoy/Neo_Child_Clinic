@@ -1,16 +1,13 @@
 package com.neochildclinic.feature.statistics.domain
+import com.neochildclinic.core.common.DateUtils
 
-import com.neochildclinic.core.common.PatientUtils
-import com.neochildclinic.core.common.toLocalDate
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
-import java.util.Locale
 import java.util.TimeZone
 
 /**
@@ -33,7 +30,7 @@ object StatisticsDateUtils {
      * Get today's date string in IST as "d MMM yyyy" (app display format).
      */
     fun todayISTString(): String {
-        return DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+        return DateUtils.APP_DATE_FORMATTER
             .withZone(IST)
             .format(Instant.now())
     }
@@ -61,15 +58,11 @@ object StatisticsDateUtils {
         (0 until n).reversed().map { currentISTYearMonthObj().minusMonths(it.toLong()) }
 
     /**
-     * Convert a date-only string (no time component) to a LocalDate.
-     * Handles "d MMM yyyy", "yyyy-MM-dd", "d/M/yyyy", "dd/MM/yyyy".
-     * Date-only values are never shifted through UTC.
+     * Convert a date-only string (no time component) to a LocalDate via the shared parser.
+     * Handles every [DateUtils.parseFlexibleDate]-supported form; date-only values are
+     * never shifted through UTC.
      */
-    fun parseDateOnly(dateStr: String): LocalDate? {
-        if (dateStr.isBlank()) return null
-        val date = PatientUtils.parseDate(dateStr) ?: return null
-        return date.toLocalDate()
-    }
+    fun parseDateOnly(dateStr: String): LocalDate? = DateUtils.parseFlexibleDate(dateStr)
 
     /**
      * Parse a timestamp (may include time+timezone), convert to IST, extract LocalDate.
@@ -78,7 +71,7 @@ object StatisticsDateUtils {
     fun parseToISTLocalDate(dateStr: String): LocalDate? {
         if (dateStr.isBlank()) return null
         // For date-only formats (d MMM yyyy, yyyy-MM-dd, d/M/yyyy, dd/MM/yyyy),
-        // PatientUtils.parseDate already returns the correct local date.
+        // DateUtils.parseDate already returns the correct local date.
         // For timestamps with timezone info (ISO 8601), parse as Instant and convert to IST.
         if (dateStr.contains("T") && (dateStr.contains("+") || dateStr.contains("-") || dateStr.endsWith("Z"))) {
             return try {
@@ -153,7 +146,7 @@ object StatisticsDateUtils {
      * Format a LocalDate as "d MMM yyyy" for display.
      */
     fun formatDateIST(date: LocalDate): String {
-        return date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))
+        return date.format(DateUtils.APP_DATE_FORMATTER)
     }
 }
 

@@ -48,16 +48,13 @@ internal fun shouldRefreshSessionFor(statusCode: Int?, message: String?): Boolea
 // means that path already gave up on it, so it falls through and is judged as any other
 // RestException would be.
 internal fun isTransientSyncError(error: Throwable): Boolean {
-    var current: Throwable? = error
-    repeat(8) {
-        val t = current
+    for (t in walkCauses(error)) {
         if (t is IOException || t is HttpRequestException) {
             return true
         }
         if (t is RestException) {
             return t.statusCode == 408 || t.statusCode == 429 || t.statusCode in 500..599
         }
-        current = t?.cause
     }
     // Unrecognized shape (e.g. a local exception not wrapping a REST/IO failure at all) -
     // fall back to the message text, same spirit as the network-error check this replaces.
@@ -69,15 +66,8 @@ internal fun isTransientSyncError(error: Throwable): Boolean {
 
 // 429 alone. Kept separate from isTransientSyncError because a rate-limited item must be
 // requeued WITHOUT incrementing retryCount - see classifyAndRecordError.
-internal fun isRateLimitedSyncError(error: Throwable): Boolean {
-    var current: Throwable? = error
-    repeat(8) {
-        val t = current
-        if (t is RestException) return t.statusCode == 429
-        current = t?.cause
-    }
-    return false
-}
+internal fun isRateLimitedSyncError(error: Throwable): Boolean =
+    (walkCauses(error).firstOrNull { it is RestException } as? RestException)?.statusCode == 429
 
 // Blocks until the SDK has left the Initializing status - i.e. it has restored a persisted
 // session (autoLoadFromStorage) and/or finished any refresh-on-load, settling on

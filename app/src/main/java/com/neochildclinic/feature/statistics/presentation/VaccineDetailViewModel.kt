@@ -1,9 +1,9 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.VaccineUtils
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
@@ -67,12 +67,12 @@ class VaccineDetailViewModel @Inject constructor(
 
                 val entries: List<VaccineDetailEntry> = if (brandName != null) {
                     // Specific brand drill-down: show ONLY that specific brand name list
-                    val brandClean = PatientUtils.cleanVaccineName(brandName).lowercase()
+                    val brandClean = VaccineUtils.cleanVaccineName(brandName).lowercase()
                     reminders.filter { reminder ->
                         val idMatches = reminder.nxtVaccineId?.contains(vaccineId) == true ||
                                 (targetBrand != null && reminder.nxtVaccineId?.contains(targetBrand.id) == true)
                         val nameMatches = reminder.vaccineName.split(",")
-                            .map { PatientUtils.cleanVaccineName(it.trim()).lowercase() }
+                            .map { VaccineUtils.cleanVaccineName(it.trim()).lowercase() }
                             .any { it == brandClean }
                         idMatches || nameMatches
                     }.map { reminder ->
@@ -83,7 +83,7 @@ class VaccineDetailViewModel @Inject constructor(
                     val typeClean = type.trim()
                     val typeBrands = inventory.filter { it.type.equals(typeClean, ignoreCase = true) }
                     val typeBrandIds = typeBrands.map { it.id }.toSet()
-                    val typeBrandNames = typeBrands.map { PatientUtils.cleanVaccineName(it.brandName.trim()).lowercase() }
+                    val typeBrandNames = typeBrands.map { VaccineUtils.cleanVaccineName(it.brandName.trim()).lowercase() }
                         .filter { it.isNotBlank() }
                         .toSet()
 
@@ -93,7 +93,7 @@ class VaccineDetailViewModel @Inject constructor(
                                 (remType.isBlank() && typeClean.equals("Other", ignoreCase = true))
 
                         val names = reminder.vaccineName.split(",")
-                            .map { PatientUtils.cleanVaccineName(it.trim()) }
+                            .map { VaccineUtils.cleanVaccineName(it.trim()) }
                             .filter { it.isNotBlank() }
 
                         val nameMentionsType = names.any {
@@ -110,7 +110,7 @@ class VaccineDetailViewModel @Inject constructor(
                         val names = reminder.vaccineName.split(",")
                             .map { it.trim() }
                             .filter { it.isNotBlank() }
-                            .map { PatientUtils.cleanVaccineName(it) }
+                            .map { VaccineUtils.cleanVaccineName(it) }
                             .filter { it.isNotBlank() }
                             .distinct()
 
@@ -145,13 +145,13 @@ class VaccineDetailViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
                 android.util.Log.e("VaccineDetailVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

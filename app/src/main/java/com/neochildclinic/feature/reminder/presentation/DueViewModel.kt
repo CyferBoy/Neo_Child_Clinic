@@ -100,7 +100,7 @@ class DueViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 reminderRepository.refreshReminders()
             } catch (e: CancellationException) {
@@ -108,17 +108,17 @@ class DueViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("DueVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
 
     fun updateFilter(filter: String) {
-        _selectedFilter.value = filter
+        _selectedFilter.update { filter }
     }
 
     fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
+        _searchQuery.update { query }
     }
 
     private suspend fun remindersFor(vaccination: Vaccination): List<Reminder> {

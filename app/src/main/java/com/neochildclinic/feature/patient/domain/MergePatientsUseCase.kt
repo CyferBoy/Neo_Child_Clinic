@@ -38,20 +38,15 @@ class MergePatientsUseCase @Inject constructor(
                 val vaccIds = vaccinationRepository.getVaccinationsForPatient(dupId).first().map { it.id }
                 val reminderIds = reminderRepository.getPatientReminders(dupId).first().map { it.id }
 
-                // 1. Move all vaccinations from duplicate to master
                 vaccinationRepository.transferVaccinations(dupId, masterId)
 
-                // 2. Move all reminders and audits
                 reminderRepository.transferReminders(dupId, masterId)
 
-                // 3. Move inventory transactions
                 inventoryRepository.transferPatientTransactions(dupId, masterId)
 
-                // 4. Move the remaining patient-linked rows (consultations, notes,
                 // personal reminders, finance, todos) and queue their UPDATEs.
                 patientRepository.reassignPatientLinkedRecords(dupId, masterId, groupId)
 
-                // 5. Queue the moved visit/reminder updates before the duplicate DELETE.
                 vaccIds.forEach { id ->
                     syncRepository.enqueue("VACCINATION", id, SyncOperation.UPDATE, SyncPriority.MEDIUM, groupId)
                 }
@@ -59,7 +54,6 @@ class MergePatientsUseCase @Inject constructor(
                     syncRepository.enqueue("REMINDERS", id, SyncOperation.UPDATE, SyncPriority.LOW, groupId)
                 }
 
-                // 6. Create an audit log for the merge
                 auditLogger.recordLog(
                     module = "PATIENT",
                     entityType = "PATIENT",
@@ -70,7 +64,6 @@ class MergePatientsUseCase @Inject constructor(
                     transactionGroupId = groupId
                 )
 
-                // 7. Delete duplicate patient locally (this also queues its DELETE last)
                 patientRepository.deletePatient(dupId, groupId)
 
                 // NOTE: audit rows are deliberately NOT enqueued here. audit_logs is append-only

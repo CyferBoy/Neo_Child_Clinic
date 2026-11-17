@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.reminder.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.designsystem.*
 
@@ -14,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.BackTopAppBar
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -38,7 +39,7 @@ fun CompletedDismissedScreen(
     initialTab: Int = 0,
     viewModel: CompletedDismissedViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(initialTab) }
     var currentSort by rememberSaveable { mutableStateOf(CompletedDismissedSort.COMPLETION_DATE_DESC) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -138,18 +139,18 @@ fun CompletedDismissedScreen(
                             visibleRecords.sortedWith { a, b ->
                                 val dateA = when (currentSort) {
                                     CompletedDismissedSort.GIVEN_DATE_DESC, CompletedDismissedSort.GIVEN_DATE_ASC -> {
-                                        PatientUtils.parseDate(a.originalDateGiven ?: a.dateGiven)?.time ?: 0L
+                                        DateUtils.parseDate(a.originalDateGiven ?: a.dateGiven)?.time ?: 0L
                                     }
                                     CompletedDismissedSort.COMPLETION_DATE_DESC, CompletedDismissedSort.COMPLETION_DATE_ASC -> {
-                                        PatientUtils.parseDate(a.statusDate ?: a.dateGiven)?.time ?: 0L
+                                        DateUtils.parseDate(a.statusDate ?: a.dateGiven)?.time ?: 0L
                                     }
                                 }
                                 val dateB = when (currentSort) {
                                     CompletedDismissedSort.GIVEN_DATE_DESC, CompletedDismissedSort.GIVEN_DATE_ASC -> {
-                                        PatientUtils.parseDate(b.originalDateGiven ?: b.dateGiven)?.time ?: 0L
+                                        DateUtils.parseDate(b.originalDateGiven ?: b.dateGiven)?.time ?: 0L
                                     }
                                     CompletedDismissedSort.COMPLETION_DATE_DESC, CompletedDismissedSort.COMPLETION_DATE_ASC -> {
-                                        PatientUtils.parseDate(b.statusDate ?: b.dateGiven)?.time ?: 0L
+                                        DateUtils.parseDate(b.statusDate ?: b.dateGiven)?.time ?: 0L
                                     }
                                 }
 

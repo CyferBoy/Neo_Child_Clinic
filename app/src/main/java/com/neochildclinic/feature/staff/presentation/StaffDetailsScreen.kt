@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
@@ -38,7 +39,7 @@ fun StaffDetailsScreen(
     onEdit: (String) -> Unit,
     viewModel: AdminViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val staff = remember(uiState.staffList, staffId) {
         uiState.staffList.find { it.id == staffId }
@@ -137,17 +138,14 @@ fun StaffDetailsScreen(
                             .padding(horizontal = Spacing.screen, vertical = Spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                     ) {
-                        // 1. Header Profile Card
                         StaffHeaderCard(staff = staff)
 
-                        // 2. Personal Details Card
                         StaffSectionCard(title = "Personal details") {
                             StaffDetailRow(label = "Email", value = staff.email.ifBlank { "—" })
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             StaffDetailRow(label = "Phone", value = staff.phoneNumber.ifBlank { "Not provided" })
                         }
 
-                        // 3. Professional Information Card
                         StaffSectionCard(title = "Professional information") {
                             val empId = staff.employeeId?.ifBlank { null }
                                 ?: ("EMP-" + staff.id.take(4).uppercase().padStart(3, '0'))
@@ -160,7 +158,6 @@ fun StaffDetailsScreen(
                             StaffDetailRow(label = "Last updated", value = formatDisplayDateTime(staff.updatedAt))
                         }
 
-                        // 4. Role & Permissions Card
                         StaffSectionCard(title = "Role and permissions") {
                             Text(
                                 text = "${staff.role.name.replaceFirstChar { it.uppercase() }} role access",
@@ -193,7 +190,6 @@ fun StaffDetailsScreen(
                             )
                         }
 
-                        // 5. Account Status Card
                         StaffSectionCard(title = "Account status") {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
@@ -46,10 +47,10 @@ fun SettingsScreen(
     onSyncStatus: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
-    val themeMode by viewModel.themeMode.collectAsState()
-    val userProfile by viewModel.userProfile.collectAsState()
-    val staffCount by viewModel.staffCount.collectAsState()
-    val pendingSyncCount by viewModel.pendingSyncCount.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val staffCount by viewModel.staffCount.collectAsStateWithLifecycle()
+    val pendingSyncCount by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
     var showThemeDialog by remember { mutableStateOf(false) }
 
     val customColors = LocalCustomColors.current
@@ -130,7 +131,6 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Staff Profile Header Card (84dp height, matching SVG)
                 item {
                     SettingsStaffProfileCard(
                         doctorName = doctorName,
@@ -141,7 +141,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // 2. Card 1: System Settings (Theme, Notifications, Security, Inventory settings)
                 item {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -219,7 +218,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // 3. 2x2 Quick Action Grid (Manage staff, Doctor timings, Audit log, App update)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -269,7 +267,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // 4. Card 2: Backup & Support (Backup & restore, Sync status, Help & support)
                 item {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -324,7 +321,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // 5. Footer (Privacy · Terms · v<version> on left, Log out in red on right)
                 item {
                     Row(
                         modifier = Modifier

@@ -3,6 +3,7 @@ package com.neochildclinic.feature.statistics.domain
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.VaccinationItem
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -103,14 +104,11 @@ class StatisticsRegressionTest {
         val allTxns = listOf(txValid, txDeletedVisit, txDeletedPatient, txMarkedDeleted)
 
         val cleanTxns = allTxns.filter { tx ->
-            if (tx.amount <= 0) return@filter false
-            if (tx.remarks?.contains("[DELETED]", ignoreCase = true) == true) return@filter false
-            if (tx.remarks?.contains("is_deleted", ignoreCase = true) == true) return@filter false
-            if (!tx.patientId.isNullOrBlank() && tx.patientId !in existingPatientIds) return@filter false
-            if (tx.category.equals("VACCINATION", true) && !tx.visitId.isNullOrBlank()) {
-                if (tx.visitId !in validVisitIds) return@filter false
-            }
-            true
+            FinanceCalculator.isCleanTransaction(
+                transaction = tx,
+                validVaccinationIds = validVisitIds,
+                validPatientIds = existingPatientIds
+            )
         }
 
         assertEquals(1, cleanTxns.size)

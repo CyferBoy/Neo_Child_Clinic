@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import com.neochildclinic.domain.model.InventoryDeduction
 
@@ -17,20 +18,25 @@ import com.neochildclinic.domain.model.InventoryDeduction
 @Serializable
 @Entity(
     tableName = "inventory_deductions",
-    indices = [Index("vaccinationId"), Index("status")]
+    indices = [
+        Index("vaccinationId"),
+        Index("status"),
+        Index("batchId"),
+        Index("vaccineId")
+    ]
 )
 data class InventoryDeductionEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val vaccinationId: String,
-    val vaccineId: String,
-    val vaccineName: String,
-    val batchId: String?,      // null until resolved/attempted
-    val quantity: Int,
-    val status: String,        // "COMPLETED" or "FAILED"
-    val errorMessage: String?,
-    val resolvedAt: Long,       // System.currentTimeMillis()
-    @ColumnInfo(name = "created_by") val createdBy: String? = null,
-    @ColumnInfo(name = "updated_by") val updatedBy: String? = null
+    @PrimaryKey(autoGenerate = true) @SerialName("id") val id: Long = 0,
+    @SerialName("vaccination_id") val vaccinationId: String,
+    @SerialName("vaccine_id") val vaccineId: String,
+    @SerialName("vaccine_name") val vaccineName: String,
+    @SerialName("batch_id") val batchId: String?,      // null until resolved/attempted
+    @SerialName("quantity") val quantity: Int,
+    @SerialName("status") val status: String,        // "COMPLETED" or "FAILED"
+    @SerialName("error_message") val errorMessage: String?,
+    @SerialName("resolved_at") val resolvedAt: Long,       // System.currentTimeMillis()
+    @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
+    @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null
 )
 
 fun InventoryDeductionEntity.toDomain() = InventoryDeduction(

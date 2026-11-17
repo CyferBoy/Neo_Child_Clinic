@@ -1,4 +1,5 @@
 package com.neochildclinic.data.local.entity
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -10,7 +11,12 @@ import com.neochildclinic.domain.model.SyncStatus
 
 @Entity(
     tableName = "sync_queue",
-    indices = [Index("status"), Index("priority")]
+    indices = [
+        Index("status"),
+        Index("priority"),
+        Index(value = ["entityName", "entityId"]),
+        Index("createdAt")
+    ]
 )
 data class SyncQueueEntity(
     @PrimaryKey(autoGenerate = true) val queueId: Long = 0,
@@ -22,8 +28,8 @@ data class SyncQueueEntity(
     val transactionGroupId: String? = null,
     val retryCount: Int = 0,
     val lastError: String? = null,
-    val createdAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-    val updatedAt: String = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+    val createdAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    val updatedAt: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
 )
 
 fun SyncQueueEntity.toDomain() = SyncItem(
@@ -36,6 +42,6 @@ fun SyncQueueEntity.toDomain() = SyncItem(
     transactionGroupId = transactionGroupId,
     retryCount = retryCount,
     lastError = lastError,
-    createdAt = com.neochildclinic.core.common.PatientUtils.isoToLong(createdAt),
-    updatedAt = com.neochildclinic.core.common.PatientUtils.isoToLong(updatedAt)
+    createdAt = com.neochildclinic.core.common.DateUtils.isoToLong(createdAt),
+    updatedAt = com.neochildclinic.core.common.DateUtils.isoToLong(updatedAt)
 )

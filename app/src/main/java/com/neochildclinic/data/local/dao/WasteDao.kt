@@ -19,10 +19,6 @@ interface WasteDao {
     @Query("DELETE FROM waste_records WHERE id = :id")
     suspend fun deleteWaste(id: String)
 
-
-    @Query("SELECT * FROM waste_records WHERE vaccineId = :vaccineId ORDER BY dateWasted DESC")
-    fun getWasteForVaccine(vaccineId: String): Flow<List<WasteEntity>>
-
     @Query("SELECT COUNT(*) FROM waste_records")
     fun getWasteCount(): Flow<Int>
 

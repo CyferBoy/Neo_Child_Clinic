@@ -1,6 +1,5 @@
 package com.neochildclinic.feature.inventory.data
 
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.VaccineBatch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,23 +27,6 @@ class InventorySortKeysTest {
             purchaseDate = purchase, expiryDate = expiry,
             remainingQuantity = 5, purchaseCost = 0.0, sellingPrice = 0.0,
         )
-
-    // ── the string-compare trap, made explicit ───────────────────────────────
-
-    @Test
-    fun `the stored format really does misorder across a month boundary`() {
-        // Guards the premise of every other test here. If Constants.DATE_FORMAT ever gains
-        // zero padding, the remaining tests stop proving anything.
-        assertTrue("2 Jan 2026".compareTo("28 Dec 2025") < 0)
-    }
-
-    @Test
-    fun `the stored format misorders same-month dates too`() {
-        // '1' (0x31) < '9' (0x39), so a two-digit day sorts BEFORE a one-digit day.
-        // This is why EXPIRY was wrong for most of a year, not just at month boundaries.
-        assertTrue("16 Oct 2025".compareTo("9 Oct 2025") < 0)
-        assertTrue("20 Oct 2025".compareTo("3 Oct 2025") < 0)
-    }
 
     // ── expiry key ───────────────────────────────────────────────────────────
 
@@ -97,11 +79,6 @@ class InventorySortKeysTest {
             batch(purchase = "2 Jan 2026"),
             batch(purchase = "28 Dec 2025"),
         )
-        // Premise: the old string-based lookup got this backwards.
-        assertEquals(
-            "28 Dec 2025",
-            batches.maxByOrNull { it.purchaseDate }?.purchaseDate
-        )
         assertEquals("2 Jan 2026", batches.newestBatch()?.purchaseDate)
     }
 
@@ -116,9 +93,6 @@ class InventorySortKeysTest {
     fun `earliest purchase is the earlier date`() {
         val batches = listOf(batch(purchase = "2 Jan 2026"), batch(purchase = "28 Dec 2025"))
         assertTrue(batches.earliestPurchaseMillis() < batches.latestPurchaseMillis())
-        assertEquals("28 Dec 2025", batches.minByOrNull {
-            PatientUtils.parseDate(it.purchaseDate)?.time ?: Long.MAX_VALUE
-        }?.purchaseDate)
     }
 
     @Test

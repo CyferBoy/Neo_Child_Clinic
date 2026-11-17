@@ -24,7 +24,7 @@ import kotlinx.serialization.Serializable
     indices = [Index("doctorId"), Index("dayOfWeek"), Index("is_active")]
 )
 data class DoctorWeeklySlotEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey @SerialName("id") val id: String,
     @SerialName("doctor_id") val doctorId: String,
     @SerialName("day_of_week") val dayOfWeek: Int,
     @SerialName("start_minute") val startMinute: Int,
@@ -78,14 +78,14 @@ fun DoctorWeeklySlot.toEntity(isSynced: Boolean = false) = DoctorWeeklySlotEntit
     indices = [Index("doctorId"), Index("exceptionDate"), Index("weeklySlotId")]
 )
 data class DoctorSlotExceptionEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey @SerialName("id") val id: String,
     @SerialName("doctor_id") val doctorId: String,
     @SerialName("exception_date") val exceptionDate: String,
     @SerialName("exception_type") val exceptionType: String,
     @SerialName("weekly_slot_id") val weeklySlotId: String? = null,
     @SerialName("start_minute") @ColumnInfo(name = "start_minute") val startMinute: Int? = null,
     @SerialName("end_minute") @ColumnInfo(name = "end_minute") val endMinute: Int? = null,
-    val reason: String? = null,
+    @SerialName("reason") val reason: String? = null,
     @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: String = "",
     @SerialName("updated_at") @ColumnInfo(name = "updated_at") val updatedAt: String = "",
     @SerialName("is_synced") @ColumnInfo(name = "is_synced") override val isSynced: Boolean = false,

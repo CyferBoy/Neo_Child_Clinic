@@ -1,8 +1,8 @@
 package com.neochildclinic.feature.inventory.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import java.time.ZoneId
 import javax.inject.Inject
 
 private const val PAGE_SIZE = 40
@@ -131,14 +131,14 @@ class StockHistoryViewModel @Inject constructor(
         val current = _uiState.value
         if (current.isLoading || _isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 val page = inventoryRepository.getStockHistoryPage(
                     vaccineId = current.selectedVaccineId,
                     batchId = current.selectedBatchId,
                     types = current.selectedTypeFilter.transactionTypes,
-                    fromDateIso = toIsoDateOnly(current.fromDate),
-                    toDateIso = toIsoDateOnly(current.toDate),
+                    fromDateIso = DateUtils.parseFlexibleDate(current.fromDate)?.toString(),
+                    toDateIso = DateUtils.parseFlexibleDate(current.toDate)?.toString(),
                     limit = PAGE_SIZE,
                     offset = 0,
                     remoteOnly = true
@@ -153,9 +153,10 @@ class StockHistoryViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(error = e.message ?: "Failed to refresh stock history") }
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
@@ -175,8 +176,8 @@ class StockHistoryViewModel @Inject constructor(
                     vaccineId = state.selectedVaccineId,
                     batchId = state.selectedBatchId,
                     types = state.selectedTypeFilter.transactionTypes,
-                    fromDateIso = toIsoDateOnly(state.fromDate),
-                    toDateIso = toIsoDateOnly(state.toDate),
+                    fromDateIso = DateUtils.parseFlexibleDate(state.fromDate)?.toString(),
+                    toDateIso = DateUtils.parseFlexibleDate(state.toDate)?.toString(),
                     limit = PAGE_SIZE,
                     offset = offset,
                     remoteOnly = true
@@ -191,17 +192,12 @@ class StockHistoryViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update {
                     it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "Failed to load stock history")
                 }
             }
         }
-    }
-
-    private fun toIsoDateOnly(displayDate: String): String? {
-        if (displayDate.isBlank()) return null
-        val date = PatientUtils.parseDate(displayDate) ?: return null
-        return date.toInstant().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate().toString()
     }
 
     fun clearError() {

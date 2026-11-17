@@ -37,9 +37,6 @@ interface VaccineDao {
     @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
     fun getBatchesByVaccine(vaccineId: String): Flow<List<VaccineBatchEntity>>
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId")
-    suspend fun getBatchesByVaccineSync(vaccineId: String): List<VaccineBatchEntity>
-
     @Query("SELECT * FROM vaccine_batches WHERE batchId = :batchId LIMIT 1")
     suspend fun getBatchById(batchId: String): VaccineBatchEntity?
 
@@ -64,9 +61,6 @@ interface VaccineDao {
     // Transactions
     @Insert
     suspend fun insertTransaction(transaction: InventoryTransactionEntity)
-
-    @Query("SELECT * FROM inventory_transactions WHERE vaccineId = :vaccineId ORDER BY timestamp DESC")
-    fun getTransactionsForVaccine(vaccineId: String): Flow<List<InventoryTransactionEntity>>
 
     @Query("SELECT transactionId FROM inventory_transactions WHERE patientId = :patientId")
     suspend fun getTransactionIdsForPatient(patientId: String): List<String>

@@ -134,4 +134,44 @@ class BiometricLockManagerTest {
 
         job.cancel()
     }
+
+    @Test
+    fun isLockedReturnsFalseWhenProtectionDisabled() {
+        BiometricLockManager.setProtectionEnabled(false)
+        assertFalse(BiometricLockManager.isLocked(null))
+    }
+
+    @Test
+    fun isLockedReturnsTrueWhenLockStateNotResolved() {
+        BiometricLockManager.setProtectionEnabled(true)
+        BiometricLockManager.resetLockStateResolvedForTest()
+        assertTrue(BiometricLockManager.isLocked(null))
+    }
+
+    @Test
+    fun isLockedReturnsFalseWhenResolvedAndUnlocked() {
+        BiometricLockManager.setProtectionEnabled(true)
+        BiometricLockManager.markLockStateResolved()
+        BiometricLockManager.unlockAfterKeystoreVerification()
+        assertFalse(BiometricLockManager.isLocked(null))
+    }
+
+    @Test
+    fun isLockedReturnsTrueWhenAppLocked() {
+        BiometricLockManager.setProtectionEnabled(true)
+        BiometricLockManager.markLockStateResolved()
+        BiometricLockManager.lock()
+        assertTrue(BiometricLockManager.isLocked(null))
+    }
+
+    @Test
+    fun maskPatientNameRedactsCorrectly() {
+        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName(""))
+        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName("   "))
+        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName("Unknown"))
+        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName("unknown"))
+        assertEquals("A*** S***", com.neochildclinic.feature.widget.presentation.maskPatientName("Aarav Sharma"))
+        assertEquals("J***", com.neochildclinic.feature.widget.presentation.maskPatientName("John"))
+        assertEquals("R*** K*** D***", com.neochildclinic.feature.widget.presentation.maskPatientName("rahul kumar das"))
+    }
 }

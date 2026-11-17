@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.CurrencyUtils
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -28,7 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
@@ -50,12 +52,12 @@ fun MonthlyFinanceDetailsScreen(
     onViewAllExpenses: () -> Unit = {},
     viewModel: FinanceDetailsViewModel = hiltViewModel()
 ) {
-    val allTransactions by viewModel.transactions.collectAsState()
-    val allVaccinations by viewModel.vaccinations.collectAsState()
-    val allExpenses by viewModel.expenses.collectAsState()
-    val patients by viewModel.patients.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val allTransactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val allVaccinations by viewModel.vaccinations.collectAsStateWithLifecycle()
+    val allExpenses by viewModel.expenses.collectAsStateWithLifecycle()
+    val patients by viewModel.patients.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     var showTransactions by rememberSaveable { mutableStateOf(false) }
 
@@ -82,7 +84,6 @@ fun MonthlyFinanceDetailsScreen(
     }
     val prevMonthName = remember(prevMonth1Based) { monthNames[(prevMonth1Based - 1).coerceIn(0, 11)] }
 
-    // 1. Filter valid vaccinations (strictly excludes cancelled / dismissed / soft-deleted visits)
     val validVaccinations = remember(allVaccinations) {
         StatisticsUtils.filterValidVaccinations(allVaccinations)
     }
@@ -93,7 +94,6 @@ fun MonthlyFinanceDetailsScreen(
         validVaccinations.associateBy { it.id }
     }
 
-    // 2. Active patients
     val validPatients = remember(patients) {
         patients.filter { it.name.isNotBlank() }
     }
@@ -101,7 +101,6 @@ fun MonthlyFinanceDetailsScreen(
         validPatients.associateBy { it.id }
     }
 
-    // 3. Transactions: strictly filter out deleted items
     val cleanTransactions = remember(allTransactions, validVaccinationIds, patientById) {
         allTransactions.filter { tx ->
             if (tx.amount <= 0) return@filter false
@@ -121,7 +120,6 @@ fun MonthlyFinanceDetailsScreen(
         }
     }
 
-    // 4. Expenses: strictly filter out deleted items
     val cleanExpenses = remember(allExpenses) {
         allExpenses.filter { exp ->
             if (exp.amountPaise <= 0) return@filter false
@@ -134,7 +132,7 @@ fun MonthlyFinanceDetailsScreen(
     // Filter for current month
     val monthTransactions = remember(cleanTransactions, monthKey) {
         cleanTransactions.filter { tx ->
-            val date = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(tx))
+            val date = DateUtils.parseDate(FinanceCalculator.resolveReportingDate(tx))
                 ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
             val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
@@ -147,7 +145,7 @@ fun MonthlyFinanceDetailsScreen(
 
     val monthExpenseItems = remember(cleanExpenses, monthKey) {
         cleanExpenses.filter { exp ->
-            val date = PatientUtils.parseDate(exp.expenseDate) ?: return@filter false
+            val date = DateUtils.parseDate(exp.expenseDate) ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
             val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
             key == monthKey
@@ -243,7 +241,7 @@ fun MonthlyFinanceDetailsScreen(
     // Previous month comparison
     val prevMonthTransactions = remember(cleanTransactions, prevMonthKey) {
         cleanTransactions.filter { tx ->
-            val date = PatientUtils.parseDate(FinanceCalculator.resolveReportingDate(tx))
+            val date = DateUtils.parseDate(FinanceCalculator.resolveReportingDate(tx))
                 ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
             val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
@@ -252,7 +250,7 @@ fun MonthlyFinanceDetailsScreen(
     }
     val prevMonthExpenseItems = remember(cleanExpenses, prevMonthKey) {
         cleanExpenses.filter { exp ->
-            val date = PatientUtils.parseDate(exp.expenseDate) ?: return@filter false
+            val date = DateUtils.parseDate(exp.expenseDate) ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
             val key = String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
             key == prevMonthKey
@@ -406,7 +404,7 @@ fun MonthlyFinanceDetailsScreen(
                                         color = customColors.muted
                                     )
                                     Text(
-                                        text = StatisticsUtils.formatRupees(totalIncome),
+                                        text = CurrencyUtils.formatInr(totalIncome),
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp
@@ -446,7 +444,7 @@ fun MonthlyFinanceDetailsScreen(
                                         color = customColors.muted
                                     )
                                     Text(
-                                        text = StatisticsUtils.formatRupees(monthCogs),
+                                        text = CurrencyUtils.formatInr(monthCogs),
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp
@@ -486,7 +484,7 @@ fun MonthlyFinanceDetailsScreen(
                                         color = customColors.muted
                                     )
                                     Text(
-                                        text = StatisticsUtils.formatRupees(totalExpenses),
+                                        text = CurrencyUtils.formatInr(totalExpenses),
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp
@@ -526,7 +524,7 @@ fun MonthlyFinanceDetailsScreen(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
-                                        text = StatisticsUtils.formatRupees(netProfit),
+                                        text = CurrencyUtils.formatInr(netProfit),
                                         style = MaterialTheme.typography.titleLarge.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 22.sp
@@ -540,7 +538,7 @@ fun MonthlyFinanceDetailsScreen(
                                         Locale.US,
                                         "%.1f%% margin · vs %s in %s (Revenue - (COGS + Expenses))",
                                         marginPercent,
-                                        StatisticsUtils.formatRupees(prevNetProfit),
+                                        CurrencyUtils.formatInr(prevNetProfit),
                                         prevMonthName
                                     )
                                 } else {
@@ -615,7 +613,7 @@ fun MonthlyFinanceDetailsScreen(
                                     )
                                     Spacer(modifier = Modifier.weight(1f))
                                     Text(
-                                        text = StatisticsUtils.formatRupees(vaccinationsIncome),
+                                        text = CurrencyUtils.formatInr(vaccinationsIncome),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 12.sp
@@ -647,7 +645,7 @@ fun MonthlyFinanceDetailsScreen(
                                     )
                                     Spacer(modifier = Modifier.weight(1f))
                                     Text(
-                                        text = StatisticsUtils.formatRupees(consultationsIncome),
+                                        text = CurrencyUtils.formatInr(consultationsIncome),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 12.sp
@@ -678,7 +676,7 @@ fun MonthlyFinanceDetailsScreen(
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
                                         Text(
-                                            text = StatisticsUtils.formatRupees(otherIncome),
+                                            text = CurrencyUtils.formatInr(otherIncome),
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 12.sp
@@ -718,7 +716,7 @@ fun MonthlyFinanceDetailsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Cash ${StatisticsUtils.formatRupees(cashIncome)}",
+                                        text = "Cash ${CurrencyUtils.formatInr(cashIncome)}",
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontSize = 12.sp
                                         ),
@@ -733,7 +731,7 @@ fun MonthlyFinanceDetailsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Online ${StatisticsUtils.formatRupees(onlineIncome)}",
+                                        text = "Online ${CurrencyUtils.formatInr(onlineIncome)}",
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontSize = 12.sp
                                         ),
@@ -828,7 +826,7 @@ fun MonthlyFinanceDetailsScreen(
                                                 color = customColors.muted
                                             )
                                             Text(
-                                                text = StatisticsUtils.formatRupees(amount),
+                                                text = CurrencyUtils.formatInr(amount),
                                                 style = MaterialTheme.typography.bodyMedium.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                     fontSize = 12.sp
@@ -955,7 +953,7 @@ private fun FinanceTransactionCard(
         else -> transaction.remarks?.substringBefore("[COGS_SNAPSHOT:")?.trim()?.takeIf { it.isNotBlank() }
             ?: category
     }
-    val amountText = if (isIncome) StatisticsUtils.formatRupees(transaction.amount) else "-${StatisticsUtils.formatRupees(transaction.amount)}"
+    val amountText = if (isIncome) CurrencyUtils.formatInr(transaction.amount) else "-${CurrencyUtils.formatInr(transaction.amount)}"
     val date = FinanceCalculator.resolveReportingDate(transaction)
 
     Surface(
@@ -1016,7 +1014,7 @@ private fun FinanceTransactionCard(
                         maxLines = 1
                     )
                     Text(
-                        text = "  \u00b7  ${PatientUtils.formatDateForDisplay(date)}",
+                        text = "  \u00b7  ${DateUtils.formatDateForDisplay(date)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1

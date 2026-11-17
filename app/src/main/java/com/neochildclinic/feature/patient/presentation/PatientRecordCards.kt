@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -24,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientNote
@@ -263,7 +264,7 @@ fun DocumentCard(doc: PatientDocument, onView: () -> Unit, onDelete: () -> Unit)
 @Composable
 fun ClinicalNoteCard(note: PatientNote) {
     val dateDisplay = remember(note.timestamp) { 
-        val date = com.neochildclinic.core.common.PatientUtils.parseDate(note.timestamp) ?: Date(0)
+        val date = com.neochildclinic.core.common.DateUtils.parseDate(note.timestamp) ?: Date(0)
         DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", Locale.ENGLISH)
             .withZone(ZoneId.of("Asia/Kolkata"))
             .format(date.toInstant())

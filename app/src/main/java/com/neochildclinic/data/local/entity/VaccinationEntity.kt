@@ -1,4 +1,5 @@
 package com.neochildclinic.data.local.entity
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -26,7 +27,10 @@ import kotlinx.serialization.Serializable
         // ORDER BY dateGiven DESC on 20+ paths (app start, home widget, finance,
         // statistics, reports, reminders). Without this, every one of them sorts
         // the whole table via a temp B-tree.
-        Index("dateGiven")
+        Index("dateGiven"),
+        Index("doctorId"),
+        Index("availabilitySlotId"),
+        Index("createdAt")
     ],
     foreignKeys = [
         ForeignKey(
@@ -38,17 +42,17 @@ import kotlinx.serialization.Serializable
     ]
 )
 data class VisitEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey @SerialName("id") val id: String,
     @SerialName("patient_id") val patientId: String,
     @SerialName("date_given") val dateGiven: String,
     @SerialName("doctor_id") val doctorId: String = "",
-    val doctor: String = "",
+    @SerialName("doctor") val doctor: String = "",
     @SerialName("vaccine_names") val vaccineNames: String = "",
     @SerialName("vaccine_ids") val vaccineIds: String = "",
     @SerialName("batch_ids") val batchIds: String = "", // Comma separated list of batch UUIDs
     @SerialName("batch_numbers") val batchNumbers: String = "", // Comma separated list of human-readable lot numbers
     @SerialName("materials_used") val materialsUsed: String? = null,
-    val notes: String = "",
+    @SerialName("notes") val notes: String = "",
     @SerialName("receipt_number") val receiptNumber: String = "",
     @SerialName("total_paid") val totalPaid: Double = 0.0,
     @SerialName("payment_id") val paymentId: String? = null, // Linked to finance_transactions
@@ -60,8 +64,8 @@ data class VisitEntity(
     @SerialName("online_amount") val onlineAmount: Double = 0.0,
     @SerialName("with_fees") val withFees: Boolean = false,
     @SerialName("doctors_acc") val doctorsAcc: Boolean = false,
-    val status: ReminderStatus = ReminderStatus.ACTIVE,
-    val source: String = "CLINIC",
+    @SerialName("status") val status: ReminderStatus = ReminderStatus.ACTIVE,
+    @SerialName("source") val source: String = "CLINIC",
     @SerialName("visit_type") val visitType: String = "VACCINATION",
     @SerialName("inventory_status") val inventoryStatus: String = "PENDING",
     @SerialName("availability_slot_id") val availabilitySlotId: String? = null,
@@ -104,7 +108,7 @@ fun Vaccination.toEntity(isSynced: Boolean = true, createdAtOverride: String? = 
     // updatedAt is blank for a brand-new vaccination (nothing sets it before this point),
     // and createdAt/updatedAt were previously left as null in that case - which Supabase's
     // patient_visits.created_at (NOT NULL) rejects outright, failing every new record's sync.
-    val timestamp = updatedAt.ifBlank { com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp() }
+    val timestamp = updatedAt.ifBlank { com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp() }
     VisitEntity(
     id = id,
     patientId = patientId,

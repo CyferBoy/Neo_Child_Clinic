@@ -148,4 +148,32 @@ class FinanceCalculatorTest {
         )
         assertEquals("2026-06-15T10:00:00+00:00", FinanceCalculator.resolveReportingDate(withoutDate))
     }
+
+    @Test
+    fun `getCurrentFinancialYear calculates correct Indian fiscal year`() {
+        val may2026 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply {
+            set(2026, java.util.Calendar.MAY, 15)
+        }
+        assertEquals("FY 26-27", FinanceCalculator.getCurrentFinancialYear(may2026))
+
+        val feb2026 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply {
+            set(2026, java.util.Calendar.FEBRUARY, 10)
+        }
+        assertEquals("FY 25-26", FinanceCalculator.getCurrentFinancialYear(feb2026))
+    }
+
+    @Test
+    fun `getAvailableFinancialYears extracts unique financial years including current`() {
+        val oct2026 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply {
+            set(2026, java.util.Calendar.OCTOBER, 1)
+        }
+        val dates = listOf("2024-05-10", "2025-01-15", "2025-08-20")
+        val years = FinanceCalculator.getAvailableFinancialYears(dates, oct2026)
+        // 2024-05-10 -> FY 24-25 ("24-25")
+        // 2025-01-15 -> FY 24-25 ("24-25")
+        // 2025-08-20 -> FY 25-26 ("25-26")
+        // oct2026 (current) -> FY 26-27 ("26-27")
+        assertEquals(listOf("24-25", "25-26", "26-27"), years)
+    }
 }
+

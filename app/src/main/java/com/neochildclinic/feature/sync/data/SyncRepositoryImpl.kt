@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.sync.data
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.core.sync.*
@@ -15,6 +16,8 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -142,18 +145,18 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun processNextItemsInternal(): Boolean {
         syncQueueDao.cleanCorruptedItems()
         syncQueueDao.requeueStaleSyncingItems(
-            staleBefore = com.neochildclinic.core.common.PatientUtils.getIsoTimestampMinutesAgo(5)
+            staleBefore = com.neochildclinic.core.common.DateUtils.getIsoTimestampMinutesAgo(5)
         )
 
         batchRefreshAttempted = false
 
         val pending = syncQueueDao.getItemsByStatus(SyncStatus.PENDING.name)
         if (pending.isEmpty()) {
-            _syncState.value = SyncState.IDLE
+            _syncState.update { SyncState.IDLE }
             return false
         }
 
-        _syncState.value = SyncState.SYNCING
+        _syncState.update { SyncState.SYNCING }
 
         if (!resolveSessionOrDefer()) return false
 
@@ -197,15 +200,14 @@ class SyncRepositoryImpl @Inject constructor(
         if (sessionTransient) {
             // A group was deferred because auth wasn't available. Don't report ERROR and
             // don't recurse: leave the PENDING rows and let one quiet background run retry.
-            _syncState.value = SyncState.IDLE
+            _syncState.update { SyncState.IDLE }
             syncManager.scheduleSync()
             android.util.Log.w("SyncRepositoryImpl", "Session refresh unavailable; scheduled a background retry")
             return false
         }
 
-        _syncState.value = if (hasError) SyncState.ERROR else SyncState.IDLE
+        _syncState.update { if (hasError) SyncState.ERROR else SyncState.IDLE }
 
-        // 3. Loop if more items arrived during processing (inner call: the flight lock
         // above is already held by this coroutine).
         if (syncQueueDao.getPendingCountSync() > 0 && !hasError) {
             anyFailed = processNextItemsInternal() || anyFailed
@@ -255,7 +257,7 @@ class SyncRepositoryImpl @Inject constructor(
                 )
                 syncManager.scheduleSync()
             }
-            _syncState.value = SyncState.IDLE
+            _syncState.update { SyncState.IDLE }
             return false
         }
 
@@ -270,13 +272,13 @@ class SyncRepositoryImpl @Inject constructor(
                 // retry via the scheduler's unique, backoff-bounded work.
                 android.util.Log.w("SyncRepositoryImpl", "Session refresh deferred; scheduling a background retry")
                 syncManager.scheduleSync()
-                _syncState.value = SyncState.IDLE
+                _syncState.update { SyncState.IDLE }
                 return false
             }
             SessionReadiness.LOGGED_OUT -> {
                 // The SDK has settled on NotAuthenticated. Never retry-loop without a session.
                 android.util.Log.w("SyncRepositoryImpl", "Session became unavailable; skipping sync batch")
-                _syncState.value = SyncState.IDLE
+                _syncState.update { SyncState.IDLE }
                 return false
             }
         }
@@ -326,6 +328,7 @@ class SyncRepositoryImpl @Inject constructor(
                 try {
                     uploader.uploadEntity(item, remoteConflictData)
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     if (!requiresSessionRefresh(e)) throw e
                     handleSessionRefreshOn401(e)
                     uploader.uploadEntity(item, remoteConflictData)
@@ -344,6 +347,14 @@ class SyncRepositoryImpl @Inject constructor(
             android.util.Log.w("SyncRepositoryImpl", "Group $groupId deferred: session refresh unavailable", e)
             GroupResult.SESSION_DEFERRED
         } catch (e: Exception) {
+            if (e is CancellationException) {
+                withContext(NonCancellable) {
+                    for (item in groupItems) {
+                        syncQueueDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
+                    }
+                }
+                throw e
+            }
             android.util.Log.e("SyncRepositoryImpl", "Group sync failed: $groupId", e)
             // A rejected stock movement means another device already moved this batch's
             // remaining_quantity; copy the server value back so the next visit sees the
@@ -411,14 +422,8 @@ class SyncRepositoryImpl @Inject constructor(
     // 401 (UnauthorizedRestException), while a genuine RLS rejection is 400 with PostgREST
     // error code "42501" and must stay a failure. The message-text check is only a fallback
     // for non-REST failures (e.g. local JWT parsing) and never matches RLS text.
-    private fun requiresSessionRefresh(error: Throwable): Boolean {
-        var current: Throwable? = error
-        repeat(8) {
-            if (shouldRefreshSessionFor((current as? RestException)?.statusCode, current?.message)) return true
-            current = current?.cause
-        }
-        return false
-    }
+    private fun requiresSessionRefresh(error: Throwable): Boolean =
+        walkCauses(error).any { shouldRefreshSessionFor((it as? RestException)?.statusCode, it.message) }
 
     /**
      * Auth prerequisite for a sync batch: prove there is a usable authenticated session
@@ -501,24 +506,21 @@ class SyncRepositoryImpl @Inject constructor(
 
     private fun buildSyncErrorDetails(error: Throwable): String {
         val reason = error.message?.takeIf { it.isNotBlank() } ?: "Sync failed"
-        var current: Throwable? = error
-
-        repeat(8) {
-            val throwable = current ?: return@repeat
-            if (throwable is io.ktor.client.plugins.ResponseException) {
-                val response = throwable.response
-                val url = sanitizeUrl(response.call.request.url.toString())
-                val requestHeaders = extractSafeHeaders(response.call.request.headers)
-                    .mapKeys { "Request-${it.key}" }
-                val responseHeaders = extractSafeHeaders(response.headers)
-                    .mapKeys { "Response-${it.key}" }
-                return SyncErrorDetails(
-                    reason = reason,
-                    url = url,
-                    headers = responseHeaders + requestHeaders
-                ).encode()
-            }
-            current = throwable.cause
+        val responseException = walkCauses(error)
+            .firstOrNull { it is io.ktor.client.plugins.ResponseException }
+            as? io.ktor.client.plugins.ResponseException
+        if (responseException != null) {
+            val response = responseException.response
+            val url = sanitizeUrl(response.call.request.url.toString())
+            val requestHeaders = extractSafeHeaders(response.call.request.headers)
+                .mapKeys { "Request-${it.key}" }
+            val responseHeaders = extractSafeHeaders(response.headers)
+                .mapKeys { "Response-${it.key}" }
+            return SyncErrorDetails(
+                reason = reason,
+                url = url,
+                headers = responseHeaders + requestHeaders
+            ).encode()
         }
 
         return SyncErrorDetails(reason = reason).encode()

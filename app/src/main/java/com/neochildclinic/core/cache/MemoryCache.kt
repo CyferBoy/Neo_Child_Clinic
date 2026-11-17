@@ -46,7 +46,7 @@ class MemoryCache<K : Any, V : Any>(
     private class Entry<V>(val value: V, val expiresAtNanos: Long)
 
     private val lock = Any()
-    private val data = HashMap<K, Entry<V>>()
+    private val data = LinkedHashMap<K, Entry<V>>(16, 0.75f, true)
 
     fun get(key: K): V? = synchronized(lock) {
         val entry = data[key] ?: return null
@@ -88,7 +88,8 @@ class MemoryCache<K : Any, V : Any>(
     }
 
     private fun evictEarliestExpiry() {
-        val victim = data.entries.minByOrNull { it.value.expiresAtNanos }?.key ?: return
+        // LinkedHashMap with accessOrder=true keeps the eldest/least-recently-used entry at the iterator head
+        val victim = data.keys.firstOrNull() ?: return
         data.remove(victim)
     }
 }

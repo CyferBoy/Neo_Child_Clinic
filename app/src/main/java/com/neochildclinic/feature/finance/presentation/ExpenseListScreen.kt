@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.finance.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +47,6 @@ import com.neochildclinic.core.ui.DeleteConfirmationDialog
 import com.neochildclinic.core.ui.SearchTopAppBar
 import com.neochildclinic.core.ui.SkeletonList
 import com.neochildclinic.core.ui.SkeletonListItem
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
@@ -58,7 +59,7 @@ fun ExpenseListScreen(
     onEditExpense: (String) -> Unit = {},
     viewModel: ExpenseListViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isSearchActive by remember { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
     var selectedExpense by remember { mutableStateOf<Expense?>(null) }
@@ -541,7 +542,7 @@ private fun ExpenseCard(expense: Expense, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "${expense.category.label} · ${PatientUtils.formatDateForDisplay(expense.expenseDate)} · ${expense.paymentMethod.label}",
+                    text = "${expense.category.label} · ${DateUtils.formatDateForDisplay(expense.expenseDate)} · ${expense.paymentMethod.label}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -598,7 +599,7 @@ fun ExpenseDetailSheet(
                 fontWeight = FontWeight.Bold
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            DetailRow("Date", PatientUtils.formatDateForDisplay(expense.expenseDate))
+            DetailRow("Date", DateUtils.formatDateForDisplay(expense.expenseDate))
             DetailRow("Category", expense.category.label)
             if (!expense.description.isNullOrBlank()) DetailRow("Description", expense.description)
             DetailRow("Payment Method", expense.paymentMethod.label)
@@ -606,9 +607,9 @@ fun ExpenseDetailSheet(
             if (expense.attachmentPath != null) DetailRow("Attachment", "Receipt attached")
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             if (!expense.createdBy.isNullOrBlank()) DetailRow("Created By", expense.createdBy)
-            if (!expense.createdAt.isNullOrBlank()) DetailRow("Created", PatientUtils.formatDateTimeForDisplay(expense.createdAt))
+            if (!expense.createdAt.isNullOrBlank()) DetailRow("Created", DateUtils.formatDateTimeForDisplay(expense.createdAt))
             if (!expense.updatedBy.isNullOrBlank()) DetailRow("Last Updated By", expense.updatedBy)
-            if (!expense.updatedAt.isNullOrBlank()) DetailRow("Last Updated", PatientUtils.formatDateTimeForDisplay(expense.updatedAt))
+            if (!expense.updatedAt.isNullOrBlank()) DetailRow("Last Updated", DateUtils.formatDateTimeForDisplay(expense.updatedAt))
 
             if (canManage) {
                 Spacer(Modifier.height(Spacing.sm))

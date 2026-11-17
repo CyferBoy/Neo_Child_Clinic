@@ -24,7 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.InventoryFilter
@@ -45,10 +46,10 @@ fun VaccineInventoryScreen(
     onStockHistory: () -> Unit = {},
     viewModel: VaccineInventoryViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     var batchToDelete by remember { mutableStateOf<VaccineBatch?>(null) }
     var vaccineToDelete by remember { mutableStateOf<InventoryItem?>(null) }
 
@@ -175,7 +176,6 @@ private fun VaccineInventoryContent(
                         contentPadding = PaddingValues(bottom = 100.dp, top = Spacing.sm),
                         verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        // 1. Filter Chips Row
                         item {
                             val filterOptions = listOf(
                                 InventoryFilter.ALL to "All",
@@ -218,7 +218,6 @@ private fun VaccineInventoryContent(
                             }
                         }
 
-                        // 2. Stats Strip Card
                         item {
                             val totalBatches = remember(uiState.inventory) {
                                 uiState.inventory.sumOf { it.batches.count { b -> b.remainingQuantity > 0 } }
@@ -306,7 +305,6 @@ private fun VaccineInventoryContent(
                         }
                     }
 
-                    // 3. Vaccine List or Empty State
                         if (uiState.inventory.isEmpty()) {
                             item {
                                 EmptyState(

@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.vaccination.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.feature.inventory.domain.InventoryUtils
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.VaccinationItem
@@ -12,7 +12,7 @@ import java.util.Date
 internal fun bestAvailableBatch(vaccine: InventoryItem, givenDate: String): VaccineBatch? =
     vaccine.batches
         .filter { it.remainingQuantity > 0 && !InventoryUtils.isExpiredAsOf(it.expiryDate, givenDate) }
-        .minByOrNull { PatientUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
+        .minByOrNull { DateUtils.parseDate(it.expiryDate) ?: Date(Long.MAX_VALUE) }
 
 /**
  * Re-validates every stored row's batch against a (possibly new) given date: a batch that is

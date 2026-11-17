@@ -105,19 +105,20 @@ class StatisticsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatisticsUiState(isLoading = true))
 
     fun updateTab(tab: Int) {
-        _selectedTab.value = tab
+        _selectedTab.update { tab }
     }
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.value = true
-            _refreshError.value = null
+            _isRefreshing.update { true }
+            _refreshError.update { null }
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
-                _refreshError.value = e.message ?: "Unable to refresh statistics"
+                if (e is CancellationException) throw e
+                _refreshError.update { e.message ?: "Unable to refresh statistics" }
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

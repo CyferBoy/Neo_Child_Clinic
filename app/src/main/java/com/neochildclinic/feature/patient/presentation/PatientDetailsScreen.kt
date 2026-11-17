@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.designsystem.*
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.core.ui.*
@@ -42,12 +43,12 @@ fun PatientDetailsScreen(
 ) {
     val authViewModel: AuthViewModel = hiltViewModel()
     // null until Room emits its first patient list - see the loading branch below.
-    val allPatients by viewModel.allPatients.collectAsState()
+    val allPatients by viewModel.allPatients.collectAsStateWithLifecycle()
 val snackbarHostState = remember { SnackbarHostState() }
     val patient = remember(patientId, allPatients) { allPatients?.find { it.id == patientId } }
     // Invalidate this scope when the session (and app_metadata.role) changes —
     // the role getter below is a plain read with no other invalidation source.
-    val sessionStatus by authViewModel.sessionStatus.collectAsState()
+    val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
     val role = sessionStatus.let { authViewModel.currentUserRole }
     val isAdmin = role == UserRole.admin
     val canEditOrDelete = isAdmin || role == UserRole.doctor
@@ -74,13 +75,13 @@ val snackbarHostState = remember { SnackbarHostState() }
     // value to a list showed "No vaccination records found." before Room ever answered.
     // PatientHistoryUiState makes loading vs loaded-but-empty distinguishable.
     LaunchedEffect(patientId) { viewModel.attachPatient(patientId) }
-    val historyState by viewModel.historyState.collectAsState()
-    val documents by viewModel.documents.collectAsState()
-    val documentError by viewModel.documentError.collectAsState()
-    val doctorMap by viewModel.doctorMap.collectAsState()
-    val vaccineMap by viewModel.vaccineMap.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
-    val deletingVaccinationIds by viewModel.deletingVaccinationIds.collectAsState()
+    val historyState by viewModel.historyState.collectAsStateWithLifecycle()
+    val documents by viewModel.documents.collectAsStateWithLifecycle()
+    val documentError by viewModel.documentError.collectAsStateWithLifecycle()
+    val doctorMap by viewModel.doctorMap.collectAsStateWithLifecycle()
+    val vaccineMap by viewModel.vaccineMap.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val deletingVaccinationIds by viewModel.deletingVaccinationIds.collectAsStateWithLifecycle()
 
     LaunchedEffect(patientId) {
         viewModel.loadDocuments(patientId)

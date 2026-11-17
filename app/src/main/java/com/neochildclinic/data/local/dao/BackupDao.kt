@@ -260,14 +260,5 @@ interface BackupDao {
     suspend fun upsertHistory(entry: BackupHistoryEntity)
 
     @Query("SELECT * FROM backup_history ORDER BY createdAt DESC")
-    suspend fun getHistorySnapshot(): List<BackupHistoryEntity>
-
-    @Query("SELECT * FROM backup_history ORDER BY createdAt DESC")
     fun observeHistory(): kotlinx.coroutines.flow.Flow<List<BackupHistoryEntity>>
-
-    @Query("DELETE FROM backup_history WHERE id = :id")
-    suspend fun deleteHistory(id: String)
-
-    @Query("DELETE FROM backup_history WHERE createdAt < :before")
-    suspend fun trimHistoryOlderThan(before: String)
 }

@@ -12,15 +12,19 @@ import kotlinx.serialization.SerialName
 @Serializable
 @Entity(
     tableName = "profiles",
-    indices = [Index("email", unique = true)]
+    indices = [
+        Index("email", unique = true),
+        Index("employeeId"),
+        Index("role")
+    ]
 )
 data class ProfileEntity(
-    @PrimaryKey val id: String,
-    val email: String,
+    @PrimaryKey @SerialName("id") val id: String,
+    @SerialName("email") val email: String,
     @SerialName("display_name") val displayName: String,
     @SerialName("phone_number") val phoneNumber: String = "",
     @SerialName("employee_id") val employeeId: String? = null,
-    val role: String, // Enum name
+    @SerialName("role") val role: String, // Enum name
     @SerialName("is_active") val isActive: Boolean = true,
     @SerialName("fcm_token") val fcmToken: String? = null,
     @SerialName("created_at") val createdAt: String = "",

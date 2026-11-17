@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -63,6 +64,7 @@ class FullAuditLogViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 // Refresh failures keep the existing rows on screen; only surface the error.
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to load audit logs") }
             } finally {
@@ -88,6 +90,7 @@ class FullAuditLogViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update {
                     it.copy(
                         isLoadingMore = false,

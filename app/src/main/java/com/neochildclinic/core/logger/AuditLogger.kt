@@ -1,14 +1,12 @@
 package com.neochildclinic.core.logger
 
 import android.os.Build
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.security.SessionManager
-import com.neochildclinic.core.sync.SyncEnqueuer
-import com.neochildclinic.data.local.dao.AuditLogDao
-import com.neochildclinic.data.local.entity.AuditLogEntity
-import com.neochildclinic.domain.model.SyncOperation
-import com.neochildclinic.domain.model.SyncPriority
+import com.neochildclinic.domain.model.AuditLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,10 +14,9 @@ import javax.inject.Singleton
 @Singleton
 class AuditLogger @Inject constructor(
     private val sessionManager: SessionManager,
-    private val auditLogDao: AuditLogDao,
-    private val syncEnqueuer: SyncEnqueuer
+    private val auditLogWriter: AuditLogWriter
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
      * Centralized logging for all business modules.
@@ -62,10 +59,10 @@ class AuditLogger @Inject constructor(
     ) {
         try {
             val userLabel = sessionManager.getCurrentUserName()
-            val timestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            val timestamp = DateUtils.getCurrentIsoTimestamp()
             val device = "${Build.MANUFACTURER} ${Build.MODEL}"
 
-            val logEntity = AuditLogEntity(
+            val log = AuditLog(
                 timestamp = timestamp,
                 user = userLabel,
                 module = module,
@@ -76,19 +73,10 @@ class AuditLogger @Inject constructor(
                 newValue = newValue,
                 remarks = remarks,
                 device = device,
-                patientId = patientId,
-                isSynced = false
+                patientId = patientId
             )
 
-            auditLogDao.insertLog(logEntity)
-
-            syncEnqueuer.enqueue(
-                entityName = "AUDIT_LOG",
-                entityId = logEntity.id,
-                operation = SyncOperation.CREATE,
-                priority = SyncPriority.LOW,
-                transactionGroupId = transactionGroupId
-            )
+            auditLogWriter.recordLog(log, transactionGroupId)
         } catch (e: Exception) {
             android.util.Log.e("AuditLogger", "Audit log failed: ${e.message}")
         }

@@ -1,8 +1,7 @@
 package com.neochildclinic.feature.vaccination.domain
+import com.neochildclinic.core.common.VaccineUtils
 
 import com.neochildclinic.core.database.TransactionRunner
-import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
 import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Visit
@@ -17,7 +16,6 @@ import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedExceptio
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
-import com.neochildclinic.core.common.PatientUtils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.UUID
@@ -28,7 +26,6 @@ import javax.inject.Singleton
 class ClinicalVaccinationService @Inject constructor(
     private val transactionRunner: TransactionRunner,
     private val vaccinationRepository: VaccinationRepository,
-    private val consultationRepository: ConsultationRepository,
     private val financeRepository: FinanceRepository,
     private val reminderRepository: ReminderRepository,
     private val syncRepository: SyncRepository,
@@ -57,10 +54,8 @@ class ClinicalVaccinationService @Inject constructor(
     ) {
         val transactionGroupId = UUID.randomUUID().toString()
         transactionRunner.run {
-            // 1. Add/Update Vaccination Record
             vaccinationRepository.addVaccination(vaccination, transactionGroupId)
 
-            // 2. Create the finance transaction only for a new vaccination.
             // Editing must update the existing transaction for this visit instead of
             // creating a second income record.
             if (isNew) {
@@ -89,12 +84,10 @@ class ClinicalVaccinationService @Inject constructor(
                 )
             }
 
-            // 3. If this is a newly administered vaccination, complete any existing
             // reminder rows for this visit/vaccine directly. No legacy requirement object or
             // automatic reminder-engine calculation is involved.
             if (isNew) satisfyRelatedReminders(vaccination, user)
 
-            // 4. Inventory Domain - deduct stock for a newly administered vaccination.
             // Editing an existing record already deducts/reverses stock via
             // VaccinationEditEngine's inventoryDiff; this covers the creation path, which
             // previously had no inventory logic at all - a new vaccination never actually
@@ -104,7 +97,6 @@ class ClinicalVaccinationService @Inject constructor(
             // FAILED/PARTIAL for staff to reconcile manually rather than blocking the visit.
             if (isNew) deductInventoryForNewVaccination(vaccination, user)
 
-            // 5. Next-vaccination reminders, inside the same transaction as the visit and its
             // stock movement. Either the whole record lands or none of it does.
             reminderSpecs.forEach { spec ->
                 reminderRepository.saveNextVaccination(
@@ -190,71 +182,14 @@ class ClinicalVaccinationService @Inject constructor(
         )
     }
 
-    suspend fun recordConsultation(
-        consultation: Consultation,
-        user: String
-    ) {
-        val transactionGroupId = UUID.randomUUID().toString()
-        transactionRunner.run {
-            val visitId = if (consultation.visitId.isBlank()) UUID.randomUUID().toString() else consultation.visitId
-            
-            // 1. Create Visit Header
-            // createdAt must be set here (not left null): patient_visits.created_at is
-            // NOT NULL, and an explicit null in the upsert payload overrides the column's
-            // DB-side default, so Supabase rejects the CREATE with a not-null violation.
-            val consultationTimestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
-            val visit = Visit(
-                id = visitId,
-                patientId = consultation.patientId,
-                dateGiven = consultation.date,
-                doctorId = consultation.doctorId,
-                doctor = consultation.doctorName,
-                visitType = "CONSULTATION",
-                cashAmount = consultation.cashAmount,
-                onlineAmount = consultation.onlineAmount,
-                totalPaid = consultation.amount,
-                createdAt = consultationTimestamp,
-                updatedAt = consultationTimestamp,
-                isSynced = false
-            )
-            vaccinationRepository.insertVisit(visit)
-            
-            // Sync visit header
-            syncRepository.enqueue(
-                entityName = "VISIT",
-                entityId = visitId,
-                operation = SyncOperation.CREATE,
-                priority = SyncPriority.HIGH,
-                transactionGroupId = transactionGroupId
-            )
-            
-            // 2. Create Consultation Record
-            val finalConsultation = consultation.copy(visitId = visitId)
-            consultationRepository.addConsultation(finalConsultation, transactionGroupId)
-            
-            // 3. Record Financial Transaction
-            financeRepository.recordIncome(
-                amount = consultation.amount,
-                cashAmount = consultation.cashAmount,
-                onlineAmount = consultation.onlineAmount,
-                category = "CONSULTATION",
-                patientId = consultation.patientId,
-                visitId = visitId,
-                remarks = "Consultation: ${consultation.problem} [CONSULTATION_ID:${finalConsultation.id}]",
-                recordedBy = user,
-                transactionGroupId = transactionGroupId
-            )
-        }
-    }
-
     private suspend fun satisfyRelatedReminders(vaccination: Vaccination, user: String) {
         val reminders = reminderRepository.getPatientReminders(vaccination.patientId).first()
         val givenNames = vaccination.items.map {
-            PatientUtils.cleanVaccineName(it.vaccineName).lowercase().trim()
+            VaccineUtils.cleanVaccineName(it.vaccineName).lowercase().trim()
         }
         reminders.forEach { reminder ->
             val reminderNames = reminder.vaccineName.split(",").map {
-                PatientUtils.cleanVaccineName(it).lowercase().trim()
+                VaccineUtils.cleanVaccineName(it).lowercase().trim()
             }.filter { it.isNotBlank() }
             val matches = reminderNames.isNotEmpty() && reminderNames.any { it in givenNames }
             if (matches && reminder.status != "COMPLETED" && reminder.status != "DISMISSED") {

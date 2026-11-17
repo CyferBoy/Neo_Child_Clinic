@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
@@ -27,9 +28,9 @@ fun DueScreen(
     onPatientClick: (String) -> Unit,
     viewModel: DueViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val stats by viewModel.stats.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     var isSearchActive by remember { mutableStateOf(false) }
 
     AppBackground {

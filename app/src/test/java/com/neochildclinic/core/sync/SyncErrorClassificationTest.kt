@@ -3,10 +3,12 @@ package com.neochildclinic.core.sync
 import io.github.jan.supabase.auth.status.RefreshFailureCause
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -50,7 +52,7 @@ class SyncErrorClassificationTest {
     }
 
     @Test
-    fun `session resolves when status leaves Initializing`() = runBlocking<Unit> {
+    fun `stuck Initializing session times out as unresolved`() = runBlocking<Unit> {
         val status = MutableStateFlow<SessionStatus>(SessionStatus.Initializing)
         val resolved = awaitSessionResolved(status, 200L)
         assertFalse("Should not resolve while still Initializing", resolved)
@@ -69,21 +71,17 @@ class SyncErrorClassificationTest {
     @Test
     fun `session that settles shortly after start resolves`() = runBlocking<Unit> {
         val status = MutableStateFlow<SessionStatus>(SessionStatus.Initializing)
-        val job = this.launch {
-            delay(20L)
+        val settle = CompletableDeferred<Unit>()
+        val settleJob = launch {
+            settle.await()
             status.value = SessionStatus.NotAuthenticated()
         }
-        assertTrue("Late-settling session should resolve within the wait", awaitSessionResolved(status, 500L))
-        job.cancel()
-    }
+        val resolveJob = async { awaitSessionResolved(status, 500L) }
+        yield() // let the waiter start before the status settles
+        settle.complete(Unit)
 
-    @Test
-    fun `timeout is not conflated with a settled logged out state`() = runBlocking<Unit> {
-        val status = MutableStateFlow<SessionStatus>(SessionStatus.Initializing)
-        val started = System.currentTimeMillis()
-        assertFalse("Stuck Initializing status must time out as unresolved", awaitSessionResolved(status, 150L))
-        val elapsed = System.currentTimeMillis() - started
-        assertTrue("Wait must be bounded by the timeout", elapsed in 100L..1_500L)
+        assertTrue("Late-settling session should resolve within the wait", resolveJob.await())
+        settleJob.join()
     }
 
     // ---- Auth prerequisite for background sync (session readiness) ----

@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.CurrencyUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,7 +22,6 @@ import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.finance.domain.FinanceSummaryItem
-import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.util.Locale
 
 @Composable
@@ -146,7 +146,7 @@ private fun FinanceMonthRow(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = if (data.isProfitComplete) StatisticsUtils.formatRupees(data.netProfit) else "Unavailable",
+                    text = if (data.isProfitComplete) CurrencyUtils.formatInr(data.netProfit) else "Unavailable",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = netColor
@@ -164,17 +164,17 @@ private fun FinanceMonthRow(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             FinanceMiniMetric(
                 label = "Revenue",
-                value = StatisticsUtils.formatRupees(data.revenue),
+                value = CurrencyUtils.formatInr(data.revenue),
                 modifier = Modifier.weight(1f)
             )
             FinanceMiniMetric(
                 label = "COGS",
-                value = if (data.isProfitComplete) StatisticsUtils.formatRupees(data.vaccineCost) else "Unavailable",
+                value = if (data.isProfitComplete) CurrencyUtils.formatInr(data.vaccineCost) else "Unavailable",
                 modifier = Modifier.weight(1f)
             )
             FinanceMiniMetric(
                 label = "Expense",
-                value = StatisticsUtils.formatRupees(data.expenses),
+                value = CurrencyUtils.formatInr(data.expenses),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -227,7 +227,7 @@ private fun FinanceTotalRow(dataList: List<FinanceSummaryItem>, positiveColor: a
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = if (allProfitComplete) StatisticsUtils.formatRupees(totalNet) else "Unavailable",
+                text = if (allProfitComplete) CurrencyUtils.formatInr(totalNet) else "Unavailable",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = when {
@@ -241,17 +241,17 @@ private fun FinanceTotalRow(dataList: List<FinanceSummaryItem>, positiveColor: a
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             FinanceMiniMetric(
                 label = "Revenue",
-                value = StatisticsUtils.formatRupees(totalRevenue),
+                value = CurrencyUtils.formatInr(totalRevenue),
                 modifier = Modifier.weight(1f)
             )
             FinanceMiniMetric(
                 label = "COGS",
-                value = if (allProfitComplete) StatisticsUtils.formatRupees(totalCogs) else "Unavailable",
+                value = if (allProfitComplete) CurrencyUtils.formatInr(totalCogs) else "Unavailable",
                 modifier = Modifier.weight(1f)
             )
             FinanceMiniMetric(
                 label = "Expense",
-                value = StatisticsUtils.formatRupees(totalExpenses),
+                value = CurrencyUtils.formatInr(totalExpenses),
                 modifier = Modifier.weight(1f)
             )
         }

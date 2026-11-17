@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.inventory.data
+import com.neochildclinic.core.common.DateUtils
 
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
 import com.neochildclinic.domain.model.InventoryTransactionType
@@ -18,7 +18,7 @@ internal fun VaccineBatchEntity.deducted(quantity: Int, transactionType: Invento
     val base = copy(
         remainingQuantity = remainingQuantity - quantity,
         updatedBy = userName,
-        updatedAt = PatientUtils.getCurrentIsoTimestamp()
+        updatedAt = DateUtils.getCurrentIsoTimestamp()
     )
     return when (transactionType) {
         InventoryTransactionType.VACCINATION -> base.copy(usedQuantity = usedQuantity + quantity)
@@ -44,7 +44,7 @@ internal fun buildStockTransaction(
     patientId: String? = null,
     visitId: String? = null
 ): InventoryTransactionEntity {
-    val now = PatientUtils.getCurrentIsoTimestamp()
+    val now = DateUtils.getCurrentIsoTimestamp()
     return InventoryTransactionEntity(
         vaccineId = vaccineId,
         batchId = batchId,
@@ -71,17 +71,17 @@ internal fun buildStockTransaction(
 
 internal fun List<VaccineBatch>.batchExpiryMillis(): Long =
     firstOrNull { !it.expiryDate.isNullOrBlank() }
-        ?.let { PatientUtils.parseDate(it.expiryDate)?.time }
+        ?.let { DateUtils.parseDate(it.expiryDate)?.time }
         ?: Long.MAX_VALUE
 
 internal fun List<VaccineBatch>.latestPurchaseMillis(): Long =
-    maxOfOrNull { PatientUtils.parseDate(it.purchaseDate)?.time ?: Long.MIN_VALUE }
+    maxOfOrNull { DateUtils.parseDate(it.purchaseDate)?.time ?: Long.MIN_VALUE }
         ?: Long.MIN_VALUE
 
 internal fun List<VaccineBatch>.earliestPurchaseMillis(): Long =
-    minOfOrNull { PatientUtils.parseDate(it.purchaseDate)?.time ?: Long.MAX_VALUE }
+    minOfOrNull { DateUtils.parseDate(it.purchaseDate)?.time ?: Long.MAX_VALUE }
         ?: Long.MAX_VALUE
 
 /** The batch whose purchase date parses latest; used for the MRP/net-rate fallback. */
 internal fun List<VaccineBatch>.newestBatch(): VaccineBatch? =
-    maxByOrNull { PatientUtils.parseDate(it.purchaseDate)?.time ?: Long.MIN_VALUE }
+    maxByOrNull { DateUtils.parseDate(it.purchaseDate)?.time ?: Long.MIN_VALUE }

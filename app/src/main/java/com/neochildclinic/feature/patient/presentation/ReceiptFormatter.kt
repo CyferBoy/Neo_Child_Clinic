@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.AgeUtils
 
 import android.content.Context
 import android.graphics.*
@@ -13,7 +14,6 @@ import com.neochildclinic.domain.model.Vaccination
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
-import com.neochildclinic.core.common.PatientUtils
 
 object ReceiptFormatter {
     const val PAGE_WIDTH = 595
@@ -69,7 +69,7 @@ object ReceiptFormatter {
         paint.textSize = 10f
         paint.typeface = Typeface.create("serif", Typeface.BOLD)
         
-        val age = PatientUtils.calculateAgeLabel(patient.dob) ?: ""
+        val age = AgeUtils.calculateAgeLabel(patient.dob) ?: ""
         val ageSexText = "Age/Sex: $age / ${patient.gender}"
         val ageWidth = paint.measureText(ageSexText) + 20f
         
@@ -128,7 +128,7 @@ object ReceiptFormatter {
         paint.color = Color.BLACK
         paint.textSize = 9f
         paint.typeface = Typeface.create("serif", Typeface.BOLD)
-        canvas.drawText("No: #VM-${vaccination.id.takeLast(6).uppercase()}", pageWidth - MARGIN, 75f, paint)
+        canvas.drawText("No: ${formatReceiptNumber(vaccination)}", pageWidth - MARGIN, 75f, paint)
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         canvas.drawText("Date: ${vaccination.dateGiven}", pageWidth - MARGIN, 87f, paint)
         
@@ -273,6 +273,12 @@ object ReceiptFormatter {
         paint.textSize = 7f
         paint.typeface = Typeface.create("serif", Typeface.NORMAL)
         canvas.drawText("* Please call before visiting for vaccination.", MARGIN, yPos, paint)
+    }
+
+    fun formatReceiptNumber(vaccination: Vaccination): String {
+        return vaccination.receiptNumber.trim().ifEmpty {
+            "#VM-${vaccination.id.takeLast(6).uppercase()}"
+        }
     }
 
     // StaticLayout needs a TextPaint; TextPaint(paint) copies every Paint field we set.

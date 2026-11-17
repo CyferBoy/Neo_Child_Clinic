@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neochildclinic.core.common.Constants
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.security.BiometricAuthenticator
 import com.neochildclinic.core.ui.AppBackground
@@ -39,7 +41,7 @@ fun SecuritySettingsScreen(
     onBack: () -> Unit,
     viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
-    val settings by viewModel.settings.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val customColors = LocalCustomColors.current
     val context = LocalContext.current
     val activity = context as? FragmentActivity
@@ -718,7 +720,7 @@ private fun SecurityChangePasswordDialog(
                 StandardTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
-                    label = "New Password (min 12 chars)",
+                    label = "New Password (min ${Constants.MIN_PASSWORD_LENGTH} chars)",
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }) {
@@ -741,7 +743,7 @@ private fun SecurityChangePasswordDialog(
             StandardButton(
                 onClick = { onConfirm(newPassword) },
                 isLoading = isLoading,
-                enabled = !isLoading && newPassword.length >= 12 && newPassword == confirmPassword
+                enabled = !isLoading && newPassword.length >= Constants.MIN_PASSWORD_LENGTH && newPassword == confirmPassword
             ) {
                 Text("Update Password")
             }

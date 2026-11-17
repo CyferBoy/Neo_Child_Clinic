@@ -1,4 +1,7 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
+import com.neochildclinic.core.common.AgeUtils
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -25,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
@@ -50,7 +52,7 @@ fun PatientsTab(
     }
 
     val availableYears = remember(effectiveRegDates) {
-        StatisticsUtils.getAvailableFinancialYears(
+        FinanceCalculator.getAvailableFinancialYears(
             effectiveRegDates.values.filterNotNull().map { StatisticsDateUtils.formatDateIST(it) }
         )
     }
@@ -406,10 +408,10 @@ private fun UpcomingAgeMilestonesSection(patients: List<Patient>, onMilestoneCli
     val counts = remember(patients) {
         val map = mutableMapOf<String, Int>()
         patients.forEach { patient ->
-            val milestone = PatientUtils.getNextAgeMilestone(patient.dob, today, windowEnd)
+            val milestone = AgeUtils.getNextAgeMilestone(patient.dob, today, windowEnd)
             if (milestone != null) {
                 map[milestone.label] = (map[milestone.label] ?: 0) + 1
-            } else if (PatientUtils.isOlderThanMonths(patient.dob, 19, today)) {
+            } else if (AgeUtils.isOlderThanMonths(patient.dob, 19, today)) {
                 map["Older"] = (map["Older"] ?: 0) + 1
             }
         }
@@ -492,7 +494,7 @@ private fun calculatePatientStats(patients: List<Patient>, allPatients: List<Pat
             else -> unknown++
         }
 
-        val dob = PatientUtils.parseDate(p.dob)
+        val dob = DateUtils.parseDate(p.dob)
         if (dob == null) {
             ageMap["Invalid / Unknown"] = ageMap["Invalid / Unknown"]!! + 1
         } else {

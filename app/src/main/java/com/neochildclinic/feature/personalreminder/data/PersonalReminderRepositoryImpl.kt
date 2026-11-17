@@ -1,11 +1,11 @@
 package com.neochildclinic.feature.personalreminder.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
 
 import android.util.Log
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.security.SessionManager
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.data.local.dao.PersonalReminderDao
 import com.neochildclinic.data.local.entity.PersonalReminderEntity
 import com.neochildclinic.data.local.entity.toDomain
@@ -48,7 +48,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
 
     override suspend fun createReminder(reminder: PersonalReminder) {
         val userName = sessionManager.getCurrentUserName()
-        val now = PatientUtils.getCurrentIsoTimestamp()
+        val now = DateUtils.getCurrentIsoTimestamp()
         dao.insert(
             reminder.toEntity(
                 isSynced = false, createdBy = userName, updatedBy = userName
@@ -69,7 +69,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         val existing = dao.getById(reminder.id)
         dao.insert(
             reminder.toEntity(existing = existing, isSynced = false, updatedBy = userName)
-                .copy(updatedAt = PatientUtils.getCurrentIsoTimestamp())
+                .copy(updatedAt = DateUtils.getCurrentIsoTimestamp())
         )
         syncRepository.enqueue(ENTITY_NAME, reminder.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         auditLogger.log(
@@ -96,7 +96,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     override suspend fun markCompleted(id: String) {
         val existing = dao.getById(id) ?: return
         val userName = sessionManager.getCurrentUserName()
-        val now = PatientUtils.getCurrentIsoTimestamp()
+        val now = DateUtils.getCurrentIsoTimestamp()
         dao.insert(
             existing.copy(
                 status = PersonalReminderStatus.COMPLETED.name,
@@ -119,7 +119,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
     override suspend fun cancel(id: String) {
         val existing = dao.getById(id) ?: return
         val userName = sessionManager.getCurrentUserName()
-        val now = PatientUtils.getCurrentIsoTimestamp()
+        val now = DateUtils.getCurrentIsoTimestamp()
         dao.insert(
             existing.copy(
                 status = PersonalReminderStatus.CANCELLED.name,
@@ -145,7 +145,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
         dao.insert(
             existing.copy(
                 status = status.name,
-                updatedAt = PatientUtils.getCurrentIsoTimestamp(),
+                updatedAt = DateUtils.getCurrentIsoTimestamp(),
                 updatedBy = userName,
                 isSynced = false
             )
@@ -162,7 +162,7 @@ class PersonalReminderRepositoryImpl @Inject constructor(
 
     override suspend fun deleteReminder(id: String) {
         val userName = sessionManager.getCurrentUserName()
-        val now = PatientUtils.getCurrentIsoTimestamp()
+        val now = DateUtils.getCurrentIsoTimestamp()
         val existing = dao.getById(id)
         dao.delete(id)
 syncRepository.enqueue(ENTITY_NAME, id, SyncOperation.DELETE, SyncPriority.MEDIUM)

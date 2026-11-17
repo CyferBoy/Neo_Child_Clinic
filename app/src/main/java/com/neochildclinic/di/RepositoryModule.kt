@@ -3,6 +3,7 @@ package com.neochildclinic.di
 import com.neochildclinic.app.work.ReminderSchedulerImpl
 import com.neochildclinic.app.work.SyncManagerImpl
 import com.neochildclinic.core.database.TransactionRunner
+import com.neochildclinic.core.logger.AuditLogWriter
 import com.neochildclinic.core.notification.ReminderScheduler
 import com.neochildclinic.core.security.UserDisplayNameProvider
 import com.neochildclinic.core.sync.SyncEnqueuer
@@ -11,6 +12,8 @@ import com.neochildclinic.data.backup.BackupRepositoryImpl
 import com.neochildclinic.data.local.database.TransactionRunnerImpl
 import com.neochildclinic.feature.audit.data.AuditLogRepositoryImpl
 import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
+import com.neochildclinic.feature.auth.data.repository.AuthRepositoryImpl
+import com.neochildclinic.feature.auth.domain.repository.AuthRepository
 import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
 import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
 import com.neochildclinic.feature.borrowed.data.BorrowRepositoryImpl
@@ -69,8 +72,10 @@ abstract class RepositoryModule {
     @Binds abstract fun profileRepository(impl: ProfileRepositoryImpl): ProfileRepository
     @Binds abstract fun staffManagementRepository(impl: StaffManagementRepositoryImpl): StaffManagementRepository
     @Binds abstract fun auditLogRepository(impl: AuditLogRepositoryImpl): AuditLogRepository
+    @Binds abstract fun auditLogWriter(impl: AuditLogRepositoryImpl): AuditLogWriter
     @Binds abstract fun borrowRepository(impl: BorrowRepositoryImpl): BorrowRepository
     @Binds abstract fun deviceRepository(impl: DeviceRepositoryImpl): DeviceRepository
+    @Binds abstract fun authRepository(impl: AuthRepositoryImpl): AuthRepository
     @Binds abstract fun documentRepository(impl: DocumentRepositoryImpl): DocumentRepository
     @Binds abstract fun backupRepository(impl: BackupRepositoryImpl): BackupRepository
     @Binds abstract fun transactionRunner(impl: TransactionRunnerImpl): TransactionRunner

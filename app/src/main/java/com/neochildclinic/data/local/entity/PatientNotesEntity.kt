@@ -25,9 +25,9 @@ import com.neochildclinic.domain.model.PatientNote
 data class PatientNotesEntity(
     @PrimaryKey @SerialName("id") val id: String = java.util.UUID.randomUUID().toString(),
     @SerialName("patient_id") val patientId: String,
-    val content: String,
-    val author: String,
-    val timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+    @SerialName("content") val content: String,
+    @SerialName("author") val author: String,
+    @SerialName("timestamp") val timestamp: String = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
     @SerialName("is_synced") override val isSynced: Boolean = false,
     @SerialName("created_by") @ColumnInfo(name = "created_by") val createdBy: String? = null,
     @SerialName("updated_by") @ColumnInfo(name = "updated_by") val updatedBy: String? = null

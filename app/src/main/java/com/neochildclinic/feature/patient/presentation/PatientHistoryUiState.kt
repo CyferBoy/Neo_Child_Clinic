@@ -1,6 +1,6 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.DateUtils
 
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Vaccination
@@ -57,11 +57,11 @@ data class PatientHistoryUiState(
                 .distinctBy { it.vaccination.id }
                 .sortedWith(
                     compareByDescending<PatientVaccinationCardData> {
-                        PatientUtils.parseDate(it.vaccination.dateGiven)?.time ?: 0L
+                        DateUtils.parseDate(it.vaccination.dateGiven)?.time ?: 0L
                     }.thenByDescending { it.vaccination.id }
                 ),
             consultations = consultations.sortedByDescending {
-                PatientUtils.parseDate(it.date)?.time ?: 0L
+                DateUtils.parseDate(it.date)?.time ?: 0L
             },
             notes = notes
         )

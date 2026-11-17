@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import android.widget.Toast
 import kotlinx.coroutines.launch
@@ -7,9 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.core.common.Constants
-import com.neochildclinic.core.common.PatientUtils.calculateDetailedAge
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.AgeUtils.calculateDetailedAge
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

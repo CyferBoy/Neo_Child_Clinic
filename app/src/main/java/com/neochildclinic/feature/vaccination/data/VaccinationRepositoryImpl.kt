@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.vaccination.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.VaccinationDao
 import com.neochildclinic.data.local.dao.VaccinationItemDao
@@ -21,7 +22,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Visit
 import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.PatientVaccinationCard
-import com.neochildclinic.domain.model.toEntity
+import com.neochildclinic.data.local.mapper.toEntity
 import com.neochildclinic.feature.vaccination.domain.EditReconciler
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
 import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
@@ -251,7 +252,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
                     val resurrected = local.filter { it.id !in acceptedIds }
                     if (resurrected.isEmpty()) continue
                     val userName = sessionManager.getCurrentUserName()
-                    val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                    val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
                     vaccinationItemDao.deleteItemsForVaccination(visitId)
                     vaccinationItemDao.insertItems(
                         items.filter { it.vaccinationId == visitId && it.id in acceptedIds }.map { it.toEntity() }
@@ -347,7 +348,7 @@ override val allVaccinations: Flow<List<Vaccination>> =
 
             // Item-level plan: untouched rows get no local write and no sync op.
             if (itemPlan.deleteIds.isNotEmpty()) {
-                val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
                 vaccinationItemDao.deleteItemsByIds(itemPlan.deleteIds)
                 itemPlan.deleteIds.forEach { oldId ->
                     syncRepository.enqueue(
@@ -419,7 +420,6 @@ override val allVaccinations: Flow<List<Vaccination>> =
 
             val user = sessionManager.getCurrentUserName()
 
-            // 1. Replenish inventory atomically, from the inventory_deductions ledger -
             // the actual record of what this vaccination deducted (batch + quantity per
             // item) - rather than the denormalized batchIds string on the visit row, which
             // has no quantity and does not distinguish a batch that was actually deducted
@@ -441,7 +441,6 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 )
             }
 
-            // 2. Clean up the deduction ledger itself. Local-only table (no remote
             // counterpart, never appears in SyncRepositoryImpl's entity map), so this needs
             // no sync op - and deleting it here, in the same transaction as the reversal
             // above, is what keeps a reversal from ever being applied twice: if this
@@ -452,13 +451,12 @@ override val allVaccinations: Flow<List<Vaccination>> =
             // 2b. Unlink the inventory_transactions audit trail's visit_id is no longer needed;
             // visit_id stays so the deduction ledger remains traceable to its visit.
 
-            // 3. Clean up reminders tied to this visit. Without this, a reminder that
             // already synced to Supabase is left behind there after the visit is deleted -
             // a later refreshReminders() pull then re-downloads that now-parentless
             // reminder locally, and any subsequent create/update sync for it permanently
             // fails with a foreign key violation (its originalVisitId no longer exists).
             val remindersForVisit = dueReminderDao.getRemindersByVisitId(id)
-            val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             for (reminder in remindersForVisit) {
                 dueReminderDao.deleteReminderById(reminder.id)
                 syncRepository.enqueue(
@@ -477,7 +475,6 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 )
             }
 
-            // 4. Delete the vaccination's line items. DELETE (not UPDATE) so the server rows
             // are actually removed - otherwise refreshVaccinationItems re-imports them and the
             // deleted vaccination's doses keep being counted in statistics.
             val items = vaccinationItemDao.getItemsForVaccination(id).first()
@@ -494,7 +491,6 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 }
             }
 
-            // 5. Finance: deleting the visit also deletes the associated finance records, and
             // enqueues a real DELETE so they stop being re-imported and counted in totals.
             val visitFinanceTxns = financeDao.getTransactionsByVisitId(id)
             for (txn in visitFinanceTxns) {
@@ -508,7 +504,6 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 )
             }
 
-            // 6. Delete the visit itself - enqueued last, after its children (items, finance,
             // reminders) so the server-side DELETE can't hit a live foreign-key reference.
             vaccinationDao.deleteVaccination(id)
 

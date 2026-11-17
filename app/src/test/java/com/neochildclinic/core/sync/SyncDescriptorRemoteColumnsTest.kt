@@ -1,5 +1,6 @@
 package com.neochildclinic.core.sync
 
+import com.neochildclinic.feature.sync.data.SYNC_ENTITY_REGISTRY
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File

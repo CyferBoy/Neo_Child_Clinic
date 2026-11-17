@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.widget.data
+import com.neochildclinic.core.common.DateUtils
 
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -9,15 +10,12 @@ import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.feature.widget.presentation.VaccineWidget
 import com.neochildclinic.data.local.entity.WidgetDueEntity
 import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
-import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
-import java.time.Instant
-import kotlin.text.get
 
 /**
  * Background worker to pre-calculate widget data.
@@ -47,7 +45,7 @@ class WidgetWorker @AssistedInject constructor(
                 val category = DateClassifier.classify(vacc.nextDueDate)
                 
                 // Show only day/month for the current running year; include the year for other years.
-                val displayDate = formatWidgetDate(vacc.nextDueDate)
+                val displayDate = DateUtils.formatDateWithOptionalYear(vacc.nextDueDate)
 
                 WidgetDueEntity(
                     patientName = name,
@@ -71,26 +69,8 @@ class WidgetWorker @AssistedInject constructor(
 
             Result.success()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure()
         }
-    }
-
-    private fun formatWidgetDate(value: String): String {
-        // The reminder's nextDueDate is stored in the app's normal date convention
-        // (Constants.DATE_FORMAT, e.g. "15 June 2026"), not ISO - java.time.*Parse
-        // never matched that, so this always silently fell through to the raw
-        // value below and the year was never actually trimmed. PatientUtils.parseDate
-        // already knows every format the app stores dates in, so reuse it here too.
-        //
-        // The current year is the clinic's IST year, not the device's: a device set to
-        // another zone can disagree with the main app's date near midnight, and the
-        // widget must show the same "15 Jun" / "15 Jun 25" decision the app itself makes.
-        val date = PatientUtils.parseDate(value) ?: return value
-        val dateInIST = date.toInstant().atZone(StatisticsDateUtils.IST)
-        val currentYear = Instant.now().atZone(StatisticsDateUtils.IST).year
-
-        // Same year as today -> "15 Jun". Different year -> "15 Jun 25".
-        val pattern = if (dateInIST.year == currentYear) "d MMM" else "d MMM yy"
-        return dateInIST.format(java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.ENGLISH))
     }
 }

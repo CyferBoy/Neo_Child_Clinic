@@ -35,13 +35,10 @@ internal suspend fun cloudRefresh(tag: String, rethrow: Boolean = false, block: 
 
 /** True when a pull failed because the session/token is gone, not because of the network. */
 internal fun isSessionFailure(error: Throwable): Boolean {
-    var current: Throwable? = error
-    repeat(8) {
-        val t = current
-        if (t is RestException) {
-            return shouldRefreshSessionFor(t.statusCode, t.message)
-        }
-        current = t?.cause
+    val rest = walkCauses(error).firstOrNull { it is RestException } as? RestException
+    return if (rest != null) {
+        shouldRefreshSessionFor(rest.statusCode, rest.message)
+    } else {
+        shouldRefreshSessionFor(null, error.message)
     }
-    return shouldRefreshSessionFor(null, error.message)
 }

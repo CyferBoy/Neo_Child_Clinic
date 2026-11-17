@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
@@ -52,14 +53,14 @@ private fun formatLastChecked(timestamp: Long): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
-    val updateInfo by viewModel.updateInfo.collectAsState()
-    val checking by viewModel.checking.collectAsState()
-    val installing by viewModel.installing.collectAsState()
-    val downloadProgress by viewModel.downloadProgress.collectAsState()
-    val message by viewModel.message.collectAsState()
-    val upToDate by viewModel.upToDate.collectAsState()
-    val lastCheckedTimestamp by viewModel.lastCheckedTimestamp.collectAsState()
-    val autoChecksEnabled by viewModel.autoChecksEnabled.collectAsState()
+    val updateInfo by viewModel.updateInfo.collectAsStateWithLifecycle()
+    val checking by viewModel.checking.collectAsStateWithLifecycle()
+    val installing by viewModel.installing.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val upToDate by viewModel.upToDate.collectAsStateWithLifecycle()
+    val lastCheckedTimestamp by viewModel.lastCheckedTimestamp.collectAsStateWithLifecycle()
+    val autoChecksEnabled by viewModel.autoChecksEnabled.collectAsStateWithLifecycle()
     var showNotesAfterInstall by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
@@ -94,7 +95,6 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
                     .padding(horizontal = Spacing.screen, vertical = Spacing.md),
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
-                // 1. Current Version Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -142,7 +142,6 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
                     }
                 }
 
-                // 2. Animated Status Card (Checking / Update Available / Up-To-Date)
                 val cardState = when {
                     checking -> UpdateCardUiState.Checking
                     updateInfo != null -> UpdateCardUiState.UpdateAvailable(updateInfo!!)
@@ -424,7 +423,6 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
                     }
                 }
 
-                // 3. Update Preferences Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -487,7 +485,6 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
                     }
                 }
 
-                // 4. Action & Security Notes Footer
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,

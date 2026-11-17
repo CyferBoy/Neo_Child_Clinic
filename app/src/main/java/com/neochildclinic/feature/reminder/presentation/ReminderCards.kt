@@ -30,9 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.DateClassifier
-import com.neochildclinic.core.common.PatientUtils
-import com.neochildclinic.core.common.PatientUtils.formatAgeYearsMonths
-import com.neochildclinic.core.common.PatientUtils.formatDateForDisplay
+import com.neochildclinic.core.common.AgeUtils.formatAgeYearsMonths
+import com.neochildclinic.core.common.DateUtils.formatDateForDisplay
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination

@@ -52,7 +52,7 @@ class AdminViewModel @Inject constructor(
     fun refreshStaff() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 profileRepository.refreshProfiles()
             } catch (e: CancellationException) {
@@ -60,7 +60,7 @@ class AdminViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("AdminVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

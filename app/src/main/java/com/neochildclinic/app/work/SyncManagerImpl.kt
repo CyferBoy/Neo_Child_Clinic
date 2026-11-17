@@ -18,6 +18,7 @@ class SyncManagerImpl @Inject constructor(
     override fun scheduleSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
 
         val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()

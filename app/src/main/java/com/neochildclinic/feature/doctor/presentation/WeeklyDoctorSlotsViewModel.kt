@@ -50,7 +50,7 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
     fun refresh() {
         if (_isRefreshing.value || _uiState.value.isLoading) return
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 repository.refresh()
                 profileRepository.refreshProfiles()
@@ -59,7 +59,7 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("WeeklyDoctorSlotsVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }
@@ -89,7 +89,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                         isLoading = false
                     )
                 }
-                selectedDoctorId.value = defaultDoctor()?.id
+                val defDocId = defaultDoctor()?.id
+                selectedDoctorId.update { defDocId }
             }
         }
 
@@ -120,7 +121,8 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
                 isWeeklySlotsEditMode = false
             )
         }
-        selectedDoctorId.value = doctor.id
+        val docId = doctor.id
+        selectedDoctorId.update { docId }
     }
 
     fun selectTab(tab: Int) {
@@ -166,10 +168,6 @@ class WeeklyDoctorSlotsViewModel @Inject constructor(
 
     fun addCustomTimeException(date: String, startMinute: Int, endMinute: Int, reason: String?) {
         addException(date, SlotExceptionType.SLOT, null, startMinute, endMinute, reason)
-    }
-
-    fun addSlotException(date: String, weeklySlotId: String, reason: String?) {
-        addException(date, SlotExceptionType.SLOT, weeklySlotId, null, null, reason)
     }
 
     private fun addException(

@@ -7,6 +7,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -48,21 +50,26 @@ class PatientAuditLogPager(
     fun load(patientId: String) {
         activeJob?.cancel()
         activeJob = scope.launch {
-            _state.value = State(patientId = patientId, isLoading = true)
+            _state.update { State(patientId = patientId, isLoading = true) }
             try {
                 val firstPage = fetchPage(patientId, 0)
-                _state.value = State(
-                    patientId = patientId,
-                    logs = firstPage,
-                    isLoading = false,
-                    hasMore = firstPage.size == PAGE_SIZE
-                )
+                _state.update {
+                    State(
+                        patientId = patientId,
+                        logs = firstPage,
+                        isLoading = false,
+                        hasMore = firstPage.size == PAGE_SIZE
+                    )
+                }
             } catch (e: Exception) {
-                _state.value = State(
-                    patientId = patientId,
-                    isLoading = false,
-                    error = e.message ?: "Unable to load audit history"
-                )
+                if (e is CancellationException) throw e
+                _state.update {
+                    State(
+                        patientId = patientId,
+                        isLoading = false,
+                        error = e.message ?: "Unable to load audit history"
+                    )
+                }
             }
         }
     }
@@ -74,20 +81,25 @@ class PatientAuditLogPager(
         if (current.isLoading || current.isLoadingMore || !current.hasMore) return
 
         activeJob = scope.launch {
-            _state.value = current.copy(isLoadingMore = true, error = null)
+            _state.update { it.copy(isLoadingMore = true, error = null) }
             try {
-                val page = fetchPage(patientId, current.logs.size)
-                val merged = (current.logs + page).distinctBy { it.id }
-                _state.value = _state.value.copy(
-                    logs = merged,
-                    isLoadingMore = false,
-                    hasMore = page.size == PAGE_SIZE
-                )
+                val page = fetchPage(patientId, _state.value.logs.size)
+                _state.update { curr ->
+                    val merged = (curr.logs + page).distinctBy { it.id }
+                    curr.copy(
+                        logs = merged,
+                        isLoadingMore = false,
+                        hasMore = page.size == PAGE_SIZE
+                    )
+                }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    isLoadingMore = false,
-                    error = e.message ?: "Unable to load more audit history"
-                )
+                if (e is CancellationException) throw e
+                _state.update { curr ->
+                    curr.copy(
+                        isLoadingMore = false,
+                        error = e.message ?: "Unable to load more audit history"
+                    )
+                }
             }
         }
     }
@@ -95,7 +107,7 @@ class PatientAuditLogPager(
     /** Drops any loaded pages - call when the dialog is dismissed so the next open starts clean. */
     fun clear() {
         activeJob?.cancel()
-        _state.value = State()
+        _state.update { State() }
     }
 
     private suspend fun fetchPage(patientId: String, offset: Int): List<AuditLog> =

@@ -38,7 +38,7 @@ import kotlinx.serialization.Serializable
     ]
 )
 data class VaccinationItemEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey @SerialName("id") val id: String,
     @SerialName("vaccination_id") val vaccinationId: String,
     @SerialName("vaccine_id") val vaccineId: String,
     // Denormalized alongside vaccineId - the live vaccine catalog can change/be deleted
@@ -49,8 +49,8 @@ data class VaccinationItemEntity(
     @SerialName("vaccine_name") val vaccineName: String = "",
     @SerialName("batch_id") val batchId: String,
     @SerialName("batch_number") val batchNumber: String = "",
-    val quantity: Int = 1,
-    val mrp: Double = 0.0,
+    @SerialName("quantity") val quantity: Int = 1,
+    @SerialName("mrp") val mrp: Double = 0.0,
     @SerialName("net_rate") val netRate: Double = 0.0,
     @SerialName("expiry_date") val expiryDate: String = ""
 )

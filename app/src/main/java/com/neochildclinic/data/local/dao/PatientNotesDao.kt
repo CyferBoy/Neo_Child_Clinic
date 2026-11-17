@@ -15,9 +15,6 @@ interface PatientNotesDao {
     @Query("SELECT * FROM patient_notes WHERE patientId = :patientId ORDER BY timestamp DESC")
     fun getNotesForPatient(patientId: String): Flow<List<PatientNotesEntity>>
 
-    @Query("DELETE FROM patient_notes WHERE id = :id")
-    suspend fun deleteNote(id: String)
-
     // Patient merge: notes have no updatedAt column, so the descriptor treats an unsynced
     // note as freshly edited; isSynced=0 is what lets the new patient_id upload.
     @Query("SELECT id FROM patient_notes WHERE patientId = :patientId")

@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.inventory.data
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 
 import android.content.Context
@@ -195,7 +196,7 @@ class InventoryRepositoryImpl @Inject constructor(
         val userName = sessionManager.getCurrentUserName()
         val existing = vaccineDao.getVaccineById(vaccine.id)
         val updated = vaccine.toEntity().copy(
-            lastUpdated = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+            lastUpdated = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
             createdBy = existing?.createdBy ?: vaccine.createdBy ?: userName,
             updatedBy = userName
         )
@@ -223,7 +224,7 @@ class InventoryRepositoryImpl @Inject constructor(
         val entityWithAudit = batch.toEntity().copy(
             createdBy = userName,
             updatedBy = userName,
-            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
         )
         vaccineDao.insertBatch(entityWithAudit)
 
@@ -236,7 +237,7 @@ class InventoryRepositoryImpl @Inject constructor(
             currentQuantity = entityWithAudit.remainingQuantity,
             user = userName,
             notes = "Batch Added: ${batch.batchNumber}",
-            timestamp = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
+            timestamp = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
             createdBy = userName,
             updatedBy = userName
         )
@@ -314,37 +315,39 @@ class InventoryRepositoryImpl @Inject constructor(
         // Trust boundary (mirrors addStockBatch): the UI parses the quantity field with
         // toIntOrNull() and can hand over nonsense; never write a negative stock level.
         if (batch.remainingQuantity < 0) throw IllegalStateException("Quantity cannot be negative.")
-        // Both the old row and the diff must be captured BEFORE the write below - reading
-        // them afterwards returns the new quantity, so diff collapses to 0 and the
-        // MANUAL_ADJUSTMENT row (the only channel that moves server-side remaining_quantity,
-        // which the inventory_transactions trigger reacts to) is never inserted: the edited
-        // quantity then reverts on the next refreshInventory() and Supabase never sees the
-        // adjustment. Same read-then-write order every other stock path here uses.
-        val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return
-        val diff = batch.remainingQuantity - oldBatch.remainingQuantity
-        val updatedEntity = batch.toEntity().copy(
-            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp(),
-            createdBy = batch.createdBy,
-            updatedBy = user
-        )
-        vaccineDao.updateBatch(updatedEntity)
-        val userName = sessionManager.getCurrentUserName()
-        if (diff != 0) {
-            val transaction = buildStockTransaction(
-                vaccineId = batch.vaccineId, batchId = batch.batchId,
-                transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT,
-                quantity = diff, previousQuantity = oldBatch.remainingQuantity,
-                currentQuantity = batch.remainingQuantity, user = userName,
-                notes = notes ?: "Batch Updated: ${batch.batchNumber}"
+        transactionRunner.run {
+            // Both the old row and the diff must be captured BEFORE the write below - reading
+            // them afterwards returns the new quantity, so diff collapses to 0 and the
+            // MANUAL_ADJUSTMENT row (the only channel that moves server-side remaining_quantity,
+            // which the inventory_transactions trigger reacts to) is never inserted: the edited
+            // quantity then reverts on the next refreshInventory() and Supabase never sees the
+            // adjustment. Same read-then-write order every other stock path here uses.
+            val oldBatch = vaccineDao.getBatchById(batch.batchId) ?: return@run
+            val diff = batch.remainingQuantity - oldBatch.remainingQuantity
+            val updatedEntity = batch.toEntity().copy(
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+                createdBy = batch.createdBy,
+                updatedBy = user
             )
-            vaccineDao.insertTransaction(transaction)
-            syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM)
+            vaccineDao.updateBatch(updatedEntity)
+            val userName = sessionManager.getCurrentUserName()
+            if (diff != 0) {
+                val transaction = buildStockTransaction(
+                    vaccineId = batch.vaccineId, batchId = batch.batchId,
+                    transactionType = InventoryTransactionType.MANUAL_ADJUSTMENT,
+                    quantity = diff, previousQuantity = oldBatch.remainingQuantity,
+                    currentQuantity = batch.remainingQuantity, user = userName,
+                    notes = notes ?: "Batch Updated: ${batch.batchNumber}"
+                )
+                vaccineDao.insertTransaction(transaction)
+                syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM)
+            }
+            auditLogger.recordLog(
+                module = "INVENTORY", entityType = "BATCH", entityId = batch.batchId, action = "UPDATED",
+                remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
+            )
+            syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
         }
-        auditLogger.recordLog(
-            module = "INVENTORY", entityType = "BATCH", entityId = batch.batchId, action = "UPDATED",
-            remarks = "Batch: ${batch.batchNumber}, Qty Diff: $diff"
-        )
-        syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteBatch(batchId: String, user: String) {
@@ -369,16 +372,14 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteVaccine(vaccineId: String, user: String) {
-        val now = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
         val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@deleteVaccine
 
-        // Check for batches
         val batchCount = vaccineDao.getBatchCountForVaccine(vaccineId)
         if (batchCount > 0) {
             throw IllegalStateException("This vaccine cannot be deleted because batch records still exist.")
         }
         
-        // Check historical references
         val vaccinationCount = vaccineDao.getVaccinationCountForVaccine(vaccineId)
         val wasteCount = vaccineDao.getWasteCountForVaccine(vaccineId)
         val transactionCount = vaccineDao.getTransactionCountForVaccine(vaccineId)
@@ -482,13 +483,13 @@ action = "DELETED",
                 remainingQuantity = batch.remainingQuantity + quantity,
                 wastedQuantity = (batch.wastedQuantity - quantity).coerceAtLeast(0),
                 updatedBy = userName,
-                updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             )
         } else {
             batch.copy(
                 remainingQuantity = batch.remainingQuantity + quantity,
                 updatedBy = userName,
-                updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             )
         }
         vaccineDao.updateBatch(updatedBatch)
@@ -535,7 +536,7 @@ action = "DELETED",
             remainingQuantity = batch.remainingQuantity + quantity,
             usedQuantity = (batch.usedQuantity - quantity).coerceAtLeast(0),
             updatedBy = userName,
-            updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+            updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
         ))
 
         val transaction = buildStockTransaction(
@@ -573,13 +574,13 @@ action = "DELETED",
                 remainingQuantity = targetBatch.remainingQuantity + quantity,
                 borrowedQuantity = (targetBatch.borrowedQuantity - quantity).coerceAtLeast(0),
                 updatedBy = userName,
-                updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             )
         } else {
             targetBatch.copy(
                 remainingQuantity = targetBatch.remainingQuantity + quantity,
                 updatedBy = userName,
-                updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             )
         }
         vaccineDao.updateBatch(updatedBatch)
@@ -617,7 +618,7 @@ action = "DELETED",
             vaccineDao.updateBatch(originalBatch.copy(
                 borrowedQuantity = (originalBatch.borrowedQuantity - quantity).coerceAtLeast(0),
                 updatedBy = userName,
-                updatedAt = com.neochildclinic.core.common.PatientUtils.getCurrentIsoTimestamp()
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
             ))
             val releaseTransaction = buildStockTransaction(
                 vaccineId = originalBatch.vaccineId,

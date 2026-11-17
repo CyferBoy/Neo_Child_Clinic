@@ -74,9 +74,14 @@ class VaccineWidget : GlanceAppWidget() {
             val theme = VaccineWidgetTheme.fromKey(prefs[THEME_KEY])
             val fontScale = (prefs[FONT_SIZE_KEY] ?: DEFAULT_FONT_SIZE) / DESIGN_ROW_SP
             val padding = prefs[PADDING_KEY] ?: DEFAULT_PADDING
-            val isLocked = com.neochildclinic.core.security.BiometricLockManager.isAppLocked.value
+            val isLocked = com.neochildclinic.core.security.BiometricLockManager.isLocked(context)
             val displayItems = if (isLocked) {
-                dueItems.map { it.copy(patientName = "Patient (Locked)") }
+                dueItems.map {
+                    it.copy(
+                        patientName = maskPatientName(it.patientName),
+                        vaccineName = "[Locked]"
+                    )
+                }
             } else {
                 dueItems
             }
@@ -219,4 +224,14 @@ class VaccineWidget : GlanceAppWidget() {
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun widgetLocalDataSource(): WidgetLocalDataSource
+}
+
+internal fun maskPatientName(name: String): String {
+    if (name.isBlank() || name.equals("Unknown", ignoreCase = true)) {
+        return "Patient [Locked]"
+    }
+    return name.trim().split("\\s+".toRegex()).joinToString(" ") { word ->
+        if (word.isEmpty()) ""
+        else word.first().uppercaseChar() + "***"
+    }
 }

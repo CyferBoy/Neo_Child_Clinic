@@ -1,17 +1,26 @@
 package com.neochildclinic.feature.doctor.data
 
+import com.neochildclinic.core.logger.AuditLogWriter
 import com.neochildclinic.core.logger.AuditLogger
+import com.neochildclinic.core.security.SessionManager
+import com.neochildclinic.core.security.UserDisplayNameProvider
 import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
+import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.minimalConfig
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.lang.reflect.Proxy
-import sun.misc.Unsafe
 
 class DoctorAvailabilityRepositoryTest {
 
@@ -20,14 +29,10 @@ class DoctorAvailabilityRepositoryTest {
 
     @Before
     fun setUp() {
-        val unsafeField = Unsafe::class.java.getDeclaredField("theUnsafe").apply { isAccessible = true }
-        val unsafe = unsafeField.get(null) as Unsafe
-        repository = unsafe.allocateInstance(DoctorAvailabilityRepositoryImpl::class.java) as DoctorAvailabilityRepositoryImpl
-
         val daoProxy = Proxy.newProxyInstance(
             DoctorAvailabilityDao::class.java.classLoader,
             arrayOf(DoctorAvailabilityDao::class.java)
-        ) { _, method, args ->
+        ) { _, method, _ ->
             if (method.name.startsWith("upsertException")) {
                 upsertedExceptionCount++
             }
@@ -39,37 +44,43 @@ class DoctorAvailabilityRepositoryTest {
             arrayOf(SyncRepository::class.java)
         ) { _, _, _ -> null } as SyncRepository
 
-        val auditLogDaoProxy = Proxy.newProxyInstance(
-            com.neochildclinic.data.local.dao.AuditLogDao::class.java.classLoader,
-            arrayOf(com.neochildclinic.data.local.dao.AuditLogDao::class.java)
-        ) { _, _, _ -> null } as com.neochildclinic.data.local.dao.AuditLogDao
+        val syncQueueDaoProxy = Proxy.newProxyInstance(
+            SyncQueueDao::class.java.classLoader,
+            arrayOf(SyncQueueDao::class.java)
+        ) { _, _, _ -> null } as SyncQueueDao
 
-        val sessionManager = unsafe.allocateInstance(com.neochildclinic.core.security.SessionManager::class.java) as com.neochildclinic.core.security.SessionManager
+        val auditWriter = object : AuditLogWriter {
+            override suspend fun recordLog(auditLog: AuditLog, transactionGroupId: String?) = Unit
+        }
 
-        val auditLogger = unsafe.allocateInstance(AuditLogger::class.java) as AuditLogger
-        setField(auditLogger, "scope", kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()))
-        setField(auditLogger, "auditLogDao", auditLogDaoProxy)
-        setField(auditLogger, "sessionManager", sessionManager)
-        setField(auditLogger, "syncEnqueuer", syncRepoProxy)
-
-        setField(repository, "dao", daoProxy)
-        setField(repository, "syncRepository", syncRepoProxy)
-        setField(repository, "auditLogger", auditLogger)
-    }
-
-    private fun setField(target: Any, fieldName: String, value: Any?) {
-        var clazz: Class<*>? = target.javaClass
-        while (clazz != null) {
-            try {
-                val field = clazz.getDeclaredField(fieldName)
-                field.isAccessible = true
-                field.set(target, value)
-                return
-            } catch (_: NoSuchFieldException) {
-                clazz = clazz.superclass
+        val client = createSupabaseClient("https://dummy.supabase.co", "dummy_anon_key") {
+            install(Postgrest)
+            install(Auth) {
+                minimalConfig()
             }
         }
-        error("Field $fieldName not found on ${target.javaClass}")
+
+        val userDisplayNameProvider = object : UserDisplayNameProvider {
+            override suspend fun getUserDisplayName(userId: String): String = "Test User"
+        }
+
+        val sessionManager = SessionManager(
+            auth = client.auth,
+            userDisplayNameProvider = userDisplayNameProvider
+        )
+
+        val auditLogger = AuditLogger(
+            sessionManager = sessionManager,
+            auditLogWriter = auditWriter
+        )
+
+        repository = DoctorAvailabilityRepositoryImpl(
+            dao = daoProxy,
+            postgrest = client.postgrest,
+            syncRepository = syncRepoProxy,
+            syncQueueDao = syncQueueDaoProxy,
+            auditLogger = auditLogger
+        )
     }
 
     @Test

@@ -70,9 +70,28 @@ class BackupCryptoTest {
     }
 
     @Test
-    fun `sha256Hex is deterministic for the same input`() {
+    fun `a tampered header causes authentication tag verification failure and is rejected`() {
+        val plaintext = "some backup content".toByteArray(Charsets.UTF_8)
+        val container = BackupCrypto.encrypt(plaintext, "a-password".toCharArray())
+
+        // Flip a byte inside the salt/iv/metadata portion of the header (e.g. byte 10)
+        val tampered = container.copyOf()
+        tampered[10] = (tampered[10].toInt() xor 0x01).toByte()
+
+        val thrown = assertThrows(BackupException::class.java) {
+            BackupCrypto.decrypt(tampered, "a-password".toCharArray())
+        }
+        assertTrue(
+            "Expected WrongPassword (AEADBadTagException) or Corrupted, got ${thrown::class.simpleName}",
+            thrown is BackupException.WrongPassword || thrown is BackupException.Corrupted
+        )
+    }
+
+    @Test
+    fun `sha256Hex matches known test vectors`() {
         val bytes = "checksum me".toByteArray(Charsets.UTF_8)
-        assertTrue(BackupCrypto.sha256Hex(bytes) == BackupCrypto.sha256Hex(bytes))
+        org.junit.Assert.assertEquals("820eb62b7660a216f711bd0df37ac8a176b662a159959870edc200b857262daf", BackupCrypto.sha256Hex(bytes))
+        org.junit.Assert.assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", BackupCrypto.sha256Hex(ByteArray(0)))
     }
 
     @Test

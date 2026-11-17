@@ -1,8 +1,7 @@
 package com.neochildclinic.feature.statistics.domain
 
-import com.neochildclinic.core.common.CurrencyUtils
-import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
@@ -10,9 +9,7 @@ import java.util.Calendar
 import java.util.Locale
 
 object StatisticsUtils {
-    fun formatRupees(amount: Double): String = CurrencyUtils.formatInr(amount)
-
-    val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    val monthNames get() = FinanceCalculator.MONTH_NAMES
 
     val fyQuarters = listOf(
         "Q1 (Apr-Jun)" to listOf(3, 4, 5),
@@ -41,30 +38,10 @@ object StatisticsUtils {
     fun displayFilterMode(filterMode: String): String =
         if (filterMode == "Overall") "Overall" else "20" + filterMode.substringAfter("FY ")
 
-    fun isCountedVaccination(vaccination: Vaccination): Boolean =
-        vaccination.status == ReminderStatus.COMPLETED || vaccination.status == ReminderStatus.EXTERNAL || vaccination.source.equals("EXTERNAL", true)
+    fun isCountedVaccination(vaccination: Vaccination): Boolean = FinanceCalculator.isCountedVaccination(vaccination)
 
     fun filterValidVaccinations(vaccinations: List<Vaccination>): List<Vaccination> =
-        vaccinations.filter(::isCountedVaccination)
-
-    fun getCurrentFinancialYear(): String {
-        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
-        val fyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
-        return "FY ${fyStart % 100}-${(fyStart + 1) % 100}"
-    }
-
-    fun getAvailableFinancialYears(dates: List<String>): List<String> {
-        val (curYear, curMonth) = StatisticsDateUtils.currentISTYearMonth()
-        val curFyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
-
-        val uniqueDates = dates.distinct()
-        val years = uniqueDates.mapNotNull { StatisticsDateUtils.parseToISTLocalDate(it) }
-            .map { if (it.monthValue >= 4) it.year else it.year - 1 }
-            .toMutableSet()
-        years.add(curFyStart)
-
-        return years.sorted().map { "${it % 100}-${(it + 1) % 100}" }
-    }
+        FinanceCalculator.filterValidVaccinations(vaccinations)
 
     fun vaccineName(vaccination: Vaccination, itemIndex: Int): String {
         val itemName = vaccination.items.getOrNull(itemIndex)?.vaccineName.orEmpty()

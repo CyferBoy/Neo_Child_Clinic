@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.consultation.presentation
+import com.neochildclinic.core.common.DateUtils
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,14 +12,14 @@ import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
 import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
-import com.neochildclinic.feature.vaccination.domain.ClinicalVaccinationService
+import com.neochildclinic.feature.consultation.domain.usecase.RecordConsultationUseCase
 import com.neochildclinic.feature.consultation.domain.ConsultationEditEngine
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -39,7 +40,7 @@ data class AddConsultationUiState(
 
 @HiltViewModel
 class AddConsultationViewModel @Inject constructor(
-    private val clinicalService: ClinicalVaccinationService,
+    private val recordConsultationUseCase: RecordConsultationUseCase,
     private val patientRepository: PatientRepository,
     private val profileRepository: ProfileRepository,
     private val sessionManager: SessionManager,
@@ -73,7 +74,8 @@ class AddConsultationViewModel @Inject constructor(
             val patient = patientRepository.getPatientById(consultation.patientId)
             _uiState.update { it.copy(patient = patient, editingConsultation = consultation) }
             if (consultation.doctorId.isNotBlank()) {
-                editingDoctorId.value = consultation.doctorId
+                val docId = consultation.doctorId
+                editingDoctorId.update { docId }
                 kotlinx.coroutines.withTimeoutOrNull(5000) {
                     uiState.filter { state ->
                         state.allDoctors.any { it.employeeId == consultation.doctorId || it.id == consultation.doctorId }
@@ -230,7 +232,7 @@ class AddConsultationViewModel @Inject constructor(
                     val consultation = Consultation(
                         id = UUID.randomUUID().toString(),
                         patientId = patientId,
-                        createdAt = PatientUtils.getCurrentIsoTimestamp(),
+                        createdAt = DateUtils.getCurrentIsoTimestamp(),
                         doctorId = state.selectedDoctor.employeeId ?: state.selectedDoctor.id,
                         doctorName = state.selectedDoctor.displayName,
                         availabilitySlotId = state.selectedSlot.weeklySlotId,
@@ -242,11 +244,12 @@ class AddConsultationViewModel @Inject constructor(
                         nextFollowUpDate = nextFollowUpDate
                     )
 
-                    clinicalService.recordConsultation(consultation, user)
+                    recordConsultationUseCase(consultation, user)
                 }
 
                 _uiState.update { it.copy(isLoading = false, isSaved = true) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to save consultation.") }
             }
         }

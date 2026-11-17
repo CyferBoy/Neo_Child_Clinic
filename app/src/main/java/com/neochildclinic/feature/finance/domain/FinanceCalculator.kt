@@ -1,9 +1,10 @@
 package com.neochildclinic.feature.finance.domain
 
-import com.neochildclinic.core.common.PatientUtils
+import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.common.startOfDay
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
+import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
 import java.util.Calendar
 import java.util.Date
@@ -46,12 +47,13 @@ object FinanceCalculator {
 
     val MONTH_NAMES = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
+    fun isCountedVaccination(vaccination: Vaccination): Boolean =
+        vaccination.status == ReminderStatus.COMPLETED ||
+        vaccination.status == ReminderStatus.EXTERNAL ||
+        vaccination.source.equals("EXTERNAL", true)
+
     fun filterValidVaccinations(vaccinations: List<Vaccination>): List<Vaccination> =
-        vaccinations.filter {
-            it.status == com.neochildclinic.domain.model.ReminderStatus.COMPLETED ||
-            it.status == com.neochildclinic.domain.model.ReminderStatus.EXTERNAL ||
-            it.source.equals("EXTERNAL", true)
-        }
+        vaccinations.filter(::isCountedVaccination)
 
     /**
      * The authoritative reporting date for a finance transaction.
@@ -155,7 +157,7 @@ object FinanceCalculator {
         // Use pre-calculated reporting dates for invalid check
         val invalidTransactionDateCount = transactions.count { 
             val date = resolveReportingDate(it, visitDatesById)
-            PatientUtils.parseDate(date) == null 
+            DateUtils.parseDate(date) == null 
         }
         
         val allRecordedVaccinationVisitIds = deduplicateVaccinationIncome(
@@ -207,13 +209,13 @@ object FinanceCalculator {
         val parsed = transactions.mapNotNull { transaction ->
             if (!isCleanTransaction(transaction, validVaccinationIds)) return@mapNotNull null
             val reportingDate = resolveReportingDate(transaction, visitDatesById)
-            val date = PatientUtils.parseDate(reportingDate) ?: return@mapNotNull null
+            val date = DateUtils.parseDate(reportingDate) ?: return@mapNotNull null
             if (date.before(safetyBoundary)) return@mapNotNull null
             transaction to date
         }
         val parsedExpenses = expenses.mapNotNull { exp ->
             if (!isCleanExpense(exp)) return@mapNotNull null
-            val date = PatientUtils.parseDate(exp.expenseDate) ?: return@mapNotNull null
+            val date = DateUtils.parseDate(exp.expenseDate) ?: return@mapNotNull null
             if (date.before(safetyBoundary)) return@mapNotNull null
             exp to date
         }
@@ -341,13 +343,6 @@ object FinanceCalculator {
         return cash to online
     }
 
-    fun paymentMethodFor(cashAmount: Double, onlineAmount: Double): String = when {
-        cashAmount > 0 && onlineAmount > 0 -> "MIXED"
-        cashAmount > 0 -> "CASH"
-        onlineAmount > 0 -> "ONLINE"
-        else -> "FREE"
-    }
-
     private fun parseCogsSnapshot(remarks: String?): Double? {
         val value = remarks?.substringAfter(COGS_MARKER, missingDelimiterValue = "")?.substringBefore("]")?.toDoubleOrNull()
         return value?.takeIf { it >= 0.0 }
@@ -394,5 +389,42 @@ object FinanceCalculator {
         val cal = Calendar.getInstance().apply { time = date }
         return String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
     }
+
+    /**
+     * Returns the current Indian Financial Year (1 April – 31 March) formatted as "FY YY-YY".
+     */
+    fun getCurrentFinancialYear(now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))): String {
+        val curYear = now.get(Calendar.YEAR)
+        val curMonth = now.get(Calendar.MONTH) // Calendar.APRIL == 3
+        val fyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
+        return "FY ${fyStart % 100}-${(fyStart + 1) % 100}"
+    }
+
+    /**
+     * Extracts and deduplicates all available Financial Years from the provided list of date strings,
+     * ensuring the current financial year is always included.
+     */
+    fun getAvailableFinancialYears(
+        dates: List<String>,
+        now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+    ): List<String> {
+        val curYear = now.get(Calendar.YEAR)
+        val curMonth = now.get(Calendar.MONTH)
+        val curFyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
+
+        val uniqueDates = dates.distinct()
+        val years = uniqueDates.mapNotNull { DateUtils.parseDate(it) }
+            .map { date ->
+                val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply { time = date }
+                val y = cal.get(Calendar.YEAR)
+                val m = cal.get(Calendar.MONTH)
+                if (m >= Calendar.APRIL) y else y - 1
+            }
+            .toMutableSet()
+        years.add(curFyStart)
+
+        return years.sorted().map { "${it % 100}-${(it + 1) % 100}" }
+    }
 }
+
 

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +40,9 @@ fun TodayPatientsScreen(
     initialTab: String? = null,
     highlightId: String? = null
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val selectedDate by viewModel.selectedDate.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable {
         mutableStateOf(
             if (initialTab == "vaccination") TodayPatientTab.VACCINATION else TodayPatientTab.CONSULTATION

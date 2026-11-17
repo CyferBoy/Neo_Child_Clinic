@@ -8,6 +8,7 @@ import com.neochildclinic.feature.patient.domain.repository.PatientRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -57,6 +58,7 @@ class CompletedDismissedViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 android.util.Log.e("CompletedDismissedVM", "Restore reminder failed", e)
             }
         }
@@ -64,13 +66,14 @@ class CompletedDismissedViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            _isRefreshing.update { true }
             try {
                 reminderRepository.refreshReminders()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 android.util.Log.e("CompletedDismissedVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

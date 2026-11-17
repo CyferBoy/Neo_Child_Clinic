@@ -2,7 +2,6 @@ package com.neochildclinic.feature.inventory.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.core.common.Constants
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.domain.model.InventoryFilter
@@ -15,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -226,6 +226,7 @@ class AddStockViewModel @Inject constructor(
                 inventoryRepository.addStockBatch(entriesByVaccine, user)
                 _uiState.update { it.copy(isSaving = false, isSaved = true) }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.update { it.copy(isSaving = false, error = e.message ?: "Failed to save stock.") }
             }
         }

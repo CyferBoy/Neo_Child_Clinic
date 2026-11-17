@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,23 +46,23 @@ class SyncViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Uncaught here would reach the default handler and kill the process;
                 // per-item failures are already counted by the queue and SyncWorker.
-                _refreshError.value = e.message ?: "Unable to sync"
+                _refreshError.update { e.message ?: "Unable to sync" }
             }
         }
     }
 
     fun forceRefreshFromCloud() {
         viewModelScope.launch {
-            _isRefreshing.value = true
-            _refreshError.value = null
+            _isRefreshing.update { true }
+            _refreshError.update { null }
             try {
                 refreshDataUseCase()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _refreshError.value = e.message ?: "Unable to refresh from cloud"
+                _refreshError.update { e.message ?: "Unable to refresh from cloud" }
             } finally {
-                _isRefreshing.value = false
+                _isRefreshing.update { false }
             }
         }
     }

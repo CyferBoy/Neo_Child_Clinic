@@ -39,7 +39,6 @@ class PatientIdGenerator @Inject constructor(
         var isUnique = false
         var currentNum = nextNumber
 
-        // Final safety check for uniqueness
         while (!isUnique) {
             val existing = patientDao.getPatientByClinicId(clinicId)
             if (existing == null) {

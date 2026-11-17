@@ -1,4 +1,6 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
+import com.neochildclinic.core.common.VaccineUtils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.neochildclinic.core.common.PatientUtils
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.Reminder
@@ -38,7 +39,7 @@ private fun administeredDoses(vaccinations: List<Vaccination>, validVaccineIds: 
     StatisticsUtils.filterValidVaccinations(vaccinations).flatMap { v ->
         v.items
             .filter { it.vaccineName.isNotBlank() && it.vaccineId in validVaccineIds }
-            .map { AdministeredDose(PatientUtils.cleanVaccineName(it.vaccineName), it.quantity.coerceAtLeast(0), v.dateGiven) }
+            .map { AdministeredDose(VaccineUtils.cleanVaccineName(it.vaccineName), it.quantity.coerceAtLeast(0), v.dateGiven) }
     }
 
 @Composable
@@ -49,7 +50,7 @@ fun VaccinationsTab(
     showFilters: Boolean = false,
     onVaccineTypeClick: (String, String?) -> Unit = { _, _ -> }
 ) {
-    var filterMode by rememberSaveable { mutableStateOf(StatisticsUtils.getCurrentFinancialYear()) }
+    var filterMode by rememberSaveable { mutableStateOf(FinanceCalculator.getCurrentFinancialYear()) }
     var fyQuarter by rememberSaveable { mutableIntStateOf(0) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(-1) }
 
@@ -57,7 +58,7 @@ fun VaccinationsTab(
     // All administered doses: filterValidVaccinations keeps only COMPLETED/EXTERNAL parent
     // visits, so a pending visit's items never inflate the Administered segment.
     val allDoses = remember(vaccinations, validVaccineIds) { administeredDoses(vaccinations, validVaccineIds) }
-    val availableYears = remember(allDoses) { StatisticsUtils.getAvailableFinancialYears(allDoses.map { it.dateGiven }) }
+    val availableYears = remember(allDoses) { FinanceCalculator.getAvailableFinancialYears(allDoses.map { it.dateGiven }) }
 
     // Current period
     val filteredDoses = remember(allDoses, filterMode, fyQuarter, selectedMonth) {
@@ -504,7 +505,7 @@ internal fun calculateUpcomingVaccineNeeds(
                     }
                 }
                 verified
-                    .map { (id, name) -> id to PatientUtils.cleanVaccineName(name) }
+                    .map { (id, name) -> id to VaccineUtils.cleanVaccineName(name) }
                     .filter { it.second.isNotBlank() }
                     .distinctBy { it.first ?: it.second }
                     .forEach { (id, name) ->
