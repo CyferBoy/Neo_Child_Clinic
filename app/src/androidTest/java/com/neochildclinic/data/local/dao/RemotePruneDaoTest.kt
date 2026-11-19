@@ -100,7 +100,7 @@ class RemotePruneDaoTest {
             id = localId,
             patientId = "p-1",
             originalVisitId = "v-1",
-            vaccineName = "BCG",
+            vaccineName = "BCG-$localId",
             type = "VACCINATION",
             dueDate = "2030-01-01",
             status = "ACTIVE",
@@ -112,6 +112,7 @@ class RemotePruneDaoTest {
 
     @Test
     fun reminderProjectionMapsServerIdIdentity() = runBlocking {
+        patientDao.upsertPatient(patient("p-1", "Reminder owner", synced = true))
         dueReminderDao.insertReminder(reminder("loc-1", "srv-1", synced = true))
         dueReminderDao.insertReminder(reminder("loc-2", "srv-2", synced = false))
 

@@ -195,16 +195,16 @@ class PullUpsertPreservesChildrenTest {
         assertNotNull("borrow return was cascaded away", db.borrowReturnDao().getById("br1"))
     }
 
-    // Pins the hazard the upserts exist for: REPLACE deletes the parent row and CASCADE does
-    // the rest. If this stops deleting, the pull/edit call sites can be simplified again.
+    // The pull/edit call sites depend on @Upsert updating in place; REPLACE would delete
+    // the patient and cascade its visit away, so this pins the safe behaviour.
     @Test
-    fun legacyReplace_stillDeletesChildren() = runBlocking {
+    fun upsertPatient_preservesChildren() = runBlocking {
         seedClinicalGraph()
 
         db.patientDao().upsertPatient(patient("p1", clinicId = "NEO-1").copy(name = "Replaced"))
 
-        assertNull("REPLACE deleted the patient and cascaded its visit", db.vaccinationDao().getVaccinationById("v1"))
-        assertEquals(0, db.vaccinationItemDao().getItemsForVaccination("v1").first().size)
+        assertNotNull("upsert cascaded the patient's visit away", db.vaccinationDao().getVaccinationById("v1"))
+        assertEquals(1, db.vaccinationItemDao().getItemsForVaccination("v1").first().size)
     }
 
     // What REPLACE did here was delete the patient that already held the clinicId. The pull

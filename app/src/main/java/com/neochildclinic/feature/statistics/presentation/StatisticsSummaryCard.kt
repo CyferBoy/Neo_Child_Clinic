@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import androidx.compose.ui.platform.LocalLocale
 import java.util.Locale
 
 @Composable
@@ -122,7 +123,7 @@ private fun FilterPill(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = label.uppercase(Locale.getDefault()),
+                    text = label.uppercase(LocalLocale.current.platformLocale),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.7.sp),
                     color = if (enabled) muted else muted.copy(alpha = 0.45f),
                     maxLines = 1,
@@ -189,7 +190,7 @@ fun SummaryCard(
             verticalArrangement = Arrangement.Top
         ) {
             Text(
-                text = title.uppercase(Locale.getDefault()),
+                text = title.uppercase(LocalLocale.current.platformLocale),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     letterSpacing = 0.8.sp

@@ -150,8 +150,6 @@ jobs:
           );
           SQL
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_child_refs_survive_parent_delete.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118000000_access_hardening.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/tests/access_hardening_test.sql
           psql -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.patients(id) values ('11111111-1111-1111-1111-111111111111');
           insert into public.patient_visits(id, patient_id)
@@ -179,3 +177,9 @@ jobs:
             end if;
           end $$;
           SQL
+
+      # Self-contained: the script builds its own minimal schema and applies
+      # 20261118000000_access_hardening.sql with \ir, so it must not be applied
+      # separately above (that schema lacks is_active_staff()/auth.jwt()).
+      - name: Test access hardening
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/access_hardening_test.sql

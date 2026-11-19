@@ -29,6 +29,7 @@ import com.neochildclinic.feature.statistics.domain.ExpenseCalculator
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.finance.domain.FinanceStatsData
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
+import androidx.compose.ui.platform.LocalLocale
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -439,7 +440,7 @@ private fun HeroMetric(
         horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
     ) {
         Text(
-            text = label.uppercase(Locale.getDefault()),
+            text = label.uppercase(LocalLocale.current.platformLocale),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.7.sp),
             color = Color.White.copy(alpha = 0.72f),
             maxLines = 1

@@ -88,7 +88,7 @@ fun DashboardScreen(
                 containerColor = Color.Transparent,
                 topBar = { DashboardTopBar(onMenuClick = {}) }
             ) { paddingValues ->
-                BoxWithConstraints(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
