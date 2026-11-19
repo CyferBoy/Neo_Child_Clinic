@@ -1,11 +1,11 @@
 package com.neochildclinic.feature.patient.domain
 
 import com.neochildclinic.core.database.TransactionRunner
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger

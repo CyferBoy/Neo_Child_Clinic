@@ -160,7 +160,7 @@ Full detail in [[Known Bugs]]; the two MVVM-specific ones are both fixed:
 ## Test coverage of this layer
 
 **Zero.** There is no `*ViewModelTest.kt` in `app/src/test` or `app/src/androidTest`. All
-252 passing unit tests cover pure functions and a few repositories. See [[Testing]].
+554 passing unit tests cover pure functions and a few repositories. See [[Testing]].
 
 ## Related
 

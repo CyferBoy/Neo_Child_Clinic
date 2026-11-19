@@ -38,7 +38,7 @@ graph TB
         BAK["Backup subsystem<br/>13"]
     end
     subgraph infra["infrastructure"]
-        DB[("Room v33<br/>neochild_db<br/>SQLCipher")]
+        DB[("schema 35<br/>neochild_db<br/>SQLCipher")]
         SB[("Supabase<br/>Postgres + RLS")]
         SYNC["Sync core<br/>core/sync · 8 files"]
         CACHE["Cache<br/>3 layers"]

@@ -9,8 +9,8 @@ import com.neochildclinic.domain.model.InventorySort
 import com.neochildclinic.domain.model.InventoryTransaction
 import com.neochildclinic.domain.model.StockHistoryTypeFilter
 import com.neochildclinic.domain.model.VaccineBatch
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.PatientRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

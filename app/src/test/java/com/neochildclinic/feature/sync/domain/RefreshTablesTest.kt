@@ -1,5 +1,9 @@
 package com.neochildclinic.feature.sync.domain
 
+import com.neochildclinic.core.sync.RefreshStep
+import com.neochildclinic.core.sync.RefreshTables
+import com.neochildclinic.core.sync.refreshTablesSteps
+import com.neochildclinic.core.sync.stepsFor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

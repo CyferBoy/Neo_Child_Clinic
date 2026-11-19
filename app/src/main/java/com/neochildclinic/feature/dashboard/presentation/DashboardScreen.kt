@@ -17,6 +17,9 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,8 +32,7 @@ import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.core.ui.SkeletonBox
 import com.neochildclinic.core.ui.SkeletonCard
 import com.neochildclinic.core.ui.AppPullToRefresh
-import com.neochildclinic.app.AppDrawer
-import com.neochildclinic.app.Routes
+import com.neochildclinic.core.ui.AppDrawer
 import com.neochildclinic.core.designsystem.LocalCustomColors
 import kotlinx.coroutines.launch
 
@@ -67,6 +69,15 @@ fun DashboardScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) dashboardViewModel.onResume()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     if (isProfileLoading && authProfile == null) {
         Surface(
@@ -276,7 +287,6 @@ fun DashboardScreen(
                                 onStatistics = onStatistics
                             )
 
-                            // 3-Card Small Actions Row (Borrowed, Due, Waste)
                             DashboardSmallActionsRow(
                                 uiState = uiState,
                                 onBorrowed = onBorrowed,

@@ -54,7 +54,7 @@ class ReminderSoftDeleteFilterTest {
     // Every seeded patient has to exist first.
     private fun seedPatients(vararg ids: String) = runBlocking {
         ids.forEach {
-            patientDao.insertPatient(
+            patientDao.upsertPatient(
                 PatientEntity(
                     id = it,
                     name = "Patient $it",

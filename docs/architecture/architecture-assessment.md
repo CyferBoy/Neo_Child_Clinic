@@ -21,7 +21,7 @@ graph TD
    - Composables observe UI state exposed as Kotlin `StateFlow` from ViewModels.
    - User interactions emit events or call ViewModel methods, which execute coroutines on structured scopes.
 2. **Offline-First Persistence**:
-   - Room (v33) serves as the immediate source of truth for read and write operations.
+   - Room (schema 35, library 2.8.5) serves as the immediate source of truth for read and write operations.
    - Writes record pending mutations into a local `sync_queue` table in atomic Room transactions.
    - `SyncManager` asynchronously uploads queued operations to Supabase using exponential backoff, single-flight locking, and transactional reconciliation.
 3. **Domain Layer Independence**:

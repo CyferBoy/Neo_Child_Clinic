@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.patient.data
 import com.neochildclinic.core.common.DateUtils
 
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.data.remote.PatientRemoteDataSource
 import com.neochildclinic.data.local.dao.PatientDao
@@ -17,8 +17,8 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.PatientNote
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.core.logger.AuditLogger
@@ -91,104 +91,108 @@ class PatientRepositoryImpl @Inject constructor(
         val entities = remoteDataSource.fetchAllPatients()
         android.util.Log.d("PatientRepo", "Pulled ${entities.size} patients from Supabase")
 
-        // The queue guard and the local rows (looked up by id and by clinic id) are each
-        // built once, outside the loop. The deleted getPatientsByIds took one bind
-        // parameter per remote patient (SQLite allows 999 on API 29/30) and had no
-        // empty-pull guard; the parameterless snapshot has neither problem.
-        val pendingPatientIds = syncQueueDao.unsyncedIdSet("PATIENT")
-        val localPatients = patientDao.getAllPatientsSnapshot()
-        val localById = localPatients.associateBy { it.id }.toMutableMap()
-        // patientClinicId has a unique index, so there is at most one owner per id.
-        val clinicIdOwner = localPatients
-            .mapNotNull { p -> p.patientClinicId?.takeIf { it.isNotBlank() }?.let { it to p.id } }
-            .toMap().toMutableMap()
+        val candidatesToDelete = transactionRunner.run {
+            // The queue guard and the local rows (looked up by id and by clinic id) are each
+            // built once, outside the loop. The deleted getPatientsByIds took one bind
+            // parameter per remote patient (SQLite allows 999 on API 29/30) and had no
+            // empty-pull guard; the parameterless snapshot has neither problem. The guard is
+            // read inside the transaction so a queued edit committed here is visible before
+            // the pull overwrites it (DB-02/SY-01/DB-03).
+            val pendingPatientIds = syncQueueDao.unsyncedIdSet("PATIENT")
+            val localPatients = patientDao.getAllPatientsSnapshot()
+            val localById = localPatients.associateBy { it.id }.toMutableMap()
+            // patientClinicId has a unique index, so there is at most one owner per id.
+            val clinicIdOwner = localPatients
+                .mapNotNull { p -> p.patientClinicId?.takeIf { it.isNotBlank() }?.let { it to p.id } }
+                .toMap().toMutableMap()
 
-        for (entity in entities) {
-            try {
-                val existingLocal = localById[entity.id]
-                val localClinicId = when {
-                    entity.patientClinicId?.isNotBlank() == true && !entity.patientClinicId.startsWith("TEMP-") ->
-                        entity.patientClinicId
-                    existingLocal != null && existingLocal.patientClinicId?.isNotBlank() == true && !existingLocal.patientClinicId.startsWith("TEMP-") ->
-                        existingLocal.patientClinicId
-                    else -> "TEMP-${entity.id}"
-                }
+            for (entity in entities) {
+                try {
+                    val existingLocal = localById[entity.id]
+                    val localClinicId = when {
+                        entity.patientClinicId?.isNotBlank() == true && !entity.patientClinicId.startsWith("TEMP-") ->
+                            entity.patientClinicId
+                        existingLocal != null && existingLocal.patientClinicId?.isNotBlank() == true && !existingLocal.patientClinicId.startsWith("TEMP-") ->
+                            existingLocal.patientClinicId
+                        else -> "TEMP-${entity.id}"
+                    }
 
-                if (!localClinicId.startsWith("TEMP-")) {
-                    val existingOwnerId = clinicIdOwner[localClinicId]
-                    if (existingOwnerId != null && existingOwnerId != entity.id) {
-                        val localOwner = localById[existingOwnerId]
-                        if (localOwner != null &&
-                            (!localOwner.isSynced || localOwner.id in pendingPatientIds)
-                        ) {
-                            // The remote row owns this clinic ID on the server. Rename the
-                            // local-only row instead of the remote one; otherwise the remote
-                            // patient is displayed under a made-up ID forever while the
-                            // server keeps the real one. The queue entry (if any) follows
-                            // the patient id, so its next upload carries the new clinic ID.
-                            val resolvedId = localClinicId + "-CONFLICT-" + localOwner.id.take(4)
-                            val renamed = localOwner.copy(
-                                patientClinicId = resolvedId,
-                                isSynced = false
-                            )
-                            patientDao.upsertPatient(renamed)
-                            localById[existingOwnerId] = renamed
-                            clinicIdOwner.remove(localClinicId)
-                            clinicIdOwner[resolvedId] = existingOwnerId
-                        } else {
-                            // Both rows are already synced: the server's unique index should
-                            // have prevented this, so it is legacy drift. Keep the remote row
-                            // usable locally under a conflict ID (the previous behavior).
-                            val resolvedId = localClinicId + "-CONFLICT-" + entity.id.take(4)
-                            // Upsert, not insertPatient: this row can already exist (same remote id
-                            // pulled again) and a REPLACE would delete it and cascade its children.
-                            patientDao.upsertPatient(entity.copy(
-                                patientClinicId = resolvedId,
-                                updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
-                                isSynced = true
-                            ))
-                            clinicIdOwner[resolvedId] = entity.id
-                            continue
+                    if (!localClinicId.startsWith("TEMP-")) {
+                        val existingOwnerId = clinicIdOwner[localClinicId]
+                        if (existingOwnerId != null && existingOwnerId != entity.id) {
+                            val localOwner = localById[existingOwnerId]
+                            if (localOwner != null &&
+                                (!localOwner.isSynced || localOwner.id in pendingPatientIds)
+                            ) {
+                                // The remote row owns this clinic ID on the server. Rename the
+                                // local-only row instead of the remote one; otherwise the remote
+                                // patient is displayed under a made-up ID forever while the
+                                // server keeps the real one. The queue entry (if any) follows
+                                // the patient id, so its next upload carries the new clinic ID.
+                                val resolvedId = localClinicId + "-CONFLICT-" + localOwner.id.take(4)
+                                val renamed = localOwner.copy(
+                                    patientClinicId = resolvedId,
+                                    isSynced = false
+                                )
+                                patientDao.upsertPatient(renamed)
+                                localById[existingOwnerId] = renamed
+                                clinicIdOwner.remove(localClinicId)
+                                clinicIdOwner[resolvedId] = existingOwnerId
+                            } else {
+                                // Both rows are already synced: the server's unique index should
+                                // have prevented this, so it is legacy drift. Keep the remote row
+                                // usable locally under a conflict ID (the previous behavior).
+                                val resolvedId = localClinicId + "-CONFLICT-" + entity.id.take(4)
+                                // Upsert, not insertPatient: this row can already exist (same remote id
+                                // pulled again) and a REPLACE would delete it and cascade its children.
+                                patientDao.upsertPatient(entity.copy(
+                                    patientClinicId = resolvedId,
+                                    updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+                                    isSynced = true
+                                ))
+                                clinicIdOwner[resolvedId] = entity.id
+                                continue
+                            }
                         }
                     }
-                }
 
-                if ((existingLocal == null || existingLocal.isSynced) && entity.id !in pendingPatientIds) {
-                    // Upsert: REPLACE would delete this patient row and cascade away every
-                    // visit/item/consultation/reminder/note under it.
-                    patientDao.upsertPatient(entity.copy(
-                        patientClinicId = localClinicId,
-                        updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
-                        isSynced = true
-                    ))
-                    // Keep the map in step with the writes this loop just made, the way the
-                    // old per-row query saw earlier iterations' rows.
-                    clinicIdOwner[localClinicId] = entity.id
+                    if ((existingLocal == null || existingLocal.isSynced) && entity.id !in pendingPatientIds) {
+                        // Upsert: REPLACE would delete this patient row and cascade away every
+                        // visit/item/consultation/reminder/note under it.
+                        patientDao.upsertPatient(entity.copy(
+                            patientClinicId = localClinicId,
+                            updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+                            isSynced = true
+                        ))
+                        // Keep the map in step with the writes this loop just made, the way the
+                        // old per-row query saw earlier iterations' rows.
+                        clinicIdOwner[localClinicId] = entity.id
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    android.util.Log.e("PatientRepo", "Insert failed while syncing a patient record", e)
                 }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                android.util.Log.e("PatientRepo", "Insert failed for patient ${entity.id}", e)
             }
-        }
 
-        // Remote-deletion propagation (NCC-023 / DA-01): this pull is insert+update only, so a
-        // patient deleted on another device never left this one - it stayed searchable, kept
-        // counting, and a queued edit against it uploaded as a silent no-op. A synced row the
-        // remote set no longer lists (deleteFilterColumn hard-deletes it) and that no queue
-        // entry claims is drift: delete it. Room FKs CASCADE the visit/item/consultation/
-        // todo/reminder/note rows under it, so the whole cluster goes in one statement.
-        val candidatesToDelete = RemotePrune.computeBatches(
-            localIds = localById.keys.toList(),
-            syncedIds = localById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
-            remoteIds = entities.mapTo(HashSet()) { it.id },
-            pendingIds = pendingPatientIds
-        ).flatten()
-
-        for (patientId in candidatesToDelete) {
-            if (!patientDao.hasUnsyncedRecordsForPatient(patientId)) {
-                patientDao.deletePatient(patientId)
-            } else {
-                android.util.Log.w("PatientRepo", "Skipping RemotePrune for patient $patientId: has unsynced records in sync_queue")
+            // Remote-deletion propagation (NCC-023 / DA-01): this pull is insert+update only, so a
+            // patient deleted on another device never left this one - it stayed searchable, kept
+            // counting, and a queued edit against it uploaded as a silent no-op. A synced row the
+            // remote set no longer lists (deleteFilterColumn hard-deletes it) and that no queue
+            // entry claims is drift: delete it. Room FKs CASCADE the visit/item/consultation/
+            // todo/reminder/note rows under it, so the whole cluster goes in one statement.
+            RemotePrune.computeBatches(
+                localIds = localById.keys.toList(),
+                syncedIds = localById.values.filter { it.isSynced }.mapTo(HashSet()) { it.id },
+                remoteIds = entities.mapTo(HashSet()) { it.id },
+                pendingIds = pendingPatientIds
+            ).flatten().also { candidates ->
+                for (patientId in candidates) {
+                    if (!patientDao.hasUnsyncedRecordsForPatient(patientId)) {
+                        patientDao.deletePatient(patientId)
+                    } else {
+                        android.util.Log.w("PatientRepo", "Skipping RemotePrune: patient has unsynced records in sync_queue")
+                    }
+                }
             }
         }
 

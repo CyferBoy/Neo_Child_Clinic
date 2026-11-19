@@ -9,14 +9,14 @@
 | Root | Files | Role |
 |---|---|---|
 | `app/src/main/java/com/neochildclinic/` | 354 | production Kotlin |
-| `app/src/test/java/com/neochildclinic/` | 41 | JVM unit tests |
+| `app/src/test/java/com/neochildclinic/` | 554 `@Test` methods | JVM unit tests |
 | `app/src/androidTest/java/com/neochildclinic/` | 8 | instrumented tests |
 | `app/src/main/res/` | — | resources; `res/xml/` holds only `vaccine_widget_info.xml` |
-| `app/schemas/` | 1 | `…/AppDatabase/33.json` — the only exported Room schema |
+| `app/schemas/` | 3 | `…/AppDatabase/{33,34,35}.json` — exported Room schemas |
 | `supabase/migrations/` | 23 | SQL migrations, now git-tracked |
 | `supabase/functions/` | 2 | `manage-staff`, `notify-update` (Deno/TS) |
 | `cloudflare/` | — | backup Worker + R2 binding |
-| `scripts/` | 4 | `validate_docs.py` — documentation integrity; `test_validate_docs.py` — its tests (both 2026-10-18); `check_graphify_html.py`; `graphify-viewer.patch` |
+| `scripts/` | 5 | `validate_docs.py` — documentation integrity; `test_validate_docs.py` — its tests (both 2026-10-18); `check_graphify_html.py`; `graphify-viewer.patch`; `test_manage_staff_self_demotion.mjs` — manage-staff Edge Function tests |
 
 ## Entry points
 
@@ -59,7 +59,7 @@
 |---|---|---|
 | `local/dao/` | **21** | 4 have any test; all DAO tests are instrumented |
 | `local/entity/` | 22 files / **25 `@Entity`** | `ReminderEntity` is the only soft-delete table |
-| `local/database/` | 3 | `AppDatabase.kt` (v33, 16 migrations), `Converters.kt` (17 lines, 1 converter), `TransactionRunnerImpl.kt` |
+| `local/database/` | 3 | `AppDatabase.kt` (schema 35, 18 migrations), `Converters.kt` (17 lines, 1 converter), `TransactionRunnerImpl.kt` |
 | `remote/` | 2 | `PatientRemoteDataSource(+Impl)` |
 | `backup/` | 13 | `BackupCrypto` (best crypto in repo), `BackupRestorer` (318 lines, untested), `BackupValidator`, `SafetyBackupStore`, `CloudBackupApi` |
 
@@ -117,7 +117,7 @@ the `"d MMM yyyy"` non-padding hazard), `ClinicStats.kt`, `SyncEnums.kt`, `Inven
 | File | Contents |
 |---|---|
 | `app/build.gradle.kts` | Room schema location (`:29-31`), `isReturnDefaultValues = true` (`:103`) — the version numbers live in the catalogue |
-| `gradle/libs.versions.toml` | version catalogue — `appVersionCode 3` / `appVersionName 0.5.1` (`:2-3`), Room 2.8.5, SQLCipher 4.19.0 |
+| `gradle/libs.versions.toml` | version catalogue — `appVersionName 0.6` (`:2`), from which `versionCode 6000` is derived in `app/build.gradle.kts`; Room 2.8.5, SQLCipher 4.19.0 |
 | `app/src/main/AndroidManifest.xml` | no backup rules (`allowBackup=false`), `POST_NOTIFICATIONS`, no boot receiver, WorkManager initializer removed (`:88-97`) |
 | `supabase/config.toml` | per-function JWT config; `auto_expose_new_tables` commented out — **removal 2026-10-30** |
 

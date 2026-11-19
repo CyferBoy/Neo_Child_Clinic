@@ -1,6 +1,6 @@
 ---
 name: run-unit-tests
-description: Instructions for running the JVM unit test suite (344 tests) in Neo Child Clinic using Gradle. Use when testing code changes, verifying bug fixes, or assessing release readiness.
+description: Instructions for running the JVM unit test suite (554 tests) in Neo Child Clinic using Gradle. Use when testing code changes, verifying bug fixes, or assessing release readiness.
 ---
 
 # Run Unit Tests Skill

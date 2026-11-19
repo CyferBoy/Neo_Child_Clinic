@@ -6,10 +6,11 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.neochildclinic.data.local.database.AppDatabase
+import com.neochildclinic.data.local.dao.PatientDao
+import com.neochildclinic.data.local.dao.WidgetDueDao
 import com.neochildclinic.feature.widget.presentation.VaccineWidget
 import com.neochildclinic.data.local.entity.WidgetDueEntity
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateCategory
 import dagger.assisted.Assisted
@@ -26,7 +27,8 @@ class WidgetWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val reminderRepository: ReminderRepository,
-    private val database: AppDatabase
+    private val patientDao: PatientDao,
+    private val widgetDueDao: WidgetDueDao
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -36,7 +38,7 @@ class WidgetWorker @AssistedInject constructor(
 
             // Names come from one projection query over just the due row's patient ids
             // (PatientDao.getNamesByIds), not from the whole patients table.
-            val names = database.patientDao()
+            val names = patientDao
                 .getNamesByIds(dueList.map { it.patientId }.distinct())
                 .associate { it.id to it.name }
 
@@ -55,7 +57,7 @@ class WidgetWorker @AssistedInject constructor(
                 )
             }
 
-            database.widgetDueDao().refreshCache(widgetItems)
+            widgetDueDao.refreshCache(widgetItems)
 
             // Update the Glance widget only after the cache has been populated.
             // Previously WidgetUtils refreshed the widget immediately after enqueueing

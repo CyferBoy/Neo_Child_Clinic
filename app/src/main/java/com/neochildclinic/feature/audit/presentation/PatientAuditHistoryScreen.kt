@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.audit.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
@@ -26,11 +27,16 @@ import com.neochildclinic.core.designsystem.Spacing
 import com.neochildclinic.core.ui.*
 import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.model.Patient
-import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.domain.repository.PatientRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -44,8 +50,17 @@ class PatientAuditViewModel @Inject constructor(
 ) : ViewModel() {
     val auditLogPager = PatientAuditLogPager(auditLogRepository, viewModelScope)
 
-    fun getPatient(patientId: String): Flow<Patient?> =
-        patientRepository.allPatients.map { list -> list.find { it.id == patientId } }
+    private val patientId = MutableStateFlow<String?>(null)
+    val patient: StateFlow<Patient?> = patientId
+        .flatMapLatest { id ->
+            if (id == null) flowOf<Patient?>(null)
+            else patientRepository.allPatients.map { list -> list.find { it.id == id } }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setPatient(patientId: String) {
+        this.patientId.value = patientId
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,9 +71,10 @@ fun PatientAuditHistoryScreen(
     viewModel: PatientAuditViewModel = hiltViewModel()
 ) {
     val auditState by viewModel.auditLogPager.state.collectAsStateWithLifecycle()
-    val patient by viewModel.getPatient(patientId).collectAsStateWithLifecycle(initialValue = null)
+    val patient by viewModel.patient.collectAsStateWithLifecycle()
 
     LaunchedEffect(patientId) {
+        viewModel.setPatient(patientId)
         viewModel.auditLogPager.load(patientId)
     }
 
@@ -264,7 +280,7 @@ private fun groupPatientLogsByDate(logs: List<AuditLog>): Map<String, List<Audit
     for (log in logs) {
         val dateStr = runCatching {
             val instant = Instant.parse(log.timestamp)
-            val localDate = instant.atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
+            val localDate = instant.atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
             localDate.format(dateFormatter)
         }.getOrElse {
             if (log.timestamp.length >= 10) {

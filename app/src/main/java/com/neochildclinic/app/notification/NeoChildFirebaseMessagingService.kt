@@ -1,7 +1,7 @@
 package com.neochildclinic.app.notification
 
 import com.google.firebase.messaging.FirebaseMessagingService
-import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
+import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.BuildConfig
 import com.neochildclinic.core.common.VersionUtils
 import com.neochildclinic.core.notification.NotificationHelper

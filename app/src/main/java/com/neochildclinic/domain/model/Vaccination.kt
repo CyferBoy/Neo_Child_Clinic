@@ -1,8 +1,36 @@
 package com.neochildclinic.domain.model
-import com.neochildclinic.core.common.DateUtils
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+// The domain model needs only a comparable instant to pick the earliest due date.
+// shortcut: these mirror DateUtils.parseDate's accepted forms, kept here so domain
+// does not depend on core.common; upgrade to a shared domain parser if more fields need it.
+private val DUE_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
+private val DUE_DATE_FORMATTERS = listOf(
+    "d MMM yyyy", "d/M/yyyy", "dd/MM/yyyy", "yyyy-MM-dd"
+).map { DateTimeFormatter.ofPattern(it, Locale.ENGLISH) }
+private val DUE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH)
+
+private fun dueDateMillis(value: String): Long {
+    if (value.isBlank()) return Long.MAX_VALUE
+    runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()?.let { return it }
+    runCatching { OffsetDateTime.parse(value.replace(' ', 'T')).toInstant().toEpochMilli() }.getOrNull()?.let { return it }
+    runCatching { LocalDateTime.parse(value, DUE_DATE_TIME_FORMATTER).atZone(DUE_ZONE).toInstant().toEpochMilli() }
+        .getOrNull()?.let { return it }
+    for (formatter in DUE_DATE_FORMATTERS) {
+        runCatching { LocalDate.parse(value, formatter).atStartOfDay(DUE_ZONE).toInstant().toEpochMilli() }
+            .getOrNull()?.let { return it }
+    }
+    return Long.MAX_VALUE
+}
 
 @Serializable
 data class VaccinationItem(
@@ -64,7 +92,7 @@ data class Vaccination(
     // so "16 Oct 2026" sorts BEFORE "9 Oct 2026" as text while being a month later as a date.
     val nextDueDate: String
         get() = nextVaccinations
-            .minByOrNull { com.neochildclinic.core.common.DateUtils.parseDate(it.dueDate)?.time ?: Long.MAX_VALUE }
+            .minByOrNull { dueDateMillis(it.dueDate) }
             ?.dueDate
             ?: ""
 }

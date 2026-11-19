@@ -67,7 +67,6 @@ class NeoChildApp : Application(), Configuration.Provider {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
-        // Initialize GMS Security Provider
         installSecurityProvider()
 
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
@@ -110,38 +109,15 @@ class NeoChildApp : Application(), Configuration.Provider {
             }
         }
 
-        // Register Screen Off and User Present Receivers to refresh widget privacy
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_USER_PRESENT)
-        }
+        // Screen-off must arm the in-memory biometric lock (process death loses it).
+        // The widget no longer reflects lock state, so it needs no refresh here.
         registerReceiver(object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context?, intent: Intent?) {
-                when (intent?.action) {
-                    Intent.ACTION_SCREEN_OFF -> {
-                        BiometricLockManager.onScreenOff()
-                        context?.let { ctx ->
-                            scope.launch {
-                                com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(ctx)
-                            }
-                        }
-                    }
-                    Intent.ACTION_USER_PRESENT -> {
-                        context?.let { ctx ->
-                            scope.launch {
-                                com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(ctx)
-                            }
-                        }
-                    }
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    BiometricLockManager.onScreenOff()
                 }
             }
-        }, filter)
-
-        scope.launch {
-            BiometricLockManager.isAppLocked.collect {
-                com.neochildclinic.feature.widget.data.WidgetUtils.updateGlanceWidgetsOnly(this@NeoChildApp)
-            }
-        }
+        }, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         scope.launch {
             reminderScheduler.get().scheduleDailySummary()

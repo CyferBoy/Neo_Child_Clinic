@@ -7,8 +7,8 @@ import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.PersonalReminder
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*

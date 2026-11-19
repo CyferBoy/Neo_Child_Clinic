@@ -82,7 +82,7 @@ previous good snapshot.
 
 ## Scheduling
 
-`BackupAutoScheduler.kt:26-50`: `PeriodicWorkRequest<AutoBackupWorker>` at 24 h or 168 h,
+`data/backup/BackupAutoScheduler.kt:26-50`: `PeriodicWorkRequest<AutoBackupWorker>` at 24 h or 168 h,
 with `setRequiresBatteryNotLow(true)` and — **only if cloud is enabled** —
 `NetworkType.CONNECTED` (`:36-37`). `ExistingPeriodicWorkPolicy.UPDATE`.
 

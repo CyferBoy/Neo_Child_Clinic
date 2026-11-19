@@ -653,12 +653,13 @@ private data class MonthExpenseGroup(
 
 private fun groupExpensesByMonth(expenses: List<Expense>): List<MonthExpenseGroup> {
     val formatter = java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.US)
+    val monthKeyFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM", java.util.Locale.US)
     val map = linkedMapOf<String, MutableList<Expense>>()
 
     for (expense in expenses) {
         val (key, display) = runCatching {
             val date = java.time.LocalDate.parse(expense.expenseDate.take(10))
-            val key = date.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM", java.util.Locale.US))
+            val key = date.format(monthKeyFormatter)
             val display = date.format(formatter)
             key to display
         }.getOrElse {

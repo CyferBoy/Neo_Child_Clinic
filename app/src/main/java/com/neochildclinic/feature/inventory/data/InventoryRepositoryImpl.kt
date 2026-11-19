@@ -24,8 +24,8 @@ import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.dao.InventoryDeductionDao
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -54,8 +54,12 @@ class InventoryRepositoryImpl @Inject constructor(
 ) : InventoryRepository {
 
     private suspend fun enqueueBatchStockChange(batchId: String, transactionId: String, groupId: String? = null) {
-        syncRepository.enqueue("INVENTORY_TRANSACTION", transactionId, SyncOperation.CREATE, SyncPriority.HIGH, groupId)
+        // BATCH first: items inside one group upload FIFO (orderPendingIntoGroups sorts by
+        // createdAt/queueId). Transaction-first meant a failure of the second upload left
+        // the retry seeing the stock trigger's newer updated_at, downloading the remote
+        // batch and discarding the batch edit - for a top-up, that edit is purchase_quantity.
         syncRepository.enqueue("BATCH", batchId, SyncOperation.UPDATE, SyncPriority.MEDIUM, groupId)
+        syncRepository.enqueue("INVENTORY_TRANSACTION", transactionId, SyncOperation.CREATE, SyncPriority.HIGH, groupId)
     }
 
     override fun getInventoryItems(
@@ -174,41 +178,44 @@ class InventoryRepositoryImpl @Inject constructor(
     override suspend fun getVaccineById(vaccineId: String): Vaccine? = vaccineDao.getVaccineById(vaccineId)?.toDomain()
 
     override suspend fun addVaccine(vaccine: Vaccine, user: String) {
-        val isUpdate = vaccineDao.getVaccineById(vaccine.id) != null
-        val userName = sessionManager.getCurrentUserName()
-        val entity = vaccine.toEntity().copy(
-            createdBy = if (isUpdate) vaccine.createdBy else userName,
-            updatedBy = userName
-        )
-        vaccineDao.insertVaccine(entity)
-        syncRepository.enqueue("VACCINE", vaccine.id, if (isUpdate) SyncOperation.UPDATE else SyncOperation.CREATE, SyncPriority.MEDIUM)
-        auditLogger.recordLog(
-            module = "VACCINE",
-            entityType = "VACCINE",
-            entityId = vaccine.id,
-            action = if (isUpdate) "UPDATED" else "CREATED",
-            remarks = "Vaccine Definition: ${vaccine.brandName}"
-        )
+        transactionRunner.run {
+            val isUpdate = vaccineDao.getVaccineById(vaccine.id) != null
+            val userName = sessionManager.getCurrentUserName()
+            val entity = vaccine.toEntity().copy(
+                createdBy = if (isUpdate) vaccine.createdBy else userName,
+                updatedBy = userName
+            )
+            vaccineDao.insertVaccine(entity)
+            syncRepository.enqueue("VACCINE", vaccine.id, if (isUpdate) SyncOperation.UPDATE else SyncOperation.CREATE, SyncPriority.MEDIUM)
+            auditLogger.recordLog(
+                module = "VACCINE",
+                entityType = "VACCINE",
+                entityId = vaccine.id,
+                action = if (isUpdate) "UPDATED" else "CREATED",
+                remarks = "Vaccine Definition: ${vaccine.brandName}"
+            )
+        }
     }
 
     override suspend fun updateVaccine(vaccine: Vaccine, user: String) {
-        val isUpdate = vaccineDao.getVaccineById(vaccine.id) != null
-        val userName = sessionManager.getCurrentUserName()
-        val existing = vaccineDao.getVaccineById(vaccine.id)
-        val updated = vaccine.toEntity().copy(
-            lastUpdated = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
-            createdBy = existing?.createdBy ?: vaccine.createdBy ?: userName,
-            updatedBy = userName
-        )
-        vaccineDao.updateVaccine(updated)
-        syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
-        auditLogger.recordLog(
-            module = "VACCINE",
-            entityType = "VACCINE",
-            entityId = vaccine.id,
-            action = "UPDATED",
-            remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
-        )
+        transactionRunner.run {
+            val userName = sessionManager.getCurrentUserName()
+            val existing = vaccineDao.getVaccineById(vaccine.id)
+            val updated = vaccine.toEntity().copy(
+                lastUpdated = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+                createdBy = existing?.createdBy ?: vaccine.createdBy ?: userName,
+                updatedBy = userName
+            )
+            vaccineDao.updateVaccine(updated)
+            syncRepository.enqueue("VACCINE", vaccine.id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+            auditLogger.recordLog(
+                module = "VACCINE",
+                entityType = "VACCINE",
+                entityId = vaccine.id,
+                action = "UPDATED",
+                remarks = "Vaccine Definition Updated: ${vaccine.brandName}"
+            )
+        }
     }
 
     override suspend fun addBatch(
@@ -216,43 +223,48 @@ class InventoryRepositoryImpl @Inject constructor(
         user: String,
         transactionGroupId: String?
     ) {
-        val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
-        // Same trust boundary as updateBatch: the quantity field arrives as free text
-        // from the Add Batch form and must never create a negative stock level.
-        if (batch.remainingQuantity < 0) throw IllegalStateException("Quantity cannot be negative.")
-        val userName = sessionManager.getCurrentUserName()
-        val entityWithAudit = batch.toEntity().copy(
-            createdBy = userName,
-            updatedBy = userName,
-            updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
-        )
-        vaccineDao.insertBatch(entityWithAudit)
+        // A batch insert followed by a ledger row and sync enqueues must commit together:
+        // a failure after insertBatch otherwise leaves stock in a batch with no queue row to
+        // push it (addStockBatch nests this call, so the outer transaction joins safely).
+        transactionRunner.run {
+            val vaccine = vaccineDao.getVaccineById(batch.vaccineId) ?: throw IllegalStateException("Vaccine not found")
+            // Same trust boundary as updateBatch: the quantity field arrives as free text
+            // from the Add Batch form and must never create a negative stock level.
+            if (batch.remainingQuantity < 0) throw IllegalStateException("Quantity cannot be negative.")
+            val userName = sessionManager.getCurrentUserName()
+            val entityWithAudit = batch.toEntity().copy(
+                createdBy = userName,
+                updatedBy = userName,
+                updatedAt = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
+            )
+            vaccineDao.insertBatch(entityWithAudit)
 
-        val transaction = InventoryTransactionEntity(
-            vaccineId = batch.vaccineId,
-            batchId = batch.batchId,
-            transactionType = InventoryTransactionType.PURCHASE.name,
-            quantity = batch.purchaseQuantity,
-            previousQuantity = 0,
-            currentQuantity = entityWithAudit.remainingQuantity,
-            user = userName,
-            notes = "Batch Added: ${batch.batchNumber}",
-            timestamp = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
-            createdBy = userName,
-            updatedBy = userName
-        )
-        vaccineDao.insertTransaction(transaction)
+            val transaction = InventoryTransactionEntity(
+                vaccineId = batch.vaccineId,
+                batchId = batch.batchId,
+                transactionType = InventoryTransactionType.PURCHASE.name,
+                quantity = batch.purchaseQuantity,
+                previousQuantity = 0,
+                currentQuantity = entityWithAudit.remainingQuantity,
+                user = userName,
+                notes = "Batch Added: ${batch.batchNumber}",
+                timestamp = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
+                createdBy = userName,
+                updatedBy = userName
+            )
+            vaccineDao.insertTransaction(transaction)
 
-        auditLogger.recordLog(
-            module = "INVENTORY",
-            entityType = "BATCH",
-            entityId = batch.batchId,
-            action = "CREATED",
-            remarks = "Vaccine: ${vaccine.brandName}, Batch: ${batch.batchNumber}, Qty: ${batch.purchaseQuantity}"
-        )
-        val groupId = transactionGroupId ?: UUID.randomUUID().toString()
-        syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
-        syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
+            auditLogger.recordLog(
+                module = "INVENTORY",
+                entityType = "BATCH",
+                entityId = batch.batchId,
+                action = "CREATED",
+                remarks = "Vaccine: ${vaccine.brandName}, Batch: ${batch.batchNumber}, Qty: ${batch.purchaseQuantity}"
+            )
+            val groupId = transactionGroupId ?: UUID.randomUUID().toString()
+            syncRepository.enqueue("BATCH", batch.batchId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
+            syncRepository.enqueue("INVENTORY_TRANSACTION", transaction.transactionId, SyncOperation.CREATE, SyncPriority.MEDIUM, groupId)
+        }
     }
 
     override suspend fun addStockBatch(
@@ -281,12 +293,53 @@ class InventoryRepositoryImpl @Inject constructor(
                     if (batch.purchaseQuantity <= 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): quantity must be greater than zero.")
                     if (batch.sellingPrice < 0 || batch.purchaseCost < 0) throw IllegalStateException("${vaccine.brandName} ($batchNumber): MRP and Net Rate cannot be negative.")
                     val existingBatch = vaccineDao.getBatchByVaccineAndNumber(vaccineId, batchNumber)
-                    if (existingBatch != null) throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists for this vaccine.")
-                    val normalizedBatch = batch.copy(batchNumber = batchNumber, remainingQuantity = batch.purchaseQuantity)
-                    addBatch(normalizedBatch, user, null)
-                    val currentVaccine = vaccineDao.getVaccineById(vaccineId) ?: vaccine
-                    if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
-                        updateVaccine(currentVaccine.toDomain().copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost), user)
+                    if (existingBatch != null) {
+                        // Same batch number means same physical batch: the stored expiry is
+                        // authoritative, and a differing typed date is usually a typo.
+                        if (existingBatch.expiryDate.trim() != batch.expiryDate.trim()) {
+                            throw IllegalStateException("${vaccine.brandName}: batch '$batchNumber' already exists with expiry ${existingBatch.expiryDate}.")
+                        }
+                        // Same number means the same physical batch, so the stored prices stay.
+                        // Surface a differing entry instead of silently charging the old price.
+                        // Manufacturer, supplier and purchase date are informational and may
+                        // legitimately differ on a later delivery, so they keep their stored values.
+                        if (existingBatch.sellingPrice != batch.sellingPrice || existingBatch.purchaseCost != batch.purchaseCost) {
+                            throw IllegalStateException(
+                                "${vaccine.brandName}: batch '$batchNumber' already exists with MRP ${existingBatch.sellingPrice} and Net Rate ${existingBatch.purchaseCost}."
+                            )
+                        }
+                        val added = batch.purchaseQuantity
+                        val userName = sessionManager.getCurrentUserName()
+                        val toppedUp = existingBatch.copy(
+                            purchaseQuantity = existingBatch.purchaseQuantity + added,
+                            remainingQuantity = existingBatch.remainingQuantity + added,
+                            updatedAt = DateUtils.getCurrentIsoTimestamp(),
+                            updatedBy = userName
+                        )
+                        vaccineDao.updateBatch(toppedUp)
+                        val transaction = buildStockTransaction(
+                            vaccineId = vaccineId, batchId = existingBatch.batchId,
+                            transactionType = InventoryTransactionType.PURCHASE,
+                            quantity = added, previousQuantity = existingBatch.remainingQuantity,
+                            currentQuantity = toppedUp.remainingQuantity, user = userName,
+                            notes = "Batch Topped Up: $batchNumber (+$added)"
+                        )
+                        vaccineDao.insertTransaction(transaction)
+                        auditLogger.recordLog(
+                            module = "INVENTORY", entityType = "BATCH", entityId = existingBatch.batchId,
+                            action = "UPDATED",
+                            remarks = "Top-up: ${vaccine.brandName}, Batch: $batchNumber, +$added"
+                        )
+                        // BATCH UPDATE omits remaining_quantity on upload; the paired PURCHASE
+                        // row is what moves server-side stock (same rule as updateBatch).
+                        enqueueBatchStockChange(existingBatch.batchId, transaction.transactionId, UUID.randomUUID().toString())
+                    } else {
+                        val normalizedBatch = batch.copy(batchNumber = batchNumber, remainingQuantity = batch.purchaseQuantity)
+                        addBatch(normalizedBatch, user, null)
+                        val currentVaccine = vaccineDao.getVaccineById(vaccineId) ?: vaccine
+                        if (currentVaccine.mrp != batch.sellingPrice || currentVaccine.netRate != batch.purchaseCost) {
+                            updateVaccine(currentVaccine.toDomain().copy(mrp = batch.sellingPrice, netRate = batch.purchaseCost), user)
+                        }
                     }
                 }
             }
@@ -351,52 +404,55 @@ class InventoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteBatch(batchId: String, user: String) {
-        // Same guard pattern as deleteVaccine: vaccination_items/borrow_records/
-        // borrow_returns are ForeignKey.CASCADE from vaccine_batches, so a blind delete
-        // here silently wipes patient history and the borrow ledger along with it.
-        val vaccinationCount = vaccineDao.getVaccinationCountForBatch(batchId)
-        val wasteCount = vaccineDao.getWasteCountForBatch(batchId)
-        val borrowCount = vaccineDao.getBorrowCountForBatch(batchId)
-        val borrowReturnCount = vaccineDao.getBorrowReturnCountForBatch(batchId)
-        val transactionCount = vaccineDao.getTransactionCountForBatch(batchId)
-        if (vaccinationCount > 0 || wasteCount > 0 || borrowCount > 0 ||
-            borrowReturnCount > 0 || transactionCount > 0
-        ) {
-            throw IllegalStateException("This batch cannot be deleted because it has historical records.")
+        transactionRunner.run {
+            // Same guard pattern as deleteVaccine: vaccination_items/borrow_records/
+            // borrow_returns are ForeignKey.CASCADE from vaccine_batches, so a blind delete
+            // here silently wipes patient history and the borrow ledger along with it.
+            val vaccinationCount = vaccineDao.getVaccinationCountForBatch(batchId)
+            val wasteCount = vaccineDao.getWasteCountForBatch(batchId)
+            val borrowCount = vaccineDao.getBorrowCountForBatch(batchId)
+            val borrowReturnCount = vaccineDao.getBorrowReturnCountForBatch(batchId)
+            val transactionCount = vaccineDao.getTransactionCountForBatch(batchId)
+            if (vaccinationCount > 0 || wasteCount > 0 || borrowCount > 0 ||
+                borrowReturnCount > 0 || transactionCount > 0
+            ) {
+                throw IllegalStateException("This batch cannot be deleted because it has historical records.")
+            }
+            vaccineDao.deleteBatch(batchId)
+            // DELETE (not UPDATE): the local row is hard-deleted, so an UPDATE would be skipped
+            // server-side and refreshInventory() would re-pull the batch, putting deleted stock
+            // back into the low-stock counts.
+            syncRepository.enqueue("BATCH", batchId, SyncOperation.DELETE, SyncPriority.MEDIUM)
         }
-        vaccineDao.deleteBatch(batchId)
-        // DELETE (not UPDATE): the local row is hard-deleted, so an UPDATE would be skipped
-        // server-side and refreshInventory() would re-pull the batch, putting deleted stock
-        // back into the low-stock counts.
-        syncRepository.enqueue("BATCH", batchId, SyncOperation.DELETE, SyncPriority.MEDIUM)
     }
 
     override suspend fun deleteVaccine(vaccineId: String, user: String) {
-        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
-        val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@deleteVaccine
+        transactionRunner.run {
+            val vaccine = vaccineDao.getVaccineById(vaccineId) ?: return@run
 
-        val batchCount = vaccineDao.getBatchCountForVaccine(vaccineId)
-        if (batchCount > 0) {
-            throw IllegalStateException("This vaccine cannot be deleted because batch records still exist.")
-        }
-        
-        val vaccinationCount = vaccineDao.getVaccinationCountForVaccine(vaccineId)
-        val wasteCount = vaccineDao.getWasteCountForVaccine(vaccineId)
-        val transactionCount = vaccineDao.getTransactionCountForVaccine(vaccineId)
-        
-        val hasHistory = vaccinationCount > 0 || wasteCount > 0 || transactionCount > 0
-        if (hasHistory) {
-            throw IllegalStateException("This vaccine cannot be deleted because it has historical records.")
-        } else {
-            vaccineDao.deleteVaccine(vaccineId)
-            syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
-            auditLogger.recordLog(
-                module = "VACCINE",
-                entityType = "VACCINE",
-                entityId = vaccineId,
-action = "DELETED",
-                  remarks = "Vaccine: ${vaccine.brandName}"
-            )
+            val batchCount = vaccineDao.getBatchCountForVaccine(vaccineId)
+            if (batchCount > 0) {
+                throw IllegalStateException("This vaccine cannot be deleted because batch records still exist.")
+            }
+
+            val vaccinationCount = vaccineDao.getVaccinationCountForVaccine(vaccineId)
+            val wasteCount = vaccineDao.getWasteCountForVaccine(vaccineId)
+            val transactionCount = vaccineDao.getTransactionCountForVaccine(vaccineId)
+
+            val hasHistory = vaccinationCount > 0 || wasteCount > 0 || transactionCount > 0
+            if (hasHistory) {
+                throw IllegalStateException("This vaccine cannot be deleted because it has historical records.")
+            } else {
+                vaccineDao.deleteVaccine(vaccineId)
+                syncRepository.enqueue("VACCINE", vaccineId, SyncOperation.DELETE, SyncPriority.MEDIUM)
+                auditLogger.recordLog(
+                    module = "VACCINE",
+                    entityType = "VACCINE",
+                    entityId = vaccineId,
+                    action = "DELETED",
+                    remarks = "Vaccine: ${vaccine.brandName}"
+                )
+            }
         }
     }
 
@@ -408,7 +464,6 @@ action = "DELETED",
         visitId: String?,
         patientId: String?,
         notes: String?,
-        allowExpired: Boolean,
         givenDate: String?,
         transactionGroupId: String?
     ) {
@@ -428,10 +483,11 @@ action = "DELETED",
         // ClinicalVaccinationService and roll back the whole vaccination (NCC-005).
         val batch = vaccineDao.getBatchById(batchId)
             ?: throw StockDeductionBlockedException("Batch not found")
-        if (transactionType == InventoryTransactionType.VACCINATION && !allowExpired) {
+        if (transactionType == InventoryTransactionType.VACCINATION) {
             // Validity is judged against the vaccination's given date, not today - a
             // batch that has since expired by today is still valid for a historical
-            // record whose given date fell on or before the batch's expiry.
+            // record whose given date fell on or before the batch's expiry. A batch
+            // expiring ON the given date is valid (isExpiredAsOf is strictly before).
             val expired = if (givenDate != null) {
                 InventoryUtils.isExpiredAsOf(batch.expiryDate, givenDate)
             } else {
@@ -668,11 +724,12 @@ action = "DELETED",
                 .decodeList<VaccineBatchEntity>()
         }
 
-        // One query per entity name instead of one per remote row (see SyncQueueDao.unsyncedIdSet).
-        val pendingVaccineIds = syncQueueDao.unsyncedIdSet("VACCINE")
-        val pendingBatchIds = syncQueueDao.unsyncedIdSet("BATCH")
-
         transactionRunner.run {
+            // One query per entity name instead of one per remote row (see SyncQueueDao.unsyncedIdSet).
+            // Read the guards inside the same transaction as the merge/prune writes below, so a
+            // concurrent local write+enqueue cannot land between the guard read and the merge.
+            val pendingVaccineIds = syncQueueDao.unsyncedIdSet("VACCINE")
+            val pendingBatchIds = syncQueueDao.unsyncedIdSet("BATCH")
             for (v in vaccines) {
                 if (v.id !in pendingVaccineIds) {
                     // Upsert: REPLACE deletes the row and cascades away the vaccine's batches,

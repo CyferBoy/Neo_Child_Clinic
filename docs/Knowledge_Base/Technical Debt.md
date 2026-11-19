@@ -163,7 +163,7 @@ transactions) are used interchangeably at **38 call sites** — 12 of `log()`, 2
 | ~~`AuditLogEntity.kt:18-25` — "indexed on … entityType+entityId"~~ | ✅ **Resolved 2026-10-25** — the comment now says the indexes are separate (NCC-029) |
 | `DueReminderDao.kt:91` — "UpcomingVaccinationRulesTest asserts they agree with the Kotlin rules" | **No such test exists** — grep returns only this comment |
 | `ExpenseDaoTest.kt:21-22` — coverage includes "soft-deleting an expense" | `expenses` has no soft-delete; dropped in 27→28 |
-| `ExpenseMigrationTest.kt:18-23` — migrations are local vals in `getInstance()`; `MigrationTest.kt` references a non-existent constant | **Both stale** — migrations are companion `internal val`s; no `MigrationTest.kt` exists |
+| ~~A deleted migration test claimed migrations were local vals in `getInstance()` and referenced a non-existent `MigrationTest.kt`~~ | ✅ **Resolved** — that test was replaced by `SchemaMigrationTest.kt:31,63`, which runs `MigrationTestHelper` against the exported `33.json`/`34.json`/`35.json`; migrations are companion `internal val`s (`AppDatabase.kt:491`) |
 | `DatabaseModule.kt:100-130` — "SyncRepositoryImpl takes AppDatabase" | it takes `SyncQueueDao` |
 | `20260929000000_security_baseline.sql:35` — "keep this list explicit so adding a new remote table cannot silently inherit access" | That list governs **policies**, not **grants** — and no migration issues a **table** `GRANT` (four `grant execute on function` statements do exist) |
 | `StatisticsDateUtils.kt:25-30` — "time zeroed" | Nothing is zeroed |

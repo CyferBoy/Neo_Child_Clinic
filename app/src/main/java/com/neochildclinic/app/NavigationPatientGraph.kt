@@ -1,5 +1,6 @@
 package com.neochildclinic.app
 
+import android.net.Uri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -128,11 +129,19 @@ internal fun NavGraphBuilder.patientGraph(
 
     composable(
         route = Routes.ADD_CONSULTATION,
-        arguments = listOf(navArgument("patientId") { type = NavType.StringType }),
+        arguments = listOf(
+            navArgument("patientId") { type = NavType.StringType },
+            navArgument("doctorId") { type = NavType.StringType; defaultValue = "" },
+            navArgument("slotId") { type = NavType.StringType; defaultValue = "" },
+            navArgument("date") { type = NavType.StringType; defaultValue = "" }
+        ),
     ) { backStackEntry ->
         val patientId = backStackEntry.stringArg("patientId")
         AddConsultationScreen(
             patientId = patientId,
+            initialDoctorId = backStackEntry.stringArg("doctorId").takeIf { it.isNotBlank() },
+            initialSlotId = backStackEntry.stringArg("slotId").takeIf { it.isNotBlank() },
+            initialDate = backStackEntry.stringArg("date").takeIf { it.isNotBlank() },
             onBack = goBack
         )
     }
@@ -172,7 +181,13 @@ internal fun NavGraphBuilder.patientGraph(
             viewModel = dashboardViewModel,
             initialTab = backStackEntry.nullableStringArg("tab"),
             highlightId = backStackEntry.nullableStringArg("highlightId"),
-            onBack = goBack
+            onBack = goBack,
+            onCreateConsultation = { patientId, doctorId, slotId, date ->
+                navController.navigate(
+                    "add_consultation/$patientId?doctorId=${Uri.encode(doctorId.orEmpty())}" +
+                        "&slotId=${Uri.encode(slotId.orEmpty())}&date=${Uri.encode(date)}"
+                )
+            }
         )
     }
 }

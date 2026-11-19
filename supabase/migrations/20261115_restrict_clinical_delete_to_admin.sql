@@ -3,6 +3,8 @@
 -- RLS-01: Restrict DELETE operations on core clinical and financial tables
 -- to authenticated active staff who hold the 'admin' role in app_metadata.
 -- Drops blanket "active staff delete" on clinical and inventory tables.
+-- The 16-table clinical list in the safety loop below is mirrored in
+-- 20261116_revoke_legacy_staff_delete_policies.sql; keep both in sync.
 
 begin;
 

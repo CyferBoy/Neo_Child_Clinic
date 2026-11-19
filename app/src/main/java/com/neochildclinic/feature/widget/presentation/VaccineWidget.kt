@@ -1,5 +1,6 @@
 package com.neochildclinic.feature.widget.presentation
 
+import android.content.ComponentName
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -26,13 +27,22 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.neochildclinic.R
-import com.neochildclinic.app.MainActivity
 import com.neochildclinic.feature.widget.data.WidgetLocalDataSource
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import com.neochildclinic.data.local.entity.WidgetDueEntity
+
+/**
+ * Widget-facing row model. The Room/cache entity never crosses into the Composable: the
+ * data source result is mapped to this at the presentation boundary, with identical fields.
+ */
+internal data class WidgetDueItem(
+    val patientName: String,
+    val vaccineName: String,
+    val dueDate: String,
+    val isOverdue: Boolean
+)
 
 class VaccineWidget : GlanceAppWidget() {
 
@@ -63,7 +73,9 @@ class VaccineWidget : GlanceAppWidget() {
             context.applicationContext,
             WidgetEntryPoint::class.java
         )
+        // Map to the UI model here so no Composable below ever touches the cache entity.
         val dueItems = entryPoint.widgetLocalDataSource().getDueItemsFirst()
+            .map { WidgetDueItem(it.patientName, it.vaccineName, it.dueDate, it.isOverdue) }
         if (dueItems.isEmpty()) {
             com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(context)
         }
@@ -74,25 +86,14 @@ class VaccineWidget : GlanceAppWidget() {
             val theme = VaccineWidgetTheme.fromKey(prefs[THEME_KEY])
             val fontScale = (prefs[FONT_SIZE_KEY] ?: DEFAULT_FONT_SIZE) / DESIGN_ROW_SP
             val padding = prefs[PADDING_KEY] ?: DEFAULT_PADDING
-            val isLocked = com.neochildclinic.core.security.BiometricLockManager.isLocked(context)
-            val displayItems = if (isLocked) {
-                dueItems.map {
-                    it.copy(
-                        patientName = maskPatientName(it.patientName),
-                        vaccineName = "[Locked]"
-                    )
-                }
-            } else {
-                dueItems
-            }
-            WidgetContent(context, displayItems, opacity, theme, fontScale, padding)
+            WidgetContent(context, dueItems, opacity, theme, fontScale, padding)
         }
     }
 
     @Composable
     private fun WidgetContent(
         context: Context,
-        items: List<WidgetDueEntity>,
+        items: List<WidgetDueItem>,
         opacity: Float,
         theme: VaccineWidgetTheme,
         fontScale: Float,
@@ -108,7 +109,10 @@ class VaccineWidget : GlanceAppWidget() {
                 .cornerRadius(24.dp)
                 .padding(padding.dp)
                 .clickable(
-                    actionStartActivity<MainActivity>(
+                    // Explicit component by name: the widget must not depend on the app
+                    // module's MainActivity class. Same extra key, same launch behaviour.
+                    actionStartActivity(
+                        ComponentName(context, "com.neochildclinic.app.MainActivity"),
                         actionParametersOf(
                             ActionParameters.Key<Boolean>("OPEN_DUE_TAB") to true
                         )
@@ -176,7 +180,7 @@ class VaccineWidget : GlanceAppWidget() {
 
     @Composable
     private fun VaccineRow(
-        item: WidgetDueEntity,
+        item: WidgetDueItem,
         colorProviders: WidgetColorProviders,
         fontScale: Float,
         padScale: Float
@@ -190,7 +194,7 @@ class VaccineWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${item.patientName}: ",
+                    text = item.patientName,
                     style = TextStyle(
                         fontSize = (DESIGN_ROW_SP * fontScale).sp,
                         fontWeight = FontWeight.Medium,
@@ -198,6 +202,15 @@ class VaccineWidget : GlanceAppWidget() {
                     ),
                     maxLines = 1,
                     modifier = GlanceModifier.defaultWeight()
+                )
+                Text(
+                    text = ": ",
+                    style = TextStyle(
+                        fontSize = (DESIGN_ROW_SP * fontScale).sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colorProviders.primaryText
+                    ),
+                    maxLines = 1
                 )
                 Text(
                     text = item.dueDate,
@@ -224,14 +237,4 @@ class VaccineWidget : GlanceAppWidget() {
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun widgetLocalDataSource(): WidgetLocalDataSource
-}
-
-internal fun maskPatientName(name: String): String {
-    if (name.isBlank() || name.equals("Unknown", ignoreCase = true)) {
-        return "Patient [Locked]"
-    }
-    return name.trim().split("\\s+".toRegex()).joinToString(" ") { word ->
-        if (word.isEmpty()) ""
-        else word.first().uppercaseChar() + "***"
-    }
 }

@@ -17,7 +17,7 @@
              Data Layer (Repository Implementations)
                  │                           │
                  ▼                           ▼
-    Local Persistence (Room v34)      Remote Cloud (Supabase REST / RLS)
+    Local Persistence (Room schema 35) Remote Cloud (Supabase REST / RLS)
         [SQLCipher AES-256]           [PostgreSQL + Edge Functions]
 ```
 
@@ -36,18 +36,18 @@
 
 ### 2.2 Domain Layer (`com.neochildclinic.domain` & `feature.<name>.domain`)
 - **Independence**: 100% pure Kotlin. No dependencies on Android SDK, Compose, or Room.
-- **Models**: 33 domain data models in `com.neochildclinic.domain.model` (e.g., `Patient`, `Vaccine`, `VaccinationItem`, `Batch`, `Consultation`, `Expense`).
+- **Models**: 35 domain data models in `com.neochildclinic.domain.model` (e.g., `Patient`, `Vaccine`, `VaccinationItem`, `Batch`, `Consultation`, `Expense`).
 - **Repositories**: Interface contracts located in `feature/<name>/domain/repository/` defining business data operations.
 - **Rules**:
   - Domain models represent business truth, isolated from database entities or JSON serialization nuances.
 
 ### 2.3 Data Layer (`com.neochildclinic.data` & `feature.<name>.data`)
 - **Repository Implementations**: Implement domain repository contracts (e.g., `PatientRepositoryImpl`, `VaccineRepositoryImpl`).
-- **Local Persistence**: Room SQLite v34 with SQLCipher encryption located in `data/local/`:
+- **Local Persistence**: Room schema 35 (library 2.8.5) with SQLCipher encryption located in `data/local/`:
   - 25 SQLite entities (`*Entity.kt`)
   - 21 Data Access Objects (`*Dao.kt`)
   - Type converters for complex medical fields, dates, and JSON payloads.
-  - Database migrations from v1 through v34.
+  - Room migrations from v17 through v35 (18 hops).
 - **Remote Integration**: Supabase client (`data/remote/`) handling PostgreSQL tables via Supabase PostgREST, Supabase Auth JWT sessions, and Realtime listeners.
 - **Cloudflare Integration**: `data/backup/` mediating AES-256-GCM encrypted `.nccb` disaster-recovery containers with Cloudflare R2 via Edge Worker.
 
@@ -63,7 +63,7 @@ sequenceDiagram
     actor Doctor as Doctor / Staff
     participant UI as Compose UI / ViewModel
     participant Repo as RepositoryImpl
-    participant Room as Encrypted Room DB (v34)
+    participant Room as Encrypted Room DB (schema 35)
     participant Outbox as SyncQueueEntity
     participant Worker as SyncWorker (WorkManager)
     participant Supabase as Supabase Backend (PostgreSQL)

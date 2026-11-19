@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.feature.inventory.data.newestBatch
 import com.neochildclinic.domain.model.VaccineBatch
 import com.neochildclinic.domain.model.BatchStatus
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*

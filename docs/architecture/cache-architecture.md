@@ -43,5 +43,5 @@ Supabase -> Remote/Sync -> Room -> (Room InvalidationTracker) -> cache cleared -
 1. **Room Fallback**: Any cache exception or miss falls back to SQLite; cache operations never throw to UI callers.
 2. **Deterministic Invalidation**: Cache entries are invalidated **after** the Room transaction commits, before returning.
 3. **Generation Counter Guard**: `PatientCache.getOrLoad` increments a generation counter on every invalidation; a concurrent read that started before an invalidation is dropped and not saved back to cache.
-4. **Session Boundary Purging**: `CacheRegistry.clearAll()` is executed inside a `finally` block on logout and login, preventing cross-user data leakage.
-5. **MemoryCache Implementation**: Thread-safe with a single lock, bounded to `maxSize = 1000`, evicted by earliest expiration, with zero Android UI or Context references.
+4. **Session Boundary Purging**: `CacheRegistry.clearAll()` is called at session boundaries — on login before authenticating and in `completeSignOut()` on logout (`AuthViewModel.kt:204,353`) — preventing cross-user data leakage.
+5. **MemoryCache Implementation**: Thread-safe with a single lock, bounded to `maxSize = 1000`, evicted least-recently-used (LRU, via an access-ordered `LinkedHashMap`), with zero Android UI or Context references.

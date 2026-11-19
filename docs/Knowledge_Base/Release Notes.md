@@ -7,17 +7,17 @@
 
 | | |
 |---|---|
-| Version | **0.5.1** (`versionCode 3`) — `gradle/libs.versions.toml:2-3` |
-| Latest tag | `V.0.5.1`, 2026-09-04 |
+| Version | **0.6** (`versionCode 6000`, derived from `versionName`) — `gradle/libs.versions.toml:2` |
+| Latest tag | `V.0.5.1`, 2026-09-04 (pre-`vX.Y.Z` naming) |
 | Branch | `main` |
 | Commit count | 353 |
 | First commit | 2026-07-08 |
-| Room schema | **33** (16 migrations) |
+| Room schema | **35** (18 migrations, Room library 2.8.5) |
 | Unit tests | 277 passing, 0 failures (recorded 2026-10-18) |
 | Working tree | ✅ **no uncommitted app changes** at `0972ed9` (2026-10-19) |
 
-⚠️ **Tag naming is inconsistent**: `V0.5.0` (no dot) vs `V.0.5.1` (leading dot). Fix before
-the next release so tooling that parses tags does not miss one.
+✅ **Tag naming is now enforced**: CI rejects anything that is not `vX.Y.Z` (e.g. `v0.6.0`).
+Historical tags `V0.5.0` and `V.0.5.1` predate this rule; use the new format for every tag.
 
 ## Tags
 
@@ -69,7 +69,7 @@ Reconstructed from the feature directories and migrations dated after 2026-09-04
 - Shared design system (`core/designsystem/`)
 
 **Data layer**
-- Room 17 → 33: 16 migrations, three of them destructive
+- Room 17 → 35: 18 migrations, three of them destructive
 - 25 entities, 21 DAOs
 - SQLCipher encryption at rest
 - No destructive-migration fallback (deliberate — see [[Architecture Decisions]])
@@ -85,7 +85,7 @@ Reconstructed from the feature directories and migrations dated after 2026-09-04
 
 Before shipping, these are the things that will bite:
 
-1. **Tag naming** — normalise `V.0.5.x` (currently mixed).
+1. **Tag naming** — ✅ enforced as `vX.Y.Z` in CI; historical `V.0.5.x` tags are legacy.
 2. ~~**The working tree is dirty.** `main` carries uncommitted modifications across the app
    module. Commit or stash before tagging.~~ ✅ **Resolved** — no uncommitted app changes at
    `0972ed9` (2026-10-19).
@@ -98,6 +98,9 @@ Before shipping, these are the things that will bite:
    replay every migration in this repository, but still
    **cannot** recreate the ~12 legacy base tables (no initial migration exists for them) —
    see `Known Bugs` §4.6 and [[Quality/Audit Reconciliation]].
+6. **versionCode alignment** — `0.6` now reports versionCode `6000`, the same value the updater
+   derives from a `v0.6` tag (`app/build.gradle.kts:48`), so a check after installing it returns
+   no update instead of offering the same release back.
 
 ## Related
 

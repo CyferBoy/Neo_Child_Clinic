@@ -20,10 +20,10 @@ import javax.inject.Singleton
 class BackupAutoScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val backupSettingsManager: BackupSettingsManager
-) {
+) : com.neochildclinic.domain.repository.BackupAutoScheduler {
     private val workManager get() = WorkManager.getInstance(context)
 
-    fun schedule(settings: AutoBackupSettings) {
+    override fun schedule(settings: AutoBackupSettings) {
         if (!settings.enabled) {
             cancel()
             return
@@ -50,7 +50,7 @@ class BackupAutoScheduler @Inject constructor(
         )
     }
 
-    fun cancel() {
+    override fun cancel() {
         workManager.cancelUniqueWork(AutoBackupWorker.UNIQUE_WORK_NAME)
     }
 

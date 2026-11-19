@@ -47,31 +47,7 @@ jobs:
       # Gradle plugin can configure the debug build.
       - name: Create CI Firebase configuration
         shell: bash
-        run: |
-          cat > app/google-services.json <<'EOF'
-          {
-            "project_info": {
-              "project_number": "000000000000",
-              "project_id": "neo-child-clinic-ci",
-              "storage_bucket": "neo-child-clinic-ci.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-                  "android_client_info": {
-                    "package_name": "com.neochildclinic"
-                  }
-                },
-                "api_key": [
-                  {
-                    "current_key": "CI_BUILD_ONLY"
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
+        run: bash .github/scripts/create-firebase-config.sh
 
       - name: Build Android project
         shell: bash

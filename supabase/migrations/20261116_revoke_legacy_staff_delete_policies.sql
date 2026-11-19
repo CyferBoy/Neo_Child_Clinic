@@ -7,6 +7,9 @@
 -- 20260901_personal_vaccine_reminders.sql, and 20260902_borrow_returns.sql.
 -- Because PostgreSQL combines permissive RLS policies using boolean OR, these surviving
 -- policies allowed non-admin active staff to hard-delete clinical and financial records.
+-- The 16 core clinical tables covered below (explicit drops in section 1 and the
+-- safety-loop array in section 2) mirror 20261115_restrict_clinical_delete_to_admin.sql;
+-- keep both files in sync.
 
 begin;
 

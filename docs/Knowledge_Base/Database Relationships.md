@@ -179,7 +179,7 @@ not in this repository (`20261016_rls_index_and_stock_trigger_hardening.sql:13`)
 | `BackupDao` second surface over other DAOs' tables | 22 |
 | `BackupPayloadV1` tables exported | 22 |
 | Postgres tables | 🔍 not derivable from the repo — the catalog CSV lists 23, `api_write_rate_limits` is added by a migration, and `todo_notification_events` is created outside the repo |
-| Room migrations registered | 16 (v17 → v33) |
+| Room migrations registered | 18 (v17 → v35) |
 
 ## Related
 

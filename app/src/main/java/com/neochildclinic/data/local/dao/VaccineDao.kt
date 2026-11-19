@@ -40,7 +40,7 @@ interface VaccineDao {
     @Query("SELECT * FROM vaccine_batches WHERE batchId = :batchId LIMIT 1")
     suspend fun getBatchById(batchId: String): VaccineBatchEntity?
 
-    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND batchNumber = :batchNumber LIMIT 1")
+    @Query("SELECT * FROM vaccine_batches WHERE vaccineId = :vaccineId AND batchNumber = :batchNumber COLLATE NOCASE LIMIT 1")
     suspend fun getBatchByVaccineAndNumber(vaccineId: String, batchNumber: String): VaccineBatchEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

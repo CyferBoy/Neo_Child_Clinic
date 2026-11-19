@@ -8,6 +8,8 @@
 begin;
 
 -- 1. Backfill app_metadata.role for every provisioned user.
+-- Keep this role allowlist in sync with functions/manage-staff/index.ts (validateRole)
+-- and domain/model/Profile.kt.
 update auth.users u
 set raw_app_meta_data = coalesce(u.raw_app_meta_data, '{}'::jsonb)
     || jsonb_build_object('role', p.role)

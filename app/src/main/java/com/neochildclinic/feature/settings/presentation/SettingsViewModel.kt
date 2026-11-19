@@ -6,8 +6,8 @@ import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.core.security.SessionManager
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.SyncState
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

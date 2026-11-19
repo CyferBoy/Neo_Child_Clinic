@@ -1,12 +1,14 @@
 package com.neochildclinic.core.security
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
@@ -18,9 +20,16 @@ import org.junit.Test
 class BiometricLockManagerTest {
 
     @Before
-    fun reset() {
+    fun reset() = resetSingleton()
+
+    /** Also reset on exit so a failed test cannot leak state into the next class. */
+    @After
+    fun cleanUp() = resetSingleton()
+
+    private fun resetSingleton() {
         BiometricLockManager.clearLockSuppression()
-        BiometricLockManager.setProtectionEnabled(false) // clears lock + screen-off state
+        BiometricLockManager.unlockAfterKeystoreVerification() // clears lock + needsAuth, stamps activity
+        BiometricLockManager.setProtectionEnabled(false)      // clears screenWasOff
         BiometricLockManager.setProtectionEnabled(true)
         BiometricLockManager.resetNeedsAuthForTest()
         BiometricLockManager.resetLockStateResolvedForTest()
@@ -132,7 +141,7 @@ class BiometricLockManagerTest {
         BiometricLockManager.unlockAfterKeystoreVerification()
         assertEquals(listOf(true, false), collected)
 
-        job.cancel()
+        job.cancelAndJoin()
     }
 
     @Test
@@ -162,16 +171,5 @@ class BiometricLockManagerTest {
         BiometricLockManager.markLockStateResolved()
         BiometricLockManager.lock()
         assertTrue(BiometricLockManager.isLocked(null))
-    }
-
-    @Test
-    fun maskPatientNameRedactsCorrectly() {
-        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName(""))
-        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName("   "))
-        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName("Unknown"))
-        assertEquals("Patient [Locked]", com.neochildclinic.feature.widget.presentation.maskPatientName("unknown"))
-        assertEquals("A*** S***", com.neochildclinic.feature.widget.presentation.maskPatientName("Aarav Sharma"))
-        assertEquals("J***", com.neochildclinic.feature.widget.presentation.maskPatientName("John"))
-        assertEquals("R*** K*** D***", com.neochildclinic.feature.widget.presentation.maskPatientName("rahul kumar das"))
     }
 }

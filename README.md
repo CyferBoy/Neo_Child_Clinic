@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/CyferBoy/Neo_Child_Clinic?label=latest%20release)](https://github.com/CyferBoy/Neo_Child_Clinic/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active%20development-brightgreen)](#project-status)
-[![Unit Tests](https://img.shields.io/badge/unit%20tests-344%20passed-success)](app/src/test/java/com/neochildclinic)
+[![Unit Tests](https://img.shields.io/badge/unit%20tests-554%20passed-success)](app/src/test/java/com/neochildclinic)
 
 Neo Child Clinic is a robust, offline-first Android application designed for pediatric clinics and healthcare providers. It coordinates patient clinical records, multi-vial vaccination administration, doctor consultations, dynamic inventory/batch tracking, due reminders, and financial ledgers.
 
@@ -15,13 +15,13 @@ Neo Child Clinic is a robust, offline-first Android application designed for ped
 |---|---|---|
 | **Code Placement** | 🧭 [Where Things Belong](docs/architecture/where-things-belong.md) | Practical guide: where to place screens, ViewModels, DAOs, migrations, and tests |
 | **System Architecture** | 🏛️ [Architecture Overview](ARCHITECTURE.md) | High-level package boundaries, clean architecture, and dependency flow |
-| **Getting Started** | 🚀 [Developer Onboarding](docs/getting-started/onboarding.md) | Environment setup, JDK 17, Android Studio, `.env.local` keys, and first build |
+| **Getting Started** | 🚀 [Desktop Environment Setup](docs/agents/DESKTOP_SETUP.md) | Environment setup, JDK 17, Android Studio, `.env.local` keys, and first build |
 | **Offline Synchronization** | 🔄 [Offline-First Sync](docs/architecture/offline-first-sync.md) | In-depth synchronization engine, queue mechanics, and conflict resolution |
 | **Cache Architecture** | ⚡ [In-Memory Cache](docs/architecture/cache-architecture.md) | LRU cache specs, generation counters, and session boundary clearing |
-| **Database Architecture** | 🗄️ [Schema Overview](docs/database/schema-overview.md) | Room schema v33, foreign keys, cascade rules, and Supabase RLS |
-| **Features Matrix** | 📋 [Features Overview](docs/features/overview.md) | Detailed capability matrix across all 20 clinic business modules |
-| **Disaster Recovery** | 🛡️ [Backup & Restore](docs/operations/backup-restore.md) | `.nccb` AES-256-GCM container format, Cloudflare R2 worker, and safety rollback |
-| **Releases & Deployment** | 📦 [Release Runbook](docs/operations/release-management.md) | APK signing, ProGuard/R8 shrinking, in-app updates, and FCM alerts |
+| **Database Architecture** | 🗄️ [Room Database](docs/Knowledge_Base/Room%20Database.md) | Room schema 35 (library 2.8.5), 25 entities, 21 DAOs, foreign keys, cascade rules; Supabase RLS via the [policy matrix](docs/Knowledge_Base/Row%20Level%20Security.md) |
+| **Features Overview** | 📋 [Project Hub](docs/Knowledge_Base/Neo%20Child%20Clinic.md) | Clinic capability overview and entry point to the feature notes |
+| **Disaster Recovery** | 🛡️ [Backup & Restore](docs/Knowledge_Base/Backup%20and%20Restore.md) | `.nccb` AES-256-GCM container format, Cloudflare R2 worker, and safety rollback |
+| **Releases & Deployment** | 📦 [Release Checklist](docs/Knowledge_Base/Release%20Checklist.md) | APK signing, ProGuard/R8 shrinking, in-app updates, and FCM alerts |
 | **Contributing** | 🤝 [Contributing Guidelines](CONTRIBUTING.md) | Coding conventions, TDD requirements, and Git PR standards |
 | **Security Policy** | 🔐 [Security Policy](SECURITY.md) | Responsible disclosure process and verified security controls |
 | **Obsidian Vault** | 📚 [Knowledge Base](docs/Knowledge_Base/) | 66 interconnected notes verified with strict citation validators |
@@ -31,7 +31,7 @@ Neo Child Clinic is a robust, offline-first Android application designed for ped
 ## 📱 Application Overview & Screenshots
 
 - **Target SDK**: Android 15 (API 35) · **Compile SDK**: 35 · **Minimum SDK**: Android 10 (API 29)
-- **Local Persistence**: Encrypted Room (SQLite v33) via SQLCipher + Android Keystore
+- **Local Persistence**: Encrypted Room (schema 35, Room library 2.8.5, SQLite via SQLCipher) + Android Keystore
 - **Cloud Backend**: Supabase PostgreSQL + Auth + Realtime + Storage
 - **Edge Infrastructure**: Cloudflare Worker + R2 Storage for offsite encrypted backups
 
@@ -58,16 +58,17 @@ Neo_Child_Clinic/
 ├── app/                                 # Android application module (:app)
 │   ├── src/main/
 │   │   ├── java/com/neochildclinic/
-│   │   │   ├── app/                     # App entry point, MainActivity, NavHost, sealed Routes
-│   │   │   ├── core/                    # Shared infrastructure (di, sync, cache, security, ui)
-│   │   │   ├── data/                    # Room DB (v33), 21 DAOs, 21 entities, remote sources, backup
-│   │   │   ├── domain/model/            # 33 Pure Kotlin business domain models (no Android imports)
+│   │   │   ├── app/                     # MainActivity, NavHost, Routes, work/ (SyncWorker), sync/
+│   │   │   ├── core/                    # Shared infrastructure (cache, sync, security, ui, notifications)
+│   │   │   ├── data/                    # Room DB (schema 35, library 2.8.5), 21 DAOs, 25 entities, backup
+│   │   │   ├── di/                      # Hilt modules (DatabaseModule, RepositoryModule, SupabaseModule)
+│   │   │   ├── domain/model/            # 35 Pure Kotlin business domain models (no Android imports)
 │   │   │   └── feature/<name>/          # 20 Self-contained business features (patient, inventory, etc.)
 │   │   ├── res/                         # Android drawables, colors, strings, themes, widget XML
 │   │   └── AndroidManifest.xml          # Component declarations, permissions, auth deep links
-│   ├── src/test/java/                   # 344 JVM-based unit tests
+│   ├── src/test/java/                   # 554 JVM-based unit tests
 │   ├── src/androidTest/java/            # Android instrumentation tests (Room migrations, DAOs)
-│   ├── schemas/                         # Room database version schema JSONs (v33)
+│   ├── schemas/                         # Room exported schema JSONs (33.json, 34.json, 35.json)
 │   └── build.gradle.kts                 # Application build script and dependency configurations
 │
 ├── supabase/                            # Supabase cloud backend
@@ -84,13 +85,11 @@ Neo_Child_Clinic/
 │   └── assets/screenshots/              # Full-resolution application screenshots
 │
 ├── docs/                                # Documentation and Knowledge Base
-│   ├── getting-started/                 # Onboarding, environment setup, and quickstart guides
+│   ├── agents/                          # Multi-agent roles, coordination, and workstation setup
 │   ├── architecture/                    # System architecture, sync models, placement guides
-│   ├── features/                        # Business feature specifications and matrices
-│   ├── database/                        # Database schema, relationships, and indexing documentation
-│   ├── operations/                      # Backup, restore, release, and deployment runbooks
-│   ├── quality/                         # Security audits, bug audits, and compliance registers
-│   └── Knowledge_Base/                  # Linked Obsidian vault with 66 interconnected notes
+│   ├── audit/                           # Dated audit reports and remediation passes
+│   ├── Knowledge_Base/                  # Linked Obsidian vault with 66 interconnected notes
+│   └── SYNC.md                          # Synchronization quick reference
 │
 ├── scripts/                             # Repository tooling & verification scripts
 │   ├── validate_docs.py                 # Strict documentation and citation validator
@@ -122,14 +121,14 @@ EOF
 # 3. Build debug APK
 ./gradlew assembleDebug
 
-# 4. Run unit tests (344 tests)
+# 4. Run unit tests (554 tests)
 ./gradlew testDebugUnitTest
 
 # 5. Run documentation validation
 python3 scripts/validate_docs.py --strict
 ```
 
-See [docs/getting-started/onboarding.md](docs/getting-started/onboarding.md) for full setup instructions.
+See [Desktop Environment Setup](docs/agents/DESKTOP_SETUP.md) for full setup instructions.
 
 ---
 
@@ -137,7 +136,7 @@ See [docs/getting-started/onboarding.md](docs/getting-started/onboarding.md) for
 
 This application handles sensitive medical, immunization, and financial data for children.
 - Never commit credentials, signing keystores (`*.jks`), service-role keys, or `google-services.json`.
-- Cloud access is strictly governed by Supabase Row Level Security (RLS) policies checking active staff credentials.
+- Cloud access is governed by Supabase Row Level Security (RLS), but it is **not uniformly strict**: blanket `active staff` policies grant broad CRUD on many clinical/finance tables, with carve-outs for `expenses`, doctor schedules, `profiles` and `user_devices`, and deny-by-default on several tables. See the [RLS policy matrix and gaps](docs/Knowledge_Base/Row%20Level%20Security.md) for the exact per-table rules.
 - Report any security vulnerabilities privately by following our [Security Policy](SECURITY.md).
 
 ---

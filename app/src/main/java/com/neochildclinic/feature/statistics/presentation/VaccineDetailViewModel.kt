@@ -6,10 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Reminder
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.core.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -31,6 +31,10 @@ data class VaccineDetailUiState(
     val brandName: String? = null
 )
 
+/** Keep the refresh flag owned by refresh() when freshly computed data is emitted. */
+internal fun mergeVaccineDetailState(current: VaccineDetailUiState, incoming: VaccineDetailUiState): VaccineDetailUiState =
+    incoming.copy(isRefreshing = current.isRefreshing)
+
 @HiltViewModel
 class VaccineDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -46,7 +50,6 @@ class VaccineDetailViewModel @Inject constructor(
     // type or mentioning its brands is listed. Non-blank is the vaccine catalog id of the tapped BRAND.
     private val vaccineId: String? = savedStateHandle.get<String>("vaccineId")?.ifBlank { null }
 
-    private val _isRefreshing = MutableStateFlow(false)
     private val _uiState = MutableStateFlow(VaccineDetailUiState())
 
     val uiState: StateFlow<VaccineDetailUiState> = _uiState.asStateFlow()
@@ -139,19 +142,19 @@ class VaccineDetailViewModel @Inject constructor(
                     if (e is CancellationException) throw e
                     _uiState.update { VaccineDetailUiState(entries = emptyList(), isLoading = false) }
                 }
-                .collect { newState -> _uiState.update { newState } }
+                .collect { newState -> _uiState.update { mergeVaccineDetailState(it, newState) } }
         }
     }
 
     fun refresh() {
         viewModelScope.launch {
-            _isRefreshing.update { true }
+            _uiState.update { it.copy(isRefreshing = true) }
             try {
                 refreshDataUseCase()
             } catch (e: Exception) {
                 android.util.Log.e("VaccineDetailVM", "Refresh failed", e)
             } finally {
-                _isRefreshing.update { false }
+                _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }

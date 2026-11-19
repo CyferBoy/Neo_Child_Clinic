@@ -4,6 +4,7 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.FinanceTransaction
+import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -154,12 +155,12 @@ class FinanceCalculatorTest {
         val may2026 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply {
             set(2026, java.util.Calendar.MAY, 15)
         }
-        assertEquals("FY 26-27", FinanceCalculator.getCurrentFinancialYear(may2026))
+        assertEquals("26-27", FinanceCalculator.getCurrentFinancialYear(may2026))
 
         val feb2026 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply {
             set(2026, java.util.Calendar.FEBRUARY, 10)
         }
-        assertEquals("FY 25-26", FinanceCalculator.getCurrentFinancialYear(feb2026))
+        assertEquals("25-26", FinanceCalculator.getCurrentFinancialYear(feb2026))
     }
 
     @Test
@@ -174,6 +175,39 @@ class FinanceCalculatorTest {
         // 2025-08-20 -> FY 25-26 ("25-26")
         // oct2026 (current) -> FY 26-27 ("26-27")
         assertEquals(listOf("24-25", "25-26", "26-27"), years)
+    }
+
+    private val may2026 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply {
+        set(2026, java.util.Calendar.MAY, 15)
+    }
+
+    @Test
+    fun `canonical FY is the short span and the parser accepts every historical spelling`() {
+        assertEquals("26-27", FinanceCalculator.formatFinancialYear(2026))
+        listOf("26-27", "FY 26-27", "2026-27").forEach {
+            assertEquals(2026, FinanceCalculator.parseFinancialYearStart(it))
+        }
+        assertEquals(1981, FinanceCalculator.parseFinancialYearStart("81-82")) // century rule
+        assertEquals(2000, FinanceCalculator.parseFinancialYearStart("00-01"))
+        assertEquals(null, FinanceCalculator.parseFinancialYearStart("FY veral"))
+    }
+
+    @Test
+    fun `malformed FY labels fall back to the current financial year in one place`() {
+        assertEquals(2026, FinanceCalculator.financialYearStartOrDefault("FY veral", may2026))
+        assertEquals(2026, FinanceCalculator.financialYearStartOrDefault("Overall", may2026))
+    }
+
+    @Test
+    fun `growth and improvement differ only for a signed baseline`() {
+        // non-negative baselines: identical (counts, revenue, cash, online)
+        assertEquals(25.0, StatisticsUtils.calculateGrowth(125.0, 100.0)!!, 0.001)
+        assertEquals(25.0, FinanceCalculator.calculateImprovement(125.0, 100.0)!!, 0.001)
+        // net profit going from a loss to a profit: improvement stays positive, growth flips sign
+        assertEquals(-150.0, StatisticsUtils.calculateGrowth(50.0, -100.0)!!, 0.001)
+        assertEquals(150.0, FinanceCalculator.calculateImprovement(50.0, -100.0)!!, 0.001)
+        assertEquals(null, StatisticsUtils.calculateGrowth(50.0, 0.0))
+        assertEquals(null, FinanceCalculator.calculateImprovement(50.0, 0.0))
     }
 }
 

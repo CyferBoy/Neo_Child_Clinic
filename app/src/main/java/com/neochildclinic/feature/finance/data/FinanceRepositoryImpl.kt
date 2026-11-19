@@ -2,8 +2,8 @@ package com.neochildclinic.feature.finance.data
 import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.VaccinationDao
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.SyncRepository
 
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.entity.FinanceEntity
@@ -257,7 +257,7 @@ class FinanceRepositoryImpl @Inject constructor(
             // Keep a vaccination finance record even when the fee is zero so historical
             // vaccine COGS remains reportable. Never delete historical finance rows here.
 
-            val existing = transactions.maxByOrNull { it.timestamp }
+            val existing = transactions.maxByOrNull { DateUtils.isoToLong(it.timestamp) }
             val userName = sessionManager.getCurrentUserName()
             if (existing == null) {
                 // Local Room may simply not have the row yet (another device created it and

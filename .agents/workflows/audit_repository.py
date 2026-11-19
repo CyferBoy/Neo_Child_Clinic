@@ -32,7 +32,7 @@ audit_tasks = [
     {
         "role": "QA Test Coverage Audit",
         "agent": "qa-engineer",
-        "prompt": "Inspect existing 344 unit tests and regression suites. Identify untested offline-first sync or stock deduction edge cases."
+        "prompt": "Inspect the current unit-test suite and regression suites. Identify untested offline-first sync or stock deduction edge cases."
     }
 ]
 

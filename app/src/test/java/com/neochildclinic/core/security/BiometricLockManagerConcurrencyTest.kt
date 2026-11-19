@@ -3,6 +3,7 @@ package com.neochildclinic.core.security
 import kotlinx.coroutines.*
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
@@ -17,8 +18,15 @@ import java.util.concurrent.atomic.AtomicInteger
 class BiometricLockManagerConcurrencyTest {
 
     @Before
-    fun setUp() {
+    fun setUp() = resetSingleton()
+
+    /** Also reset on exit: this class leaves the singleton locked after its stress test. */
+    @After
+    fun cleanUp() = resetSingleton()
+
+    private fun resetSingleton() {
         BiometricLockManager.clearLockSuppression()
+        BiometricLockManager.unlockAfterKeystoreVerification()
         BiometricLockManager.setProtectionEnabled(false)
         BiometricLockManager.setProtectionEnabled(true)
         BiometricLockManager.resetNeedsAuthForTest()
@@ -77,6 +85,6 @@ class BiometricLockManagerConcurrencyTest {
         assertTrue("needsAuth must be true after explicit lock", BiometricLockManager.needsAuth.value)
         assertTrue("isAppLocked must be true after explicit lock", BiometricLockManager.isAppLocked.value)
 
-        collectorJob.cancel()
+        collectorJob.cancelAndJoin()
     }
 }

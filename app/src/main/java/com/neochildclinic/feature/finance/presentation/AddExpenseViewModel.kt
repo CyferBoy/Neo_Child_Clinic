@@ -6,8 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
-import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
-import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.DocumentRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
 import com.neochildclinic.core.common.toLocalDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.SessionManager

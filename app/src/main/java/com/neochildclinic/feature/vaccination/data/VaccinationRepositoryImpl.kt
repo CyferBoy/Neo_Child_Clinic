@@ -9,7 +9,7 @@ import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.FinanceDao
 import com.neochildclinic.data.local.dao.DueReminderDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.SyncOperation
@@ -24,8 +24,8 @@ import com.neochildclinic.domain.model.VaccinationItem
 import com.neochildclinic.domain.model.PatientVaccinationCard
 import com.neochildclinic.data.local.mapper.toEntity
 import com.neochildclinic.feature.vaccination.domain.EditReconciler
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -110,11 +110,12 @@ override val allVaccinations: Flow<List<Vaccination>> =
                 var failedValidation = 0
                 var skippedMissingPatient = 0
 
-                // One query for the whole pull instead of one per visit/item (see
-                // SyncQueueDao.unsyncedIdSet). The three guards below all ask the same question.
-                val pendingVaccinationIds = syncQueueDao.unsyncedIdSet("VACCINATION")
-
-                transactionRunner.run {
+                val prunedVisits = transactionRunner.run {
+                    // One query for the whole pull instead of one per visit/item (see
+                    // SyncQueueDao.unsyncedIdSet). The three guards below all ask the same
+                    // question. Read the guard inside the transaction so a queued edit
+                    // committed here is visible before the pull overwrites it.
+                    val pendingVaccinationIds = syncQueueDao.unsyncedIdSet("VACCINATION")
                     for (remote in entities) {
                         // Basic Validation before Room insert
                         if (remote.id.isBlank() || remote.patientId.isBlank()) {
@@ -139,19 +140,20 @@ override val allVaccinations: Flow<List<Vaccination>> =
                             imported++
                         }
                     }
-                }
 
-                // Remote-deletion propagation (NCC-023 / DA-01): synced visits the remote set
-                // no longer lists and no queue entry claims leave this device - their items
-                // cascade away with them (Room FKs), and remaining remote offspring of a
-                // remote-orphaned visit are FK-skipped on the next pull, exactly like today.
-                val prunedVisits = RemotePrune.computeBatches(
-                    localIds = vaccinationDao.getVisitIds(),
-                    syncedIds = vaccinationDao.getSyncedVisitIds().toSet(),
-                    remoteIds = entities.mapTo(HashSet()) { it.id },
-                    pendingIds = pendingVaccinationIds
-                ).flatten()
-                prunedVisits.forEach { vaccinationDao.deleteVaccination(it) }
+                    // Remote-deletion propagation (NCC-023 / DA-01): synced visits the remote set
+                    // no longer lists and no queue entry claims leave this device - their items
+                    // cascade away with them (Room FKs), and remaining remote offspring of a
+                    // remote-orphaned visit are FK-skipped on the next pull, exactly like today.
+                    RemotePrune.computeBatches(
+                        localIds = vaccinationDao.getVisitIds(),
+                        syncedIds = vaccinationDao.getSyncedVisitIds().toSet(),
+                        remoteIds = entities.mapTo(HashSet()) { it.id },
+                        pendingIds = pendingVaccinationIds
+                    ).flatten().also { pruned ->
+                        pruned.forEach { vaccinationDao.deleteVaccination(it) }
+                    }
+                }
 
                 android.util.Log.i("VaccinationRepo", """
                     Sync Complete:
@@ -194,8 +196,6 @@ override val allVaccinations: Flow<List<Vaccination>> =
         val entities = items.map { it.toEntity() }
         withContext(Dispatchers.IO) {
             val totalItemsDownloaded = entities.size
-            // One query for this batch instead of one per item (see SyncQueueDao.unsyncedIdSet).
-            val pendingVaccinationIds = syncQueueDao.unsyncedIdSet("VACCINATION")
             var itemsImported = 0
             var itemsSkippedMissingVisit = 0
             var itemsSkippedUnsyncedVisit = 0
@@ -204,6 +204,9 @@ override val allVaccinations: Flow<List<Vaccination>> =
             val acceptedByVisit = mutableMapOf<String, MutableSet<String>>()
 
             transactionRunner.run {
+                // One query for this batch instead of one per item (see SyncQueueDao.unsyncedIdSet).
+                // Read inside the transaction so a queued edit committed here is visible to the guard.
+                val pendingVaccinationIds = syncQueueDao.unsyncedIdSet("VACCINATION")
                 for (remoteItem in entities) {
                     // FOREIGN KEY CHECK: the visit this item belongs to must exist locally.
                     // (This is a plain existence check - patient_visits has had no is_deleted

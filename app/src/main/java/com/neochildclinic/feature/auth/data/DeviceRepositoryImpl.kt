@@ -5,8 +5,9 @@ import android.os.Build
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.neochildclinic.domain.model.UserDevice
-import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
+import com.neochildclinic.domain.repository.DeviceRepository
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,7 +36,6 @@ class DeviceRepositoryImpl @Inject constructor(
         val appVersion = getAppVersion()
 
         try {
-            // Check if device already registered with this token
             val existingDevice = userDevicesTable.select {
                 filter {
                     eq("fcm_token", token)
@@ -67,6 +67,21 @@ class DeviceRepositoryImpl @Inject constructor(
                 userDevicesTable.insert(device)
             }
             Log.d("DeviceRepositoryImpl", "Device registered successfully")
+        } catch (e: RestException) {
+            if (isUniqueTokenConflict(e)) {
+                // SE-05: a row owned by the *previous* account still holds this token. RLS
+                // hides it from the current user's SELECT, so it looked like no row existed
+                // and the INSERT hit user_devices_fcm_token_uidx. No longer swallowed:
+                // sign-out releases the row (see deactivateCurrentDevice).
+                Log.e(
+                    "DeviceRepositoryImpl",
+                    "Device not registered: a previous account's row still holds fcm_token. " +
+                        "It is released at sign-out; re-login to retry.",
+                    e
+                )
+            } else {
+                Log.e("DeviceRepositoryImpl", "Failed to register device", e)
+            }
         } catch (e: Exception) {
             Log.e("DeviceRepositoryImpl", "Failed to register device", e)
         }
@@ -76,19 +91,21 @@ class DeviceRepositoryImpl @Inject constructor(
         val token = getFcmToken() ?: return
 
         try {
-            userDevicesTable.update(
-                mapOf("is_active" to false)
-            ) {
-                filter {
-                    eq("fcm_token", token)
-                }
+            // SE-05: delete the row rather than only flipping is_active. fcm_token is
+            // globally unique, so a deactivated row would still block the next account
+            // that signs in on this physical device from registering the same token.
+            userDevicesTable.delete {
+                filter { eq("fcm_token", token) }
             }
         } catch (e: Exception) {
-            // Device registration is best-effort. A network/Supabase failure must
+            // Device cleanup is best-effort. A network/Supabase failure must
             // never prevent logout from completing.
-            Log.w("DeviceRepositoryImpl", "Could not deactivate device", e)
+            Log.w("DeviceRepositoryImpl", "Could not release device token", e)
         }
     }
+
+    private fun isUniqueTokenConflict(e: RestException): Boolean =
+        e.statusCode == 409 || e.message?.contains("duplicate key", ignoreCase = true) == true
 
     override suspend fun updateActivity() {
         val token = getFcmToken() ?: return

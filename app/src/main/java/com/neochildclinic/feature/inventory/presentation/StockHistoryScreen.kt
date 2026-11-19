@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.inventory.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -529,7 +530,7 @@ private fun groupTransactionsByDate(transactions: List<InventoryTransaction>): M
     for (tx in transactions) {
         val dateStr = runCatching {
             val instant = Instant.parse(tx.timestamp)
-            val localDate = instant.atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
+            val localDate = instant.atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
             localDate.format(dateFormatter)
         }.getOrElse {
             // Fallback for date-only formats or non-ISO timestamps
@@ -554,7 +555,7 @@ private fun formatTimeOnly(isoTimestamp: String): String {
     val timeFormatter = com.neochildclinic.core.common.DateUtils.TIME_12H_FORMATTER
     return runCatching {
         val instant = Instant.parse(isoTimestamp)
-        instant.atZone(ZoneId.of("Asia/Kolkata")).format(timeFormatter)
+        instant.atZone(ZoneId.of(IST_ZONE_ID)).format(timeFormatter)
     }.getOrElse {
         "10:00 AM"
     }

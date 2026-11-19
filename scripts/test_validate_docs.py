@@ -10,6 +10,7 @@ failing test isolates the one rule it names instead of drowning in setup noise.
 """
 import contextlib
 import io
+import os
 import pathlib
 import sys
 import tempfile
@@ -302,15 +303,15 @@ class Citations(unittest.TestCase):
         self.assertIn("Foo.kt:1-7", out)
 
     def test_untracked_artifact_is_a_note_not_an_error(self):
-        # The vault cites audit scratch SQL that was deliberately never committed;
-        # the line has to say so for the citation to be excused.
-        code, out = self.run_with_repo(
-            "⚠️ Legacy policy from `missing_tables.sql:99` (untracked scratch file).", {})
+        # Only a path on the known-artifact allowlist is excused; the surrounding words
+        # do not matter.
+        code, out = self.run_with_repo("⚠️ Legacy policy from `missing_tables.sql:99`.", {})
         self.assertEqual(0, code)
         self.assertIn("cites an untracked artifact", out)
 
-    def test_unmarked_missing_file_is_not_excused_by_similarity(self):
-        code, out = self.run_with_repo("Legacy policy from `missing_tables.sql:99`.", {})
+    def test_keyword_alone_does_not_excuse_a_missing_file(self):
+        code, out = self.run_with_repo(
+            "Legacy policy from `ghost_indexes.sql:99` (untracked scratch artifact).", {})
         self.assertEqual(1, code)
         self.assertIn("no such file in the repo", out)
 
@@ -335,9 +336,146 @@ class Citations(unittest.TestCase):
         self.assertEqual(0, code)
 
 
+def repo_with(files: dict[str, str], schema_version: int = 35, unit_tests: int = 3):
+    """Build a throwaway repo root plus doc files for the repo-level checks."""
+    tmp = tempfile.TemporaryDirectory()
+    root = pathlib.Path(tmp.name)
+    if schema_version is not None:
+        p = root / "app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"@Database(\n    version = {schema_version},\n)\n", encoding="utf-8")
+    if unit_tests is not None:
+        p = root / "app/src/test/FooTest.kt"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("\n".join("@Test fun t%d() {}" % i for i in range(unit_tests)), encoding="utf-8")
+    docs = []
+    for name, text in files.items():
+        p = root / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+        docs.append(p)
+    return tmp, root, docs
+
+
+def report_for(run):
+    rep = vd.Report()
+    run(rep)
+    return "\n".join(f"{w}: {m}" for w, m in rep.errors)
+
+
+class RelativeLinks(unittest.TestCase):
+    def test_resolving_link_is_accepted(self):
+        tmp, root, docs = repo_with({"README.md": "[Guide](docs/guide.md)\n",
+                                     "docs/guide.md": "# Guide\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_relative_links(docs, rep))
+        self.assertNotIn("broken relative doc link", err)
+
+    def test_broken_link_is_reported(self):
+        tmp, root, docs = repo_with({"README.md": "[Guide](docs/guide.md)\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_relative_links(docs, rep))
+        self.assertIn("broken relative doc link: docs/guide.md", err)
+
+    def test_uri_anchor_and_code_are_ignored(self):
+        body = ("[web](https://example.com) [obsidian](obsidian://show-plugin) "
+                "[anchor](#top) `[code](docs/nope.md)`\n\n"
+                "```\n[fenced](docs/nope.md)\n```\n")
+        tmp, root, docs = repo_with({"README.md": body})
+        with tmp:
+            err = report_for(lambda rep: vd.check_relative_links(docs, rep))
+        self.assertNotIn("broken relative doc link", err)
+
+    def test_as_of_line_is_tolerated(self):
+        tmp, root, docs = repo_with({"README.md": "As of 2026-01-01: [old](docs/gone.md)\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_relative_links(docs, rep))
+        self.assertNotIn("broken relative doc link", err)
+
+
+class SchemaVersions(unittest.TestCase):
+    def test_current_version_is_accepted(self):
+        tmp, root, docs = repo_with({"README.md": "Encrypted Room (v35) via SQLCipher.\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_schema_tokens(docs, root, rep))
+        self.assertNotIn("stale schema version", err)
+
+    def test_stale_v33_is_reported(self):
+        tmp, root, docs = repo_with({"README.md": "Room schema v33, foreign keys.\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_schema_tokens(docs, root, rep))
+        self.assertIn("stale schema version v33 (expected v35)", err)
+
+    def test_schema_json_token_is_reported(self):
+        tmp, root, docs = repo_with({"README.md": "Only 33.json schema is exported.\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_schema_tokens(docs, root, rep))
+        self.assertIn("stale schema version v33 (expected v35)", err)
+
+    def test_library_version_is_not_a_schema_claim(self):
+        tmp, root, docs = repo_with({"README.md": "Room 2.8.5 and SQLCipher 4.19.0.\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_schema_tokens(docs, root, rep))
+        self.assertNotIn("stale schema version", err)
+
+    def test_migration_range_and_export_list_are_tolerated(self):
+        body = ("Room schema exports: 33.json, 34.json, 35.json.\n"
+                "Room migrations: v17 → v35.\n")
+        tmp, root, docs = repo_with({"README.md": body})
+        with tmp:
+            err = report_for(lambda rep: vd.check_schema_tokens(docs, root, rep))
+        self.assertNotIn("stale schema version", err)
+
+    def test_historical_and_as_of_lines_are_skipped(self):
+        files = {
+            "docs/audit/old.md": "Room v33 at the time.\n",
+            "README.md": "As of 2026-01-01, Room v33.\n",
+        }
+        tmp, root, docs = repo_with(files)
+        with tmp:
+            err = report_for(lambda rep: vd.check_schema_tokens(docs, root, rep))
+        self.assertNotIn("stale schema version", err)
+
+
+class TestCounts(unittest.TestCase):
+    def test_current_count_is_accepted(self):
+        tmp, root, docs = repo_with({"README.md": "Run unit tests (3 tests).\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_test_counts(docs, rep, expected=3))
+        self.assertNotIn("stale unit-test count", err)
+
+    def test_stale_count_and_badge_are_reported(self):
+        files = {"README.md": "344 JVM-based unit tests.\n",
+                 "docs/ci.md": "![Unit Tests](https://img.shields.io/x/unit%20tests-344)\n"}
+        tmp, root, docs = repo_with(files)
+        with tmp:
+            err = report_for(lambda rep: vd.check_test_counts(docs, rep, expected=3))
+        self.assertIn("stale unit-test count 344 (expected 3)", err)
+        self.assertEqual(2, err.count("stale unit-test count 344"))
+
+    def test_per_class_count_is_ignored(self):
+        tmp, root, docs = repo_with({"README.md": "MemoryCache.kt (10 tests) is well covered.\n"})
+        with tmp:
+            err = report_for(lambda rep: vd.check_test_counts(docs, rep, expected=3))
+        self.assertNotIn("stale unit-test count", err)
+
+    def test_historical_and_as_of_lines_are_skipped(self):
+        files = {"docs/audit/old.md": "344 unit tests passed.\n",
+                 "README.md": "As of 2026-01-01, 344 unit tests passed.\n"}
+        tmp, root, docs = repo_with(files)
+        with tmp:
+            err = report_for(lambda rep: vd.check_test_counts(docs, rep, expected=3))
+        self.assertNotIn("stale unit-test count", err)
+
+
 class ShippedVault(unittest.TestCase):
-    @unittest.skipUnless(REAL_VAULT.exists(), "docs/Knowledge_Base not present in this workspace")
     def test_real_vault_passes(self):
+        if not REAL_VAULT.exists():
+            # CI must not silently lose the real-vault check just because the vault is
+            # absent from the checkout; local workspaces without it can still skip.
+            if os.environ.get("CI"):
+                self.fail(f"docs/Knowledge_Base missing in CI: {REAL_VAULT}")
+            self.skipTest("docs/Knowledge_Base not present in this workspace")
         argv = ["validate_docs.py", "--vault", str(REAL_VAULT)]
         buf = io.StringIO()
         with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(buf):

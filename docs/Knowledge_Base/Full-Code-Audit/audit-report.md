@@ -15,7 +15,7 @@ The offline-first core is real: Room is the UI source of truth, writes and queue
 
 The highest-risk problem is the interaction between **unpaginated pulls** and the new **remote-prune** step. `RemotePrune` treats the pulled ID set as complete. Supabase returns at most 1,000 rows by default, and none of the pulls request a range. Once a table grows past the cap, a successful pull returns a prefix and the prune deletes every synced local row outside it — for patients, cascading away visits, notes, reminders and consultations. An empty `200 []` response does the same.
 
-The stock-trigger fix is present in tracked migrations, but deployment and historical corruption are unverified. RLS still grants every active staff role full CRUD on clinical and financial tables. The release path is not exercised by CI, and signing/minification are not verified.
+The stock-trigger fix is present in tracked migrations, but deployment and historical corruption are unverified. RLS still grants every active staff role full CRUD on clinical and financial tables. The release path is now gated by CI (lint, signed assemble, signer verification, R8 mapping archive); signing is configured fail-closed but a real run with the repository secrets has not been recorded.
 
 ## Findings summary
 
@@ -198,10 +198,11 @@ Severity model: **S1** data loss/corruption or a security break with direct pati
 
 ### AUD-21 — Release hardening is not exercised by CI
 
-- **Type:** Confirmed process/release gap · **Confidence:** High.
-- **Evidence:** release enables R8/shrink (`app/build.gradle.kts:74`), but has no signing config, and lint disables release checks (`app/build.gradle.kts:90`). Android CI only runs `testDebugUnitTest`, `assembleDebug`, and `lintDebug` (`.github/workflows/android-ci.yml:85`). No workflow invokes `assembleRelease`/`bundleRelease` or `lintRelease`. `google-services.json` is intentionally generated only for the debug CI build (`.github/workflows/android-ci.yml:51`). `proguard-rules.pro` contains no explicit keeps.
-- **Impact:** R8, serialization, signing and release lint can break without CI noticing; the update flow depends on a consistently signed APK. The release artifact pipeline is not reproducible from the repo.
-- **Fix direction:** add a release-build job with ephemeral signing secrets, `lintRelease`, R8 mapping upload and an install smoke test; review targetSdk against the current distribution policy; add dependency/security scanning.
+- **Type:** Process/release gap — configuration added, real run pending · **Confidence:** High.
+- **Evidence (original):** release enabled R8/shrink but had no signing config and lint disabled release checks; Android CI only ran `testDebugUnitTest`, `assembleDebug` and `lintDebug`. No workflow invoked `assembleRelease`/`lintRelease`.
+- **Evidence (now):** `app/build.gradle.kts:131` attaches the release signing config unconditionally (fails closed rather than emitting an unsigned APK), `app/build.gradle.kts:144` sets `checkReleaseBuilds = true`, and `app/build.gradle.kts:73` derives versionCode from versionName with the updater's formula. `.github/workflows/android-release.yml` is gated on a `vX.Y.Z` tag or manual dispatch and runs `lintRelease`, `assembleRelease`, `apksigner verify` and an R8 mapping archive; it aborts before any build task if the keystore secrets are absent. Debug CI is unchanged.
+- **Residual:** the workflow needs `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD` (optionally `RELEASE_SIGNER_SHA256`) set in repository secrets. Until a real run with those secrets succeeds, signing is configured but not proven end to end; an install smoke test and dependency scanning are still not in place.
+- **Fix direction:** configure the secrets, run the workflow on a `vX.Y.Z` tag, and record the verified signer digest in the release notes. `proguard-rules.pro` still has no explicit keeps.
 
 ---
 
@@ -233,8 +234,8 @@ This is a static mapping, not a certification. No dynamic MASTG test (emulator, 
 | CRYPTO | Strong | PBKDF2 210k + AES-256-GCM backup format (`app/src/main/java/com/neochildclinic/data/backup/BackupCrypto.kt:44`); Keystore-backed DB passphrase. |
 | AUTH | Partial | Supabase JWT + `is_active_staff()` RLS, but every active role has full CRUD (AUD-06); worker does not validate `iss` or live active status (AUD-22). |
 | NETWORK | Strong | HTTPS-only update URL and API usage (`app/src/main/java/com/neochildclinic/feature/update/data/AppUpdateManager.kt:261`); targetSdk 35 blocks cleartext by default; no certificate pinning (not treated as a defect). |
-| PLATFORM | Partial | Exported `MainActivity` deep link and widget configuration are justified but externally reachable; `PackageInstaller` is restricted to the app's own package (`AppUpdateManager.kt:406`). |
-| RESILIENCE | Partial | R8/shrink is enabled (`app/build.gradle.kts:74`) but release signing/lint/CI is unverified (AUD-21); no anti-tamper or root detection (not required for this threat model). |
+| PLATFORM | Partial | Exported `MainActivity` deep link and widget configuration are justified but externally reachable; `PackageInstaller` is restricted to the app's own package (`feature/update/data/AppUpdateManager.kt:406`). |
+| RESILIENCE | Partial | R8/shrink is enabled and a gated release CI now runs lint, signed assemble and signer verification (`app/build.gradle.kts:131`, AUD-21 — run pending secrets); no anti-tamper or root detection (not required for this threat model). |
 | PRIVACY | Partial | Local-first design and private backups, but audit history is remote-only (AUD-11) and PII-bearing logs/audit records need a retention review. |
 
 ## Kotlin/coroutines and secret scan

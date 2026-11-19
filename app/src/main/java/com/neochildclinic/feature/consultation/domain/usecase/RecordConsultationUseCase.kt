@@ -6,10 +6,10 @@ import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.Visit
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import java.util.UUID
 import javax.inject.Inject
 

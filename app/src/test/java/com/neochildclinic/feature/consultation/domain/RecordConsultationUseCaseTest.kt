@@ -7,11 +7,11 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.domain.model.Visit
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.feature.consultation.domain.usecase.RecordConsultationUseCase
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -140,9 +140,16 @@ class RecordConsultationUseCaseTest {
         override val syncState: StateFlow<SyncState> = MutableStateFlow(SyncState.IDLE)
         override fun getPendingCount(): Flow<Int> = emptyFlow()
         override suspend fun processNextItems(): Boolean = TODO()
+        override suspend fun processNextItemsWithOwnership(): com.neochildclinic.domain.repository.SyncRunResult = TODO()
         override suspend fun hasFailedItems(): Boolean = TODO()
         override suspend fun getUnacknowledgedCount(): Int = TODO()
         override suspend fun clearLocalData() = TODO()
+        override fun getSyncQueue(): kotlinx.coroutines.flow.Flow<List<com.neochildclinic.domain.model.SyncItem>> = TODO()
+        override suspend fun clearSyncedItems() = TODO()
+        override suspend fun retryItem(queueId: Long) = TODO()
+        override suspend fun deleteQueueItem(queueId: Long) = TODO()
+        override suspend fun retryFailedItems() = TODO()
+        override suspend fun deleteAllFailed() = TODO()
     }
 
     @Test

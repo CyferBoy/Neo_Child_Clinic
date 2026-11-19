@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.finance.domain
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.common.startOfDay
@@ -81,7 +82,9 @@ object FinanceCalculator {
         validVaccinationIds: Set<String>? = null,
         validPatientIds: Set<String>? = null
     ): Boolean {
-        if (transaction.amount <= 0.0) return false
+        // Free vaccinations legitimately post a zero-amount VACCINATION income row
+        // carrying a COGS snapshot; dropping it hides vaccine cost and overstates profit.
+        if (transaction.amount < 0.0 || (transaction.amount == 0.0 && !transaction.category.equals(VACCINATION, true))) return false
         val remarks = transaction.remarks
         if (remarks != null) {
             if (remarks.contains("[DELETED]", ignoreCase = true)) return false
@@ -200,7 +203,7 @@ object FinanceCalculator {
         
         // Safety: Ignore transactions before the year 2000 to prevent infinite loops 
         // if dates are corrupted (e.g., year 0202).
-        val safetyBoundary = Calendar.getInstance().apply {
+        val safetyBoundary = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID)).apply {
             set(2000, Calendar.JANUARY, 1, 0, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
@@ -221,10 +224,9 @@ object FinanceCalculator {
         }
         if (parsed.isEmpty() && parsedExpenses.isEmpty()) return emptyList()
 
-        val (first, last) = if (filterMode.startsWith("FY ")) {
-            val short = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull()
-            val fyStart = if ((short ?: 0) > 80) 1900 + (short ?: 0) else 2000 + (short ?: 0)
-            val start = Calendar.getInstance().apply {
+        val (first, last) = if (filterMode != "Overall") {
+            val fyStart = financialYearStartOrDefault(filterMode)
+            val start = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID)).apply {
                 set(fyStart, Calendar.APRIL, 1, 0, 0, 0)
                 set(Calendar.MILLISECOND, 0)
             }
@@ -321,9 +323,25 @@ object FinanceCalculator {
         return result
     }
 
-    fun calculateImprovement(current: Double, previous: Double): Double? {
+    /**
+     * Conventional percentage change using `previous` as the divisor — the shape the Overview,
+     * Patients, Vaccinations and Finance cards have always shown. Most baselines are counts or
+     * revenue (>= 0); those cards also pass net profit, where a negative baseline flips the sign.
+     * Use [calculateImprovement] when the sign must instead track improvement. Zero baseline -> null.
+     */
+    fun calculateGrowth(current: Double, previous: Double): Double? = percentageDelta(current, previous, previous)
+
+    /**
+     * Improvement against a signed baseline: net profit can be negative (FinanceTable rows and
+     * the Net Profit hero), so the divisor is |previous| to keep a loss-to-profit swing positive.
+     * Same guard and shape as [calculateGrowth]; only the baseline differs. A zero baseline yields null.
+     */
+    fun calculateImprovement(current: Double, previous: Double): Double? =
+        percentageDelta(current, previous, kotlin.math.abs(previous))
+
+    private fun percentageDelta(current: Double, previous: Double, baseline: Double): Double? {
         if (previous == 0.0) return null
-        return ((current - previous) / kotlin.math.abs(previous)) * 100.0
+        return ((current - previous) / baseline) * 100.0
     }
 
     fun buildVaccinationRemarks(vaccinationNames: String, vaccineCost: Double): String =
@@ -366,7 +384,7 @@ object FinanceCalculator {
             .filter { it.category.equals(VACCINATION, true) }
             .groupBy { it.visitId?.takeIf(String::isNotBlank) ?: it.id }
             .values
-            .map { group -> group.maxByOrNull { it.timestamp }!! }
+            .map { group -> group.maxByOrNull { com.neochildclinic.core.common.DateUtils.isoToLong(it.timestamp) }!! }
     }
 
     internal fun paymentAmount(transactions: List<FinanceTransaction>, cash: Boolean): Double =
@@ -379,26 +397,56 @@ object FinanceCalculator {
             }
         }
 
-    private fun monthStart(date: Date): Calendar = Calendar.getInstance().apply {
+    private fun monthStart(date: Date): Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID)).apply {
         time = date
         set(Calendar.DAY_OF_MONTH, 1)
     }.startOfDay()
 
     /** Shared "yyyy-MM" bucket key (1-based month, matching standard ISO YearMonth). */
     private fun monthKey(date: Date): String {
-        val cal = Calendar.getInstance().apply { time = date }
+        val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID)).apply { time = date }
         return String.format(Locale.US, "%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
     }
 
     /**
-     * Returns the current Indian Financial Year (1 April – 31 March) formatted as "FY YY-YY".
+     * The one canonical FY representation: a short span "26-27" (1 April 2026 – 31 March 2027).
+     * Producers and consumers must go through [formatFinancialYear] / [parseFinancialYearStart] so
+     * the century rule, the accepted historical spellings and the fallback live in one place.
      */
-    fun getCurrentFinancialYear(now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))): String {
+    fun formatFinancialYear(startYear: Int): String = "${startYear % 100}-${(startYear + 1) % 100}"
+
+    /**
+     * Full start year of any historical FY spelling: canonical "26-27", prefixed "FY 26-27",
+     * or full-year "2026-27". Returns null for malformed labels so callers that must reject an
+     * unknown period can do so; callers that need a year use [financialYearStartOrDefault].
+     */
+    fun parseFinancialYearStart(label: String): Int? {
+        val raw = label.trim().removePrefix("FY").trim()
+        val short = raw.substringBefore("-").toIntOrNull() ?: return null
+        return when {
+            short >= 1000 -> short // already a full year, e.g. "2026-27"
+            short > 80 -> 1900 + short // 81..99 -> 1981..1999
+            else -> 2000 + short // 00..80 -> 2000..2080
+        }
+    }
+
+    /** The single malformed-label fallback: resolve to the current Indian financial year. */
+    fun financialYearStartOrDefault(
+        label: String,
+        now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID))
+    ): Int = parseFinancialYearStart(label) ?: currentFinancialYearStart(now)
+
+    fun currentFinancialYearStart(now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID))): Int {
         val curYear = now.get(Calendar.YEAR)
         val curMonth = now.get(Calendar.MONTH) // Calendar.APRIL == 3
-        val fyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
-        return "FY ${fyStart % 100}-${(fyStart + 1) % 100}"
+        return if (curMonth >= Calendar.APRIL) curYear else curYear - 1
     }
+
+    /**
+     * Returns the current Indian Financial Year (1 April – 31 March) in the canonical "26-27" form.
+     */
+    fun getCurrentFinancialYear(now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID))): String =
+        formatFinancialYear(currentFinancialYearStart(now))
 
     /**
      * Extracts and deduplicates all available Financial Years from the provided list of date strings,
@@ -406,16 +454,14 @@ object FinanceCalculator {
      */
     fun getAvailableFinancialYears(
         dates: List<String>,
-        now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+        now: Calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID))
     ): List<String> {
-        val curYear = now.get(Calendar.YEAR)
-        val curMonth = now.get(Calendar.MONTH)
-        val curFyStart = if (curMonth >= Calendar.APRIL) curYear else curYear - 1
+        val curFyStart = currentFinancialYearStart(now)
 
         val uniqueDates = dates.distinct()
         val years = uniqueDates.mapNotNull { DateUtils.parseDate(it) }
             .map { date ->
-                val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).apply { time = date }
+                val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone(IST_ZONE_ID)).apply { time = date }
                 val y = cal.get(Calendar.YEAR)
                 val m = cal.get(Calendar.MONTH)
                 if (m >= Calendar.APRIL) y else y - 1
@@ -423,7 +469,7 @@ object FinanceCalculator {
             .toMutableSet()
         years.add(curFyStart)
 
-        return years.sorted().map { "${it % 100}-${(it + 1) % 100}" }
+        return years.sorted().map(::formatFinancialYear)
     }
 }
 

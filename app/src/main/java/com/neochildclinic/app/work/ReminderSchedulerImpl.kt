@@ -32,7 +32,6 @@ class ReminderSchedulerImpl @Inject constructor(
         // DailySummaryWorker reads exclusively from local Room DAOs (patients, stock, reminders).
         // It requires no network connection, allowing clinic staff to receive morning summaries offline.
 
-        // Calculate delay until the configured time (e.g., 08:00 AM)
         val timeParts = settings.reminderTime.split(":")
         val hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 8
         val minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0

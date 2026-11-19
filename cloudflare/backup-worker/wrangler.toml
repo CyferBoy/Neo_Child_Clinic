@@ -19,7 +19,22 @@ binding = "DB"
 database_name = "neochildclinic-backups"
 database_id = "${DATABASE_ID}"
 
+[vars]
+# Expected issuer base for Supabase access tokens. The Worker requires
+# `iss === SUPABASE_URL + "/auth/v1"` (fail closed if unset). OVERRIDE THIS in every
+# deployed environment, e.g. `wrangler deploy --var SUPABASE_URL:https://<ref>.supabase.co`
+# or an environment-specific wrangler config. This placeholder is deliberately NOT a valid
+# project: src/jwt.ts treats it as unconfigured and fails with an explicit CONFIG error
+# (500), never a generic 401. Tests pass a real-looking URL explicitly (see test/config.ts).
+SUPABASE_URL = "https://placeholder.supabase.co"
+
 # Secrets (never put these here - set via `wrangler secret put <NAME>`):
 #   SUPABASE_JWT_SECRET - legacy HS256 signing secret (backward compatibility only).
 #   SUPABASE_JWKS_URL  - preferred JWKS endpoint for ES256/RS256 tokens:
 #                         https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+#
+# Once SUPABASE_JWKS_URL is set, HS256 tokens are REJECTED unless this flag is explicitly
+# set to the literal string "true" (via secret or `wrangler deploy --var`). Left unset by
+# default: JWKS deployments run asymmetric-only. Pure-HS256 deployments (no JWKS URL)
+# keep working without it - there is no asymmetric path to prefer.
+#   ALLOW_LEGACY_HS256 - "true" to keep the HS256 fallback alongside JWKS.

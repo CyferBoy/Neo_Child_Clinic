@@ -48,7 +48,7 @@ class UpcomingVaccinationDaoTest {
     // query under test ever ran. Seed the parent row for each reminder first.
     private fun seedPatients(vararg ids: String) = runBlocking {
         ids.forEach {
-            patientDao.insertPatient(
+            patientDao.upsertPatient(
                 PatientEntity(
                     id = it,
                     name = "Patient $it",

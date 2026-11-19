@@ -2,9 +2,9 @@ package com.neochildclinic.feature.sync.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neochildclinic.feature.sync.data.SyncRepositoryImpl
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
+import com.neochildclinic.core.sync.RefreshDataUseCase
 import com.neochildclinic.domain.model.SyncItem
+import com.neochildclinic.domain.repository.SyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,11 +18,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SyncViewModel @Inject constructor(
-    // Deliberately the impl, not the SyncRepository contract: this screen manages the queue
-    // (retry / clear / delete individual items), and the contract deliberately exposes only
-    // enqueue + state (see its own doc comment). Widening the contract to cover a single
-    // screen's needs would be a worse trade than this one injection.
-    private val syncRepository: SyncRepositoryImpl,
+    private val syncRepository: SyncRepository,
     private val refreshDataUseCase: RefreshDataUseCase
 ) : ViewModel() {
 

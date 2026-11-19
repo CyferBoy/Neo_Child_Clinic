@@ -6,11 +6,15 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import assert from "node:assert";
-import ts from "/home/nadeem/Desktop/vaccine_manager_app/cloudflare/backup-worker/node_modules/typescript/lib/typescript.js";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
-const filePath = path.resolve("/home/nadeem/Desktop/vaccine_manager_app/supabase/functions/manage-staff/index.ts");
+// typescript is installed in the backup-worker workspace, not at the repo root.
+const require = createRequire(new URL("../cloudflare/backup-worker/package.json", import.meta.url));
+const ts = require("typescript");
+
+const filePath = fileURLToPath(new URL("../supabase/functions/manage-staff/index.ts", import.meta.url));
 const sourceCode = fs.readFileSync(filePath, "utf-8");
 
 // Mock environment and Deno globals

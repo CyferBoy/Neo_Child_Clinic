@@ -1073,7 +1073,7 @@ guessing now.
 | | |
 |---|---|
 | **Status** | ✅ Fixed 2026-10-24 · **Severity** S2 High |
-| **Files** | `feature/statistics/domain/StatisticsUtils.kt:151-159` (new); `feature/statistics/presentation/OverviewTab.kt:52`, `:82-87`, `:109-111`; `feature/statistics/presentation/FullReportViewModel.kt:159-172`, `:256-269`; `feature/statistics/presentation/VaccinationsTab.kt` (comments only) |
+| **Files** | `feature/statistics/domain/StatisticsUtils.kt:142-150` (new); `feature/statistics/presentation/OverviewTab.kt:52`, `:82-87`, `:109-111`; `feature/statistics/presentation/FullReportViewModel.kt:159-172`, `:256-269`; `feature/statistics/presentation/VaccinationsTab.kt` (comments only) |
 | **Introduced by** | commit `8b3c415` ("exclude cancelled and dismissed visits from all statistics filters") |
 
 **Impact.** The Overview "Consulted Patients" and "Total Consultation" cards and the
@@ -1095,7 +1095,7 @@ its input with the vaccination-status gate before calling it, so the function's 
 ungated loop never saw a consultation visit.
 
 **Fix applied.** New `StatisticsUtils.visitTypeStatsForFilter(visits, filterMode,
-fyQuarter, selectedMonth)` (`StatisticsUtils.kt:151-159`) applies only the date filter
+fyQuarter, selectedMonth)` (`StatisticsUtils.kt:142-150`) applies only the date filter
 (`isDateInFilter`), never the status gate. `OverviewTab.kt:82-87` now calls it and passes
 raw visits to `computeEffectiveRegistrationDates` (`:52`) and the consultation chart series
 (`:109-111`); `FullReportViewModel.kt` threads a raw `allVisits` parameter through

@@ -9,8 +9,8 @@ import androidx.work.WorkerParameters
 import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
-import com.neochildclinic.data.local.database.AppDatabase
-import com.neochildclinic.feature.sync.data.SyncRepositoryImpl
+import com.neochildclinic.data.local.dao.PatientDao
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.preferences.PreferenceManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -20,8 +20,8 @@ import kotlinx.coroutines.CancellationException
 class PatientClinicIdMigrationWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
-    private val database: AppDatabase,
-    private val syncRepository: SyncRepositoryImpl,
+    private val patientDao: PatientDao,
+    private val syncRepository: SyncRepository,
     private val auditLogger: AuditLogger,
     private val preferenceManager: PreferenceManager,
     private val idGenerator: PatientIdGenerator,
@@ -30,8 +30,7 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         Log.i(TAG, "Migration started: Assigning patientClinicIds to existing patients.")
-        val patientDao = database.patientDao()
-        
+
         try {
             val patientsToMigrate = patientDao.getPatientsNeedingId()
             Log.d(TAG, "Patients scanned: ${patientsToMigrate.size} needing IDs.")
@@ -69,8 +68,6 @@ class PatientClinicIdMigrationWorker @AssistedInject constructor(
                         patientId = patient.id,
                         remarks = "Assigned Clinic ID: $clinicId (Legacy migration)"
                     )
-
-                    Log.d(TAG, "Updated Patient ${patient.id}: assigned $clinicId")
                 }
             }
 

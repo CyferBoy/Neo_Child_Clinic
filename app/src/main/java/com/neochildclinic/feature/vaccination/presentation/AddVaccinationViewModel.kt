@@ -7,10 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.feature.vaccination.domain.ClinicalVaccinationService
 import com.neochildclinic.feature.vaccination.domain.VaccinationEditEngine
 import com.neochildclinic.core.security.CurrentUserProvider
@@ -76,7 +76,7 @@ class AddVaccinationViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     private val vaccinationRepository: VaccinationRepository,
     private val reminderRepository: ReminderRepository,
-    private val profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository,
+    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val clinicalService: ClinicalVaccinationService,
     private val vaccinationEditEngine: VaccinationEditEngine,
     private val sessionManager: SessionManager,
@@ -491,6 +491,7 @@ class AddVaccinationViewModel @Inject constructor(
         editQuantity: Boolean = true,
         editNextVaccination: Boolean = true
     ) {
+        if (_uiState.value.isLoading) return
         val state = _uiState.value
         val patient = state.patient ?: return
 
@@ -548,6 +549,19 @@ class AddVaccinationViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // Revalidate at save time: another device may have changed this doctor's
+                // availability since slots loaded (payment-only edits keep their slot).
+                if (editSchedule && !getAvailableSlotsUseCase.isSlotStillAvailable(
+                        state.selectedDoctor?.id ?: "",
+                        state.givenDate,
+                        state.selectedSlot?.weeklySlotId ?: ""
+                    )) {
+                    _uiState.update { it.copy(isLoading = false, slotError = true, selectedSlot = null) }
+                    loadAvailableSlots()
+                    _uiState.update { it.copy(errorMessage = "That slot is no longer available. Please choose another.") }
+                    return@launch
+                }
+
                 val user = sessionManager.getCurrentUserEmail()
                 val vaccinationId = state.existingVaccinationId ?: UUID.randomUUID().toString()
 

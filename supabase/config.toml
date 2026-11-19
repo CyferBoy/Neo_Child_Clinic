@@ -57,7 +57,13 @@ max_client_conn = 100
 # secret_key = "env(SECRET_VALUE)"
 
 [db.migrations]
-# If disabled, migrations will be skipped during a db push or reset.
+# Deliberately disabled. There is no baseline migration that creates the ~12 legacy
+# tables (see docs/Knowledge_Base/Database Schema.md, "The single most important fact"):
+# every file in migrations/ ALTERs a hand-built schema. With this enabled, a clean
+# `supabase db reset` fails on the first ALTER and leaves a half-migrated database.
+# CI therefore applies each migration explicitly against a minimal schema from
+# .github/workflows/supabase-sql.yml (see supabase/tests/*.sql).
+# RE-ENABLE only after adding a baseline migration that creates the base tables.
 enabled = false
 # Specifies an ordered list of schema files, directories, or glob patterns that describe your database.
 # Supports paths relative to supabase directory: "./schemas/*.sql", "./database".

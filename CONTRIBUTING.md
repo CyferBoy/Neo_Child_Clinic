@@ -10,7 +10,7 @@ Thank you for contributing to Neo Child Clinic! This project manages pediatric v
    ```bash
    git checkout -b feature/your-feature-name
    ```
-2. **Setup Environment**: Follow [`docs/getting-started/onboarding.md`](docs/getting-started/onboarding.md) to configure Android Studio, JDK 17, and local `.env.local` keys.
+2. **Setup Environment**: Follow [`docs/agents/DESKTOP_SETUP.md`](docs/agents/DESKTOP_SETUP.md) to configure Android Studio, JDK 17, and local `.env.local` keys.
 3. **Architecture Guidance**: Check [`docs/architecture/where-things-belong.md`](docs/architecture/where-things-belong.md) before creating new files or packages.
 
 ---

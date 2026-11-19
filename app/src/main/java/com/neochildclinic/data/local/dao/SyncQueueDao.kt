@@ -15,6 +15,17 @@ interface SyncQueueDao {
     @Query("SELECT * FROM sync_queue WHERE status = :status ORDER BY createdAt ASC")
     suspend fun getItemsByStatus(status: String): List<SyncQueueEntity>
 
+    // Bounded variant for the upload batch. Without a limit a continuously-enqueued queue
+    // kept the single-flight run alive forever; with it each run drains a finite batch and a
+    // later scheduled worker picks up the rest.
+    @Query("SELECT * FROM sync_queue WHERE status = :status ORDER BY createdAt ASC LIMIT :limit")
+    suspend fun getItemsByStatus(status: String, limit: Int): List<SyncQueueEntity>
+
+    // Scoped failed lookup for enqueue coalescing - avoids loading every FAILED row and
+    // filtering it in Kotlin on each enqueue.
+    @Query("SELECT * FROM sync_queue WHERE entityName = :name AND entityId = :id AND status = 'FAILED'")
+    suspend fun getFailedForEntity(name: String, id: String): List<SyncQueueEntity>
+
     @Query("SELECT * FROM sync_queue WHERE queueId = :id LIMIT 1")
     suspend fun getItemById(id: Long): SyncQueueEntity?
 

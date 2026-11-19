@@ -151,7 +151,7 @@ internal fun EnhancedAddTodoDialog(
             }
         )
     }
-    var selectedPatientId by remember {
+    var selectedPatientId by rememberSaveable {
         mutableStateOf(
             when (initialItem) {
                 is ConsultationTodo -> initialItem.patientId
@@ -319,7 +319,8 @@ internal fun EnhancedAddTodoDialog(
                 enabled = name.isNotBlank() && mobile.isNotBlank() && (type == TodayPatientTab.CONSULTATION || vaccineNames.isNotBlank()),
                 onClick = {
                     onConfirm(
-                        name, mobile, address, vaccineNames, selectedPatientId,
+                        name, mobile, address, vaccineNames,
+                        resolveTodoPatientId(selectedPatientId, name, mobile, patients),
                         selectedDoctor?.id, selectedDoctor?.displayName, selectedSlot?.weeklySlotId,
                         if (type == TodayPatientTab.CONSULTATION) visitType.ifBlank { "NEW" } else ""
                     )
@@ -332,4 +333,26 @@ internal fun EnhancedAddTodoDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+/**
+ * The suggestion list is optional: typing a saved patient's exact name + phone without
+ * tapping a suggestion used to save patient_id = null. Fall back to that exact match so
+ * the todo keeps its link to the patient record.
+ *
+ * Ambiguous matches (siblings sharing a parent's phone, duplicate patient rows) link to
+ * nothing: a wrong patient_id on a clinical record is worse than an unlinked todo.
+ */
+internal fun resolveTodoPatientId(
+    selected: String?,
+    name: String,
+    mobile: String,
+    patients: List<Patient>
+): String? {
+    if (!selected.isNullOrBlank()) return selected
+    val phone = mobile.filter(Char::isDigit)
+    if (phone.isEmpty()) return null
+    return patients.filter {
+        it.name.trim().equals(name.trim(), ignoreCase = true) && it.phone.filter(Char::isDigit) == phone
+    }.singleOrNull()?.id
 }

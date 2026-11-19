@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
+import { TEST_ISSUER } from "./config";
 
 // These tests need SUPABASE_JWT_SECRET available in the test environment (put it in a
 // .dev.vars file next to wrangler.toml, e.g. `SUPABASE_JWT_SECRET=test-secret-value`) and
@@ -19,9 +20,21 @@ async function signHs256(payload: Record<string, unknown>, secret: string): Prom
   return `${headerB64}.${payloadB64}.${sigB64}`;
 }
 
-async function tokenFor(sub: string): Promise<string> {
+function issuer(): string {
+  // Explicit real-looking URL: wrangler.toml's placeholder fails closed with a CONFIG error.
+  return TEST_ISSUER;
+}
+
+async function tokenFor(sub: string, claims: Record<string, unknown> = {}): Promise<string> {
   return signHs256(
-    { sub, aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 },
+    {
+      sub,
+      aud: "authenticated",
+      iss: issuer(),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      app_metadata: { role: "admin" },
+      ...claims
+    },
     (env as any).SUPABASE_JWT_SECRET
   );
 }
@@ -33,7 +46,10 @@ describe("auth", () => {
   });
 
   it("rejects an expired token", async () => {
-    const expired = await signHs256({ sub: "user-1", exp: Math.floor(Date.now() / 1000) - 10 }, (env as any).SUPABASE_JWT_SECRET);
+    const expired = await signHs256(
+      { sub: "user-1", aud: "authenticated", iss: issuer(), exp: Math.floor(Date.now() / 1000) - 10, app_metadata: { role: "admin" } },
+      (env as any).SUPABASE_JWT_SECRET
+    );
     const res = await SELF.fetch("https://worker.example/backups", {
       headers: { Authorization: `Bearer ${expired}` }
     });
@@ -47,6 +63,36 @@ describe("auth", () => {
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
+  });
+
+  it("rejects a token issued for another Supabase project", async () => {
+    const token = await tokenFor("user-1", { iss: "https://evil-project.supabase.co/auth/v1" });
+    const res = await SELF.fetch("https://worker.example/backups", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as any).error).toBe("Unexpected issuer");
+  });
+
+  it("rejects a token with no allowlisted app_metadata.role, even if user_metadata claims one", async () => {
+    const token = await tokenFor("user-1", {
+      app_metadata: {},
+      user_metadata: { role: "admin" }
+    });
+    const res = await SELF.fetch("https://worker.example/backups", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as any).error).toBe("Unauthorized role");
+  });
+
+  it("rejects a token whose app_metadata.role is not a staff role", async () => {
+    const token = await tokenFor("user-1", { app_metadata: { role: "service_role" } });
+    const res = await SELF.fetch("https://worker.example/backups", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as any).error).toBe("Unauthorized role");
   });
 });
 
@@ -165,6 +211,56 @@ describe("upload immutability", () => {
     });
     expect(download.status).toBe(200);
     expect(await download.text()).toBe("original-confirmed-backup-bytes");
+  });
+});
+
+describe("confirm idempotency", () => {
+  it("re-confirming an already-CONFIRMED backup returns the original metadata without rewriting it", async () => {
+    const token = await tokenFor("clinic-idempotent");
+    const backupId = "idempotent-confirm-1";
+    const payload = new TextEncoder().encode("idempotent-original-bytes");
+
+    const put = await SELF.fetch(`https://worker.example/backups/${backupId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+      body: payload
+    });
+    expect(put.status).toBe(200);
+
+    const first = await SELF.fetch(`https://worker.example/backups/${backupId}/confirm`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeBytes: payload.byteLength, appVersion: "1.0", backupVersion: 1, createdAt: "2026-01-01T00:00:00.000Z" })
+    });
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+
+    const rowBefore = await (env as any).DB.prepare(
+      "SELECT confirmed_at, app_version, backup_version, created_at, size_bytes FROM backups WHERE backup_id = ?"
+    ).bind(backupId).first();
+
+    // A retry after a network hiccup sends different metadata (and a different claimed size).
+    // The worker must return the stored metadata verbatim, not re-stamp confirmed_at or
+    // return a 409 size mismatch.
+    const retry = await SELF.fetch(`https://worker.example/backups/${backupId}/confirm`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeBytes: payload.byteLength + 999, appVersion: "9.9", backupVersion: 99, createdAt: "2099-01-01T00:00:00.000Z" })
+    });
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toEqual(firstBody);
+
+    const rowAfter = await (env as any).DB.prepare(
+      "SELECT confirmed_at, app_version, backup_version, created_at, size_bytes FROM backups WHERE backup_id = ?"
+    ).bind(backupId).first();
+    expect(rowAfter).toEqual(rowBefore);
+
+    // The confirmed object is still the original one.
+    const download = await SELF.fetch(`https://worker.example/backups/${backupId}/download`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    expect(download.status).toBe(200);
+    expect(await download.text()).toBe("idempotent-original-bytes");
   });
 });
 

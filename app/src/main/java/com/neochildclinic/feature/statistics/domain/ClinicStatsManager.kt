@@ -8,10 +8,10 @@ import com.neochildclinic.domain.model.ClinicStats
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.YearMonth

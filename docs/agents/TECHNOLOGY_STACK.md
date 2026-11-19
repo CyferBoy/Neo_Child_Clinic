@@ -48,7 +48,7 @@
 
 | Category | Tool | Location / Config |
 |---|---|---|
-| **JVM Unit Testing** | JUnit 4.13.2 | `app/src/test/java/` (344 unit tests) |
+| **JVM Unit Testing** | JUnit 4.13.2 | `app/src/test/java/` (554 unit tests) |
 | **Android Instrumentation**| AndroidX Test Runner 1.6.2 | `app/src/androidTest/` (MigrationTestHelper) |
 | **Documentation Validator**| Python script | `scripts/validate_docs.py` (strict citation validator) |
 | **Git Safety Config** | `git config` | `core.filemode=false`, `core.symlinks=false`, `safe.directory` |

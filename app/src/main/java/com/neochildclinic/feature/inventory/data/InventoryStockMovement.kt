@@ -27,6 +27,9 @@ internal fun VaccineBatchEntity.deducted(quantity: Int, transactionType: Invento
         InventoryTransactionType.DAMAGED,
         InventoryTransactionType.COLD_CHAIN_FAILURE,
         InventoryTransactionType.CONTAMINATED,
+        // "returned" waste is recorded as RETURN, and its delete reverses via
+        // addStockToBatch(MANUAL_ADJUSTMENT), which unwinds wastedQuantity - so it must be added here too.
+        InventoryTransactionType.RETURN,
         InventoryTransactionType.OTHER -> base.copy(wastedQuantity = wastedQuantity + quantity)
         else -> base
     }

@@ -8,7 +8,7 @@ import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.model.DoctorSlotException
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.minimalConfig

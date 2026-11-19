@@ -24,6 +24,10 @@ class OfflineAuthManager internal constructor(
         private const val KEY_OFFLINE_HASH = "offline_auth_hash"
         private const val KEY_FAILED_ATTEMPTS = "offline_auth_failed_attempts"
         private const val KEY_LOCKOUT_UNTIL = "offline_auth_lockout_until"
+        private const val KEY_LAST_ONLINE_VERIFIED_AT = "offline_auth_last_online_verified_at"
+
+        /** SE-01: how long a device-local verifier may unlock after the last online account check. */
+        const val OFFLINE_GRACE_MS = 24L * 60 * 60 * 1000
 
         private const val SALT_BYTES = 32
         private const val PBKDF2_ITERATIONS = 210_000
@@ -44,6 +48,21 @@ class OfflineAuthManager internal constructor(
             .putInt(KEY_FAILED_ATTEMPTS, 0)
             .putLong(KEY_LOCKOUT_UNTIL, 0L)
             .apply()
+    }
+
+    /**
+     * SE-01: stamp a successful *online* account/session check. Offline unlock is only
+     * trusted while this stamp is fresh; a deactivated account can then outlive the stamp
+     * for at most [OFFLINE_GRACE_MS] instead of forever.
+     */
+    fun recordOnlineVerification(now: Long = System.currentTimeMillis()) {
+        prefs.edit().putLong(KEY_LAST_ONLINE_VERIFIED_AT, now).apply()
+    }
+
+    /** True only while a recent online check backs the device-local verifier. */
+    fun isOfflineUnlockAllowed(now: Long = System.currentTimeMillis()): Boolean {
+        val lastVerified = prefs.getLong(KEY_LAST_ONLINE_VERIFIED_AT, 0L)
+        return lastVerified > 0L && (now - lastVerified) in 0L..OFFLINE_GRACE_MS
     }
 
     fun verifyPassword(email: String, password: String): Boolean {
@@ -97,6 +116,7 @@ class OfflineAuthManager internal constructor(
             .remove(KEY_OFFLINE_HASH)
             .remove(KEY_FAILED_ATTEMPTS)
             .remove(KEY_LOCKOUT_UNTIL)
+            .remove(KEY_LAST_ONLINE_VERIFIED_AT)
             .apply()
     }
 

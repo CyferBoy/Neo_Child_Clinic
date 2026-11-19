@@ -8,27 +8,27 @@ import androidx.compose.ui.unit.dp
  * Reference: design_tokens.json (screenPadding: 20, cardPadding: 16, sectionGap: 24, listGap: 12)
  */
 object Spacing {
-    /** 2dp / 4dp minimal gap */
+    /** Minimal gap */
     val xxs = 2.dp
     val xs = 4.dp
 
-    /** 8dp - gap between list items, chip internal padding */
+    /** Gap between list items; chip internal padding */
     val sm = 8.dp
 
-    /** 12dp - dense card / list-row padding, gap inside a row */
+    /** Dense card / list-row padding; gap inside a row */
     val md = 12.dp
 
-    /** 16dp - field gap, standard card padding */
+    /** Field gap; standard card padding */
     val lg = 16.dp
 
-    /** 20dp - screen horizontal gutter inset */
+    /** Screen horizontal gutter inset */
     val screen = 20.dp
 
-    /** 24dp - gap between sections */
+    /** Gap between sections */
     val xl = 24.dp
     val section = 24.dp
 
-    /** 32dp - major section header spacing */
+    /** Major section header spacing */
     val xxl = 32.dp
 
     /** Card padding */

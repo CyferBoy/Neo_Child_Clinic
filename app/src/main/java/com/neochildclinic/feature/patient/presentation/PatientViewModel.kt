@@ -7,12 +7,12 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.PatientDocument
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
-import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
-import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.DocumentRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.core.sync.RefreshDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -30,8 +30,8 @@ class PatientViewModel @Inject constructor(
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
     private val consultationRepository: ConsultationRepository,
-    private val profileRepository: com.neochildclinic.feature.profile.domain.repository.ProfileRepository,
-    private val inventoryRepository: com.neochildclinic.feature.inventory.domain.repository.InventoryRepository,
+    private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
+    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
     private val documentRepository: DocumentRepository,
     private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {

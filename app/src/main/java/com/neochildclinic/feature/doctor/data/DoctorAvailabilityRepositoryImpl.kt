@@ -1,7 +1,9 @@
 package com.neochildclinic.feature.doctor.data
 import com.neochildclinic.core.common.DateUtils
+import com.neochildclinic.core.database.TransactionRunner
+import com.neochildclinic.feature.audit.data.InlineTransactionRunner
 import com.neochildclinic.data.local.dao.DoctorAvailabilityDao
-import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
@@ -11,7 +13,7 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +30,9 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val syncRepository: SyncRepository,
     private val syncQueueDao: com.neochildclinic.data.local.dao.SyncQueueDao,
-    private val auditLogger: com.neochildclinic.core.logger.AuditLogger
+    private val auditLogger: com.neochildclinic.core.logger.AuditLogger,
+    // Hilt injects the Room-backed runner; direct callers keep the inline default.
+    private val transactionRunner: TransactionRunner = InlineTransactionRunner
 ) : DoctorAvailabilityRepository {
 
 
@@ -70,65 +74,71 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
         actor: String?
     ) {
         require(startMinute < endMinute) { "Slot start time must precede end time." }
-        val activeSlots = dao.getActiveWeeklySlotsForDay(doctorId, dayOfWeek)
-        val overlaps = activeSlots.any { existingSlot ->
-            // Different slot interval that overlaps
-            !(existingSlot.startMinute == startMinute && existingSlot.endMinute == endMinute) &&
-                existingSlot.startMinute < endMinute && startMinute < existingSlot.endMinute
-        }
-        require(!overlaps) { "Slot overlaps with an existing schedule." }
+        // Read-check-write: the overlap check must see (and be seen by) the insert as one
+        // step, or two concurrent adds both pass validation and land overlapping slots.
+        transactionRunner.run {
+            val activeSlots = dao.getActiveWeeklySlotsForDay(doctorId, dayOfWeek)
+            val overlaps = activeSlots.any { existingSlot ->
+                // Different slot interval that overlaps
+                !(existingSlot.startMinute == startMinute && existingSlot.endMinute == endMinute) &&
+                    existingSlot.startMinute < endMinute && startMinute < existingSlot.endMinute
+            }
+            require(!overlaps) { "Slot overlaps with an existing schedule." }
 
-        val now = DateUtils.getCurrentIsoTimestamp()
-        val existing = dao.findWeeklySlot(doctorId, dayOfWeek, startMinute, endMinute)
+            val now = DateUtils.getCurrentIsoTimestamp()
+            val existing = dao.findWeeklySlot(doctorId, dayOfWeek, startMinute, endMinute)
 
-        if (existing != null) {
-            if (!existing.isActive) {
-                dao.setWeeklySlotActive(existing.id, true, now, actor)
-                syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", existing.id, SyncOperation.UPDATE, SyncPriority.LOW)
-                auditLogger.log(
+            if (existing != null) {
+                if (!existing.isActive) {
+                    dao.setWeeklySlotActive(existing.id, true, now, actor)
+                    syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", existing.id, SyncOperation.UPDATE, SyncPriority.LOW)
+                    auditLogger.recordLog(
+                        module = "DOCTOR_TIMINGS",
+                        entityType = "WEEKLY_SLOT",
+                        entityId = existing.id,
+                        action = "SLOT_REACTIVATED",
+                        remarks = "Day $dayOfWeek, ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(endMinute)}"
+                    )
+                }
+            } else {
+                val entity = DoctorWeeklySlotEntity(
+                    id = java.util.UUID.randomUUID().toString(),
+                    doctorId = doctorId,
+                    dayOfWeek = dayOfWeek,
+                    startMinute = startMinute,
+                    endMinute = endMinute,
+                    isActive = true,
+                    createdAt = now,
+                    updatedAt = now,
+                    isSynced = false,
+                    createdBy = actor,
+                    updatedBy = actor
+                )
+                dao.upsertWeeklySlot(entity)
+                syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
+                auditLogger.recordLog(
                     module = "DOCTOR_TIMINGS",
                     entityType = "WEEKLY_SLOT",
-                    entityId = existing.id,
-                    action = "SLOT_REACTIVATED",
+                    entityId = entity.id,
+                    action = "SLOT_CREATED",
                     remarks = "Day $dayOfWeek, ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(endMinute)}"
                 )
             }
-        } else {
-            val entity = DoctorWeeklySlotEntity(
-                id = java.util.UUID.randomUUID().toString(),
-                doctorId = doctorId,
-                dayOfWeek = dayOfWeek,
-                startMinute = startMinute,
-                endMinute = endMinute,
-                isActive = true,
-                createdAt = now,
-                updatedAt = now,
-                isSynced = false,
-                createdBy = actor,
-                updatedBy = actor
-            )
-            dao.upsertWeeklySlot(entity)
-            syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
-            auditLogger.log(
-                module = "DOCTOR_TIMINGS",
-                entityType = "WEEKLY_SLOT",
-                entityId = entity.id,
-                action = "SLOT_CREATED",
-                remarks = "Day $dayOfWeek, ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(endMinute)}"
-            )
         }
     }
 
     override suspend fun removeWeeklySlot(slotId: String, actor: String?) {
         val now = DateUtils.getCurrentIsoTimestamp()
-        dao.setWeeklySlotActive(slotId, false, now, actor)
-        syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", slotId, SyncOperation.UPDATE, SyncPriority.LOW)
-        auditLogger.log(
-            module = "DOCTOR_TIMINGS",
-            entityType = "WEEKLY_SLOT",
-            entityId = slotId,
-            action = "SLOT_DELETED"
-        )
+        transactionRunner.run {
+            dao.setWeeklySlotActive(slotId, false, now, actor)
+            syncRepository.enqueue("DOCTOR_WEEKLY_SLOT", slotId, SyncOperation.UPDATE, SyncPriority.LOW)
+            auditLogger.recordLog(
+                module = "DOCTOR_TIMINGS",
+                entityType = "WEEKLY_SLOT",
+                entityId = slotId,
+                action = "SLOT_DELETED"
+            )
+        }
     }
 
     override suspend fun addException(exception: DoctorSlotException, actor: String?) {
@@ -148,30 +158,34 @@ class DoctorAvailabilityRepositoryImpl @Inject constructor(
             updatedBy = actor
         )
         val entity = normalizedException.toEntity(isSynced = false)
-        dao.upsertException(entity)
-        syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
-        val timeDesc = if (exception.startMinute != null && exception.endMinute != null) {
-            "${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(exception.startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(exception.endMinute)}"
-        } else null
-        auditLogger.log(
-            module = "DOCTOR_TIMINGS",
-            entityType = "UNAVAILABILITY",
-            entityId = entity.id,
-            action = "EXCEPTION_CREATED",
-            remarks = "${exception.exceptionDate}${timeDesc?.let { ", $it" } ?: ""}"
-        )
+        transactionRunner.run {
+            dao.upsertException(entity)
+            syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", entity.id, SyncOperation.CREATE, SyncPriority.LOW)
+            val timeDesc = if (exception.startMinute != null && exception.endMinute != null) {
+                "${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(exception.startMinute)} - ${com.neochildclinic.domain.model.TimeRange.formatMinuteOfDay(exception.endMinute)}"
+            } else null
+            auditLogger.recordLog(
+                module = "DOCTOR_TIMINGS",
+                entityType = "UNAVAILABILITY",
+                entityId = entity.id,
+                action = "EXCEPTION_CREATED",
+                remarks = "${exception.exceptionDate}${timeDesc?.let { ", $it" } ?: ""}"
+            )
+        }
     }
 
     override suspend fun deleteException(id: String, actor: String?) {
         val now = DateUtils.getCurrentIsoTimestamp()
-        dao.deleteException(id)
-syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPriority.LOW)
-          auditLogger.log(
-              module = "DOCTOR_TIMINGS",
-              entityType = "UNAVAILABILITY",
-              entityId = id,
-              action = "EXCEPTION_DELETED"
-          )
+        transactionRunner.run {
+            dao.deleteException(id)
+            syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPriority.LOW)
+            auditLogger.recordLog(
+                module = "DOCTOR_TIMINGS",
+                entityType = "UNAVAILABILITY",
+                entityId = id,
+                action = "EXCEPTION_DELETED"
+            )
+        }
     }
 
     override suspend fun refresh() = cloudRefresh("DoctorAvailabilityRepo", rethrow = true) {
@@ -194,40 +208,44 @@ syncRepository.enqueue("DOCTOR_SLOT_EXCEPTION", id, SyncOperation.DELETE, SyncPr
                 .decodeList<DoctorSlotExceptionEntity>()
         }
 
-        // One bulk queue read per entity name instead of one per remote row
-        // (SyncQueueDao.unsyncedIdSet callers) - same semantics as the per-row isUnsynced
-        // calls this replaces. Queue rule unchanged: a row edited during its own upload
-        // still reports isSynced=true, and the edit is authoritative until pushed.
-        val pendingSlotIds = syncQueueDao.unsyncedIdSet("DOCTOR_WEEKLY_SLOT")
-        remoteSlots.forEach { remote ->
-            val local = dao.getWeeklySlotById(remote.id)
-            if (local == null || (local.isSynced && remote.id !in pendingSlotIds)) {
-                dao.upsertWeeklySlot(remote.copy(isSynced = true))
+        transactionRunner.run {
+            // One bulk queue read per entity name instead of one per remote row
+            // (SyncQueueDao.unsyncedIdSet callers) - same semantics as the per-row isUnsynced
+            // calls this replaces. Queue rule unchanged: a row edited during its own upload
+            // still reports isSynced=true, and the edit is authoritative until pushed. Both
+            // guards are read inside the transaction so a queued edit committed here is seen
+            // before the pull overwrites it.
+            val pendingSlotIds = syncQueueDao.unsyncedIdSet("DOCTOR_WEEKLY_SLOT")
+            remoteSlots.forEach { remote ->
+                val local = dao.getWeeklySlotById(remote.id)
+                if (local == null || (local.isSynced && remote.id !in pendingSlotIds)) {
+                    dao.upsertWeeklySlot(remote.copy(isSynced = true))
+                }
             }
-        }
 
-        val pendingExceptionIds = syncQueueDao.unsyncedIdSet("DOCTOR_SLOT_EXCEPTION")
-        remoteExceptions.forEach { remote ->
-            val local = dao.getExceptionById(remote.id)
-            if (local == null || (local.isSynced && remote.id !in pendingExceptionIds)) {
-                dao.upsertException(remote.copy(isSynced = true))
+            val pendingExceptionIds = syncQueueDao.unsyncedIdSet("DOCTOR_SLOT_EXCEPTION")
+            remoteExceptions.forEach { remote ->
+                val local = dao.getExceptionById(remote.id)
+                if (local == null || (local.isSynced && remote.id !in pendingExceptionIds)) {
+                    dao.upsertException(remote.copy(isSynced = true))
+                }
             }
-        }
 
-        // Remote-deletion propagation (NCC-023 / DA-01): synced slot/exception rows the remote
-        // set no longer lists and no queue entry claims leave this device. Exceptions first
-        // (children), then slots; the tables have no FK link, the order is just tidier.
-        RemotePrune.computeBatches(
-            localIds = dao.getExceptionIds(),
-            syncedIds = dao.getSyncedExceptionIds().toSet(),
-            remoteIds = remoteExceptions.mapTo(HashSet()) { it.id },
-            pendingIds = pendingExceptionIds
-        ).flatten().forEach { dao.deleteException(it) }
-        RemotePrune.computeBatches(
-            localIds = dao.getWeeklySlotIds(),
-            syncedIds = dao.getSyncedWeeklySlotIds().toSet(),
-            remoteIds = remoteSlots.mapTo(HashSet()) { it.id },
-            pendingIds = pendingSlotIds
-        ).flatten().forEach { dao.deleteWeeklySlot(it) }
+            // Remote-deletion propagation (NCC-023 / DA-01): synced slot/exception rows the remote
+            // set no longer lists and no queue entry claims leave this device. Exceptions first
+            // (children), then slots; the tables have no FK link, the order is just tidier.
+            RemotePrune.computeBatches(
+                localIds = dao.getExceptionIds(),
+                syncedIds = dao.getSyncedExceptionIds().toSet(),
+                remoteIds = remoteExceptions.mapTo(HashSet()) { it.id },
+                pendingIds = pendingExceptionIds
+            ).flatten().forEach { dao.deleteException(it) }
+            RemotePrune.computeBatches(
+                localIds = dao.getWeeklySlotIds(),
+                syncedIds = dao.getSyncedWeeklySlotIds().toSet(),
+                remoteIds = remoteSlots.mapTo(HashSet()) { it.id },
+                pendingIds = pendingSlotIds
+            ).flatten().forEach { dao.deleteWeeklySlot(it) }
+        }
     }
 }

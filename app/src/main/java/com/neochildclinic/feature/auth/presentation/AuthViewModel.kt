@@ -9,9 +9,9 @@ import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.core.sync.SyncScheduler
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.DeviceRepository
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.feature.widget.data.WidgetUtils
 import com.neochildclinic.core.security.OfflineAuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -155,6 +155,7 @@ class AuthViewModel @Inject constructor(
             }
 
             if (!p.isActive) {
+                offlineAuthManager.clearCredential()
                 logout()
                 _error.update { "Account Disabled: Please contact administrator." }
                 return false
@@ -165,15 +166,20 @@ class AuthViewModel @Inject constructor(
 
             // Background refresh
             profileRepository.refreshProfiles()
-            profileRepository.getProfileById(userId)?.let { refreshed ->
-                if (!refreshed.isActive) {
-                    logout()
-                    _error.update { "Account Disabled: Please contact administrator." }
-                    return false
-                } else {
-                    _profile.update { refreshed }
-                }
+            // SE-01: refreshProfiles() is the real authenticated round-trip; only a
+            // successful server pull refreshes the stamp that permits offline unlock.
+            offlineAuthManager.recordOnlineVerification()
+            // SE-01: the profile pull is the "next sync" that consumes the server's
+            // is_active/is_deleted flag from manage-staff. A deactivated (or soft-deleted,
+            // which is pruned) account must lose its device-local verifier immediately.
+            val refreshed = profileRepository.getProfileById(userId)
+            if (refreshed == null || !refreshed.isActive) {
+                offlineAuthManager.clearCredential()
+                logout()
+                _error.update { "Account Disabled: Please contact administrator." }
+                return false
             }
+            _profile.update { refreshed }
             return true
         } catch (e: CancellationException) {
             throw e
@@ -286,6 +292,10 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.signOut()
             authRepository.clearSession()
+            // SE-07: login() already wrote the new account's verifier before the switch was
+            // blocked. Drop it here too (same as completeSignOut) so a cancelled switch
+            // never leaves that password usable for offline unlock.
+            offlineAuthManager.clearCredential()
             _isLoading.update { false }
             _error.update { "Sign-in cancelled. The previous account's unsynced changes were kept." }
         }

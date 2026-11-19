@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.domain
+import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.domain.model.Patient
@@ -16,14 +17,14 @@ import java.util.TimeZone
  */
 object StatisticsDateUtils {
 
-    val IST: ZoneId = ZoneId.of("Asia/Kolkata")
+    val IST: ZoneId = ZoneId.of(IST_ZONE_ID)
 
 
     /**
      * Get today's date in IST as a Calendar with time zeroed.
      */
     fun todayIST(): Calendar {
-        return Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
+        return Calendar.getInstance(TimeZone.getTimeZone(IST_ZONE_ID))
     }
 
     /**
@@ -33,14 +34,6 @@ object StatisticsDateUtils {
         return DateUtils.APP_DATE_FORMATTER
             .withZone(IST)
             .format(Instant.now())
-    }
-
-    /**
-     * Get the current IST year and month.
-     */
-    fun currentISTYearMonth(): Pair<Int, Int> {
-        val cal = todayIST()
-        return cal.get(Calendar.YEAR) to cal.get(Calendar.MONTH)
     }
 
     /**

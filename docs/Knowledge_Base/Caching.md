@@ -10,7 +10,7 @@
 | `MemoryCache<K,V>` | `core/cache/MemoryCache.kt:35-93` | generic KV | **5 min** default, **1000** entries | `remove`, `clear` |
 | `CacheRegistry` | `core/cache/CacheRegistry.kt:15-25` | `CopyOnWriteArrayList<ClearableCache>` | — | `clearAll()` |
 | `PatientCache` | `feature/patient/data/PatientCache.kt:20-60` | `PATIENT:<id>` → `Patient` | 5 min, 1000 entries | `invalidate(id)`, `clear()` |
-| Room (`neochild_db`, v33, SQLCipher) | `data/local/database/AppDatabase.kt` | the real source of truth | — | `clearAllTables()` on sign-out |
+| Room (`neochild_db`, schema 35, SQLCipher) | `data/local/database/AppDatabase.kt` | the real source of truth | — | `clearAllTables()` on sign-out |
 
 `Room` is not a cache in the eviction sense — it is the source of truth, and every screen
 reads from it. The three above sit in front of it.

@@ -24,7 +24,8 @@ object ReminderDueListProcessor {
         vaccEntities: List<VisitEntity>,
         reminderEntities: List<ReminderEntity>
     ): List<Vaccination> {
-        val allVaccinations = vaccEntities.map { it.toVaccination() }
+        // One lookup table instead of a linear find() per reminder group.
+        val vaccinationsById = vaccEntities.map { it.toVaccination() }.associateBy { it.id }
         val result = mutableListOf<Vaccination>()
 
         // The reminders table is the source of truth for the Due section.
@@ -37,7 +38,7 @@ object ReminderDueListProcessor {
             val status = ReminderStatus.ACTIVE
 
             // Link to original visit if available, otherwise create a shell
-            val baseVaccination = allVaccinations.find { it.id == firstInGroup.originalVisitId } ?: Vaccination(
+            val baseVaccination = vaccinationsById[firstInGroup.originalVisitId] ?: Vaccination(
                 id = UUID.randomUUID().toString(),
                 patientId = patientId,
                 visitType = "VACCINATION",
@@ -70,7 +71,7 @@ object ReminderDueListProcessor {
             val status = try { ReminderStatus.valueOf(statusStr) } catch (_: Exception) { ReminderStatus.ACTIVE }
 
             val firstState = group.first()
-            val baseVaccination = allVaccinations.find { it.id == firstState.originalVisitId } ?: Vaccination(
+            val baseVaccination = vaccinationsById[firstState.originalVisitId] ?: Vaccination(
                 id = UUID.randomUUID().toString(),
                 patientId = patientId,
                 visitType = "VACCINATION",

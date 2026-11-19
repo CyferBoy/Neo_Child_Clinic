@@ -32,6 +32,9 @@ import java.util.*
 fun AddConsultationScreen(
     patientId: String,
     consultationId: String? = null,
+    initialDoctorId: String? = null,
+    initialSlotId: String? = null,
+    initialDate: String? = null,
     onBack: () -> Unit,
     viewModel: AddConsultationViewModel = hiltViewModel()
 ) {
@@ -41,7 +44,7 @@ val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val today = remember { com.neochildclinic.core.common.DateUtils.todayDateString() }
-    var date by rememberSaveable { mutableStateOf(today) }
+    var date by rememberSaveable { mutableStateOf(initialDate ?: today) }
     var cashAmount by rememberSaveable { mutableStateOf("") }
     var onlineAmount by rememberSaveable { mutableStateOf("") }
     var problem by rememberSaveable { mutableStateOf("") }
@@ -50,7 +53,6 @@ val scope = rememberCoroutineScope()
     // Validation errors live on the fields, not in Toasts: matches the inline
     // isError convention DoctorDropdown/AvailableSlotDropdown already use here,
     // and stays visible where the input is.
-    var problemError by rememberSaveable { mutableStateOf<String?>(null) }
     var feeError by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(patientId, consultationId) {
@@ -59,6 +61,10 @@ val scope = rememberCoroutineScope()
         } else {
             viewModel.loadForEdit(consultationId)
         }
+    }
+
+    LaunchedEffect(initialDoctorId, initialSlotId) {
+        viewModel.applyPreset(initialDoctorId, initialSlotId)
     }
 
     // Recompute available slots whenever the selected doctor or date changes (req. 1/22),
@@ -110,9 +116,8 @@ val scope = rememberCoroutineScope()
                 ) {
                     StandardButton(
                         onClick = {
-                            problemError = if (problem.isBlank()) "Enter the problem or chief complaint" else null
                             feeError = if (totalAmount <= 0) "Enter a consultation fee (cash or online)" else null
-                            if (problemError != null || feeError != null) return@StandardButton
+                            if (feeError != null) return@StandardButton
                             viewModel.saveConsultation(
                                 patientId = patientId,
                                 date = date,
@@ -167,12 +172,10 @@ val scope = rememberCoroutineScope()
 
                 StandardTextField(
                     value = problem,
-                    onValueChange = { problem = it; if (problemError != null) problemError = null },
-                    label = "Problem / Chief Complaint*",
+                    onValueChange = { problem = it },
+                    label = "Problem / Chief Complaint",
                     placeholder = "e.g. Fever, Cough, Routine Check-up",
-                    minLines = 3,
-                    isError = problemError != null,
-                    errorText = problemError
+                    minLines = 3
                 )
 
                 SectionHeader("Payment")

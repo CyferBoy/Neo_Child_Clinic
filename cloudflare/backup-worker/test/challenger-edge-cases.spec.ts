@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
+import { TEST_ISSUER } from "./config";
 
 async function signHs256(payload: Record<string, unknown>, secret: string): Promise<string> {
   const base64Url = (bytes: Uint8Array) =>
@@ -14,9 +15,21 @@ async function signHs256(payload: Record<string, unknown>, secret: string): Prom
   return `${headerB64}.${payloadB64}.${sigB64}`;
 }
 
+function issuer(): string {
+  // Explicit real-looking URL: wrangler.toml's placeholder fails closed with a CONFIG error.
+  return TEST_ISSUER;
+}
+
 async function tokenFor(sub: string, claims: Record<string, unknown> = {}): Promise<string> {
   return signHs256(
-    { sub, aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600, ...claims },
+    {
+      sub,
+      aud: "authenticated",
+      iss: issuer(),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      app_metadata: { role: "admin" },
+      ...claims
+    },
     (env as any).SUPABASE_JWT_SECRET
   );
 }
@@ -205,7 +218,7 @@ describe("Empirical Challenger: Malformed Headers & Tokens", () => {
 
   it("rejects token signed with wrong secret with 401", async () => {
     const forgedToken = await signHs256(
-      { sub: "attacker", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 },
+      { sub: "attacker", aud: "authenticated", iss: issuer(), exp: Math.floor(Date.now() / 1000) + 3600, app_metadata: { role: "admin" } },
       "wrong-secret-key-1234567890"
     );
     const res = await SELF.fetch("https://worker.example/backups", {
@@ -217,7 +230,7 @@ describe("Empirical Challenger: Malformed Headers & Tokens", () => {
 
   it("rejects token with unexpected audience with 401", async () => {
     const badAudToken = await signHs256(
-      { sub: "user-1", aud: "anon", exp: Math.floor(Date.now() / 1000) + 3600 },
+      { sub: "user-1", aud: "anon", iss: issuer(), exp: Math.floor(Date.now() / 1000) + 3600, app_metadata: { role: "admin" } },
       (env as any).SUPABASE_JWT_SECRET
     );
     const res = await SELF.fetch("https://worker.example/backups", {
@@ -229,7 +242,7 @@ describe("Empirical Challenger: Malformed Headers & Tokens", () => {
 
   it("rejects token with missing subject (sub) with 401", async () => {
     const noSubToken = await signHs256(
-      { aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 },
+      { aud: "authenticated", iss: issuer(), exp: Math.floor(Date.now() / 1000) + 3600, app_metadata: { role: "admin" } },
       (env as any).SUPABASE_JWT_SECRET
     );
     const res = await SELF.fetch("https://worker.example/backups", {
@@ -277,7 +290,8 @@ describe("Empirical Challenger: Multi-Tenant Authorization Security", () => {
         sub: "attacker-sub",
         aud: "authenticated",
         exp: Math.floor(Date.now() / 1000) + 3600,
-        app_metadata: { clinic_id: "attacker-real-clinic" },
+        iss: issuer(),
+        app_metadata: { clinic_id: "attacker-real-clinic", role: "admin" },
         user_metadata: { clinic_id: "victim-clinic" }
       },
       (env as any).SUPABASE_JWT_SECRET

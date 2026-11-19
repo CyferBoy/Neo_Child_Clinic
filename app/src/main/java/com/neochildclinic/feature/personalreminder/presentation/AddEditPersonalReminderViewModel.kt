@@ -6,9 +6,9 @@ import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.domain.model.PersonalReminder
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccine
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*

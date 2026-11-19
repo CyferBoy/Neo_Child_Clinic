@@ -66,10 +66,11 @@ class AuthRepositoryImpl @Inject constructor(
     override val currentUserRole: UserRole?
         get() = currentUserProvider.getCurrentUserRole()
 
-    override suspend fun awaitResolvedSessionStatus(timeoutMs: Long): AuthSessionStatus? =
-        withTimeoutOrNull(timeoutMs) {
+    override suspend fun awaitResolvedSessionStatus(timeoutMs: Long): AuthSessionStatus? {
+        return withTimeoutOrNull(timeoutMs) {
             sessionStatus.first { it !is AuthSessionStatus.Initializing }
         }
+    }
 
     override suspend fun login(email: String, pass: String): Result<AuthUser> = runCatching {
         auth.signInWith(Email) {
@@ -77,6 +78,7 @@ class AuthRepositoryImpl @Inject constructor(
             this.password = pass
         }
         offlineAuthManager.saveCredential(email, pass)
+        offlineAuthManager.recordOnlineVerification()
         val user = auth.currentSessionOrNull()?.user
             ?: throw IllegalStateException("Supabase session resolved without a user.")
         user.toDomain(currentUserProvider.getCurrentUserRole())
@@ -107,17 +109,29 @@ class AuthRepositoryImpl @Inject constructor(
                     this.password = password
                 }
                 offlineAuthManager.saveCredential(email, password)
+                offlineAuthManager.recordOnlineVerification()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (com.neochildclinic.core.sync.isTransientSyncError(e)) {
-                    if (offlineAuthManager.verifyPassword(email, password)) return@runCatching
-                    throw IllegalArgumentException("Incorrect account password.")
+                    verifyOfflineOrThrow(email, password)
                 } else {
                     throw e
                 }
             }
         } else {
-            if (offlineAuthManager.verifyPassword(email, password)) return@runCatching
+            verifyOfflineOrThrow(email, password)
+        }
+    }
+
+    /**
+     * SE-01: the local password verifier alone is not proof the account is still active.
+     * It is only consulted while a recent online check backs it.
+     */
+    private fun verifyOfflineOrThrow(email: String, password: String) {
+        if (!offlineAuthManager.isOfflineUnlockAllowed()) {
+            throw IllegalStateException("Offline access has expired. Connect to the internet and sign in again.")
+        }
+        if (!offlineAuthManager.verifyPassword(email, password)) {
             throw IllegalArgumentException("Incorrect account password.")
         }
     }

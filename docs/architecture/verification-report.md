@@ -1,5 +1,7 @@
 # Neo Child Clinic — Verification Report
 
+> Historical snapshot as of 2026-11-03; test counts and schema versions below reflect that date.
+
 **Audit & Restructuring Date:** November 3, 2026  
 **Auditor / Role:** Senior Android Architect & Codebase Organization Specialist  
 **Status:** ✅ Complete & Verified  
@@ -33,11 +35,15 @@ Key achievements:
 |---|---|---|---|
 | **JVM Unit Tests** | `./gradlew :app:testDebugUnitTest` | ✅ **Passed** | 344 passed, 0 skipped, 0 failed |
 | **Debug Build** | `./gradlew :app:assembleDebug` | ✅ **Passed** | Built `app-debug.apk` |
-| **Release Build Configuration** | `./gradlew :app:assembleRelease --dry-run` | ✅ **Passed** | Task dependency graph and ProGuard/R8 mappings verified |
+| **Release Build Configuration** | `./gradlew :app:assembleRelease --dry-run` | ⚠️ **Partial** | Only the task graph was checked — `--dry-run` builds and signs nothing, so R8 mappings were **not** verified. A real signed release now runs in `.github/workflows/android-release.yml` (lint + assemble + `apksigner verify` + mapping archive) |
 | **Doc Validator (Strict Mode)** | `python3 scripts/validate_docs.py --strict` | ✅ **Passed** | 66 notes, 1,064 citations resolved |
 | **Doc Validator Regression Suite** | `python3 scripts/test_validate_docs.py` | ✅ **Passed** | 37 tests passed |
 | **Supabase SQL Test Contracts** | Static audit of `supabase/tests/*.sql` | ✅ **Verified** | `stock_trigger_arithmetic.sql`, `inventory_reconciliation_test.sql` verified |
 | **Git Working Tree Audit** | `git status -u` | ✅ **Verified** | All moves tracked cleanly, no duplicates |
+
+⚠️ The `--dry-run` row above is retained as historical evidence only: no APK was produced, so it
+never verified signing or the R8 mapping. `.github/workflows/android-release.yml` is the real gate
+now, and it still needs the repository signing secrets configured before it can pass.
 
 ---
 
@@ -69,7 +75,7 @@ Key achievements:
 5. **Operations (`docs/operations/`)**:
    - `backup-restore.md`: AES-256-GCM container format, Cloudflare Worker integration, and rollback mechanics.
    - `release-management.md`: Release signing, APK shrinking, and update fanout procedures.
-   - `docs/BACKUP_RESTORE.md`: Updated with clean pointer.
+   - `docs/BACKUP_RESTORE.md`: Merged into `docs/Knowledge_Base/Backup%20and%20Restore.md`, which is the live reference.
 6. **Quality & Historical Audits (`docs/quality/`)**:
    - `security-audit-2026-10-13.md`: Archived historical security audit report.
    - `audit-report-2026-10-16.md`: Archived historical code audit report.

@@ -5,17 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientTodoRepository
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.waste.domain.repository.WasteRepository
-import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PatientTodoRepository
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import java.util.Calendar
@@ -149,7 +149,7 @@ internal fun calculateTodayPatientCounts(
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val syncRepository: SyncRepository,
-    private val refreshDataUseCase: com.neochildclinic.feature.sync.domain.RefreshDataUseCase,
+    private val refreshDataUseCase: com.neochildclinic.core.sync.RefreshDataUseCase,
     private val networkMonitor: NetworkMonitor,
     private val patientRepository: PatientRepository,
     private val patientTodoRepository: PatientTodoRepository,
@@ -178,9 +178,19 @@ class DashboardViewModel @Inject constructor(
 
     private var todoSlotLoadToken = 0
 
-    private val todayStr = LocalDate.now(StatisticsDateUtils.IST).toString()
+    private var todayStr = LocalDate.now(StatisticsDateUtils.IST).toString()
     private val _selectedDate = MutableStateFlow(todayStr)
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
+    private var dateChosenByUser = false
+
+    /** Called on screen resume: roll a stale auto-selected "today" forward, never a deliberate date. */
+    fun onResume() {
+        val realToday = LocalDate.now(StatisticsDateUtils.IST).toString()
+        if (!dateChosenByUser && todayStr < realToday) {
+            todayStr = realToday
+            _selectedDate.value = realToday
+        }
+    }
 
     init {
         viewModelScope.launch { runCatching { patientTodoRepository.refresh() } }
@@ -378,8 +388,7 @@ class DashboardViewModel @Inject constructor(
         val visitedConsult = bundle.visitedConsultations.filter { pass(it.availabilitySlotId) }
         val pendingVacc = bundle.todayVaccinations.filter { pass(it.availabilitySlotId) }
         val visitedVacc = bundle.visitedVaccinations.filter { pass(it.availabilitySlotId) }
-        // Counts for segment labels:
-        // Rule 1: Consultation count must equal New + Follow-up.
+        // Consultation count must equal New + Follow-up.
         // Today shows registered/scheduled (PENDING + COMPLETED). Previous dates show actual completed visits.
         val counts = calculateTodayPatientCounts(
             pendingConsult = pendingConsult,
@@ -421,6 +430,7 @@ class DashboardViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 
     fun setSelectedDate(date: String) {
+        dateChosenByUser = true
         _selectedDate.update { date }
     }
 

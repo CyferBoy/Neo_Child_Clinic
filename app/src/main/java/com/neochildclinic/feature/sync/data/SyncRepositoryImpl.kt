@@ -11,7 +11,7 @@ import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.SyncState
 import com.neochildclinic.domain.model.SyncStatus
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.exceptions.RestException
@@ -50,6 +50,13 @@ class SyncRepositoryImpl @Inject constructor(
         // (see ensureAuthenticatedSession), so batches with a comfortably-valid token do
         // no manual refresh whatsoever.
         private const val SESSION_REFRESH_GRACE_MS = 60_000L
+
+        // Upload at most this many PENDING rows per batch so a busy queue cannot keep the
+        // single-flight run (and its lock) alive indefinitely while staff keep saving.
+        private const val SYNC_BATCH_SIZE = 200
+
+        // Cap batches per worker run; whatever remains is left for a later scheduled worker.
+        private const val MAX_BATCHES_PER_RUN = 10
     }
 
     private val _syncState = MutableStateFlow(SyncState.IDLE)
@@ -71,55 +78,58 @@ class SyncRepositoryImpl @Inject constructor(
         // - CREATE + DELETE -> Purge both locally (net-zero operation, nothing to send)
         // - UPDATE + DELETE -> Purge pending/failed items, enqueue DELETE
         // - Identical duplicate operations -> Remove older pending/failed rows, enqueue fresh attempt
-        val existingPending = syncQueueDao.getPendingForEntity(entityName, entityId)
-        val existingFailed = syncQueueDao.getItemsByStatus(SyncStatus.FAILED.name).filter {
-            it.entityName == entityName && it.entityId == entityId
-        }
-        val existingItems = existingPending + existingFailed
-        var actualOperation = operation
+        // The read, the coalescing deletes and the enqueue are one transaction: a concurrent
+        // enqueue must not slip between the read and the write and leave duplicate queue rows.
+        val shouldSchedule = transactionRunner.run {
+            val existingPending = syncQueueDao.getPendingForEntity(entityName, entityId)
+            val existingFailed = syncQueueDao.getFailedForEntity(entityName, entityId)
+            val existingItems = existingPending + existingFailed
+            var actualOperation = operation
 
-        if (existingItems.isNotEmpty()) {
-            val hasCreate = existingItems.any { it.operation == SyncOperation.CREATE.name }
-            if (operation == SyncOperation.DELETE) {
-                syncQueueDao.deleteByIds(existingItems.map { it.queueId })
-                if (hasCreate) {
-                    return
-                }
-            } else if (operation == SyncOperation.UPDATE && hasCreate) {
-                val hasPendingCreate = existingPending.any { it.operation == SyncOperation.CREATE.name }
-                if (hasPendingCreate) {
-                    // Pending CREATE already exists; clear any failed rows and let pending CREATE upload latest data.
-                    if (existingFailed.isNotEmpty()) {
-                        syncQueueDao.deleteByIds(existingFailed.map { it.queueId })
-                    }
-                    return
-                } else {
-                    // Prior CREATE failed on server; delete old rows and re-enqueue as fresh CREATE so server receives it.
+            if (existingItems.isNotEmpty()) {
+                val hasCreate = existingItems.any { it.operation == SyncOperation.CREATE.name }
+                if (operation == SyncOperation.DELETE) {
                     syncQueueDao.deleteByIds(existingItems.map { it.queueId })
-                    actualOperation = SyncOperation.CREATE
+                    if (hasCreate) {
+                        return@run false
+                    }
+                } else if (operation == SyncOperation.UPDATE && hasCreate) {
+                    val hasPendingCreate = existingPending.any { it.operation == SyncOperation.CREATE.name }
+                    if (hasPendingCreate) {
+                        // Pending CREATE already exists; clear any failed rows and let pending CREATE upload latest data.
+                        if (existingFailed.isNotEmpty()) {
+                            syncQueueDao.deleteByIds(existingFailed.map { it.queueId })
+                        }
+                        return@run false
+                    } else {
+                        // Prior CREATE failed on server; delete old rows and re-enqueue as fresh CREATE so server receives it.
+                        syncQueueDao.deleteByIds(existingItems.map { it.queueId })
+                        actualOperation = SyncOperation.CREATE
+                    }
+                } else {
+                    syncQueueDao.deleteByIds(existingItems.map { it.queueId })
                 }
-            } else {
-                syncQueueDao.deleteByIds(existingItems.map { it.queueId })
             }
-        }
-        syncQueueDao.enqueue(
-            SyncQueueEntity(
-                entityName = entityName,
-                entityId = entityId,
-                operation = actualOperation.name,
-                priority = priority.name,
-                transactionGroupId = transactionGroupId
+            syncQueueDao.enqueue(
+                SyncQueueEntity(
+                    entityName = entityName,
+                    entityId = entityId,
+                    operation = actualOperation.name,
+                    priority = priority.name,
+                    transactionGroupId = transactionGroupId
+                )
             )
-        )
-        syncManager.scheduleSync()
+            true
+        }
+        if (shouldSchedule) syncManager.scheduleSync()
     }
 
     override fun getPendingCount(): Flow<Int> = syncQueueDao.getPendingCount()
 
-    fun getSyncQueue(): Flow<List<SyncItem>> = 
+    override fun getSyncQueue(): Flow<List<SyncItem>> = 
         syncQueueDao.getAllItems().map { list -> list.map { it.toDomain() } }
 
-    suspend fun clearSyncedItems() {
+    override suspend fun clearSyncedItems() {
         syncQueueDao.clearSynced()
     }
 
@@ -130,8 +140,34 @@ class SyncRepositoryImpl @Inject constructor(
     // rows orphaned by a dead run, never rows a live run owns.
     private val flight = com.neochildclinic.core.sync.SingleFlight()
 
-    override suspend fun processNextItems(): Boolean =
-        flight.run { processNextItemsInternal() }
+    override suspend fun processNextItemsWithOwnership(): com.neochildclinic.domain.repository.SyncRunResult {
+        // Captured per caller; only the owner's flight block runs, so only its flag flips.
+        val owned = java.util.concurrent.atomic.AtomicBoolean(false)
+        val shared = flight.run<com.neochildclinic.domain.repository.SyncRunResult> {
+            owned.set(true)
+            var failed: Boolean
+            var error: Throwable?
+            try {
+                failed = processNextItemsInternal()
+                error = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = false
+                error = e
+            }
+            val hasFailed = if (!failed && error == null) hasFailedItems() else false
+            com.neochildclinic.domain.repository.SyncRunResult(failed, hasFailed, error, isOwner = true)
+        }
+        return shared.copy(isOwner = owned.get())
+    }
+
+    override suspend fun processNextItems(): Boolean {
+        val result = processNextItemsWithOwnership()
+        val error = result.error
+        if (error != null) throw error
+        return result.permanentFailure
+    }
 
     override suspend fun hasFailedItems(): Boolean =
         syncQueueDao.getCountByStatus(SyncStatus.FAILED.name) > 0
@@ -142,7 +178,7 @@ class SyncRepositoryImpl @Inject constructor(
      * SyncWorker's failure_count alert path). Transient requeues and quiet deferrals are
      * not failures: they are already rescheduled below.
      */
-    private suspend fun processNextItemsInternal(): Boolean {
+    private suspend fun processNextItemsInternal(batchesDone: Int = 0): Boolean {
         syncQueueDao.cleanCorruptedItems()
         syncQueueDao.requeueStaleSyncingItems(
             staleBefore = com.neochildclinic.core.common.DateUtils.getIsoTimestampMinutesAgo(5)
@@ -150,7 +186,7 @@ class SyncRepositoryImpl @Inject constructor(
 
         batchRefreshAttempted = false
 
-        val pending = syncQueueDao.getItemsByStatus(SyncStatus.PENDING.name)
+        val pending = syncQueueDao.getItemsByStatus(SyncStatus.PENDING.name, SYNC_BATCH_SIZE)
         if (pending.isEmpty()) {
             _syncState.update { SyncState.IDLE }
             return false
@@ -208,9 +244,15 @@ class SyncRepositoryImpl @Inject constructor(
 
         _syncState.update { if (hasError) SyncState.ERROR else SyncState.IDLE }
 
-        // above is already held by this coroutine).
+        // Rows may have been enqueued while this batch ran. Drain another finite batch while
+        // under the cap; past it, leave the remainder to a later scheduled worker instead of
+        // holding the single-flight lock forever.
         if (syncQueueDao.getPendingCountSync() > 0 && !hasError) {
-            anyFailed = processNextItemsInternal() || anyFailed
+            if (batchesDone + 1 < MAX_BATCHES_PER_RUN) {
+                anyFailed = processNextItemsInternal(batchesDone + 1) || anyFailed
+            } else {
+                syncManager.scheduleSync()
+            }
         }
         return anyFailed
     }
@@ -556,7 +598,7 @@ class SyncRepositoryImpl @Inject constructor(
     private fun getEntityPriority(entityName: String): Int =
         SYNC_ENTITY_REGISTRY[entityName]?.priority ?: 100
 
-    suspend fun retryFailedItems() {
+    override suspend fun retryFailedItems() {
         val failed = syncQueueDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
             syncQueueDao.updateStatus(item.queueId, SyncStatus.PENDING.name)
@@ -564,18 +606,18 @@ class SyncRepositoryImpl @Inject constructor(
         syncManager.scheduleSync()
     }
 
-    suspend fun deleteQueueItem(queueId: Long) {
+    override suspend fun deleteQueueItem(queueId: Long) {
         syncQueueDao.getItemById(queueId)?.let { item ->
             syncQueueDao.deleteItem(item)
         }
     }
 
-    suspend fun retryItem(queueId: Long) {
+    override suspend fun retryItem(queueId: Long) {
         syncQueueDao.updateStatus(queueId, SyncStatus.PENDING.name)
         syncManager.scheduleSync()
     }
 
-    suspend fun deleteAllFailed() {
+    override suspend fun deleteAllFailed() {
         val failed = syncQueueDao.getItemsByStatus(SyncStatus.FAILED.name)
         for (item in failed) {
             syncQueueDao.deleteItem(item)

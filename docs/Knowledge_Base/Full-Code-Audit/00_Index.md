@@ -1,6 +1,6 @@
 # Full-Code Audit Index
 
-> Archive of the whole-project code audit. Findings are historical; current defect status is
+> Snapshot as of 2026-10-20. Archive of the whole-project code audit. Findings are historical; current defect status is
 > [[Quality/Bug Register]], and the remediation order is in [[Full-Code-Audit/remediation-roadmap]].
 
 ## Contents

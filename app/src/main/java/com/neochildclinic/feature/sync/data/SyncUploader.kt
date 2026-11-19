@@ -21,6 +21,11 @@ internal val syncRemoteJson = kotlinx.serialization.json.Json {
     coerceInputValues = true
 }
 
+// One `id IN (...)` conflict-check URL with 2,000 ids is rejected by proxies; a failed read
+// was then logged and treated as "no conflicts" for the whole table. Keep each request small
+// so a rejection only leaves its own chunk conflict-free.
+private const val CONFLICT_ID_CHUNK_SIZE = 100
+
 // Single source of truth for "what is a syncable entity". Every name-keyed when switch
 // (entity table, priority, local fetch, updated-at extractor, markUploaded column, remote
 // download) used to enumerate the ~20 entity names in lockstep across parallel branches;
@@ -416,22 +421,25 @@ class SyncUploader @Inject constructor(
             val ids = tableItems.map { it.entityId }.distinct()
             if (ids.isEmpty()) continue
 
-            try {
-                // Full rows, not just id/updated_at: the conflict consumer passes the
-                // winning row straight to descriptor.download(), which decodes a complete
-                // entity. A two-column projection made every remote-newer conflict throw
-                // MissingFieldException and end FAILED instead of self-healing.
-                val rows = postgrest.from(table).select {
-                    filter { isIn("id", ids) }
-                }.decodeList<Map<String, JsonElement>>()
+            for (chunk in ids.chunked(CONFLICT_ID_CHUNK_SIZE)) {
+                try {
+                    // Full rows, not just id/updated_at: the conflict consumer passes the
+                    // winning row straight to descriptor.download(), which decodes a complete
+                    // entity. A two-column projection made every remote-newer conflict throw
+                    // MissingFieldException and end FAILED instead of self-healing.
+                    val rows = postgrest.from(table).select {
+                        filter { isIn("id", chunk) }
+                    }.decodeList<Map<String, JsonElement>>()
 
-                for (row in rows) {
-                    val id = row["id"]?.toString()?.trim('"') ?: continue
-                    result["$table:$id"] = row
+                    for (row in rows) {
+                        val id = row["id"]?.toString()?.trim('"') ?: continue
+                        // First match wins if a duplicate id ever spans chunks.
+                        result.putIfAbsent("$table:$id", row)
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    android.util.Log.w("SyncRepositoryImpl", "Batched conflict-check read failed for $table (${chunk.size} ids)", e)
                 }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                android.util.Log.w("SyncRepositoryImpl", "Batched conflict-check read failed for $table", e)
             }
         }
 

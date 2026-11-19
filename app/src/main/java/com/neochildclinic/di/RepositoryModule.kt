@@ -11,44 +11,46 @@ import com.neochildclinic.core.sync.SyncScheduler
 import com.neochildclinic.data.backup.BackupRepositoryImpl
 import com.neochildclinic.data.local.database.TransactionRunnerImpl
 import com.neochildclinic.feature.audit.data.AuditLogRepositoryImpl
-import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
 import com.neochildclinic.feature.auth.data.repository.AuthRepositoryImpl
 import com.neochildclinic.feature.auth.domain.repository.AuthRepository
 import com.neochildclinic.feature.auth.data.DeviceRepositoryImpl
-import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
+import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.feature.borrowed.data.BorrowRepositoryImpl
-import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.BorrowRepository
 import com.neochildclinic.feature.consultation.data.ConsultationRepositoryImpl
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.feature.doctor.data.DoctorAvailabilityRepositoryImpl
-import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.feature.finance.data.ExpenseRepositoryImpl
 import com.neochildclinic.feature.finance.data.FinanceRepositoryImpl
-import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.feature.inventory.data.InventoryRepositoryImpl
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.feature.patient.data.DocumentRepositoryImpl
 import com.neochildclinic.feature.patient.data.PatientRepositoryImpl
 import com.neochildclinic.feature.patient.data.PatientTodoRepositoryImpl
-import com.neochildclinic.feature.patient.domain.repository.DocumentRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientTodoRepository
+import com.neochildclinic.domain.repository.DocumentRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PatientTodoRepository
 import com.neochildclinic.feature.personalreminder.data.PersonalReminderRepositoryImpl
-import com.neochildclinic.feature.personalreminder.domain.repository.PersonalReminderRepository
+import com.neochildclinic.domain.repository.PersonalReminderRepository
 import com.neochildclinic.feature.profile.data.ProfileRepositoryImpl
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.feature.reminder.data.ReminderRepositoryImpl
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.settings.domain.repository.BackupRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.BackupRepository
+import com.neochildclinic.domain.repository.AppUpdateManager
+import com.neochildclinic.domain.repository.BackupAutoScheduler
 import com.neochildclinic.feature.staff.data.StaffManagementRepositoryImpl
 import com.neochildclinic.feature.staff.domain.repository.StaffManagementRepository
 import com.neochildclinic.feature.sync.data.SyncRepositoryImpl
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.feature.vaccination.data.VaccinationRepositoryImpl
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.feature.waste.data.WasteRepositoryImpl
-import com.neochildclinic.feature.waste.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.WasteRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -78,9 +80,14 @@ abstract class RepositoryModule {
     @Binds abstract fun authRepository(impl: AuthRepositoryImpl): AuthRepository
     @Binds abstract fun documentRepository(impl: DocumentRepositoryImpl): DocumentRepository
     @Binds abstract fun backupRepository(impl: BackupRepositoryImpl): BackupRepository
+    @Binds abstract fun appUpdateManager(
+        impl: com.neochildclinic.feature.update.data.AppUpdateManager
+    ): AppUpdateManager<com.neochildclinic.feature.update.data.AppUpdateInfo>
+    @Binds abstract fun backupAutoScheduler(
+        impl: com.neochildclinic.data.backup.BackupAutoScheduler
+    ): BackupAutoScheduler
     @Binds abstract fun transactionRunner(impl: TransactionRunnerImpl): TransactionRunner
 
-    // Core Decoupling Inversion Bindings:
     @Binds abstract fun syncEnqueuer(impl: SyncRepositoryImpl): SyncEnqueuer
     @Binds abstract fun userDisplayNameProvider(impl: ProfileRepositoryImpl): UserDisplayNameProvider
     @Binds abstract fun syncScheduler(impl: SyncManagerImpl): SyncScheduler

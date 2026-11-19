@@ -58,6 +58,8 @@ object SupabaseModule {
             })
             install(Postgrest)
             install(Auth) {
+                scheme = "https"
+                host = "app.neochildclinic.com"
                 autoSaveToStorage = true
                 autoLoadFromStorage = true
                 // The default session storage is this app's plaintext SharedPreferences;

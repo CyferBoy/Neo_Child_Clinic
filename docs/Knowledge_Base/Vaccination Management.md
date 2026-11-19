@@ -137,8 +137,7 @@ different vaccines sharing a batch net into one delta (tested and accepted at
 
 `applyInventoryDiff` (`:149-205`):
 
-- `delta > 0` → `deductStockFromBatch`, with `allowExpired = batchAlreadyUsed` (`:171`,
-  `:180`), so a batch already consumed by this visit stays usable.
+- `delta > 0` → `deductStockFromBatch` (`:171`, `:180`); the batch-already-used carve-out was removed.
 - `delta < 0` → `reverseDeduction`, **capped** at
   `minOf(-delta, completedByBatch[batchId])` (`:191`) — you can never reverse more than the
   ledger says actually moved.

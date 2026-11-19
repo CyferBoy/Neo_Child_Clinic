@@ -74,6 +74,7 @@ do not create the ~12 legacy tables, so the missing baseline has not been recove
 | 27 | `20261022_fix_stock_trigger_update_arithmetic.sql` | 10-22 | removes the remaining UPDATE undo arithmetic (NCC-002 ✅) |
 | 28 | `20261022_inventory_reconciliation_view.sql` | 10-22 | diagnostic view for batches whose ledger sum disagrees with `remaining_quantity`; does not repair |
 | 29 | `20261025_audit_log_retention.sql` | 10-25 | one-year server-side `prune_audit_logs()` plus an optional guarded `pg_cron` schedule (DA-10) |
+| 30 | `20261119000000_consultation_todos_visit_type.sql` | 11-19 | adds the missing `consultation_todos.visit_type` column; resolves the schema-cache sync failure |
 
 ### Ordering hazard
 

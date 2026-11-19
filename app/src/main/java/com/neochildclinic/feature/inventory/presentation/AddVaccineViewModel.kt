@@ -3,7 +3,7 @@ package com.neochildclinic.feature.inventory.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Vaccine
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

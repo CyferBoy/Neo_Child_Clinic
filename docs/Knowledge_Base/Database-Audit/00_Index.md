@@ -1,6 +1,6 @@
 # Database Audit Index
 
-> Archive of the 2026-10-20 database/data-access audit. The findings are historical; the
+> Snapshot as of 2026-10-20. Archive of the 2026-10-20 database/data-access audit. The findings are historical; the
 > canonical current status is [[Quality/Bug Register]] and [[Quality/Audit Reconciliation]].
 > Start with the executive summary, then use the section that matches the question.
 

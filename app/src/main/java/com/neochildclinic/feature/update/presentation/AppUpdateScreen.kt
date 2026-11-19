@@ -542,7 +542,12 @@ fun AppUpdateScreen(onBack: () -> Unit, viewModel: AppUpdateViewModel) {
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Verified release · Signed and verified before install.",
+                            // Only claim verification when a digest actually exists to verify against.
+                            text = if (updateInfo?.apkSha256 != null) {
+                                "Verified release · Signed and verified before install."
+                            } else {
+                                "Signed APK · no published checksum for this release."
+                            },
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

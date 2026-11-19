@@ -1,5 +1,6 @@
 package com.neochildclinic.feature.sync.domain
 
+import com.neochildclinic.core.sync.runRefreshStep
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -26,7 +26,7 @@ data class PatientVaccinationCardEntity(
 /**
  * Visit plus its vaccination items, with no reminders.
  *
- * This is the batch shape behind [com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository.allVaccinations],
+ * This is the batch shape behind [com.neochildclinic.domain.repository.VaccinationRepository.allVaccinations],
  * which used to build one Flow per visit and combine them - N queries for N visits. Room issues a
  * fixed two queries per emission here regardless of row count, and re-runs when either
  * patient_visits or vaccination_items changes, so it stays reactive.

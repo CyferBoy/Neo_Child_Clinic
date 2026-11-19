@@ -83,7 +83,7 @@ fun PatientListScreen(
 
     if (showManualMergeDialog && uiState.selectedPatients.size == 2) {
         ManualMergeDialog(
-            selectedPatients = uiState.selectedPatients.toList(),
+            selectedPatients = uiState.patients.filter { it.id in uiState.selectedPatients },
             isMerging = uiState.isMerging,
             onDismiss = { showManualMergeDialog = false },
             onConfirm = { master ->
@@ -225,7 +225,7 @@ private fun PatientListContent(
                     items(uiState.patients, key = { it.id }) { patient ->
                         PatientCard(
                             patient = patient,
-                            isSelected = uiState.selectedPatients.contains(patient),
+                            isSelected = uiState.selectedPatients.contains(patient.id),
                             isMergeMode = uiState.isMergeSelectionMode,
                             isAdmin = isAdmin,
                             canEditOrDelete = canEditOrDelete,

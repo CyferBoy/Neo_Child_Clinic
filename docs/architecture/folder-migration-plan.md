@@ -1,5 +1,7 @@
 # Neo Child Clinic — Folder Migration Plan
 
+> Historical snapshot as of 2026-10-20; the schema and test counts below reflect that date.
+
 ## 1. Migration Strategy & Guidelines
 
 This migration plan defines the structural reorganization of the Neo Child Clinic repository.
@@ -17,7 +19,7 @@ Key principles:
 |---|---|---|---|---|
 | `docs/GETTING_STARTED.md` | `docs/getting-started/onboarding.md` | Move & add root pointer | Consolidates setup and onboarding in dedicated folder | Readme links, developer guides |
 | `docs/SYNC.md` | `docs/architecture/offline-first-sync.md` | Move & add root pointer | Belongs in architecture documentation | KB notes, architecture docs |
-| `docs/BACKUP_RESTORE.md` | `docs/operations/backup-restore.md` | Move & add root pointer | Operations and disaster recovery guide | Readme, operations guides |
+| `docs/BACKUP_RESTORE.md` | `docs/Knowledge_Base/Backup%20and%20Restore.md` | Merge & add root pointer | Operations and disaster recovery guide | Readme, operations guides |
 | `docs/AUDIT_REPORT_2026-10-16.md` | `docs/quality/audit-report-2026-10-16.md` | Move | Belongs in quality and compliance archive | Audit documentation |
 | `docs/SECURITY_AUDIT_2026-10-13.md` | `docs/quality/security-audit-2026-10-13.md` | Move | Belongs in quality and security archive | Security documentation |
 | `CACHE_ARCHITECTURE.md` | `docs/architecture/cache-architecture.md` | Move & add root pointer | Belongs in architecture documentation | Architecture references |

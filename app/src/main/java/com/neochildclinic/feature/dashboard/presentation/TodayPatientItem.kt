@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -43,7 +44,8 @@ internal fun TodayPatientItem(
     isHighlighted: Boolean = false,
     onStatusToggle: () -> Unit,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onCreateConsultation: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     // Long-press menu: Edit / Delete (existing behaviour)
@@ -271,15 +273,28 @@ internal fun TodayPatientItem(
     // Status-change dialog shown on long press (Edit/Delete dropdown is separate)
     if (showStatusDialog) {
         val targetStatus = if (isCompleted) "Waiting" else "Visited"
+        val canCreateConsultation = canCreateConsultationFromTodo(item, isCompleted, onCreateConsultation != null)
         AlertDialog(
             onDismissRequest = { showStatusDialog = false },
             shape = RoundedCornerShape(20.dp),
             title = { Text("Change Status", fontWeight = FontWeight.Bold) },
             text = {
-                Text(
-                    "Mark $nameLine as $targetStatus?",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    Text(
+                        "Mark $nameLine as $targetStatus?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (canCreateConsultation) {
+                        OutlinedButton(onClick = {
+                            showStatusDialog = false
+                            onCreateConsultation?.invoke()
+                        }) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(Spacing.xs))
+                            Text("Create Consultation")
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(onClick = {
@@ -303,4 +318,21 @@ internal fun TodayPatientItem(
             }
         )
     }
+}
+
+/**
+ * Create Consultation is offered only for a Waiting consultation todo that is linked to a
+ * saved patient and is New (or a legacy blank visit type). Follow-up todos and completed
+ * rows use the normal + flow.
+ */
+internal fun canCreateConsultationFromTodo(
+    item: Any?,
+    isCompleted: Boolean,
+    hasCallback: Boolean
+): Boolean {
+    val todo = item as? ConsultationTodo ?: return false
+    return hasCallback &&
+        !isCompleted &&
+        (todo.visitType.isBlank() || todo.visitType.equals("NEW", ignoreCase = true)) &&
+        !todo.patientId.isNullOrBlank()
 }

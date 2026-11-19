@@ -2,8 +2,8 @@ package com.neochildclinic.feature.consultation.domain
 
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.domain.model.Consultation
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton

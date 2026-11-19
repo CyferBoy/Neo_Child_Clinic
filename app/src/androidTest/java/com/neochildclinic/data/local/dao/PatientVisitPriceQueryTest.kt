@@ -117,8 +117,8 @@ class PatientVisitPriceQueryTest {
     fun missingPrice_flagsPatient_whenAnyVisitIsUnpaid() = runBlocking {
         // p-unpaid-one: single visit at 0.0
         // p-unpaid-two: a paid visit AND a later unpaid one - must still flag ("any", not "all")
-        patientDao.insertPatient(patient("p1"))
-        patientDao.insertPatient(patient("p2"))
+        patientDao.upsertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p2"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 0.0))
         vaccinationDao.insertVaccination(visit("v2", "p2", 500.0, "2026-04-01"))
         vaccinationDao.insertVaccination(visit("v3", "p2", 0.0, "2026-04-02"))
@@ -131,7 +131,7 @@ class PatientVisitPriceQueryTest {
 
     @Test
     fun missingPrice_doesNotFlagFullyPaidPatients() = runBlocking {
-        patientDao.insertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p1"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 1.0))
 
         assertEquals(emptyList<String>(), patientDao.getPatientIdsWithMissingPrice().first())
@@ -140,15 +140,15 @@ class PatientVisitPriceQueryTest {
     @Test
     fun missingPrice_doesNotFlagPatientWithNoVisits() = runBlocking {
         // A patient who has never been vaccinated must not appear as "missing price".
-        patientDao.insertPatient(patient("never-visited"))
+        patientDao.upsertPatient(patient("never-visited"))
 
         assertEquals(emptyList<String>(), patientDao.getPatientIdsWithMissingPrice().first())
     }
 
     @Test
     fun missingPrice_flagsOnZeroExactly_butNotOnSmallPositive() = runBlocking {
-        patientDao.insertPatient(patient("zero"))
-        patientDao.insertPatient(patient("positive"))
+        patientDao.upsertPatient(patient("zero"))
+        patientDao.upsertPatient(patient("positive"))
         vaccinationDao.insertVaccination(visit("v1", "zero", 0.0))
         vaccinationDao.insertVaccination(visit("v2", "positive", 0.01))
 
@@ -159,7 +159,7 @@ class PatientVisitPriceQueryTest {
     fun missingPrice_returnsEachPatientOnce_evenWithSeveralUnpaidVisits() = runBlocking {
         // Guards the DISTINCT: without it this patient appears three times, and the
         // ViewModel's toSet() would be doing work the query should have done.
-        patientDao.insertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p1"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 0.0, "2026-04-01"))
         vaccinationDao.insertVaccination(visit("v2", "p1", 0.0, "2026-04-02"))
         vaccinationDao.insertVaccination(visit("v3", "p1", -50.0, "2026-04-03"))
@@ -170,7 +170,7 @@ class PatientVisitPriceQueryTest {
 
     @Test
     fun missingPrice_emitsAgain_whenAVisitPriceChanges() = runBlocking {
-        patientDao.insertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p1"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 0.0))
         assertEquals(setOf("p1"), patientDao.getPatientIdsWithMissingPrice().first().toSet())
 
@@ -183,7 +183,7 @@ class PatientVisitPriceQueryTest {
     fun batchItemsRead_attachesEachItemToItsOwnVisit() = runBlocking {
         // The N+1 being replaced returned one flow per visit; a relation bug that crossed
         // items between visits would corrupt doses, so assert the exact grouping.
-        patientDao.insertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p1"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 100.0, "2026-04-01"))
         vaccinationDao.insertVaccination(visit("v2", "p1", 200.0, "2026-04-02"))
         seedCatalog(SEED_NAMES)
@@ -204,8 +204,8 @@ class PatientVisitPriceQueryTest {
 
     @Test
     fun batchItemsRead_forSinglePatient_returnsOnlyThatPatientsVisits() = runBlocking {
-        patientDao.insertPatient(patient("p1"))
-        patientDao.insertPatient(patient("p2"))
+        patientDao.upsertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p2"))
         vaccinationDao.insertVaccination(visit("v1", "p1", 100.0, "2026-04-01"))
         vaccinationDao.insertVaccination(visit("v2", "p1", 100.0, "2026-04-02"))
         vaccinationDao.insertVaccination(visit("v3", "p2", 100.0, "2026-04-03"))
@@ -221,7 +221,7 @@ class PatientVisitPriceQueryTest {
 
     @Test
     fun batchItemsRead_ordersByDateGivenDescending_likeTheOldQuery() = runBlocking {
-        patientDao.insertPatient(patient("p1"))
+        patientDao.upsertPatient(patient("p1"))
         vaccinationDao.insertVaccination(visit("old", "p1", 1.0, "2026-01-01"))
         vaccinationDao.insertVaccination(visit("new", "p1", 1.0, "2026-12-31"))
         vaccinationDao.insertVaccination(visit("mid", "p1", 1.0, "2026-06-15"))

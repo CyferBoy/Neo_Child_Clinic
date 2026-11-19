@@ -2,8 +2,8 @@ package com.neochildclinic.feature.update.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neochildclinic.domain.repository.AppUpdateManager
 import com.neochildclinic.feature.update.data.AppUpdateInfo
-import com.neochildclinic.feature.update.data.AppUpdateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +21,7 @@ data class DownloadProgress(
 
 @HiltViewModel
 class AppUpdateViewModel @Inject constructor(
-    private val updateManager: AppUpdateManager
+    private val updateManager: AppUpdateManager<AppUpdateInfo>
 ) : ViewModel() {
     // App-wide "new version available" nag (silent auto-check on launch/resume, or a
     // regular result from a manual check). Rendered by MainActivity.

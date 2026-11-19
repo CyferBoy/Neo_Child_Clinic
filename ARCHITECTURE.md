@@ -17,28 +17,33 @@ For in-depth architectural guides and placement policies, see:
 ```text
 com.neochildclinic
 ├── app/                         Application entry point, navigation graphs, sealed Routes
+│   ├── notification/            App-level notification wiring
+│   ├── sync/                    App-level sync glue (SyncReconciler)
+│   └── work/                    WorkManager workers (SyncWorker, DailySummaryWorker)
 ├── core/                        Shared cross-cutting infrastructure
 │   ├── cache/                   In-memory LRU cache (`MemoryCache`, `CacheRegistry`)
-│   ├── common/                  Shared pure utilities (DateUtils, AgeUtils, PatientUtils)
+│   ├── common/                  Shared pure utilities (DateUtils, AgeUtils, DateClassifier, CurrencyUtils)
 │   ├── database/                TransactionRunner abstraction
 │   ├── designsystem/            Material 3 theme, Color, Typography, Shape, Spacing
-│   ├── di/                      Hilt modules (DatabaseModule, SupabaseModule, RepositoryModule)
 │   ├── logger/                  Audit logger
 │   ├── network/                 Network connectivity monitoring
-│   ├── notification/            Notification infrastructure, WorkManager workers
+│   ├── notification/            Notification infrastructure and reminder workers
 │   ├── preferences/             DataStore/preferences managers
-│   ├── security/                Authentication, session, and biometric lock infrastructure
-│   ├── sync/                    Offline-first sync engine (SyncUploader, SingleFlight)
+│   ├── security/                Session, biometric lock and credential helpers
+│   ├── sync/                    Low-level sync helpers (SingleFlight, CloudRefresh, SyncEnqueuer)
 │   └── ui/                      Reusable UI design components (Buttons, Dialogs, States)
+├── di/                          Hilt modules (DatabaseModule, SupabaseModule, RepositoryModule,
+│                                RemoteDataSourceModule)
 ├── domain/
-│   └── model/                   Pure Kotlin business models (33 domain models)
+│   └── model/                   Pure Kotlin business models (35 domain models)
 ├── data/                        Shared persistence and cloud integration
 │   ├── backup/                  Encrypted `.nccb` backup and Cloudflare R2 client
-│   ├── local/                   Room database (v33), 21 DAOs, and 21 SQLite entities
+│   ├── local/                   Room database (schema 35, Room library 2.8.5), 21 DAOs,
+│   │                            25 SQLite entities (dao/, entity/, database/)
 │   └── remote/                  Shared remote data sources (Supabase REST)
 └── feature/                     Self-contained business modules
     ├── audit/                   Audit logs and patient history
-    ├── auth/                    Staff login and device binding
+    ├── auth/                    Staff login and device binding (presentation/AuthViewModel)
     ├── borrowed/                Inter-clinic vaccine borrowing and batch returns
     ├── consultation/            Clinical doctor consultations and prescriptions
     ├── dashboard/               Daily schedule, patient slots, and clinic tiles
@@ -49,11 +54,11 @@ com.neochildclinic
     ├── personalreminder/        Custom patient alerts and follow-ups
     ├── profile/                 Clinic profile and physician credentials
     ├── reminder/                Due and overdue vaccination tracking
-    ├── search/                  Unified clinic and patient search
     ├── settings/                Application settings, biometric configuration, backups
     ├── staff/                   Staff administration and role management
     ├── statistics/              Clinic analytics, uptake trends, PDF report export
-    ├── sync/                    Sync status dashboard and conflict triage
+    ├── sync/                    Sync status dashboard; data/ owns SyncUploader and
+    │                            SyncRepositoryImpl; domain/ owns repository contracts
     ├── update/                  In-app APK updates via GitHub Releases
     ├── vaccination/             Clinical vaccination recording and multi-table transactions
     ├── waste/                   Vial spoilage, breakage, and waste reconciliation
@@ -85,8 +90,8 @@ The architecture strictly enforces:
 
 ## 3. Important Ownership & Boundary Decisions
 
-- **Room Database**: `data/local` owns DAOs, entities, converters, and `AppDatabase`. `core/di/DatabaseModule` provides Hilt bindings.
+- **Room Database**: `data/local` owns DAOs, entities, converters, and `AppDatabase`. `di/DatabaseModule` provides Hilt bindings.
 - **Repositories**: Feature-specific repository contracts are colocated with the feature (`feature/<name>/domain/repository/`); implementations reside in `feature/<name>/data/`.
-- **Offline Sync Engine**: Low-level background sync (`SyncWorker`, `SyncUploader`, `SyncRepositoryImpl`) lives in `core/sync/`, while the manual sync user interface resides in `feature/sync/`.
-- **Global Auth & Session**: `AuthViewModel` resides in `core/security/` as it orchestrates app-wide session states, biometric lock screens, and logout queue safety across all screens.
+- **Offline Sync Engine**: `SyncWorker` lives in `app/work/`, `SyncUploader` and `SyncRepositoryImpl` in `feature/sync/data/`, low-level helpers (`SingleFlight`, `CloudRefresh`, `SyncEnqueuer`) in `core/sync/`, and the manual sync UI in `feature/sync/presentation/`.
+- **Global Auth & Session**: `AuthViewModel` resides in `feature/auth/presentation/`; app-wide session state and biometric helpers live in `core/security/`.
 - **Transactional Integrity**: All multi-table mutations execute within atomic Room transactions via `TransactionRunner`.

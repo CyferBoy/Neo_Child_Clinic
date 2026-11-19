@@ -3,7 +3,7 @@ package com.neochildclinic.feature.staff.presentation
 import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Profile
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.feature.staff.domain.repository.StaffManagementRepository
 import com.neochildclinic.feature.staff.domain.repository.CreateStaffRequest
 import com.neochildclinic.feature.staff.domain.repository.StaffActionRequest

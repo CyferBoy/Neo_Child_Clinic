@@ -1,4 +1,5 @@
 package com.neochildclinic.app.work
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
@@ -6,7 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.neochildclinic.core.notification.NotificationHelper
 import com.neochildclinic.core.preferences.NotificationSettingsManager
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.feature.statistics.domain.ClinicStatsManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -26,7 +27,7 @@ class DailySummaryWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val settings = settingsManager.settingsFlow.first()
-        val todayStr = LocalDate.now(ZoneId.of("Asia/Kolkata")).toString()
+        val todayStr = LocalDate.now(ZoneId.of(IST_ZONE_ID)).toString()
 
         if (settings.dailySummaryEnabled && settings.lastSummarySentDate != todayStr) {
             val stats = statsManager.getClinicStats().first()

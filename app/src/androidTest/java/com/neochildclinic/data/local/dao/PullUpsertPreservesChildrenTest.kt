@@ -132,7 +132,7 @@ class PullUpsertPreservesChildrenTest {
     private suspend fun seedClinicalGraph() {
         db.vaccineDao().insertVaccine(vaccine("vac-a"))
         db.vaccineDao().insertBatch(batch("batch-a", "vac-a"))
-        db.patientDao().insertPatient(patient("p1", clinicId = "NEO-1"))
+        db.patientDao().upsertPatient(patient("p1", clinicId = "NEO-1"))
         db.vaccinationDao().insertVaccination(visit("v1", "p1"))
         db.vaccinationItemDao().insertItems(listOf(item("i1", "v1", "vac-a", "batch-a")))
         db.consultationDao().insertConsultation(consultation("c1", "p1", "v1"))
@@ -201,7 +201,7 @@ class PullUpsertPreservesChildrenTest {
     fun legacyReplace_stillDeletesChildren() = runBlocking {
         seedClinicalGraph()
 
-        db.patientDao().insertPatient(patient("p1", clinicId = "NEO-1").copy(name = "Replaced"))
+        db.patientDao().upsertPatient(patient("p1", clinicId = "NEO-1").copy(name = "Replaced"))
 
         assertNull("REPLACE deleted the patient and cascaded its visit", db.vaccinationDao().getVaccinationById("v1"))
         assertEquals(0, db.vaccinationItemDao().getItemsForVaccination("v1").first().size)
@@ -211,8 +211,8 @@ class PullUpsertPreservesChildrenTest {
     // resolves collisions before writing, so this is a safety net rather than a live path.
     @Test
     fun upsertPatient_clinicIdCollision_neverDeletesTheOtherPatient() = runBlocking {
-        db.patientDao().insertPatient(patient("p1", clinicId = "NEO-1"))
-        db.patientDao().insertPatient(patient("p2", clinicId = "NEO-2"))
+        db.patientDao().upsertPatient(patient("p1", clinicId = "NEO-1"))
+        db.patientDao().upsertPatient(patient("p2", clinicId = "NEO-2"))
 
         // The write may be skipped or may surface the unique-index error - both are fine.
         runCatching { db.patientDao().upsertPatient(patient("p2", clinicId = "NEO-1")) }

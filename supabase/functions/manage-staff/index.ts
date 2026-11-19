@@ -8,6 +8,7 @@ const corsHeaders = {
 }
 
 const MIN_PASSWORD_LENGTH = 12
+const BAN_DURATION = "87600h" // ~10 years: effectively permanent; "none" unbans
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -156,7 +157,9 @@ serve(async (req) => {
         if (authUpdateError) throw authUpdateError
         if (body.role !== undefined) {
           // Invalidate active sessions immediately so demoted/updated privileges do not persist in existing JWTs
-          await admin.auth.admin.signOut(staffId).catch(() => {})
+          await admin.auth.admin.signOut(staffId).catch((signOutError) =>
+            console.error("manage-staff: signOut after role change failed", signOutError)
+          )
         }
         return json({ success: true })
       }
@@ -175,23 +178,38 @@ serve(async (req) => {
         })
         if (authUpdateError) throw authUpdateError
         // Invalidate active sessions immediately so demoted privileges do not persist in existing JWTs
-        await admin.auth.admin.signOut(staffId).catch(() => {})
+        await admin.auth.admin.signOut(staffId).catch((signOutError) =>
+          console.error("manage-staff: signOut after role change failed", signOutError)
+        )
         return json({ success: true })
       }
 
       case "SET_STATUS": {
         const isActive = Boolean(body.isActive)
+        // is_active (here) and is_deleted (SOFT_DELETE below) are the server-side
+        // credential-revocation flags: the app's next online profile sync reads them and
+        // clears the device-local password verifier, so offline unlock cannot outlive the
+        // account's active status. No new column/migration is needed for this flag.
         const { error } = await admin.from("profiles").update({
           is_active: isActive,
           updated_by: user.id,
         }).eq("id", staffId)
         if (error) throw error
 
+        // SE-06: a deactivation must also stop this account's device rows from being used
+        // as notification targets / active sessions, not just its profile and Auth user.
+        // Re-activation must not force previously active rows off.
+        if (!isActive) {
+          await admin.from("user_devices")
+            .update({ is_active: false })
+            .eq("user_id", staffId)
+        }
+
         // Deactivating the profile alone leaves the GoTrue user enabled, so its refresh
         // token keeps minting access tokens forever - ban to end existing sessions too
         // (mirrored by SOFT_DELETE below, unbanned when the account is re-activated).
         const { error: banError } = await admin.auth.admin.updateUserById(staffId, {
-          ban_duration: isActive ? "none" : "87600h",
+          ban_duration: isActive ? "none" : BAN_DURATION,
         })
         if (banError) throw banError
 
@@ -199,6 +217,8 @@ serve(async (req) => {
       }
 
       case "SOFT_DELETE": {
+        // is_deleted/is_active is the credential-revocation flag consumed by the app's
+        // next profile sync (see SET_STATUS above); the client clears its local verifier.
         const { error } = await admin.from("profiles").update({
           is_active: false,
           is_deleted: true,
@@ -216,7 +236,7 @@ serve(async (req) => {
         // profile row. A ban failure surfaces through the catch below instead of
         // silently reporting success.
         const { error: banError } = await admin.auth.admin.updateUserById(staffId, {
-          ban_duration: "87600h",
+          ban_duration: BAN_DURATION,
         })
         if (banError) throw banError
 
@@ -247,6 +267,8 @@ serve(async (req) => {
 })
 
 function validateRole(role: string) {
+  // Keep this allowlist in sync with domain/model/Profile.kt and
+  // migrations/20261001_app_metadata_roles.sql.
   const allowed = ["admin", "doctor", "receptionist", "nurse", "inventory_manager"]
   if (!allowed.includes(role)) throw new Error("Invalid staff role")
 }

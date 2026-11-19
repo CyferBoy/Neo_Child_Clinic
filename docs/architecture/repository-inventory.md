@@ -7,7 +7,7 @@ This document represents an exhaustive, ground-truth inventory of every major di
 ## 1. Executive Summary & Inventory Scope
 
 The repository contains:
-- **Android Application**: 1 root module (`:app`), target SDK 35, compile SDK 35, Kotlin 2.0.21, Jetpack Compose with Material 3, Hilt DI, Room DB (v33), Offline-first sync with Supabase and Cloudflare R2 backup.
+- **Android Application**: 1 root module (`:app`), target SDK 35, compile SDK 35, Kotlin 2.0.21, Jetpack Compose with Material 3, Hilt DI, Room DB (schema 35, library 2.8.5), Offline-first sync with Supabase and Cloudflare R2 backup.
 - **Backend & Cloud Infrastructure**: Supabase migrations (23 migration scripts + catalog CSV), Supabase Edge Functions (`manage-staff`, `notify-update`), Supabase live tests & configs, and Cloudflare Worker (`cloudflare/backup-worker`) with Vitest test harness.
 - **Design System & Assets**: Material 3 theme, custom typography/color tokens, contrast validation scripts (`contrast_check.py`), and documentation in `design-system/`.
 - **Knowledge Base & Documentation**: Obsidian Vault with 66 interconnected notes in `docs/Knowledge_Base/`, 30+ historical audit notes in `docs/bug-audit/`, and scattered root architectural documents.
@@ -48,7 +48,7 @@ The repository contains:
 | `app/build.gradle.kts` | Module build dependencies, SDKs, build types | Yes | None | Retain | KSP, Room, Supabase, Compose, Hilt | High |
 | `app/proguard-rules.pro` | R8 / ProGuard obfuscation & keep rules | Yes | None | Retain | Release builds, serialization | High |
 | `app/google-services.json` | Firebase configuration for push messaging | Yes (gitignored) | None | Retain | Firebase Messaging, Google Services | High |
-| `app/schemas/` | Room database exported schema JSONs (v33) | Yes | None | Retain | MigrationTestHelper, schema tests | High (migration tests fail) |
+| `app/schemas/` | Room database exported schema JSONs (33.json, 34.json, 35.json) | Yes | None | Retain | MigrationTestHelper, schema tests | High (migration tests fail) |
 | `app/src/main/AndroidManifest.xml` | App component declarations, permissions, schemes | Yes | None | Retain | Android OS, Activities, Services, Receivers | High |
 
 ### 3.2 Application & Navigation (`app/src/main/java/com/neochildclinic/app/`)
@@ -81,14 +81,14 @@ The repository contains:
 |---|---|---|---|---|---|---|
 | `data/local/database/` | `AppDatabase.kt`, Room TypeConverters, TransactionRunnerImpl | Yes | None | Retain | Room 33, all DAOs and Entities | High |
 | `data/local/dao/` | 21 Room DAOs (PatientDao, VaccineDao, VaccinationDao, etc.) | Yes | None | Retain | Repositories, sync engine, Room | High |
-| `data/local/entity/` | 21 Room Entity definitions | Yes | None | Retain | Room schema 33, DB migrations | Critical (Room schema) |
+| `data/local/entity/` | 25 Room Entity definitions | Yes | None | Retain | Room schema 35, DB migrations | Critical (Room schema) |
 | `data/remote/` | Supabase remote data sources (PatientRemoteDataSource) | Yes | None | Retain | Repositories, Supabase client | High |
 | `data/backup/` | Local & Cloud backup engines, encryption, serialization | Yes | None | Retain | Cloudflare R2 worker, Room DB | High |
 
 ### 3.5 Domain Layer (`app/src/main/java/com/neochildclinic/domain/`)
 | Package | Responsibility | Correct Location? | Duplication / Redundancy | Recommendation | Dependencies & References | Move / Change Risk |
 |---|---|---|---|---|---|---|
-| `domain/model/` | 33 pure Kotlin domain models (Patient, Vaccine, Vaccination, etc.) | Yes | None | Retain | Used across data, domain, and UI | High |
+| `domain/model/` | 35 pure Kotlin domain models (Patient, Vaccine, Vaccination, etc.) | Yes | None | Retain | Used across data, domain, and UI | High |
 
 ### 3.6 Feature Packages (`app/src/main/java/com/neochildclinic/feature/`)
 All 20 features adhere to Clean Architecture packaging with encapsulated `data/`, `domain/`, and `presentation/` layers:
@@ -143,7 +143,7 @@ All 20 features adhere to Clean Architecture packaging with encapsulated `data/`
 |---|---|---|---|---|
 | `docs/GETTING_STARTED.md` | Developer onboarding and setup | Scattered at docs root | Move | `docs/getting-started/onboarding.md` |
 | `docs/SYNC.md` | Offline sync protocol and queue architecture | Scattered at docs root | Move | `docs/architecture/offline-first-sync.md` |
-| `docs/BACKUP_RESTORE.md` | Backup & restore protocols (Cloud & Local) | Scattered at docs root | Move | `docs/operations/backup-restore.md` |
+| `docs/BACKUP_RESTORE.md` | Backup & restore protocols (Cloud & Local) | Scattered at docs root | Merged | `docs/Knowledge_Base/Backup%20and%20Restore.md` |
 | `docs/AUDIT_REPORT_2026-10-16.md` | Historical codebase audit report | Scattered at docs root | Move | `docs/quality/audit-report-2026-10-16.md` |
 | `docs/SECURITY_AUDIT_2026-10-13.md` | Historical security audit report | Scattered at docs root | Move | `docs/quality/security-audit-2026-10-13.md` |
 | `docs/bug-audit/` | 30+ historical SQL and bug audit markdown files | Subdirectory at docs root | Consolidate | `docs/quality/bug-audit/` |
@@ -162,6 +162,7 @@ All 20 features adhere to Clean Architecture packaging with encapsulated `data/`
 | `scripts/test_validate_docs.py` | Regression test suite for doc validator | Yes | Retain | Python unittest |
 | `scripts/check_graphify_html.py`| Verification of generated graph HTML | Yes | Retain | Python 3, Graphify |
 | `scripts/graphify-viewer.patch` | Patch file for Graphify viewer | Yes | Retain | Graphify |
+| `scripts/test_manage_staff_self_demotion.mjs` | Empirical adversarial tests for the manage-staff Edge Function | Yes | Retain | Node.js, TypeScript (backup-worker workspace) |
 
 ---
 

@@ -3,7 +3,7 @@ package com.neochildclinic.feature.doctor.domain
 import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.SlotExceptionType
-import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import com.neochildclinic.core.common.DateUtils
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject

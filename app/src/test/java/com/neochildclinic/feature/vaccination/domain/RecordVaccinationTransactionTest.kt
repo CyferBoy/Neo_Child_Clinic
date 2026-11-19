@@ -83,12 +83,11 @@ class RecordVaccinationTransactionTest {
     }
 
     @Test
-    fun `the visit is committed even when a reminder throws`() = runBlocking {
-        // Documents the half of NCC-004 that is deliberate: a broken reminder must not cost the
-        // clinic the clinical record. The transaction rolls everything back, and the ViewModel
-        // surfaces the error - but because the visit is rolled back too, a retry cannot produce
-        // the duplicate-visit + double-deduction outcome.
-        val throwing = object : com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+    fun `the visit is rolled back when a reminder throws`() = runBlocking {
+        // NCC-004: a failing reminder rolls the whole transaction back (visit included) and the
+        // ViewModel surfaces the error, so a retry cannot produce the duplicate-visit +
+        // double-deduction outcome. The clinical record is saved by the retry, not by a partial commit.
+        val throwing = object : com.neochildclinic.domain.repository.ReminderRepository
             by reminders {
             override suspend fun saveNextVaccination(
                 patientId: String,

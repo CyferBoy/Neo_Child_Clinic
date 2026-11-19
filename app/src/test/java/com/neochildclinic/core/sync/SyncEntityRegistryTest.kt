@@ -1,9 +1,9 @@
 package com.neochildclinic.core.sync
 
 import com.neochildclinic.feature.sync.data.SYNC_ENTITY_REGISTRY
+import com.neochildclinic.feature.sync.domain.SyncEntityCatalog
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * Guards the whole class of bug where code enqueues a sync item for an entity the uploader does
@@ -14,51 +14,45 @@ import java.io.File
  * while SYNC_ENTITY_REGISTRY never had it, so each merge left a FAILED row on the Sync screen
  * and the app raised "Some changes could not be synced" after five of them.
  *
- * Reads the sources, so it catches the next one the day it is written.
+ * Direct assertions on production data ([SyncEntityCatalog] vs [SYNC_ENTITY_REGISTRY]) replace
+ * the old regex scan of source files, which depended on the working directory and could pass
+ * vacuously when no sources were found.
  */
 class SyncEntityRegistryTest {
 
-    private val sourceDirs = listOf(File("src/main/java"), File("app/src/main/java"))
-
-    private fun sourceRoot(): File = sourceDirs.firstOrNull { it.isDirectory }
-        ?: error("Cannot find the app sources from ${File("").absolutePath}")
-
-    private fun entityNamesInRegistry(): Set<String> =
-        SYNC_ENTITY_REGISTRY.keys
-
-    private fun enqueuedNames(): Map<String, List<String>> {
-        val root = sourceRoot()
-        val calls = mutableMapOf<String, MutableList<String>>()
-        root.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .forEach { file ->
-                val text = file.readText()
-                Regex("""enqueue\(\s*(?:entityName\s*=\s*)?"([A-Z][A-Z_0-9]*)"""")
-                    .findAll(text)
-                    .forEach { match ->
-                        calls.getOrPut(match.groupValues[1]) { mutableListOf() }
-                            .add("${file.name}:${text.take(match.range.first).count { it == '\n' } + 1}")
-                    }
-            }
-        return calls
-    }
-
     @Test
-    fun `every entity name passed to enqueue exists in the sync registry`() {
-        val registered = entityNamesInRegistry()
-        val offenders = enqueuedNames().filterKeys { it !in registered }
+    fun `every entity name the app can enqueue exists in the sync registry`() {
+        val enqueued = SyncEntityCatalog.ENQUEUED_ENTITY_NAMES
+        val missing = enqueued - SYNC_ENTITY_REGISTRY.keys
         assertTrue(
-            "enqueue() is called with entities the uploader does not know, so those items " +
-                "fail permanently and cannot be retried by the user:\n" +
-                offenders.entries.joinToString("\n") { (entity, sites) -> "  $entity -> $sites" },
-            offenders.isEmpty()
+            "these enqueueable entities have no uploader descriptor and would fail permanently:\n" +
+                missing.sorted().joinToString("\n") { "  $it" },
+            missing.isEmpty()
         )
     }
 
     @Test
-    fun `the registry test actually scanned the sources`() {
-        // Guards against a silently-empty scan making the test above vacuously pass.
-        val enqueued = enqueuedNames()
-        assertTrue("expected to find enqueue() call sites in ${sourceRoot()}", enqueued.isNotEmpty())
+    fun `the registry has no stale entity names`() {
+        val stale = SYNC_ENTITY_REGISTRY.keys - SyncEntityCatalog.ENQUEUED_ENTITY_NAMES
+        assertTrue(
+            "registry entries with no enqueue site are dead configuration:\n" +
+                stale.sorted().joinToString("\n") { "  $it" },
+            stale.isEmpty()
+        )
+    }
+
+    @Test
+    fun `the entity catalog is not empty`() {
+        // Guards against an empty catalog making the two tests above vacuously pass.
+        assertTrue("expected the production catalog to list enqueueable entities", SyncEntityCatalog.ENQUEUED_ENTITY_NAMES.isNotEmpty())
+    }
+
+    @Test
+    fun `every registered descriptor points at a real table with a positive priority`() {
+        SYNC_ENTITY_REGISTRY.forEach { (entity, descriptor) ->
+            assertTrue("$entity has a blank table name", descriptor.tableName.isNotBlank())
+            assertTrue("$entity has a non-positive priority", descriptor.priority > 0)
+            assertTrue("$entity has a blank local PK column", descriptor.pkColumn.isNotBlank())
+        }
     }
 }

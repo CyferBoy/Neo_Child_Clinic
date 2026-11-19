@@ -5,14 +5,14 @@ import com.neochildclinic.data.local.dao.WasteDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
-import com.neochildclinic.feature.waste.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.WasteRepository
 
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow

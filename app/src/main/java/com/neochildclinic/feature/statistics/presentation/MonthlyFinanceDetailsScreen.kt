@@ -35,6 +35,7 @@ import com.neochildclinic.core.designsystem.*
 import com.neochildclinic.core.ui.AppBackground
 import com.neochildclinic.core.ui.AppPullToRefresh
 import com.neochildclinic.core.ui.SkeletonList
+import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
@@ -59,9 +60,36 @@ fun MonthlyFinanceDetailsScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
+    MonthlyFinanceDetailsContent(
+        monthKey = monthKey,
+        allTransactions = allTransactions,
+        allVaccinations = allVaccinations,
+        allExpenses = allExpenses,
+        patients = patients,
+        isLoading = isLoading,
+        isRefreshing = isRefreshing,
+        onBack = onBack,
+        onViewAllExpenses = onViewAllExpenses,
+        onRefresh = viewModel::refresh
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MonthlyFinanceDetailsContent(
+    monthKey: String,
+    allTransactions: List<FinanceTransaction>,
+    allVaccinations: List<Vaccination>,
+    allExpenses: List<Expense>,
+    patients: List<Patient>,
+    isLoading: Boolean,
+    isRefreshing: Boolean,
+    onBack: () -> Unit,
+    onViewAllExpenses: () -> Unit,
+    onRefresh: () -> Unit
+) {
     var showTransactions by rememberSaveable { mutableStateOf(false) }
 
-    // Parse monthKey (e.g., "2026-10" for October 2026)
     val year = remember(monthKey) { monthKey.substringBefore("-").toIntOrNull() ?: 2026 }
     val month1Based = remember(monthKey) { monthKey.substringAfter("-").toIntOrNull() ?: 1 }
     val monthIndex = (month1Based - 1).coerceIn(0, 11)
@@ -342,7 +370,7 @@ fun MonthlyFinanceDetailsScreen(
         ) { padding ->
             AppPullToRefresh(
                 isRefreshing = isRefreshing,
-                onRefresh = viewModel::refresh,
+                onRefresh = onRefresh,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -1062,9 +1090,17 @@ private fun paymentModeLabel(transaction: FinanceTransaction): String {
 @Composable
 private fun MonthlyFinancePreview() {
     NeoChildTheme {
-        MonthlyFinanceDetailsScreen(
+        MonthlyFinanceDetailsContent(
             monthKey = "2026-10",
-            onBack = {}
+            allTransactions = emptyList(),
+            allVaccinations = emptyList(),
+            allExpenses = emptyList(),
+            patients = emptyList(),
+            isLoading = false,
+            isRefreshing = false,
+            onBack = {},
+            onViewAllExpenses = {},
+            onRefresh = {}
         )
     }
 }

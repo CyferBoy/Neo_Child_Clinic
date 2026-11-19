@@ -3,12 +3,12 @@ package com.neochildclinic.feature.vaccination.domain
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
 import com.neochildclinic.feature.inventory.domain.StockDeductionBlockedException
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.InventoryDeduction
 import java.util.UUID
 import javax.inject.Inject
@@ -164,11 +164,9 @@ class VaccinationEditEngine @Inject constructor(
 
         delta.forEach { (batchId, batchDelta) ->
             if (batchDelta > 0) {
-                // A batch already recorded on the original visit was valid when first
-                // administered; don't block an edit (e.g. a quantity bump) just because
-                // the batch has since expired. Only brand-new batch selections must pass
-                // the expiry check.
-                val batchAlreadyUsed = old.items.any { it.batchId == batchId }
+                // Expiry is always judged against the given date: a batch expiring on or
+                // after the visit is valid, even if it is expired today. A batch already
+                // on the visit is no exception - only expired-BEFORE-visit is blocked.
                 try {
                     inventoryRepository.deductStockFromBatch(
                         batchId = batchId,
@@ -177,7 +175,6 @@ class VaccinationEditEngine @Inject constructor(
                         transactionType = InventoryTransactionType.VACCINATION,
                         visitId = new.id,
                         patientId = new.patientId,
-                        allowExpired = batchAlreadyUsed,
                         givenDate = new.dateGiven
                     )
                 } catch (e: StockDeductionBlockedException) {

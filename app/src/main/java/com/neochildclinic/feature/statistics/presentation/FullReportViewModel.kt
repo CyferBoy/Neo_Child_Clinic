@@ -7,14 +7,14 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsDateUtils
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.core.sync.RefreshDataUseCase
+import com.neochildclinic.domain.repository.VaccinationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +73,15 @@ data class FullReportUiState(
     val availableFinancialYears: List<String> = emptyList(),
     val errorMessage: String? = null
 )
+
+/** Keep transient UI flags owned by refresh()/error handling when fresh report data arrives. */
+internal fun mergeFullReportState(current: FullReportUiState, incoming: FullReportUiState): FullReportUiState =
+    incoming.copy(
+        isRefreshing = current.isRefreshing,
+        // A real report emission supersedes any stale error; keep it only while a refresh
+        // is in flight so the transient message survives pull-to-refresh.
+        errorMessage = if (current.isRefreshing) current.errorMessage else incoming.errorMessage
+    )
 
 @HiltViewModel
 class FullReportViewModel @Inject constructor(
@@ -141,7 +150,7 @@ class FullReportViewModel @Inject constructor(
                         )
                     }
                 }
-                .collect { reportState -> _uiState.update { reportState } }
+                .collect { reportState -> _uiState.update { mergeFullReportState(it, reportState) } }
         }
     }
 
@@ -172,6 +181,8 @@ class FullReportViewModel @Inject constructor(
                 refreshDataUseCase()
             } catch (e: Exception) {
                 android.util.Log.e("FullReportVM", "Refresh failed", e)
+                // mergeFullReportState keeps this until the next real report emission.
+                _uiState.update { it.copy(errorMessage = e.message ?: "Could not refresh the report.") }
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
             }
@@ -249,8 +260,7 @@ class FullReportViewModel @Inject constructor(
             monthKeys = StatisticsDateUtils.lastNMonths(6)
             periodLabel = "Last 6 Months"
         } else {
-            val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: 0
-            val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
+            val fyStartYear = FinanceCalculator.financialYearStartOrDefault(filterMode)
             val monthCount = if (fyQuarter != 0) 3 else 12
             val quarterOffset = (fyQuarter - 1) * 3
 
@@ -259,7 +269,8 @@ class FullReportViewModel @Inject constructor(
                 val rawMonth = (if (fyQuarter == 0) 0 else quarterOffset) + offset
                 fyStart.plusMonths(rawMonth.toLong())
             }
-            periodLabel = if (fyQuarter != 0) "FY ${filterMode.substringAfter("FY ")} Q$fyQuarter" else "FY ${filterMode.substringAfter("FY ")}"
+            val fyLabel = FinanceCalculator.formatFinancialYear(fyStartYear)
+            periodLabel = if (fyQuarter != 0) "FY $fyLabel Q$fyQuarter" else "FY $fyLabel"
         }
 
         val monthKeySet = monthKeys.toSet()
@@ -419,8 +430,7 @@ class FullReportViewModel @Inject constructor(
     ): FullReportUiState {
         val effectiveRegDates = StatisticsDateUtils.computeEffectiveRegistrationDates(patients, allVisits)
 
-        val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: 0
-        val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
+        val fyStartYear = FinanceCalculator.financialYearStartOrDefault(filterMode)
         val quarterMonths = StatisticsUtils.fyQuarters[fyQuarter - 1].second
         val monthInQuarter = quarterMonths.indexOf(selectedMonth)
         val targetMonth = ((3) + ((fyQuarter - 1) * 3) + monthInQuarter + 12) % 12

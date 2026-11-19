@@ -4,7 +4,7 @@ import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.SlotExceptionType
-import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -65,9 +65,6 @@ class GetAvailableSlotsUseCaseDateStressTest {
         fakeRepo.weeklySlots = listOf(monSlot1, monSlot2, sunSlot1, sunSlot2)
     }
 
-    // =========================================================================
-    // 1. Full Day Exception with Varied Date Formats
-    // =========================================================================
 
     @Test
     fun `full day exception stored as ISO 2026-11-16 honored when queried as 16 Nov 2026`() = runBlocking {
@@ -133,9 +130,6 @@ class GetAvailableSlotsUseCaseDateStressTest {
         assertEquals("Emergency Leave", (result as DoctorAvailabilityResult.FullDayUnavailable).reason)
     }
 
-    // =========================================================================
-    // 2. Slot-Specific Exception with Varied Date Formats
-    // =========================================================================
 
     @Test
     fun `slot exception stored as ISO 2026-11-16 blocks target slot when queried as 16 Nov 2026`() = runBlocking {
@@ -221,9 +215,6 @@ class GetAvailableSlotsUseCaseDateStressTest {
         assertTrue(useCase.isSlotStillAvailable(doctorId, "01 Nov 2026", "sun-slot-2"))
     }
 
-    // =========================================================================
-    // 3. Custom Time Range Exception with Varied Formats
-    // =========================================================================
 
     @Test
     fun `custom time exception on 2026-11-16 blocks overlapping slot when queried with 16 Nov 2026`() = runBlocking {
@@ -245,9 +236,6 @@ class GetAvailableSlotsUseCaseDateStressTest {
         assertEquals("mon-slot-2", available.first().weeklySlotId)
     }
 
-    // =========================================================================
-    // 4. Booked Slot Exclusion with Varied Formats
-    // =========================================================================
 
     @Test
     fun `booked slot excluded across 16 Nov 2026 and 2026-11-16 queries`() = runBlocking {
@@ -262,9 +250,6 @@ class GetAvailableSlotsUseCaseDateStressTest {
         assertEquals(listOf("mon-slot-1"), (resultIso as DoctorAvailabilityResult.Available).slots.map { it.weeklySlotId })
     }
 
-    // =========================================================================
-    // 5. Invalid Date Handling
-    // =========================================================================
 
     @Test
     fun `unparseable date returns empty available slots instead of throwing`() = runBlocking {

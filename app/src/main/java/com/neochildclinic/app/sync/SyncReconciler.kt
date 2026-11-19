@@ -4,8 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.neochildclinic.core.network.NetworkMonitor
 import com.neochildclinic.core.sync.SingleFlight
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.core.sync.RefreshDataUseCase
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.feature.widget.data.WidgetUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
@@ -40,6 +40,10 @@ import javax.inject.Singleton
  *
  * Realtime remains a timely trigger while connected; this is the correctness net for
  * events Realtime never delivered. Neither replaces the sync_queue/WorkManager push path.
+ *
+ * SY-02: the inbound leg is gated by [shouldRunFullRefresh], so a warm recent full pass
+ * (or a flapping connection) does not re-pull all 13 tables. Outbound push still runs on
+ * every ready edge, and the first-ever launch (no stored timestamp) always pulls.
  */
 @Singleton
 class SyncReconciler @Inject constructor(
@@ -52,6 +56,10 @@ class SyncReconciler @Inject constructor(
     private val flight = SingleFlight()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var started = false
+
+    // Reuse the existing sync preferences file (SyncWorker already stores failure_count
+    // there) rather than introducing a new DataStore for one timestamp.
+    private val prefs by lazy { context.getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE) }
 
     /** Idempotent; call once from Application.onCreate. */
     @Synchronized
@@ -72,12 +80,38 @@ class SyncReconciler @Inject constructor(
     private suspend fun reconcile() = flight.run {
         runCatching { syncRepository.processNextItems() }
             .onFailure { Log.w(TAG, "Outbound sync pass failed", it) }
-        runCatching { refreshDataUseCase() }
-            .onSuccess { WidgetUtils.updateWidget(context) }
-            .onFailure { Log.w(TAG, "Inbound refresh pass failed", it) }
+
+        if (shouldRunFullRefresh(prefs.getLong(KEY_LAST_FULL_REFRESH_AT, 0L))) {
+            // Only a successful pass marks the data fresh - a failed pull must be retried on
+            // the next start/reconnect instead of suppressing the safety net.
+            runCatching { refreshDataUseCase() }
+                .onSuccess {
+                    prefs.edit().putLong(KEY_LAST_FULL_REFRESH_AT, System.currentTimeMillis()).apply()
+                    WidgetUtils.updateWidget(context)
+                }
+                .onFailure { Log.w(TAG, "Inbound refresh pass failed", it) }
+        } else {
+            Log.d(TAG, "Skipping full refresh: last successful pass is still fresh")
+        }
     }
 
     private companion object {
         const val TAG = "SyncReconciler"
+        const val SYNC_PREFS = "sync_prefs"
+        const val KEY_LAST_FULL_REFRESH_AT = "last_full_refresh_at"
     }
 }
+
+/** How long a successful full pull keeps the inbound safety net from running again. */
+internal const val FULL_REFRESH_STALENESS_MS = 15 * 60 * 1000L
+
+/**
+ * Pure staleness gate (no Android dependencies so it is unit-testable). First-ever launch
+ * stores no timestamp (0L) and must always pull; a fresh pass is skipped.
+ */
+internal fun shouldRunFullRefresh(
+    lastFullRefreshAtMillis: Long,
+    nowMillis: Long = System.currentTimeMillis(),
+    stalenessMs: Long = FULL_REFRESH_STALENESS_MS
+): Boolean =
+    lastFullRefreshAtMillis <= 0L || nowMillis - lastFullRefreshAtMillis >= stalenessMs

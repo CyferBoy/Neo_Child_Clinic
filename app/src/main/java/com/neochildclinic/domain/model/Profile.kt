@@ -3,6 +3,8 @@ package com.neochildclinic.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+// Keep in sync with supabase/functions/manage-staff/index.ts and
+// supabase/migrations/20261001_app_metadata_roles.sql.
 @Serializable
 enum class UserRole {
     admin, doctor, receptionist, nurse, inventory_manager

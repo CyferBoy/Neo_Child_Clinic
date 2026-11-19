@@ -50,6 +50,25 @@ object DateUtils {
     val TIME_12H_FORMATTER: DateTimeFormatter =
         DateTimeFormatter.ofPattern("hh:mm a", Locale.US)
 
+    // PE-02: these used to be rebuilt with ofPattern() on every formatting call. All are
+    // immutable and thread-safe, so build them once and share (IST zone baked in where the
+    // output is an instant that must read as clinic-local time).
+    private val SHORT_DATE_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+    private val SHORT_DATE_WITH_YEAR_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("d MMM yy", Locale.ENGLISH)
+    private val DATE_TIME_DISPLAY_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm:ss", Locale.getDefault())
+            .withZone(ZoneId.of(IST_ZONE_ID))
+    private val DATE_TIME_IST_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("MMM d, yyyy hh:mm:ss a", Locale.ENGLISH)
+            .withZone(ZoneId.of(IST_ZONE_ID))
+    private val APP_DATE_FORMATTER_IST: DateTimeFormatter =
+        APP_DATE_FORMATTER.withZone(ZoneId.of(IST_ZONE_ID))
+    private val DATE_TIME_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH)
+            .withZone(ZoneId.of(IST_ZONE_ID))
+
     /**
      * Returns today's calendar date in IST formatted with the standard display format (Constants.DATE_FORMAT).
      */
@@ -81,8 +100,9 @@ object DateUtils {
         val date = parseDate(dateStr) ?: return dateStr
         val dateInIST = date.toInstant().atZone(ZoneId.of(IST_ZONE_ID))
         val currentYear = Instant.now().atZone(ZoneId.of(IST_ZONE_ID)).year
-        val pattern = if (dateInIST.year == currentYear) "d MMM" else "d MMM yy"
-        return dateInIST.format(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH))
+        return dateInIST.format(
+            if (dateInIST.year == currentYear) SHORT_DATE_FORMATTER else SHORT_DATE_WITH_YEAR_FORMATTER
+        )
     }
 
     // parseDate() is called for essentially every date across every Statistics screen
@@ -161,9 +181,7 @@ object DateUtils {
     fun formatDateTimeForDisplay(isoString: String): String {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
-        return DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm:ss", Locale.getDefault())
-            .withZone(ZoneId.of(IST_ZONE_ID))
-            .format(date.toInstant())
+        return DATE_TIME_DISPLAY_FORMATTER.format(date.toInstant())
     }
 
     /**
@@ -176,29 +194,21 @@ object DateUtils {
     fun formatDateTimeIST(isoString: String): String {
         if (isoString.isBlank()) return "N/A"
         val date = parseDate(isoString) ?: return isoString
-        val formatted = DateTimeFormatter.ofPattern("MMM d, yyyy hh:mm:ss a", Locale.ENGLISH)
-            .withZone(ZoneId.of(IST_ZONE_ID))
-            .format(date.toInstant())
+        val formatted = DATE_TIME_IST_FORMATTER.format(date.toInstant())
         return "$formatted IST"
     }
 
     fun formatDate(date: Date): String {
-        return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
-            .withZone(ZoneId.of(IST_ZONE_ID))
-            .format(date.toInstant())
+        return APP_DATE_FORMATTER_IST.format(date.toInstant())
     }
 
     fun formatDateTime(date: Date): String {
-        return DateTimeFormatter.ofPattern("${Constants.DATE_FORMAT}, hh:mm:ss a", Locale.ENGLISH)
-            .withZone(ZoneId.of(IST_ZONE_ID))
-            .format(date.toInstant())
+        return DATE_TIME_FORMATTER.format(date.toInstant())
     }
 
     fun formatDateForDisplay(dateStr: String): String {
         val date = parseDate(dateStr) ?: return dateStr
-        return DateTimeFormatter.ofPattern(Constants.DATE_FORMAT, Locale.ENGLISH)
-            .withZone(ZoneId.of(IST_ZONE_ID))
-            .format(date.toInstant())
+        return APP_DATE_FORMATTER_IST.format(date.toInstant())
     }
 
     /**
@@ -215,7 +225,7 @@ object DateUtils {
 
     // Absolute instants, stored/transported as UTC. The clinic's calendar date is
     // derived by converting to IST at read time (StatisticsDateUtils.parseToISTLocalDate),
-    // not by baking a device-local offset into the value - see DateUtils.IST.
+    // not by baking a device-local offset into the value - see IST_ZONE_ID.
     fun getCurrentIsoTimestamp(): String = Instant.now().toString()
 
     fun getIsoTimestampMinutesAgo(minutes: Int): String =

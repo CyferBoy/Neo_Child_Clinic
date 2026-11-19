@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neochildclinic.core.designsystem.*
+import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.statistics.domain.StatisticsUtils
 import java.util.Locale
 
@@ -55,8 +56,9 @@ fun FilterSection(
             options = listOf("Overall") + availableYears,
             modifier = Modifier.weight(1.25f),
             onOptionSelected = {
-                if (it == "Overall") onFilterModeChange("Overall")
-                else onFilterModeChange("FY ${it.takeLast(5)}")
+                val startYear = if (it == "Overall") null else FinanceCalculator.parseFinancialYearStart(it)
+                if (startYear == null) onFilterModeChange("Overall")
+                else onFilterModeChange(FinanceCalculator.formatFinancialYear(startYear))
             }
         )
         FilterPill(

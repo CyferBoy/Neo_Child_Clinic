@@ -11,6 +11,10 @@ jobs:
     permissions: {}
 
     steps:
+      - name: Validate release tag
+        shell: bash
+        run: bash .github/scripts/validate-release-tag.sh "${GITHUB_REF_NAME}"
+
       - name: Notify Supabase update endpoint
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -23,7 +27,7 @@ jobs:
 
           VERSION="${GITHUB_REF_NAME#v}"
 
-          BODY="$(python - <<'PY'
+          BODY="$(python3 - <<'PY'
           import json, os
           event = os.environ.get("GITHUB_EVENT_PATH")
           data = json.load(open(event))

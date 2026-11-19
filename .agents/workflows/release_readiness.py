@@ -17,7 +17,7 @@ log("Build configuration verified.")
 phase("Phase 2: QA & Test Status Check")
 log("Checking test verification status with qa-engineer...")
 qa_agent = agent(
-    prompt="Review the latest test run status across all 344 unit tests. Verify that no regressions or skipped tests exist for offline sync or billing calculations.",
+    prompt="Review the latest test run status across the current unit-test suite. Verify that no regressions or skipped tests exist for offline sync or billing calculations.",
     role="QA Release Auditor",
     type_name="qa-engineer",
     schema={"type": "string"}

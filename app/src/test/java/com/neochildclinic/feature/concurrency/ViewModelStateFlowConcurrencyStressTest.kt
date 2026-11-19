@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.concurrency
 
 import com.neochildclinic.domain.model.AuditLog
-import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
 import com.neochildclinic.feature.audit.presentation.PatientAuditLogPager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

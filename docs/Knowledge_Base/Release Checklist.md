@@ -16,15 +16,21 @@
 ```bash
 ./gradlew clean
 ./gradlew assembleDebug --no-daemon
-./gradlew assembleRelease --no-daemon     # if shipping
 ./gradlew lintDebug --no-daemon
+./gradlew lintRelease --no-daemon
+./gradlew assembleRelease --no-daemon     # signed, or the build fails closed
 ```
 
 - [ ] Debug APK assembles
-- [ ] Release APK assembles **and is signed**
-- [ ] `lintDebug` produces no new **Error**-severity issues
-- [ ] `versionCode` incremented (`gradle/libs.versions.toml`)
-- [ ] `versionName` set
+- [ ] Release APK assembles **and is signed** — no keystore secrets means the build fails, never unsigned
+- [ ] `lintDebug` and `lintRelease` produce no new **Error**-severity issues
+- [ ] `versionName` set in `gradle/libs.versions.toml:2`
+- [ ] `versionCode` derived from `versionName` by the shared major×1,000,000 + minor×1,000 + patch formula (`app/build.gradle.kts:48`) — **never** edited by hand
+
+⚠️ Shipping is gated by `.github/workflows/android-release.yml` (`workflow_dispatch` or a
+`vX.Y.Z` tag). It runs lint + assemble + `apksigner verify` + an R8 mapping archive and fails
+closed when `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` secrets are
+missing. Those names are env references to repository secrets; no signing material is committed.
 
 ⚠️ CI writes a temporary `app/google-services.json`. Locally, confirm yours is the real one
 and is **not** staged: `git status --porcelain | grep google-services` must be empty.
@@ -48,7 +54,7 @@ and is **not** staged: `git status --porcelain | grep google-services` must be e
 - [ ] Room migrations 17→33 apply cleanly on an existing install
 - [ ] `MigrationTestHelper` ran against a real exported schema
 
-⚠️ **All 8 instrumented test classes (56 `@Test` methods) are currently in `androidTest` and
+⚠️ **All 14 instrumented test classes (70 `@Test` methods) are currently in `androidTest` and
 do NOT run in `./gradlew test`.** A green `test` task says nothing about DAO SQL. See [[Testing]].
 
 ## 3. Database migration compatibility
@@ -194,8 +200,8 @@ where table_name='vaccine_batches' and column_name='expiry_date';
       [[Quality/Bug Register]] for the current list
 - [ ] `Known Bugs.md` severity ordering still accurate
 - [ ] [[Feature Roadmap]] updated to reflect what actually shipped
-- [ ] Git tag matches the `versionName`, and the naming is consistent —
-      ⚠️ currently mixed: `V0.5.0` vs `V.0.5.1`
+- [ ] Git tag is `vX.Y.Z` (e.g. `v0.6.0`) and matches `versionName` — enforced in CI by
+      `.github/scripts/validate-release-tag.sh`
 
 ### Reverting
 

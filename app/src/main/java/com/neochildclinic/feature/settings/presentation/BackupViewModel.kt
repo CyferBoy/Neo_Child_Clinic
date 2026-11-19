@@ -4,8 +4,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.feature.settings.domain.repository.BackupRepository
-import com.neochildclinic.data.backup.BackupAutoScheduler
+import com.neochildclinic.domain.repository.BackupRepository
+import com.neochildclinic.domain.repository.BackupAutoScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

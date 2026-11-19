@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.PatientEntity
-import com.neochildclinic.data.local.entity.ReminderSyncRef
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals

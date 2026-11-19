@@ -1,5 +1,6 @@
 package com.neochildclinic.feature.audit.data
 
+import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.core.logger.AuditLogWriter
 import com.neochildclinic.data.local.dao.AuditLogDao
 import com.neochildclinic.data.local.entity.AuditLogEntity
@@ -7,12 +8,17 @@ import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
-import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** Runs a transaction block inline; the default keeps direct-construction callers valid. */
+internal object InlineTransactionRunner : TransactionRunner {
+    override suspend fun <T> run(block: suspend () -> T): T = block()
+}
 
 /**
  * Remote audit-log reads and local audit-log persistence.
@@ -21,7 +27,9 @@ import javax.inject.Singleton
 class AuditLogRepositoryImpl @Inject constructor(
     private val postgrest: Postgrest,
     private val auditLogDao: AuditLogDao,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    // Hilt injects the Room-backed runner; direct callers keep the inline default.
+    private val transactionRunner: TransactionRunner = InlineTransactionRunner
 ) : AuditLogRepository, AuditLogWriter {
 
     override suspend fun getPaged(patientId: String?, offset: Int, limit: Int): List<AuditLog> {
@@ -50,13 +58,15 @@ class AuditLogRepositoryImpl @Inject constructor(
             patientId = auditLog.patientId,
             isSynced = false
         )
-        auditLogDao.insertLog(entity)
-        syncRepository.enqueue(
-            entityName = "AUDIT_LOG",
-            entityId = entity.id,
-            operation = SyncOperation.CREATE,
-            priority = SyncPriority.LOW,
-            transactionGroupId = transactionGroupId
-        )
+        transactionRunner.run {
+            auditLogDao.insertLog(entity)
+            syncRepository.enqueue(
+                entityName = "AUDIT_LOG",
+                entityId = entity.id,
+                operation = SyncOperation.CREATE,
+                priority = SyncPriority.LOW,
+                transactionGroupId = transactionGroupId
+            )
+        }
     }
 }

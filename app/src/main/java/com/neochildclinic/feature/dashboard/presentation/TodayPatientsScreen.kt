@@ -38,7 +38,8 @@ fun TodayPatientsScreen(
     viewModel: DashboardViewModel,
     onBack: () -> Unit,
     initialTab: String? = null,
-    highlightId: String? = null
+    highlightId: String? = null,
+    onCreateConsultation: (patientId: String, doctorId: String?, slotId: String?, date: String) -> Unit = { _, _, _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
@@ -390,7 +391,12 @@ fun TodayPatientsScreen(
                                             is VaccinationTodo -> viewModel.deleteVaccination(item.id)
                                         }
                                     },
-                                    onEdit = { editingTodo = item }
+                                    onEdit = { editingTodo = item },
+                                    onCreateConsultation = if (item is ConsultationTodo && !item.patientId.isNullOrBlank()) {
+                                        {
+                                            onCreateConsultation(item.patientId!!, item.doctorId, item.availabilitySlotId, item.todoDate)
+                                        }
+                                    } else null
                                 )
                             }
 
@@ -427,7 +433,7 @@ fun TodayPatientsScreen(
                                     }
                                     val slotRange = slotId?.let { uiState.slotRanges[it] }
                                     TodayPatientItem(
-                                        index = pendingList.size + index + 1,
+                                        index = index + 1,
                                         item = item,
                                         slotRange = slotRange,
                                         isHighlighted = itemId != null && itemId == pendingHighlightId,

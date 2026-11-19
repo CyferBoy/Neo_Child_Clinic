@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.core.common.Constants
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException

@@ -1,33 +1,32 @@
 # Testing
 
-> 49 test files. 277 unit tests passing. Where the coverage actually is — and where it is not.
+> 97 unit test files. 554 unit tests passing. Where the coverage actually is — and where it is not.
 > Related: [[Known Bugs]] · [[Room Database]] · [[Error Handling]]
 
 ## The headline number
 
 | Metric | Value |
 |---|---|
-| Unit test files (`app/src/test`) | **41** |
-| Instrumented test files (`app/src/androidTest`) | **8** (56 `@Test`, 1 `@Ignore`d) |
-| Total test lines | ~5,642 (vs ~47,749 in main — **11.8%**) |
-| Unit tests passing | **277, 0 failures, 0 errors** |
-| Last recorded run | `./gradlew :app:testDebugUnitTest`, **2026-10-18** |
-| Instrumented tests | 🔍 **green in CI 2026-10-18** on API 34 (CI-recorded, not reproduced here) — see below |
+| Unit test files (`app/src/test`) | **97** |
+| Instrumented test files (`app/src/androidTest`) | **14** (70 `@Test`, 1 `@Ignore`d) |
+| Total test lines | ~13,577 (vs ~64,434 in main — **21.1%**) |
+| Unit tests passing | **554, 0 failures, 0 errors** |
+| Last recorded run | `./gradlew :app:testDebugUnitTest`, **2026-11-19** |
+| Instrumented tests | 🔍 **last recorded green 2026-10-18** on API 34 (CI-recorded, not reproduced here) — see below |
 
-✅ The 277 figure and the instrumented result are both from runs performed while writing this
-vault, not carried over.
+✅ The 554 figure is from the 2026-11-19 run; the instrumented result is the older CI run noted above.
 
 | Lines | Count |
 |---|---|
-| `app/src/main` | 47,749 |
-| `app/src/test` | 4,118 |
-| `app/src/androidTest` | 1,524 |
+| `app/src/main` | 64,434 |
+| `app/src/test` | 11,423 |
+| `app/src/androidTest` | 2,154 |
 
 ## The pattern that explains everything
 
 > **Every extracted pure function is tested. Every orchestrator is not.**
 
-The 41 unit test files cover pure/domain logic almost exclusively: `MemoryCache`,
+The 97 unit test files cover pure/domain logic almost exclusively: `MemoryCache`,
 `PatientCache`, `DateClassifier`, `InventoryUtils`, `InventoryStockMovement`,
 `VaccinationEditEngine.inventoryDiff`, `EditReconciler`, `ReminderDueListProcessor`'s
 neighbours, `FinanceCalculator`, `ExpenseCalculator`, `StatisticsUtils`, `BackupCrypto`,
@@ -42,7 +41,7 @@ an error path, no coverage of a `combine` chain.
 correctness was invisible to CI, and for a long time it was: `ExpenseMigrationTest.kt` says the
 quiet part out loud in its own KDoc —
 
-> *"It is currently @Ignore'd: only 33.json was ever exported… androidTest is not part of the
+> *"It is currently @Ignore'd: only 22.json/23.json were exported when this test was written; 33.json/34.json/35.json are exported now… androidTest is not part of the
 > default test run, so this reported green without ever executing."*
 
 ✅ **That is no longer true.** `.github/workflows/android-instrumented.yml` runs
@@ -96,7 +95,7 @@ and `:226`.
 |---|---|---|
 | 1 | **`BackupRestorer`** — 318 lines, the most destructive code in the app | A wrong FK ordering fails mid-transaction; a wrong `appliedIds` set re-queues rows never written |
 | 2 | **`ClinicalVaccinationService.recordVaccination` / `deductInventoryForNewVaccination`** | The entire create-time stock path: COMPLETED/FAILED ledger distinction, PARTIAL status, the narrow-catch contract. **Where two live bugs sit.** |
-| 3 | **`VaccinationEditEngine.applyInventoryDiff` + `reconcileInventoryDeductions`** | Only the pure `inventoryDiff` and `deductionStatus` are tested. The reversal cap, `allowExpired` and shortfall capture are not. |
+| 3 | **`VaccinationEditEngine.applyInventoryDiff` + `reconcileInventoryDeductions`** | Only the pure `inventoryDiff` and `deductionStatus` are tested. The reversal cap and shortfall capture are not. |
 | 4 | **`ReminderDueListProcessor.process()` / `.stats()`** | The most load-bearing pure function in the reminder subsystem. **Zero tests.** |
 | 5 | **`InventoryRepositoryImpl` stock mutations** (`deductStockFromBatch`, `addStockToBatch`, `reverseDeduction`, `updateBatch`, `addBatch`) | Every stock write in the app. Only the two pure helpers they call are tested. |
 | 6 | **`VaccinationRepositoryImpl.deleteVaccination`** | The 6-step transactional delete, the idempotency latch, the child-before-parent enqueue order |

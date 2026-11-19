@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.borrowed.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -292,8 +293,8 @@ fun isLoanOverdue(borrowedDateStr: String, remainingQuantity: Int): Boolean {
     if (remainingQuantity <= 0 || borrowedDateStr.isBlank()) return false
     return try {
         val parsed = DateUtils.parseDate(borrowedDateStr) ?: return false
-        val borrowedLocalDate = parsed.toInstant().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
-        LocalDate.now(ZoneId.of("Asia/Kolkata")).isAfter(borrowedLocalDate.plusDays(7))
+        val borrowedLocalDate = parsed.toInstant().atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
+        LocalDate.now(ZoneId.of(IST_ZONE_ID)).isAfter(borrowedLocalDate.plusDays(7))
     } catch (_: Exception) {
         false
     }

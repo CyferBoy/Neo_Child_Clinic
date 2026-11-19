@@ -83,7 +83,7 @@ fun MonthlyFinancesScreen(
     }
 
     val filterOptions = remember(availableYears) {
-        listOf("Overall") + availableYears.reversed().map { "FY $it" }
+        listOf("Overall") + availableYears.reversed()
     }
 
     val displayData = remember(cleanTransactions, validVaccinations, cleanExpenses, selectedFilter, visitDatesById) {

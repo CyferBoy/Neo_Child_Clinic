@@ -56,7 +56,7 @@ Run standard verification commands in the Desktop integrated terminal:
 # 1. Validate documentation
 python3 scripts/validate_docs.py --strict
 
-# 2. Run JVM unit tests (344 tests)
+# 2. Run JVM unit tests (554 tests)
 ./gradlew testDebugUnitTest
 
 # 3. Build debug APK

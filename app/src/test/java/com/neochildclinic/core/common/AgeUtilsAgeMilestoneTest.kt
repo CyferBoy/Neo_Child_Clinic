@@ -79,4 +79,16 @@ class AgeUtilsAgeMilestoneTest {
     fun invalidDobIsIgnored() {
         assertNull(AgeUtils.getNextAgeMilestone("not-a-date", calendar("2026-08-25"), calendar("2026-10-25")))
     }
+
+    @Test
+    fun leapDayDobMilestoneClampsToFebruary28InANonLeapYear() {
+        // 2024-02-29 + 12 months is 2025-02-28 in java.time; the milestone must be found
+        // (a hand-rolled "set year + 1" would throw or roll over into March).
+        val result = AgeUtils.getNextAgeMilestone(
+            "2024-02-29",
+            calendar("2025-02-27"),
+            calendar("2025-03-02")
+        )
+        assertEquals("12 Months", result?.label)
+    }
 }

@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.feature.patient.domain.MergePatientsUseCase
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
-import com.neochildclinic.feature.sync.domain.RefreshTables
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.core.sync.RefreshDataUseCase
+import com.neochildclinic.core.sync.RefreshTables
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.core.security.CurrentUserProvider
 import com.neochildclinic.domain.model.UserRole
 import com.neochildclinic.core.sync.RealtimeChangeSubscriptions
@@ -23,6 +23,10 @@ enum class PatientSortOption {
     NEWEST
 }
 
+/** State emitted when the upstream patient flow fails - keeps the screen out of a permanent spinner. */
+internal fun patientLoadErrorState(error: Throwable): PatientListUiState =
+    PatientListUiState(isLoading = false, error = error.message ?: "Could not load patients")
+
 data class PatientListUiState(
     val patients: List<Patient> = emptyList(),
     val isLoading: Boolean = false,
@@ -30,7 +34,7 @@ data class PatientListUiState(
     val searchQuery: String = "",
     val sortOption: PatientSortOption = PatientSortOption.NAME_AZ,
     val isMergeSelectionMode: Boolean = false,
-    val selectedPatients: Set<Patient> = emptySet(),
+    val selectedPatients: Set<String> = emptySet(),
     val isMerging: Boolean = false,
     val patientsWithMissingPrice: Set<String> = emptySet(),
     val totalCount: Int = 0,
@@ -54,7 +58,7 @@ class PatientListViewModel @Inject constructor(
 
     private val _sortOption = MutableStateFlow(PatientSortOption.NAME_AZ)
     private val _isMergeSelectionMode = MutableStateFlow(false)
-    private val _selectedPatients = MutableStateFlow<Set<Patient>>(emptySet())
+    private val _selectedPatients = MutableStateFlow<Set<String>>(emptySet())
     private val _isMerging = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
     private val _isRefreshing = MutableStateFlow(false)
@@ -94,7 +98,10 @@ class PatientListViewModel @Inject constructor(
             totalCount = total,
             isRefreshing = internalState.refreshing
         )
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientListUiState(isLoading = true))
+    }.flowOn(Dispatchers.Default).catch { e ->
+        if (e is CancellationException) throw e
+        emit(patientLoadErrorState(e))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientListUiState(isLoading = true))
 
     init {
         // Entry and realtime events pull only the three tables this screen shows (plus
@@ -157,10 +164,10 @@ class PatientListViewModel @Inject constructor(
     fun toggleSelection(patient: Patient) {
         var isNowMergeMode = false
         _selectedPatients.update { currentSelected ->
-            val newSelected = if (currentSelected.contains(patient)) {
-                currentSelected - patient
+            val newSelected = if (patient.id in currentSelected) {
+                currentSelected - patient.id
             } else {
-                currentSelected + patient
+                currentSelected + patient.id
             }
             isNowMergeMode = newSelected.isNotEmpty()
             newSelected
@@ -174,7 +181,7 @@ class PatientListViewModel @Inject constructor(
     }
 
     fun enterMergeMode(initialPatient: Patient) {
-        _selectedPatients.update { setOf(initialPatient) }
+        _selectedPatients.update { setOf(initialPatient.id) }
         _isMergeSelectionMode.update { true }
     }
 
@@ -192,13 +199,13 @@ class PatientListViewModel @Inject constructor(
     }
 
     fun mergeSelectedPatients(master: Patient) {
-        val selected = _selectedPatients.value
-        val secondary = selected.find { it != master }
-        if (secondary != null) {
+        // Selection holds ids so a pull emitting fresh Patient objects cannot drop it.
+        val secondaryId = _selectedPatients.value.firstOrNull { it != master.id }
+        if (secondaryId != null) {
             viewModelScope.launch {
                 _isMerging.update { true }
                 try {
-                    mergePatientsUseCase(master.id, listOf(secondary.id))
+                    mergePatientsUseCase(master.id, listOf(secondaryId))
                     clearSelection()
                 } catch (e: CancellationException) {
                     throw e

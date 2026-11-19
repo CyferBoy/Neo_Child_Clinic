@@ -3,8 +3,8 @@ package com.neochildclinic.feature.waste.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neochildclinic.domain.model.WasteRecord
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.waste.domain.repository.WasteRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.WasteRepository
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -208,7 +208,6 @@ class WasteViewModel @Inject constructor(
             return false
         }
 
-        // Check available stock
         val batch = uiState.value.inventory.find { it.batchId == batchId }
         val currentRecord = if (isEdit && wasteId != null) uiState.value.wasteRecords.find { it.id == wasteId } else null
         

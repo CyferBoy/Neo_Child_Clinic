@@ -53,14 +53,6 @@
                     android:host="app.neochildclinic.com"
                     android:pathPrefix="/auth-callback" />
             </intent-filter>
-
-            <!-- Custom URI Scheme (Retained as Fallback / Backward Compatibility) -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="neochild" android:host="auth-callback" />
-            </intent-filter>
         </activity>
 
         <activity

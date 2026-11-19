@@ -16,7 +16,7 @@ import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.minimalConfig
@@ -266,10 +266,8 @@ class ConsultationRepositoryImplTest {
         val txGroupId = "test-group-123"
         repository.updateConsultation(updatedConsultation, txGroupId)
 
-        // 1. Verify transaction runner ran
         assertEquals(1, transactionRunner.runCount)
 
-        // 2. Verify visit header was synchronized
         val updatedVisit = localVisits["v1"]
         assertNotNull(updatedVisit)
         assertEquals("Dr. Jones", updatedVisit!!.doctor)
@@ -278,21 +276,18 @@ class ConsultationRepositoryImplTest {
         assertEquals(700.0, updatedVisit.totalPaid, 0.001)
         assertFalse(updatedVisit.isSynced)
 
-        // 3. Verify VISIT sync was enqueued with high priority and transactionGroupId
         val visitSync = enqueuedSyncs.firstOrNull { it.entityName == "VISIT" && it.entityId == "v1" }
         assertNotNull("VISIT sync must be enqueued when mirrored fields change", visitSync)
         assertEquals(SyncOperation.UPDATE, visitSync!!.operation)
         assertEquals(SyncPriority.HIGH, visitSync.priority)
         assertEquals(txGroupId, visitSync.transactionGroupId)
 
-        // 4. Verify CONSULTATION sync was enqueued with medium priority and transactionGroupId
         val consultationSync = enqueuedSyncs.firstOrNull { it.entityName == "CONSULTATION" && it.entityId == "c1" }
         assertNotNull(consultationSync)
         assertEquals(SyncOperation.UPDATE, consultationSync!!.operation)
         assertEquals(SyncPriority.MEDIUM, consultationSync.priority)
         assertEquals(txGroupId, consultationSync.transactionGroupId)
 
-        // 5. Verify audit log was recorded
         val log = auditLogs.firstOrNull { it.entityId == "c1" }
         assertNotNull(log)
         assertEquals("CONSULTATION_UPDATED", log!!.action)
@@ -347,17 +342,14 @@ class ConsultationRepositoryImplTest {
 
         repository.updateConsultation(updatedConsultation)
 
-        // 1. Visit entity must NOT have been updated
         assertFalse(
             "UPSERT_VISIT must not be called when mirrored fields did not change",
             executionEventLog.any { it.startsWith("UPSERT_VISIT") }
         )
 
-        // 2. VISIT sync must NOT have been enqueued
         val visitSync = enqueuedSyncs.firstOrNull { it.entityName == "VISIT" }
         assertNull("No VISIT sync should be enqueued for consultation-only change", visitSync)
 
-        // 3. CONSULTATION sync MUST be enqueued
         val consultationSync = enqueuedSyncs.firstOrNull { it.entityName == "CONSULTATION" }
         assertNotNull(consultationSync)
         assertEquals(SyncOperation.UPDATE, consultationSync!!.operation)
@@ -401,13 +393,11 @@ class ConsultationRepositoryImplTest {
 
         repository.deleteConsultation("c1")
 
-        // 1. Verify all records deleted locally
         assertNull(localConsultations["c1"])
         assertNull(localFinance["f1"])
         assertNull(localFinance["f2"])
         assertNull(localVisits["v1"])
 
-        // 2. Verify strict deletion and queue order:
         // Order must be: Consultation (child) -> Finance (children) -> Visit (mother header)
         val deleteEvents = executionEventLog.filter { it.startsWith("DELETE_") }
         assertEquals(
@@ -420,7 +410,6 @@ class ConsultationRepositoryImplTest {
             deleteEvents
         )
 
-        // 3. Verify sync enqueues occurred in the exact same order
         val syncEntities = enqueuedSyncs.filter { it.operation == SyncOperation.DELETE }.map { "${it.entityName}:${it.entityId}" }
         assertEquals(
             listOf(
@@ -432,7 +421,6 @@ class ConsultationRepositoryImplTest {
             syncEntities
         )
 
-        // 4. Verify audit log was created
         val log = auditLogs.firstOrNull { it.entityId == "c1" }
         assertNotNull(log)
         assertEquals("DELETED", log!!.action)

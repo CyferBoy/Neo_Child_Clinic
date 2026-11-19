@@ -7,7 +7,7 @@ import com.neochildclinic.domain.model.BatchStatus
 import com.neochildclinic.domain.model.InventoryFilter
 import com.neochildclinic.domain.model.InventoryItem
 import com.neochildclinic.domain.model.InventorySort
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.neochildclinic.core.security.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow

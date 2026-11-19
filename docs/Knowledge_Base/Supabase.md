@@ -18,7 +18,7 @@ supabase/
 └── .gitignore
 ```
 
-⚠️ **Tracked, but not replayable from a clean clone.** The 29 migrations contain only 9
+⚠️ **Tracked, but not replayable from a clean clone.** The 37 migrations contain only 9
 `create table` statements; 18 tables are referenced and altered but never created — the 15
 legacy base tables (`patients`, `patient_visits`, `patient_notes`, `vaccination_items`,
 `vaccines`, `vaccine_batches`, `inventory_transactions`, `waste_records`, `borrow_records`,

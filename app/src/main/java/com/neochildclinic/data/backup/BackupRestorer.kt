@@ -148,7 +148,7 @@ class BackupRestorer(
             val existingById = existing.associateBy(idOf)
             val toApply = incoming.filter { row ->
                 val current = existingById[idOf(row)] ?: return@filter true
-                (updatedAtOf(row) ?: "") > (updatedAtOf(current) ?: "")
+                isNewerForLww(updatedAtOf(row), updatedAtOf(current))
             }
             appliedIds.getOrPut(table) { mutableSetOf() }.addAll(toApply.map(idOf))
             return toApply
@@ -217,8 +217,8 @@ class BackupRestorer(
             val current = listOfNotNull(
                 existingReminderById[incoming.id],
                 existingReminderByNaturalKey[incoming.naturalKey()]
-            ).maxByOrNull { it.updatedAt }
-            current == null || incoming.updatedAt > current.updatedAt
+            ).maxByOrNull { DateUtils.isoToLong(it.updatedAt) }
+            current == null || isNewerForLww(incoming.updatedAt, current.updatedAt)
         }
         appliedIds.getOrPut("reminders") { mutableSetOf() }.addAll(remindersToApply.map { it.id })
         if (remindersToApply.isNotEmpty()) backupDao.insertReminders(remindersToApply)
@@ -244,14 +244,13 @@ class BackupRestorer(
         if (invTxToApply.isNotEmpty()) backupDao.insertInventoryTransactions(invTxToApply)
         appliedCounts["inventoryTransactions"] = invTxToApply.size
 
+        // Dedupe on the stable natural key (CL-10): restored auto-increment ids are local
+        // only, so keying on them made device A's dose get appended again on device B.
         val invDeductionsExisting = backupDao.getAllInventoryDeductionsForBackup()
-        val invDeductionsToApply = insertIfAbsent(
-            "inventoryDeductions", payload.inventoryDeductions, invDeductionsExisting
-        ) { "${it.vaccinationId}:${it.vaccineId}:${it.batchId}:${it.resolvedAt}" }
-        if (invDeductionsToApply.isNotEmpty()) {
-            val freshDeductions = invDeductionsToApply.map { it.copy(id = 0) }
-            backupDao.insertInventoryDeductions(freshDeductions)
-        }
+        val invDeductionsToApply = deductionsToApply(invDeductionsExisting, payload.inventoryDeductions)
+        if (invDeductionsToApply.isNotEmpty()) backupDao.insertInventoryDeductions(invDeductionsToApply)
+        appliedIds.getOrPut("inventoryDeductions") { mutableSetOf() }
+            .addAll(invDeductionsToApply.map { deductionMergeKey(it) })
         appliedCounts["inventoryDeductions"] = invDeductionsToApply.size
 
         val financeToApply = insertIfAbsent("financeTransactions", payload.financeTransactions, backupDao.getAllFinanceForBackup(), { it.id })
@@ -345,6 +344,54 @@ class BackupRestorer(
 
         entries.forEach { database.syncQueueDao().enqueue(it) }
     }
+}
+
+/**
+ * Merge-mode last-write-wins decision, mirroring SyncUploader.uploadEntity exactly:
+ * "incoming > current && current > 0" after converting both through [DateUtils.isoToLong].
+ * A 0/unparseable timestamp is unknown, so it is never a valid baseline to beat and an
+ * unknown incoming timestamp can never win.
+ */
+internal fun isNewerForLww(incoming: String?, current: String?): Boolean {
+    val incomingLong = DateUtils.isoToLong(incoming)
+    val currentLong = DateUtils.isoToLong(current)
+    return incomingLong > currentLong && currentLong > 0L
+}
+
+/**
+ * Stable cross-device identity of a deduction: vaccination/vaccine/batch come from synced
+ * entities and resolvedAt is the recorded instant, so the same dose has this key on every
+ * device. The restored primary key does not (CL-10).
+ */
+internal fun deductionNaturalKey(d: InventoryDeductionEntity): String =
+    "${d.vaccinationId}:${d.vaccineId}:${d.batchId}:${d.resolvedAt}"
+
+/**
+ * Full identity of a restored deduction: natural key plus the restored id as a tie-breaker,
+ * so two legitimate rows recorded in the same millisecond in one visit stay distinct (CL-09).
+ * The id is local-only, so callers dedupe on [deductionNaturalKey] and use this only to
+ * distinguish rows that share that key.
+ */
+internal fun deductionMergeKey(d: InventoryDeductionEntity): String =
+    "${deductionNaturalKey(d)}#${d.id}"
+
+/**
+ * Rows in [incoming] not already represented in [existing]. Dedupe is by
+ * [deductionNaturalKey]; same-key rows are paired by their id-sorted ordinal, with the
+ * restored id acting only as a tie-breaker. That keeps two deductions from one visit
+ * (identical natural key, different local ids) distinct while stopping device A's dose
+ * from being appended a second time on device B, whose local ids differ.
+ */
+internal fun deductionsToApply(
+    existing: List<InventoryDeductionEntity>,
+    incoming: List<InventoryDeductionEntity>
+): List<InventoryDeductionEntity> {
+    val presentByNaturalKey = existing.groupingBy { deductionNaturalKey(it) }.eachCount()
+    return incoming
+        .groupBy { deductionNaturalKey(it) }
+        .flatMap { (naturalKey, rows) ->
+            rows.sortedBy { it.id }.drop(presentByNaturalKey[naturalKey] ?: 0)
+        }
 }
 
 private fun ReminderEntity.naturalKey(): String =

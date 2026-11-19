@@ -18,7 +18,7 @@ import com.neochildclinic.domain.model.PersonalReminderStatus
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.feature.personalreminder.data.PersonalReminderRepositoryImpl
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.sun.net.httpserver.HttpServer
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
@@ -89,7 +89,6 @@ class PersonalReminderRepositoryImplTest {
         transactionRunner = ImmediateTransactionRunner()
         auditLogWritten = CompletableDeferred()
 
-        // 1. Setup in-memory HTTP server to mock Supabase PostgREST
         httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/rest/v1/personal_vaccine_reminders") { exchange ->
                 requestCount++
@@ -112,7 +111,6 @@ class PersonalReminderRepositoryImplTest {
             }
         }
 
-        // 2. Setup DAOs via Proxy
         val reminderDaoProxy = Proxy.newProxyInstance(
             PersonalReminderDao::class.java.classLoader,
             arrayOf(PersonalReminderDao::class.java)
@@ -260,20 +258,17 @@ class PersonalReminderRepositoryImplTest {
 
         repository.createReminder(reminder)
 
-        // 1. Verify entity persisted
         val saved = localReminders["rem-1"]
         assertNotNull(saved)
         assertEquals("Test Baby", saved!!.patientName)
         assertFalse("Created reminder must be un-synced initially", saved.isSynced)
 
-        // 2. Verify Sync Queue
         val sync = enqueuedSyncs.firstOrNull { it.entityId == "rem-1" }
         assertNotNull(sync)
         assertEquals("PERSONAL_REMINDER", sync!!.entityName)
         assertEquals(SyncOperation.CREATE, sync.operation)
         assertEquals(SyncPriority.MEDIUM, sync.priority)
 
-        // 3. Verify Audit Log
         val log = awaitAuditLog("rem-1")
         assertNotNull(log)
         assertEquals("CREATED", log!!.action)

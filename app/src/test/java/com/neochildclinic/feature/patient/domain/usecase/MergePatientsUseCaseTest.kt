@@ -11,12 +11,12 @@ import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 import com.neochildclinic.feature.patient.domain.MergePatientsUseCase
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.minimalConfig
@@ -249,19 +249,16 @@ class MergePatientsUseCaseTest {
         assertEquals(1, transactionRunner.commitCount)
         assertEquals(0, transactionRunner.rollbackCount)
 
-        // 1. Verify child transfers
         assertEquals(listOf(Pair("dup-1", "master-1")), transferredVaccinations)
         assertEquals(listOf(Pair("dup-1", "master-1")), transferredReminders)
         assertEquals(listOf(Pair("dup-1", "master-1")), transferredInventory)
 
-        // 2. Verify reassignPatientLinkedRecords received non-null groupId
         assertEquals(1, reassignedLinkedRecords.size)
         val (reassignedFrom, reassignedTo, sharedGroupId) = reassignedLinkedRecords[0]
         assertEquals("dup-1", reassignedFrom)
         assertEquals("master-1", reassignedTo)
         assertNotNull(sharedGroupId)
 
-        // 3. Verify sync enqueue calls all share this single groupId
         assertTrue(enqueuedSyncItems.isNotEmpty())
         enqueuedSyncItems.forEach { item ->
             assertEquals(
@@ -271,7 +268,6 @@ class MergePatientsUseCaseTest {
             )
         }
 
-        // 4. Verify specific enqueued entities
         val vaccinationEnqueues = enqueuedSyncItems.filter { it.entityName == "VACCINATION" }
         assertEquals(2, vaccinationEnqueues.size)
         assertEquals(setOf("vacc-1", "vacc-2"), vaccinationEnqueues.map { it.entityId }.toSet())
@@ -285,13 +281,11 @@ class MergePatientsUseCaseTest {
         assertEquals("master-1", masterPatientEnqueues[0].entityId)
         assertEquals(SyncOperation.UPDATE, masterPatientEnqueues[0].operation)
 
-        // 5. Verify audit log was recorded with the shared groupId
         assertEquals(1, auditLogs.size)
         assertEquals("MERGE_PATIENT", auditLogs[0].action)
         assertEquals("master-1", auditLogs[0].patientId)
         assertEquals("Audit row must share the merge groupId", sharedGroupId, auditGroups.first())
 
-        // 6. Verify duplicate patient deletion was called with shared groupId
         assertEquals(listOf(Pair("dup-1", sharedGroupId)), deletedPatients)
     }
 

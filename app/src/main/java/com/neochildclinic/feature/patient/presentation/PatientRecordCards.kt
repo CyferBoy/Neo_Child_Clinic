@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.common.DateUtils
 
 import androidx.compose.foundation.BorderStroke
@@ -266,7 +267,7 @@ fun ClinicalNoteCard(note: PatientNote) {
     val dateDisplay = remember(note.timestamp) { 
         val date = com.neochildclinic.core.common.DateUtils.parseDate(note.timestamp) ?: Date(0)
         DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", Locale.ENGLISH)
-            .withZone(ZoneId.of("Asia/Kolkata"))
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(date.toInstant())
     }
     Card(

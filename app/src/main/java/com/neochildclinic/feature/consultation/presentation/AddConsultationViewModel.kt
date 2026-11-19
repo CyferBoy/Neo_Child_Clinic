@@ -9,9 +9,9 @@ import com.neochildclinic.domain.model.AvailableSlot
 import com.neochildclinic.domain.model.Consultation
 import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.feature.consultation.domain.repository.ConsultationRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.ConsultationRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.ProfileRepository
 import com.neochildclinic.feature.consultation.domain.usecase.RecordConsultationUseCase
 import com.neochildclinic.feature.consultation.domain.ConsultationEditEngine
 import com.neochildclinic.feature.doctor.domain.GetAvailableSlotsUseCase
@@ -64,6 +64,10 @@ class AddConsultationViewModel @Inject constructor(
     // it - only the most recently requested load is allowed to update slotsState.
     private var slotLoadToken = 0
 
+    // Slot carried over from a Today's Patient todo; consumed by the first slot load so a
+    // later doctor change cannot preselect a slot that belongs to the previous doctor.
+    private val presetSlots = PresetSlotHolder()
+
     init {
         loadDoctors()
     }
@@ -90,6 +94,13 @@ class AddConsultationViewModel @Inject constructor(
             val patient = patientRepository.getPatientById(patientId)
             _uiState.update { it.copy(patient = patient) }
         }
+    }
+
+    /** Pre-fills the doctor/slot carried over from a Today's Patient todo. */
+    fun applyPreset(doctorId: String?, slotId: String?) {
+        if (doctorId.isNullOrBlank() && slotId.isNullOrBlank()) return
+        presetSlots.preset(slotId)
+        if (!doctorId.isNullOrBlank()) editingDoctorId.value = doctorId
     }
 
     private fun loadDoctors() {
@@ -141,10 +152,10 @@ class AddConsultationViewModel @Inject constructor(
             // attribution/display and may differ.
             val result = getAvailableSlotsUseCase.loadUiState(doctor.id, date)
             if (token != slotLoadToken) return@launch // superseded by a newer request
+            val editingSlotId = _uiState.value.editingConsultation?.availabilitySlotId
+            val slots = (result as? SlotsUiState.Loaded)?.slots.orEmpty()
+            val preselect = presetSlots.take(editingSlotId, slots)
             _uiState.update { current ->
-                val preselect = current.editingConsultation?.availabilitySlotId
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { slotId -> (result as? SlotsUiState.Loaded)?.slots?.firstOrNull { it.weeklySlotId == slotId } }
                 current.copy(slotsState = result, selectedSlot = preselect ?: current.selectedSlot)
             }
         }
@@ -162,6 +173,7 @@ class AddConsultationViewModel @Inject constructor(
         problem: String,
         nextFollowUpDate: String
     ) {
+        if (_uiState.value.isLoading) return
         val state = _uiState.value
         if (state.selectedDoctor == null) {
             _uiState.update { it.copy(doctorError = true, error = "Please select a doctor.") }
@@ -173,8 +185,8 @@ class AddConsultationViewModel @Inject constructor(
         }
 
         val totalAmount = cash + online
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
             try {
                 // Revalidate (req. 17): another device may have changed this doctor's
                 // availability (a new date exception, or the weekly slot being toggled
@@ -257,5 +269,30 @@ class AddConsultationViewModel @Inject constructor(
 
     fun resetState() {
         _uiState.update { it.copy(isSaved = false, error = null) }
+    }
+}
+
+/**
+ * One-shot slot carried from a Today's Patient todo into Add Consultation.
+ * Extracted from the ViewModel so the "preset once, never for a later doctor" rule is
+ * testable without constructing the whole screen.
+ */
+internal class PresetSlotHolder {
+    private var slotId: String? = null
+
+    fun preset(slotId: String?) {
+        this.slotId = slotId?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * The editing consultation's slot wins; otherwise the pending preset. A preset that
+     * is not in [slots] is kept (for the next doctor/date load) and nothing is selected.
+     * A hit consumes it.
+     */
+    fun take(editingSlotId: String?, slots: List<AvailableSlot>): AvailableSlot? {
+        val wanted = editingSlotId?.takeIf { it.isNotBlank() } ?: slotId ?: return null
+        val match = slots.firstOrNull { it.weeklySlotId == wanted } ?: return null
+        if (slotId != null) slotId = null
+        return match
     }
 }

@@ -6,8 +6,8 @@ import com.neochildclinic.data.local.dao.SyncQueueDao
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Profile
-import com.neochildclinic.feature.profile.domain.repository.ProfileRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.ProfileRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
 import io.github.jan.supabase.auth.Auth
@@ -82,23 +82,26 @@ class ProfileRepositoryImpl @Inject constructor(
                 }
                 .decodeList<Profile>()
         }
-        // One bulk queue read per refresh instead of one per row (same semantics as the
-        // per-row isUnsynced this replaces).
-        val pendingProfileIds = syncQueueDao.get().unsyncedIdSet("PROFILE")
-        profiles.forEach { profile ->
-            if (profile.id !in pendingProfileIds) {
-                profileDao.get().insertProfile(profile.toEntity())
+        transactionRunner.get().run {
+            // One bulk queue read per refresh instead of one per row (same semantics as the
+            // per-row isUnsynced this replaces). Read the guard inside the transaction so a
+            // queued edit committed here is visible before this pull overwrites it.
+            val pendingProfileIds = syncQueueDao.get().unsyncedIdSet("PROFILE")
+            profiles.forEach { profile ->
+                if (profile.id !in pendingProfileIds) {
+                    profileDao.get().insertProfile(profile.toEntity())
+                }
             }
+            // Remote-deletion propagation (NCC-023 / DA-01): profiles has no isSynced column, so
+            // the queue guard alone protects rows whose edit is still local; any other row absent
+            // from the remote set is a staff profile deleted elsewhere.
+            RemotePrune.computeBatches(
+                localIds = profileDao.get().getProfileIds(),
+                syncedIds = null,
+                remoteIds = profiles.mapTo(HashSet()) { it.id },
+                pendingIds = pendingProfileIds
+            ).flatten().forEach { profileDao.get().deleteProfileById(it) }
         }
-        // Remote-deletion propagation (NCC-023 / DA-01): profiles has no isSynced column, so
-        // the queue guard alone protects rows whose edit is still local; any other row absent
-        // from the remote set is a staff profile deleted elsewhere.
-        RemotePrune.computeBatches(
-            localIds = profileDao.get().getProfileIds(),
-            syncedIds = null,
-            remoteIds = profiles.mapTo(HashSet()) { it.id },
-            pendingIds = pendingProfileIds
-        ).flatten().forEach { profileDao.get().deleteProfileById(it) }
     }
 
     override suspend fun updateProfile(profile: Profile) {

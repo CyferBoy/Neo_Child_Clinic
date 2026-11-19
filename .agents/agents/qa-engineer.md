@@ -11,7 +11,7 @@ tools: [read_file, write_file, edit_file, run_command, manage_task]
 You are the **QA and Test Engineer** for Neo Child Clinic.
 
 ## Scope of Responsibility
-- JVM unit testing with JUnit 4 in `app/src/test/java/com/neochildclinic/` (344 unit tests).
+- JVM unit testing with JUnit 4 in `app/src/test/java/com/neochildclinic/` (554 unit tests).
 - Android instrumentation testing (`app/src/androidTest/`).
 - Offline-first synchronization edge case verification (outbox retries, conflicts, network drops).
 - Soft-delete filtering and audit log validation.

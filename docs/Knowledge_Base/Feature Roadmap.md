@@ -12,7 +12,7 @@
 > Fix bugs that corrupt clinical or financial data before anything else, then bugs that lose
 > user work, then polish.
 
-The app is **structurally sound** — Clean Architecture holds, Hilt is clean, 277 unit tests
+The app is **structurally sound** — Clean Architecture holds, Hilt is clean, 554 unit tests
 exist (`app/src/test`), the crypto is correct, the offline-first guarantee is real. The
 problems are concentrated in a small number of specific places, most of them untested
 orchestrators.
@@ -125,7 +125,7 @@ hand-copied table, which already disagrees with the registry.
 | Type-safe navigation | `Routes.kt:59-67` documents the bug; 22 raw interpolations remain |
 | Add `@Version` to `VaccineBatchEntity` | Room optimistic locking fixes NCC-021 properly |
 | Consolidate the FEFO selector | 4 implementations, 5 "usable batch" predicates |
-| Run `MigrationTestHelper` properly | only `33.json` is exported, so `ExpenseMigrationTest` is `@Ignore`d with that reason (`ExpenseMigrationTest.kt:28-84`); `DateGivenIndexMigrationTest` sidesteps the helper and asserts against raw SQLite (`DateGivenIndexMigrationTest.kt:22-23`) |
+| Run `MigrationTestHelper` properly | `33.json`/`34.json`/`35.json` are exported and `SchemaMigrationTest` now runs the helper for real on those hops (`SchemaMigrationTest.kt:31,63`); `DateGivenIndexMigrationTest` still asserts against raw SQLite (`DateGivenIndexMigrationTest.kt:22-23`) |
 | Verify [[Quality/Hypotheses]] | 9 items blocked only on a runtime or live-DB check |
 
 ## Explicitly not worth doing

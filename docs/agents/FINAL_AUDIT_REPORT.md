@@ -239,6 +239,7 @@ The Forensic Auditor (`teamwork_auditor_1`) issued a **CLEAN** verdict. No hardc
 - **Verification**: Verified newly added biometric templates permanently invalidate existing keys.
 
 #### SEC-04: Launcher PHI Leakage on Screen-Off
+> **Superseded (2026-11-19):** by product decision the widget now shows full patient names in both locked and unlocked states; the masking code and lock-driven widget refreshes were removed. See `docs/audit/AUDIT_REPORT_2026-11-15.md` SEC-02.
 - **Severity**: **High**
 - **File**: `app/src/main/java/com/neochildclinic/core/security/BiometricLockManager.kt` (lines 64–70)
 - **Root Cause**: `onScreenOff()` did not immediately set `_isAppLocked.value = true`. If the user turned the device screen back on to the launcher, the app widget displayed unmasked patient names.

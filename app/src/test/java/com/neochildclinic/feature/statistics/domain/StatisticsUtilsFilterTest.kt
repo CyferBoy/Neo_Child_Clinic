@@ -18,6 +18,14 @@ class StatisticsUtilsFilterTest {
     fun `mangled year label is rejected instead of silently matching nothing useful`() {
         // Regression: "FY veral" was produced when "Overall" went through takeLast(5).
         assertFalse(StatisticsUtils.isDateInFilter("2026-09-25", "FY veral"))
-        assertEquals("20veral", StatisticsUtils.displayFilterMode("FY veral"))
+        assertEquals("FY veral", StatisticsUtils.displayFilterMode("FY veral"))
+    }
+
+    @Test
+    fun `canonical short FY filter works and formats for display`() {
+        assertTrue(StatisticsUtils.isDateInFilter("2026-09-25", "26-27"))
+        assertFalse(StatisticsUtils.isDateInFilter("2026-09-25", "25-26"))
+        assertEquals("2026-27", StatisticsUtils.displayFilterMode("26-27"))
+        assertEquals(Triple("25-26", 0, -1), StatisticsUtils.getPreviousPeriodFilter("26-27", 0, -1))
     }
 }

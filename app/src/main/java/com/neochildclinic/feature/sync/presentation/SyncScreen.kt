@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.sync.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import com.neochildclinic.core.designsystem.*
 
@@ -449,6 +450,6 @@ fun getStatusColor(status: SyncStatus): Color = when (status) {
 
 private fun formatTimestampForDisplay(date: Date): String {
     return DateTimeFormatter.ofPattern("dd MMM, HH:mm:ss", Locale.getDefault())
-        .withZone(ZoneId.of("Asia/Kolkata"))
+        .withZone(ZoneId.of(IST_ZONE_ID))
         .format(date.toInstant())
 }

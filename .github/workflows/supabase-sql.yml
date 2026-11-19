@@ -150,6 +150,8 @@ jobs:
           );
           SQL
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_child_refs_survive_parent_delete.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118000000_access_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/access_hardening_test.sql
           psql -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.patients(id) values ('11111111-1111-1111-1111-111111111111');
           insert into public.patient_visits(id, patient_id)

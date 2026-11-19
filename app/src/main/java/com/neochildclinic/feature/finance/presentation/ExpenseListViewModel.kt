@@ -9,7 +9,7 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import com.neochildclinic.domain.model.UserRole
-import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,7 +70,7 @@ class ExpenseListViewModel @Inject constructor(
         viewModelScope.launch {
             expenseRepository.getAllExpenses().collect { allExpenses ->
                 val dates = allExpenses.map { it.expenseDate }
-                val years = FinanceCalculator.getAvailableFinancialYears(dates).map { "FY $it" }
+                val years = FinanceCalculator.getAvailableFinancialYears(dates)
                 val currentFy = FinanceCalculator.getCurrentFinancialYear()
                 val merged = (listOf(currentFy) + years).distinct().sortedDescending()
                 _uiState.update { it.copy(availableFinancialYears = merged) }
@@ -153,8 +153,7 @@ class ExpenseListViewModel @Inject constructor(
     }
 
     private fun getFyDateRange(fyString: String): Pair<String, String> {
-        val shortYear = fyString.substringAfter("FY ").substringBefore("-").trim().toIntOrNull() ?: 26
-        val startYear = 2000 + shortYear
+        val startYear = FinanceCalculator.financialYearStartOrDefault(fyString)
         return "$startYear-04-01" to "${startYear + 1}-03-31"
     }
 

@@ -36,7 +36,8 @@ object StatisticsUtils {
     fun milestoneLabelForKey(key: String): String? = ageMilestones.firstOrNull { it.first == key }?.second
 
     fun displayFilterMode(filterMode: String): String =
-        if (filterMode == "Overall") "Overall" else "20" + filterMode.substringAfter("FY ")
+        if (filterMode == "Overall") "Overall"
+        else FinanceCalculator.parseFinancialYearStart(filterMode)?.let { "$it-${(it + 1) % 100}" } ?: filterMode
 
     fun isCountedVaccination(vaccination: Vaccination): Boolean = FinanceCalculator.isCountedVaccination(vaccination)
 
@@ -50,7 +51,7 @@ object StatisticsUtils {
 
     fun monthCountForFilter(dates: List<String>, filterMode: String, fyQuarter: Int, selectedMonth: Int): Int {
         if (selectedMonth != -1) return 1
-        if (filterMode.startsWith("FY ")) return if (fyQuarter == 0) 12 else 3
+        if (filterMode != "Overall") return if (fyQuarter == 0) 12 else 3
         val parsed = dates.mapNotNull { StatisticsDateUtils.parseToISTLocalDate(it) }
         val min = parsed.minOrNull() ?: return 0
         val max = parsed.maxOrNull() ?: return 0
@@ -64,8 +65,7 @@ object StatisticsUtils {
         val m = localDate.monthValue - 1
         val y = localDate.year
 
-        val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: return false
-        val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
+        val fyStartYear = FinanceCalculator.parseFinancialYearStart(filterMode) ?: return false
         val recordFY = if (m >= Calendar.APRIL) y else y - 1
         if (recordFY != fyStartYear) return false
         if (fyQuarter == 0) return true
@@ -83,8 +83,7 @@ object StatisticsUtils {
         if (date == null) return false
         val m = date.monthValue - 1
         val y = date.year
-        val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: return false
-        val fyStartYear = if (startYearShort > 80) 1900 + startYearShort else 2000 + startYearShort
+        val fyStartYear = FinanceCalculator.parseFinancialYearStart(filterMode) ?: return false
         val recordFY = if (m >= Calendar.APRIL) y else y - 1
         if (recordFY != fyStartYear) return false
         if (fyQuarter == 0) return true
@@ -96,33 +95,25 @@ object StatisticsUtils {
     fun getPreviousPeriodFilter(filterMode: String, fyQuarter: Int, selectedMonth: Int): Triple<String, Int, Int> {
         if (filterMode == "Overall") return Triple("Overall", 0, -1)
 
-        val startYearShort = filterMode.substringAfter("FY ").substringBefore("-").toIntOrNull() ?: return Triple("Overall", 0, -1)
+        val fyStartYear = FinanceCalculator.parseFinancialYearStart(filterMode) ?: return Triple("Overall", 0, -1)
 
         return when {
             selectedMonth != -1 -> {
                 val prevMonth = if (selectedMonth == 0) 11 else selectedMonth - 1
-                val prevYearShort = if (selectedMonth == Calendar.APRIL) startYearShort - 1 else startYearShort
-                val prevFY = "${prevYearShort % 100}-${(prevYearShort + 1) % 100}"
-                Triple("FY $prevFY", if (prevMonth in 0..2) 4 else if (prevMonth in 3..5) 1 else if (prevMonth in 6..8) 2 else 3, prevMonth)
+                val prevFYStart = if (selectedMonth == Calendar.APRIL) fyStartYear - 1 else fyStartYear
+                Triple(FinanceCalculator.formatFinancialYear(prevFYStart), if (prevMonth in 0..2) 4 else if (prevMonth in 3..5) 1 else if (prevMonth in 6..8) 2 else 3, prevMonth)
             }
             fyQuarter != 0 -> {
                 val prevQuarter = if (fyQuarter == 1) 4 else fyQuarter - 1
-                val prevYearShort = if (fyQuarter == 1) startYearShort - 1 else startYearShort
-                val prevFY = "${prevYearShort % 100}-${(prevYearShort + 1) % 100}"
-                Triple("FY $prevFY", prevQuarter, -1)
+                val prevFYStart = if (fyQuarter == 1) fyStartYear - 1 else fyStartYear
+                Triple(FinanceCalculator.formatFinancialYear(prevFYStart), prevQuarter, -1)
             }
-            else -> {
-                val prevYearShort = startYearShort - 1
-                val prevFY = "${prevYearShort % 100}-${(prevYearShort + 1) % 100}"
-                Triple("FY $prevFY", 0, -1)
-            }
+            else -> Triple(FinanceCalculator.formatFinancialYear(fyStartYear - 1), 0, -1)
         }
     }
 
-    fun calculateGrowth(current: Double, previous: Double): Double? {
-        if (previous == 0.0) return null
-        return ((current - previous) / previous) * 100.0
-    }
+    /** The cards' conventional percentage change; shared implementation lives in FinanceCalculator. */
+    fun calculateGrowth(current: Double, previous: Double): Double? = FinanceCalculator.calculateGrowth(current, previous)
 
     /**
      * Visit-type counts for Overview cards. Counts every non-deleted visit (the caller's list is

@@ -16,6 +16,13 @@ Checks
   9. Dataview blocks       fence balance, query type, clause keywords, FROM targets
  10. Bug register          index statuses are documented; every card has Status + Severity
  11. Citations            every `path:line` resolves to a file and to lines that exist
+ 12. Doc links            relative `[label](path)` links in README/docs resolve
+ 13. Schema versions      `Room v33`-style claims match AppDatabase.kt's version
+ 14. Test counts          total unit-test counts match EXPECTED_UNIT_TESTS
+
+Checks 12-14 run on a normal in-repo invocation (default --vault). Lines labelled
+`as of ...` and files under audit/ dated archives are treated as historical snapshots
+and skipped by the schema/test-count checks.
 
 What this cannot check
   Dataview queries are read, never executed. Obsidian and the plugin are not
@@ -63,11 +70,57 @@ BLOCK_ID = re.compile(r"(?:^|\s)\^([A-Za-z][\w-]*)\s*$", re.M)
 CITATION = re.compile(
     r"`([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:kt|kts|ts|tsx|js|mjs|sql|py|md|json|toml|gradle"
     r"|yml|yaml|xml|csv)):(\d+)(?:-(\d+))?`")
-# A citation marked as living outside version control is excused from resolution.
-UNTRACKED_MARKER = re.compile(r"artifact|scratch|untracked|git-?ignored", re.I)
+# Citations to files deliberately kept outside version control (audit scratch SQL, local
+# DB dumps) can never resolve from a clone. Only these known basenames are excused - a
+# keyword on the line is not enough, or a typo'd citation would be silently forgiven.
+UNTRACKED_PATHS = {
+    "missing_tables.sql",
+    "full_project_schema.sql.artifact.md",
+    "stock_triggers.sql",
+}
 FENCE = re.compile(r"^\s*```")
 MD_LINK = re.compile(r"(?<!!)\[[^\]\n]*\]\(([^)\s]+)")
 HTTP = re.compile(r"^https?://\S+$")
+
+# Repo-level doc checks (README, ARCHITECTURE, docs/** ...). Inline-link form that also
+# accepts spaces in the target (e.g. `[[Backup and Restore]]`-style paths with spaces).
+ANY_MD_LINK = re.compile(r"(?<!!)\[[^\]\n]*\]\(([^)\n]+)\)")
+SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+AS_OF = re.compile(r"\bas of\b", re.I)
+# Schema-version claims: `Room v33`, `schema 33`, `33.json`. The `v` form is required
+# for bare numbers so library versions (Room 2.8.5) and API levels are never mistaken
+# for schema versions.
+SCHEMA_TOKENS = (
+    re.compile(r"\bv(\d{1,2})\b"),
+    re.compile(r"\bschema\s+v?(\d{1,2})\b", re.I),
+    re.compile(r"\b(\d{1,2})\.json\b"),
+)
+SCHEMA_TOPIC = re.compile(r"room|sqlite|schema|appdatabase|database", re.I)
+# `v17 → v35` is a migration range, not a claim that the current schema is v17.
+MIGRATION_RANGE = re.compile(r"\bv?\d+\s*(?:→|->|through|to)\s*v?\d+", re.I)
+# Total-suite test counts (not per-class counts like "MemoryCache.kt (10 tests)").
+TEST_TOKENS = (
+    re.compile(r"\bunit%20tests-(\d{2,4})\b", re.I),
+    re.compile(r"\b(\d{2,4})\b[^.\n]{0,30}?\bunit\s+tests?\b(?!\s+(?:files?|classes?|suites?|methods))", re.I),
+    re.compile(r"\b(\d{2,4})\s*/\s*(\d{2,4})\s+tests?\b", re.I),
+    re.compile(r"\btests?\s*\(\s*(\d{2,4})\s+tests?\s*\)", re.I),
+    re.compile(r"\btest\s+suite\s*\(\s*(\d{2,4})\s+tests?\s*\)", re.I),
+    re.compile(r"\b(\d{2,4})\s+tests?\s+(?:passing|passed)\b", re.I),
+)
+# Audit-confirmed live unit-test count (2026-11-18). A single source of truth keeps the
+# check deterministic while other agents keep adding tests; bump it when the suite changes.
+EXPECTED_UNIT_TESTS = 554
+# Files whose numbers are historical snapshots, not live claims. The schema/test-count
+# checks skip them; their contents are preserved rather than silently renumbered (DE-H1).
+HISTORICAL_PARTS = {
+    "audit", "Database-Audit", "Full-Code-Audit", "specs",
+    "FINAL_AUDIT_REPORT.md", "CHANGELOG.md", "verification-report.md",
+    "migration-manifest.md", "folder-migration-plan.md",
+}
+REPO_DOC_TARGETS = (
+    "README.md", "ARCHITECTURE.md", "CONTRIBUTING.md", "SECURITY.md",
+    "docs", ".agents/agents", ".agents/skills/run-unit-tests",
+)
 
 # Diagram types Mermaid understands. Anything else is a typo.
 MERMAID_TYPES = {
@@ -256,6 +309,119 @@ def check_markdown_links(notes: list[Path], rep: Report) -> None:
                     if not (note.parent / target).exists():
                         rep.error(f"{note.name}:{idx}",
                                   f"broken relative link: {target}")
+
+
+def collect_doc_files(root: Path) -> list[Path]:
+    """Markdown files subject to the repo-level link / schema / test-count checks."""
+    out: list[Path] = []
+    for target in REPO_DOC_TARGETS:
+        p = root / target
+        if p.is_file() and p.suffix == ".md":
+            out.append(p)
+        elif p.is_dir():
+            out.extend(f for f in p.rglob("*.md") if ".obsidian" not in f.parts)
+    return sorted(set(out))
+
+
+def is_historical_doc(path: Path) -> bool:
+    """Audit archives and dated reports record past state; their numbers are frozen."""
+    if re.search(r"\d{4}-\d{2}-\d{2}", path.name):
+        return True
+    return bool(HISTORICAL_PARTS.intersection(path.parts))
+
+
+def check_relative_links(files: list[Path], rep: Report) -> int:
+    """Every ordinary relative `[label](path)` in repo docs must resolve.
+
+    URIs (http/https/mailto/obsidian/file/...), pure anchors and inline-code examples
+    are ignored. A line explicitly labelled `as of ...` is a historical snapshot and
+    is skipped too.
+    """
+    total = 0
+    import urllib.parse
+    for file in files:
+        for idx, (in_fence, line) in enumerate(
+                split_code_fences(file.read_text(encoding="utf-8", errors="replace").splitlines()), 1):
+            if in_fence or AS_OF.search(line):
+                continue
+            for target in ANY_MD_LINK.findall(line):
+                t = target.strip()
+                if not t or SCHEME.match(t) or t.startswith("#"):
+                    continue
+                t = urllib.parse.unquote(t.split("#", 1)[0].split("?", 1)[0].strip().strip("<>"))
+                if not t:
+                    continue
+                total += 1
+                where = f"{file}:{idx}"
+                if not (file.parent / t).exists():
+                    rep.error(where, f"broken relative doc link: {target}")
+    return total
+
+
+def read_schema_version(root: Path) -> int | None:
+    """The authoritative schema version from AppDatabase.kt (annotation / DB_VERSION)."""
+    for rel in ("app/src/main/java/com/neochildclinic/data/local/database/AppDatabase.kt",
+                "app/src/main/java/com/neochildclinic/data/local/AppDatabase.kt"):
+        p = root / rel
+        if p.is_file():
+            text = p.read_text(encoding="utf-8", errors="replace")
+            m = re.search(r"@Database\b[\s\S]{0,600}?\bversion\s*=\s*(\d+)", text)
+            if not m:
+                m = re.search(r"\bDB_VERSION\s*=\s*(\d+)", text)
+            if m:
+                return int(m.group(1))
+    return None
+
+
+def check_schema_tokens(files: list[Path], root: Path, rep: Report) -> int:
+    """Schema-version claims in live docs must agree with AppDatabase.kt."""
+    expected = read_schema_version(root)
+    if expected is None:
+        rep.note("schema-token check skipped: AppDatabase.kt version not found")
+        return 0
+    total = 0
+    for file in files:
+        if is_historical_doc(file):
+            continue
+        for idx, (in_fence, line) in enumerate(
+                split_code_fences(file.read_text(encoding="utf-8", errors="replace").splitlines()), 1):
+            if AS_OF.search(line) or MIGRATION_RANGE.search(line):
+                continue   # fenced code included: example commands/schema trees drift too
+            on_topic = bool(SCHEMA_TOPIC.search(line))
+            json_list = len(re.findall(r"\b\d{1,2}\.json\b", line)) > 1
+            for i, pat in enumerate(SCHEMA_TOKENS):
+                if i < 2 and not on_topic:   # N.json is unambiguous without a topic word
+                    continue
+                if i == 2 and (json_list or not on_topic):
+                    continue                 # a list of exports, or an unrelated N.json
+                for m in pat.finditer(line):
+                    total += 1
+                    version = int(next(g for g in m.groups() if g))
+                    if version != expected:
+                        rep.error(f"{file}:{idx}",
+                                  f"stale schema version v{version} (expected v{expected})")
+    return total
+
+
+def check_test_counts(files: list[Path], rep: Report,
+                      expected: int = EXPECTED_UNIT_TESTS) -> int:
+    """Total-suite test counts in live docs must agree with the audit-confirmed figure."""
+    total = 0
+    for file in files:
+        if is_historical_doc(file):
+            continue
+        for idx, (in_fence, line) in enumerate(
+                split_code_fences(file.read_text(encoding="utf-8", errors="replace").splitlines()), 1):
+            if AS_OF.search(line):
+                continue
+            for pat in TEST_TOKENS:
+                for m in pat.finditer(line):
+                    count = int(next(g for g in m.groups() if g))
+                    total += 1
+                    if count != expected:
+                        rep.error(f"{file}:{idx}",
+                                  f"stale unit-test count {count} (expected {expected})")
+    return total
 
 
 def check_mermaid(notes: list[Path], rep: Report) -> int:
@@ -594,12 +760,10 @@ def check_citations(root: Path, notes: list[Path], rep: Report) -> int:
                     cands = ([r for r in index if r.endswith("/" + path)]
                              or by_name.get(path.rsplit("/", 1)[-1], []))
                     if not cands:
-                        # A citation to a file that is deliberately outside version control
-                        # (audit scratch SQL, a local DB dump) can never resolve from a
-                        # clone. The line must say so - "artifact", "scratch", "untracked",
-                        # "gitignored" - or the citation is reported as a broken one.
+                        # Only a known out-of-vcs artifact is excused; everything else is
+                        # a broken citation, regardless of the words around it.
                         span_label = f"`{path}:{span}`"
-                        if UNTRACKED_MARKER.search(line) or UNTRACKED_MARKER.search(path):
+                        if path.rsplit("/", 1)[-1] in UNTRACKED_PATHS:
                             rep.note(f"{where}: {span_label} cites an untracked artifact "
                                      f"(not checkable from a clone)")
                         else:
@@ -713,6 +877,15 @@ def main() -> int:
     check_secrets(notes, rep)
     check_stubs(vault, notes, inbound, rep)
 
+    links = schema_claims = test_claims = 0
+    # Repo-level checks run only on a normal in-repo invocation. Regression tests pass
+    # a throwaway --vault, so they never accidentally scan the real repository.
+    if args.vault == VAULT_DEFAULT:
+        docs = collect_doc_files(Path(args.repo_root))
+        links = check_relative_links(docs, rep)
+        schema_claims = check_schema_tokens(docs, Path(args.repo_root), rep)
+        test_claims = check_test_counts(docs, rep)
+
     if not args.quiet:
         for msg in rep.info:
             print(f"  {msg}")
@@ -723,7 +896,8 @@ def main() -> int:
 
     scope = f"{vault} ({len(notes)} notes checked" + (", changed-only" if args.changed else "") + ")"
     print(f"\n{scope}, {mer} mermaid blocks, {dv} dataview blocks, {anchors} anchor links, "
-          f"{cites} citations")
+          f"{cites} citations, {links} doc links, {schema_claims} schema tokens, "
+          f"{test_claims} test-count tokens")
     if rep.errors:
         print(f"FAILED: {len(rep.errors)} error(s), {len(rep.warnings)} warning(s)")
         return 1

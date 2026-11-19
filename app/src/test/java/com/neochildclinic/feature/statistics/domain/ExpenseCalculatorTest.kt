@@ -4,6 +4,7 @@ import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.ExpenseCategory
 import com.neochildclinic.domain.model.ExpensePaymentMethod
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExpenseCalculatorTest {
@@ -49,7 +50,10 @@ class ExpenseCalculatorTest {
     fun `filterExpensesByPeriod excludes out-of-window rows entirely`() {
         val filtered = ExpenseCalculator.filterExpensesByPeriod(fy2627, "FY 26-27", fyQuarter = 0, selectedMonth = -1)
         assertEquals(3, filtered.size)
-        assert(filtered.none { it.expenseDate == "2027-04-01" || it.expenseDate == "2026-03-31" })
+        assertTrue(
+            "out-of-window rows must be filtered out, got ${filtered.map { it.expenseDate }}",
+            filtered.none { it.expenseDate == "2027-04-01" || it.expenseDate == "2026-03-31" }
+        )
     }
 
     @Test

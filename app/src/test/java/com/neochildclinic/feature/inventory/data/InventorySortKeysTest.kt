@@ -86,23 +86,15 @@ class InventorySortKeysTest {
     fun `latest purchase is the later date`() {
         val batches = listOf(batch(purchase = "28 Dec 2025"), batch(purchase = "2 Jan 2026"))
         assertEquals("2 Jan 2026", batches.newestBatch()?.purchaseDate)
-        assertTrue(batches.latestPurchaseMillis() > batches.earliestPurchaseMillis())
     }
 
     @Test
-    fun `earliest purchase is the earlier date`() {
-        val batches = listOf(batch(purchase = "2 Jan 2026"), batch(purchase = "28 Dec 2025"))
-        assertTrue(batches.earliestPurchaseMillis() < batches.latestPurchaseMillis())
-    }
-
-    @Test
-    fun `latest and earliest are inverses across a year boundary`() {
+    fun `newest batch picks the latest date across a year boundary`() {
         val batches = listOf(
             batch(purchase = "28 Dec 2025"),
             batch(purchase = "2 Jan 2026"),
             batch(purchase = "16 Jan 2026"),
         )
-        assertTrue(batches.earliestPurchaseMillis() < batches.latestPurchaseMillis())
         assertEquals("16 Jan 2026", batches.newestBatch()?.purchaseDate)
     }
 

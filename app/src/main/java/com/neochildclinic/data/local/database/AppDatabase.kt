@@ -5,12 +5,10 @@ import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.RoomDatabase.JournalMode
 import androidx.room.TypeConverters
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.core.security.SecurityUtils
-import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SQLiteConnection
 import net.zetetic.database.sqlcipher.SQLiteDatabaseHook
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
@@ -576,18 +574,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DB_NAME
                 )
                 .openHelperFactory(factory)
-                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .addMigrations(*MIGRATIONS)
-                .addCallback(object : RoomDatabase.Callback() {
-                    override fun onOpen(db: SupportSQLiteDatabase) {
-                        super.onOpen(db)
-                        try {
-                            db.query("PRAGMA busy_timeout = 30000;").close()
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to set busy_timeout on open", e)
-                        }
-                    }
-                })
                 // No destructive fallback: a future missing migration must crash loudly,
                 // never silently wipe a clinic's local patient data.
                 .build()

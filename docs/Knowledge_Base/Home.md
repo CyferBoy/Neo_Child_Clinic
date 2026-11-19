@@ -9,11 +9,11 @@
 
 | | |
 |---|---|
-| Version | **0.5.1** (`versionCode 3`) |
-| Room schema | **33** — 25 entities, 21 DAOs, 16 migrations |
-| Supabase | 26 tables, 29 migrations, 2 edge functions |
+| Version | **0.6** (`versionCode 6000`, derived from `versionName`) |
+| Room schema | **35** — 25 entities, 21 DAOs, 18 migrations (Room library 2.8.5) |
+| Supabase | 26 tables, 37 migrations, 2 edge functions |
 | Kotlin | 354 main files · 49 test files |
-| Tests | **277 unit passing**, 0 failures (2026-10-18) · 56 instrumented in 8 files, 🔍 **green in CI 2026-10-18** |
+| Tests | **554 unit passing**, 0 failures (2026-11-19) · 70 instrumented in 14 files, 🔍 **last recorded green 2026-10-18** |
 | Open bugs | **4 confirmed open** · 37 fixed · 1 needs decision · 2 not a bug · 13 security · 7 hypotheses (2 refuted 2026-10-18) |
 | 🚨 Deadline | **`auto_expose_new_tables` removed 2026-10-30** — see NSC-005 |
 
@@ -47,7 +47,7 @@
 
 ## Data and backend
 
-- [[Room Database]] — v33, entities, migrations, converters
+- [[Room Database]] — schema 35, 25 entities, 18 migrations, converters
 - [[Database Relationships]] — the entity graph, FKs, client/server drift
 - [[Database Schema]] — Postgres tables, migration timeline, drift
 - [[Supabase]] — triggers, edge functions, rate limiting
@@ -66,7 +66,7 @@
 - [[Quality/Hypotheses]] — 7 unproven claims kept separate; 2 refuted on 2026-10-18
 - [[Quality/Audit Reconciliation]] — ⚠️ **read before fixing anything**
 - [[Technical Debt]] — dead code, duplication, complexity
-- [[Testing]] — 277 tests and the 12 untested critical paths
+- [[Testing]] — 554 tests and the 12 untested critical paths
 
 ## Audit archives
 
@@ -89,7 +89,7 @@ graph TB
         VM --> REPO[Repositories]
         REPO --> DAO[Room DAOs]
         REPO --> SYNC[Sync repository]
-        DAO --> DB[("neochild_db · Room v33 · SQLCipher")]
+        DAO --> DB[("neochild_db · schema 35 · SQLCipher")]
         SYNC --> Q[("sync_queue")]
         PC[PatientCache] -.read-through.-> REPO
     end
@@ -122,8 +122,8 @@ graph TB
 | Room version | 33 | `AppDatabase.kt:42` |
 | SQL migrations | 29, all git-tracked | `git ls-files supabase/migrations/` |
 | Supabase tables / edge functions | 🔍 26 / 2 | — |
-| Unit tests passing | 277, 0 failures (2026-10-18) | `app/build/test-results/` |
-| Instrumented tests | 8 files, 56 `@Test`, 🔍 green in CI 2026-10-18 | `app/src/androidTest/` |
+| Unit tests passing | 554, 0 failures (2026-11-19) | `app/build/test-results/` |
+| Instrumented tests | 14 files, 70 `@Test`, 🔍 last recorded green 2026-10-18 | `app/src/androidTest/` |
 
 ## Validate this vault
 

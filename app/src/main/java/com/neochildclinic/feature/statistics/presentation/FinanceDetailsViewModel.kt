@@ -4,11 +4,11 @@ import androidx.lifecycle.ViewModel
 import com.neochildclinic.domain.model.Expense
 import com.neochildclinic.domain.model.FinanceTransaction
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
-import com.neochildclinic.feature.sync.domain.RefreshDataUseCase
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.core.sync.RefreshDataUseCase
+import com.neochildclinic.domain.repository.VaccinationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

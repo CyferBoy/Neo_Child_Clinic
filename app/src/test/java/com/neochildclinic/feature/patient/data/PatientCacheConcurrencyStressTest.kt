@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -25,7 +24,7 @@ import org.junit.Test
  * 1. 50 concurrent coroutines reading, updating, and invalidating patient IDs.
  * 2. Zero race conditions, zero ConcurrentModificationExceptions.
  * 3. Granular key invalidation: invalidating patient X does not evict patient Y.
- * 4. High cache hit rate (> 80%) maintained under concurrent read/invalidate workloads.
+ * 4. High cache hit rate (>= 75%) maintained under concurrent read/invalidate workloads.
  * 5. MemoryCache bounded eviction safety under 50 concurrent threads.
  * 6. In-flight load race safety: stale data rejected on invalidation of same key, while other keys cache normally.
  */

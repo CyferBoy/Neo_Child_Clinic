@@ -1,7 +1,7 @@
 package com.neochildclinic.feature.audit.presentation
 
 import com.neochildclinic.domain.model.AuditLog
-import com.neochildclinic.feature.audit.domain.repository.AuditLogRepository
+import com.neochildclinic.domain.repository.AuditLogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow

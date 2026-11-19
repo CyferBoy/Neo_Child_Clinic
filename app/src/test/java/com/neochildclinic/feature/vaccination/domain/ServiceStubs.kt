@@ -8,11 +8,11 @@ package com.neochildclinic.feature.vaccination.domain
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.domain.model.*
 import kotlinx.coroutines.flow.*
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.InventoryRepository
 
 data class ReminderWrite(val insideTransaction: Boolean, val patientId: String, val visitId: String, val type: String)
 
@@ -88,9 +88,16 @@ class FakeSyncRepository(private val runner: RecordingTransactionRunner) : SyncR
     override val syncState: StateFlow<SyncState> get() = TODO()
     override fun getPendingCount(): kotlinx.coroutines.flow.Flow<Int> = TODO()
     override suspend fun processNextItems(): Boolean = TODO()
+    override suspend fun processNextItemsWithOwnership(): com.neochildclinic.domain.repository.SyncRunResult = TODO()
     override suspend fun hasFailedItems(): Boolean = false
     override suspend fun getUnacknowledgedCount(): Int = 0
     override suspend fun clearLocalData() {}
+    override fun getSyncQueue(): kotlinx.coroutines.flow.Flow<List<com.neochildclinic.domain.model.SyncItem>> = TODO()
+    override suspend fun clearSyncedItems() = TODO()
+    override suspend fun retryItem(queueId: Long) = TODO()
+    override suspend fun deleteQueueItem(queueId: Long) = TODO()
+    override suspend fun retryFailedItems() = TODO()
+    override suspend fun deleteAllFailed() = TODO()
 }
 
 class FakeInventoryRepository(private val runner: RecordingTransactionRunner) : InventoryRepository {
@@ -110,7 +117,7 @@ class FakeInventoryRepository(private val runner: RecordingTransactionRunner) : 
     override suspend fun getStockHistoryPage( vaccineId: String? , batchId: String? , types: List<InventoryTransactionType> , fromDateIso: String? , toDateIso: String? , limit: Int , offset: Int , remoteOnly: Boolean ): List<InventoryTransaction> = TODO()
     override suspend fun addStockToBatch( batchId: String, quantity: Int, user: String, transactionType: InventoryTransactionType, notes: String? ) = TODO()
     override suspend fun returnBorrowedStock( originalBatchId: String, returnToBatchId: String, quantity: Int, user: String, notes: String? , transactionGroupId: String? ) = TODO()
-    override suspend fun deductStockFromBatch( batchId: String, quantity: Int, user: String, transactionType: InventoryTransactionType, visitId: String? , patientId: String? , notes: String? , allowExpired: Boolean , givenDate: String? , transactionGroupId: String? ) = TODO()
+    override suspend fun deductStockFromBatch( batchId: String, quantity: Int, user: String, transactionType: InventoryTransactionType, visitId: String? , patientId: String? , notes: String? , givenDate: String? , transactionGroupId: String? ) = TODO()
     override suspend fun reverseDeduction( batchId: String, quantity: Int, user: String, visitId: String? , patientId: String? , transactionGroupId: String? ) = TODO()
     override suspend fun transferPatientTransactions(duplicateId: String, masterId: String) = TODO()
     override suspend fun getInventoryDeductionsForVaccination(vaccinationId: String): List<InventoryDeduction> = TODO()

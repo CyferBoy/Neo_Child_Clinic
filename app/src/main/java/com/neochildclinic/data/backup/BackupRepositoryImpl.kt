@@ -18,7 +18,7 @@ import com.neochildclinic.data.local.entity.BackupHistoryType
 import com.neochildclinic.data.local.entity.BackupLocation
 import com.neochildclinic.core.sync.SyncScheduler
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.feature.settings.domain.repository.BackupRepository
+import com.neochildclinic.domain.repository.BackupRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.CancellationException

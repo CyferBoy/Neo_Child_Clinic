@@ -18,12 +18,13 @@ import com.neochildclinic.data.local.dao.BorrowDao
 import com.neochildclinic.data.local.dao.BorrowReturnDao
 import com.neochildclinic.data.local.dao.VaccineDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.feature.borrowed.domain.repository.BorrowRepository
+import com.neochildclinic.domain.repository.BorrowRepository
 import com.neochildclinic.feature.borrowed.domain.selectBorrowBatch
 import com.neochildclinic.feature.inventory.domain.InsufficientStockException
-import com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
-import com.neochildclinic.feature.borrowed.domain.repository.NewBatchInfo
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.InventoryRepository
+import com.neochildclinic.domain.repository.NewBatchInfo
+import com.neochildclinic.feature.inventory.domain.InventoryUtils
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,14 @@ import javax.inject.Singleton
 import com.neochildclinic.core.sync.cloudRefresh
 import com.neochildclinic.core.sync.fetchAllPages
 import com.neochildclinic.core.sync.RemotePrune
+
+internal fun requireValidReturnBatchExpiry(newBatchInfo: NewBatchInfo) {
+    if (InventoryUtils.isExpired(newBatchInfo.expiryDate)) {
+        throw IllegalStateException(
+            "Returned batch expiry date ${newBatchInfo.expiryDate} is already expired. Enter a valid expiry date."
+        )
+    }
+}
 
 @Singleton
 class BorrowRepositoryImpl @Inject constructor(
@@ -228,6 +237,7 @@ syncRepository.enqueue(
             }
 
             val effectiveBatchId = if (newBatchInfo != null) {
+                requireValidReturnBatchExpiry(newBatchInfo)
                 val vaccine = vaccineDao.getVaccineById(vaccineId)
                 val newBatch = VaccineBatchEntity(
                     batchId = UUID.randomUUID().toString(),

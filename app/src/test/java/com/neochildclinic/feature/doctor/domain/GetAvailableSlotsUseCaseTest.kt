@@ -4,7 +4,7 @@ import com.neochildclinic.domain.model.DoctorAvailabilityResult
 import com.neochildclinic.domain.model.DoctorSlotException
 import com.neochildclinic.domain.model.DoctorWeeklySlot
 import com.neochildclinic.domain.model.SlotExceptionType
-import com.neochildclinic.feature.doctor.domain.repository.DoctorAvailabilityRepository
+import com.neochildclinic.domain.repository.DoctorAvailabilityRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking

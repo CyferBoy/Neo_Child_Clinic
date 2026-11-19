@@ -7,6 +7,7 @@ import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import com.neochildclinic.core.common.VersionUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -47,14 +48,6 @@ private data class ResumeMetadata(
     val etag: String = ""
 )
 
-private fun normalizeTag(rawTag: String): String {
-    var tag = rawTag.trim()
-    while (tag.startsWith("v", ignoreCase = true) || tag.startsWith(".")) {
-        tag = tag.substring(1).trim()
-    }
-    return tag
-}
-
 private val json = Json { ignoreUnknownKeys = true }
 
 /**
@@ -68,7 +61,7 @@ private val json = Json { ignoreUnknownKeys = true }
 @Singleton
 class AppUpdateManager @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : com.neochildclinic.domain.repository.AppUpdateManager<AppUpdateInfo> {
     companion object {
         private const val GITHUB_REPO_URL =
             "https://api.github.com/repos/CyferBoy/Neo_Child_Clinic"
@@ -96,6 +89,22 @@ class AppUpdateManager @Inject constructor(
         private val RE_SHA256_HEX = Regex("^[a-f0-9]{64}$")
         internal val RE_SHA256_LINE = Regex("(?im)^\\s*(?:\\*{1,2}|_)?(?:apk[-_]?)?sha[-_]?256(?:\\*{1,2}|_)?\\s*:\\s*(?:\\*{1,2}|_)?\\s*[`*]?([a-f0-9]{64})[`*]?\\s*$")
         private val RE_CONTENT_RANGE_START = Regex("bytes\\s+(\\d+)-")
+
+        /** Tag "0.6" -> 6000; mirrored by versionCodeFromName in app/build.gradle.kts. */
+        internal fun versionCodeFromTag(tagName: String): Long? {
+            val parts = VersionUtils.normalizeVersion(tagName).split(".")
+            if (parts.size >= 2 && parts.take(3).all { it.toIntOrNull() != null }) {
+                val major = parts.getOrNull(0)?.toIntOrNull() ?: return null
+                val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+                return major * 1_000_000L + minor * 1_000L + patch
+            }
+            return null
+        }
+
+        /** The updater's single "is this newer than the installed build?" decision. */
+        internal fun shouldOfferUpdate(candidateVersionCode: Long, currentVersionCode: Long): Boolean =
+            candidateVersionCode > currentVersionCode
     }
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -163,9 +172,9 @@ class AppUpdateManager @Inject constructor(
      * remind me" choice on the update dialog. A manual check (the Check for Updates
      * button on the App Update screen) always runs regardless of this flag.
      */
-    fun areAutoChecksDisabled(): Boolean = prefs.getBoolean(AUTO_CHECKS_DISABLED, false)
+    override fun areAutoChecksDisabled(): Boolean = prefs.getBoolean(AUTO_CHECKS_DISABLED, false)
 
-    fun setAutoChecksDisabled(disabled: Boolean) {
+    override fun setAutoChecksDisabled(disabled: Boolean) {
         prefs.edit().putBoolean(AUTO_CHECKS_DISABLED, disabled).apply()
     }
 
@@ -173,9 +182,9 @@ class AppUpdateManager @Inject constructor(
     // not strictly newer than the installed version - there is no reinstall-same-version
     // or downgrade-to-older-version path, so a same-or-older release isn't a candidate.
     private fun parseRelease(release: GithubRelease, currentVersionCode: Long, releasesBehind: Int): AppUpdateInfo? {
-        val tagName = normalizeTag(release.tagName)
+        val tagName = VersionUtils.normalizeVersion(release.tagName)
         val versionCode = extractVersionCode(release, tagName) ?: return null
-        if (versionCode <= currentVersionCode) return null
+        if (!shouldOfferUpdate(versionCode, currentVersionCode)) return null
 
         val asset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) } ?: return null
         val downloadUrl = asset.browserDownloadUrl
@@ -213,7 +222,7 @@ class AppUpdateManager @Inject constructor(
         return if (RE_SHA256_HEX.matches(normalized)) normalized else null
     }
 
-    suspend fun checkForUpdate(isManual: Boolean = false): AppUpdateInfo? = withContext(Dispatchers.IO) {
+    override suspend fun checkForUpdate(isManual: Boolean): AppUpdateInfo? = withContext(Dispatchers.IO) {
         if (!isManual && areAutoChecksDisabled()) return@withContext null
 
         val releasesJson = fetchReleasesBody() ?: return@withContext null
@@ -231,7 +240,7 @@ class AppUpdateManager @Inject constructor(
         // How many stable releases are newer than the installed version - informational
         // only (shown in the mandatory-update notice), never what decides mandatory.
         val releasesBehind = stable.count { release ->
-            (extractVersionCode(release, normalizeTag(release.tagName)) ?: 0L) > currentCode
+            (extractVersionCode(release, VersionUtils.normalizeVersion(release.tagName)) ?: 0L) > currentCode
         }
 
         val info = parseRelease(candidate, currentCode, releasesBehind) ?: return@withContext null
@@ -243,11 +252,11 @@ class AppUpdateManager @Inject constructor(
         info
     }
 
-    fun dismiss(versionCode: Long) {
+    override fun dismiss(versionCode: Long) {
         prefs.edit().putLong(DISMISSED_VERSION_CODE, versionCode).apply()
     }
 
-    suspend fun downloadAndInstall(
+    override suspend fun downloadAndInstall(
         info: AppUpdateInfo,
         onProgress: (percent: Int, downloadedBytes: Long, totalBytes: Long) -> Unit
     ): Result<Unit> = withContext(Dispatchers.IO) {
@@ -498,14 +507,7 @@ class AppUpdateManager @Inject constructor(
     private fun extractVersionCode(release: GithubRelease, tagName: String): Long? {
         val bodyVersion = RE_VERSION_CODE.find(release.body)?.groupValues?.getOrNull(1)?.toLongOrNull()
         if (bodyVersion != null) return bodyVersion
-        val parts = tagName.split(".")
-        if (parts.size >= 2 && parts.take(3).all { it.toIntOrNull() != null }) {
-            val major = parts.getOrNull(0)?.toIntOrNull() ?: return null
-            val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
-            val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
-            return major * 1_000_000L + minor * 1_000L + patch
-        }
-        return null
+        return versionCodeFromTag(tagName)
     }
 
     private fun cleanReleaseNotes(body: String): String = body.lines()

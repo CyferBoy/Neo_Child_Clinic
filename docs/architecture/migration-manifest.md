@@ -1,5 +1,7 @@
 # Neo Child Clinic — Restructuring Migration Manifest
 
+> Historical snapshot as of 2026-11-03; the test counts below reflect that date.
+
 **Execution Date:** November 3, 2026  
 **Scope:** Complete physical repository structure reorganization, Kotlin package alignment, architectural boundary enforcement, documentation consolidation, and build verification.
 

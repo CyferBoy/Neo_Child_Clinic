@@ -6,9 +6,9 @@ import com.neochildclinic.domain.model.Patient
 import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.ReminderStatus
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.model.ReminderStats
-import com.neochildclinic.feature.patient.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PatientRepository
 import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.feature.vaccination.util.VaccinationUtils
 import com.neochildclinic.core.common.DateClassifier
@@ -16,6 +16,7 @@ import com.neochildclinic.core.common.DateCategory
 import com.neochildclinic.core.security.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +30,17 @@ data class DueUiState(
     val overdueCount: Int = 0,
     val isRefreshing: Boolean = false
 )
+
+// Shell rows carry a synthetic visit id; only those need the reminder-id fallback.
+internal suspend fun resolveDueReminders(
+    vaccination: Vaccination,
+    byVisit: List<Reminder>,
+    getById: suspend (String) -> Reminder?
+): List<Reminder> {
+    val ids = vaccination.nextVaccinations.map { it.reminderId }.filter { it.isNotBlank() }.toSet()
+    val reminders = if (byVisit.isEmpty() && ids.isNotEmpty()) ids.mapNotNull { getById(it) } else byVisit
+    return if (ids.isEmpty()) reminders else reminders.filter { it.id in ids }
+}
 
 @HiltViewModel
 class DueViewModel @Inject constructor(
@@ -96,7 +108,8 @@ class DueViewModel @Inject constructor(
             overdueCount = overdue,
             isRefreshing = refreshing
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DueUiState(isLoading = true))
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DueUiState(isLoading = true))
 
     fun refresh() {
         viewModelScope.launch {
@@ -121,12 +134,11 @@ class DueViewModel @Inject constructor(
         _searchQuery.update { query }
     }
 
-    private suspend fun remindersFor(vaccination: Vaccination): List<Reminder> {
-        val reminders = reminderRepository.getRemindersByVisitId(vaccination.id)
-        if (vaccination.nextVaccinations.isEmpty()) return reminders
-        val ids = vaccination.nextVaccinations.map { it.reminderId }.filter { it.isNotBlank() }.toSet()
-        return if (ids.isNotEmpty()) reminders.filter { it.id in ids } else reminders
-    }
+    private suspend fun remindersFor(vaccination: Vaccination): List<Reminder> =
+        resolveDueReminders(
+            vaccination,
+            reminderRepository.getRemindersByVisitId(vaccination.id)
+        ) { id -> reminderRepository.getReminderById(id) }
 
     fun dismissReminder(vaccination: Vaccination, reason: String) {
         viewModelScope.launch {

@@ -1,13 +1,14 @@
 package com.neochildclinic.feature.vaccination.domain
 import com.neochildclinic.core.common.VaccineUtils
+import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.database.TransactionRunner
-import com.neochildclinic.feature.finance.domain.repository.FinanceRepository
+import com.neochildclinic.domain.repository.FinanceRepository
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.Visit
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
-import com.neochildclinic.feature.vaccination.domain.repository.VaccinationRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.model.InventoryStatus
 import com.neochildclinic.domain.model.InventoryTransactionType
 import com.neochildclinic.domain.model.InventoryDeduction
@@ -29,7 +30,7 @@ class ClinicalVaccinationService @Inject constructor(
     private val financeRepository: FinanceRepository,
     private val reminderRepository: ReminderRepository,
     private val syncRepository: SyncRepository,
-    private val inventoryRepository: com.neochildclinic.feature.inventory.domain.repository.InventoryRepository
+    private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository
 ) {
     /**
      * [reminderSpecs] are the visit's next-vaccination reminders. They are written INSIDE
@@ -187,12 +188,17 @@ class ClinicalVaccinationService @Inject constructor(
         val givenNames = vaccination.items.map {
             VaccineUtils.cleanVaccineName(it.vaccineName).lowercase().trim()
         }
+        // A dose given today must not close a reminder for the same vaccine that is not due
+        // until later. Unparseable dates (including a blank visit date) complete nothing.
+        val visitDate = DateUtils.parseDate(vaccination.dateGiven)
         reminders.forEach { reminder ->
             val reminderNames = reminder.vaccineName.split(",").map {
                 VaccineUtils.cleanVaccineName(it).lowercase().trim()
             }.filter { it.isNotBlank() }
             val matches = reminderNames.isNotEmpty() && reminderNames.any { it in givenNames }
-            if (matches && reminder.status != "COMPLETED" && reminder.status != "DISMISSED") {
+            val dueDate = DateUtils.parseDate(reminder.dueDate)
+            val dueByVisit = visitDate != null && dueDate != null && dueDate <= visitDate
+            if (matches && dueByVisit && reminder.status != "COMPLETED" && reminder.status != "DISMISSED") {
                 reminderRepository.markReminderCompleted(reminder, user, vaccination.id)
             }
         }

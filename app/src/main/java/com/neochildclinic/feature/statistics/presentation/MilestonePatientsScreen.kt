@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.statistics.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.common.AgeUtils
 import com.neochildclinic.core.common.DateUtils
 
@@ -65,7 +66,7 @@ fun MilestonePatientsScreen(
             patients.mapNotNull { patient ->
                 val milestone = AgeUtils.getNextAgeMilestone(patient.dob, today, windowEnd) ?: return@mapNotNull null
                 if (milestone.label != label) return@mapNotNull null
-                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.of("Asia/Kolkata")).format(DateUtils.LEGACY_PADDED_DATE_FORMATTER))
+                Quadruple(patient, milestone.date.timeInMillis, milestone.label, milestone.date.toInstant().atZone(java.time.ZoneId.of(IST_ZONE_ID)).format(DateUtils.LEGACY_PADDED_DATE_FORMATTER))
             }.sortedBy { it.second }
         }
     }

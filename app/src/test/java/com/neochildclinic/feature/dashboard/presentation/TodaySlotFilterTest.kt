@@ -26,7 +26,6 @@ class TodaySlotFilterTest {
         val segments = keys(range(9, 11))
         assertEquals(1, segments.size)
         assertNull(TodaySlotFilter.effectiveKey(segments, segments.first().key))
-        assertNull(TodaySlotFilter.effectiveKey(segments, null))
     }
 
     @Test

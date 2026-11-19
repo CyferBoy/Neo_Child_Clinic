@@ -19,8 +19,8 @@ import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.domain.model.BackupOperationResult
 import com.neochildclinic.domain.model.Vaccination
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
-import com.neochildclinic.feature.settings.domain.repository.BackupRepository
+import com.neochildclinic.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.BackupRepository
 import com.neochildclinic.feature.widget.data.WidgetWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.flow
@@ -75,35 +75,6 @@ class CancellationPropagationTest {
         Proxy.newProxyInstance(clazz.classLoader, arrayOf(clazz)) { _, method, args ->
             handler(method.name, args)
         } as T
-
-    // AppDatabase is abstract, not an interface, so a minimal concrete stub is needed just to
-    // satisfy WidgetWorker's constructor. doWork() throws before it touches any DAO in these tests.
-    private class StubAppDatabase : AppDatabase() {
-        override fun patientDao(): PatientDao = throw UnsupportedOperationException()
-        override fun vaccinationDao(): VaccinationDao = throw UnsupportedOperationException()
-        override fun dueReminderDao(): DueReminderDao = throw UnsupportedOperationException()
-        override fun vaccineDao(): VaccineDao = throw UnsupportedOperationException()
-        override fun syncQueueDao(): SyncQueueDao = throw UnsupportedOperationException()
-        override fun wasteDao(): WasteDao = throw UnsupportedOperationException()
-        override fun widgetDueDao(): WidgetDueDao = throw UnsupportedOperationException()
-        override fun auditLogDao(): AuditLogDao = throw UnsupportedOperationException()
-        override fun financeDao(): FinanceDao = throw UnsupportedOperationException()
-        override fun profileDao(): ProfileDao = throw UnsupportedOperationException()
-        override fun borrowDao(): BorrowDao = throw UnsupportedOperationException()
-        override fun patientNotesDao(): PatientNotesDao = throw UnsupportedOperationException()
-        override fun inventoryDeductionDao(): InventoryDeductionDao = throw UnsupportedOperationException()
-        override fun consultationDao(): ConsultationDao = throw UnsupportedOperationException()
-        override fun vaccinationItemDao(): VaccinationItemDao = throw UnsupportedOperationException()
-        override fun patientTodoDao(): PatientTodoDao = throw UnsupportedOperationException()
-        override fun personalReminderDao(): PersonalReminderDao = throw UnsupportedOperationException()
-        override fun borrowReturnDao(): BorrowReturnDao = throw UnsupportedOperationException()
-        override fun expenseDao(): ExpenseDao = throw UnsupportedOperationException()
-        override fun doctorAvailabilityDao(): DoctorAvailabilityDao = throw UnsupportedOperationException()
-        override fun backupDao(): BackupDao = throw UnsupportedOperationException()
-        override fun createInvalidationTracker(): InvalidationTracker = InvalidationTracker(this, emptyMap(), emptyMap(), "dummy")
-        override fun createOpenHelper(config: DatabaseConfiguration): SupportSQLiteOpenHelper = throw UnsupportedOperationException()
-        override fun clearAllTables() = throw UnsupportedOperationException()
-    }
 
     private fun backupRepo(handler: (String) -> Any?) = createProxy(BackupRepository::class.java) { name, _ -> handler(name) }
     private fun reminderRepo(handler: (String) -> Any?) = createProxy(ReminderRepository::class.java) { name, _ -> handler(name) }
@@ -164,7 +135,8 @@ class CancellationPropagationTest {
                     flow<List<Vaccination>> { throw CancellationException("Widget worker coroutine cancelled") }
                 } else null
             },
-            database = StubAppDatabase()
+            patientDao = createProxy(PatientDao::class.java) { _, _ -> null },
+            widgetDueDao = createProxy(WidgetDueDao::class.java) { _, _ -> null }
         )
 
         try {
@@ -185,7 +157,8 @@ class CancellationPropagationTest {
                     flow<List<Vaccination>> { throw RuntimeException("Database error") }
                 } else null
             },
-            database = StubAppDatabase()
+            patientDao = createProxy(PatientDao::class.java) { _, _ -> null },
+            widgetDueDao = createProxy(WidgetDueDao::class.java) { _, _ -> null }
         )
 
         assertEquals(ListenableWorker.Result.failure(), worker.doWork())

@@ -1,14 +1,14 @@
 package com.neochildclinic.feature.reminder.data
 import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
-import com.neochildclinic.feature.reminder.domain.repository.ReminderRepository
+import com.neochildclinic.domain.repository.ReminderRepository
 import com.neochildclinic.domain.model.Reminder
 
 import android.content.Context
 import com.neochildclinic.data.local.dao.*
 import com.neochildclinic.data.local.entity.*
 import com.neochildclinic.domain.model.*
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import com.neochildclinic.core.notification.ReminderScheduler
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority

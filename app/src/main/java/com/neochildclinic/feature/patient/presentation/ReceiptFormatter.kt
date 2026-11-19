@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.patient.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.common.AgeUtils
 
 import android.content.Context
@@ -133,7 +134,7 @@ object ReceiptFormatter {
         canvas.drawText("Date: ${vaccination.dateGiven}", pageWidth - MARGIN, 87f, paint)
         
         val timeStr = DateTimeFormatter.ofPattern("hh:mm:ss a", Locale.getDefault())
-            .withZone(ZoneId.of("Asia/Kolkata"))
+            .withZone(ZoneId.of(IST_ZONE_ID))
             .format(java.time.Instant.now())
         canvas.drawText("Time: $timeStr", pageWidth - MARGIN, 99f, paint)
         

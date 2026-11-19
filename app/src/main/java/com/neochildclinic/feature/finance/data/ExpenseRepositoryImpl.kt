@@ -3,7 +3,7 @@ import com.neochildclinic.core.common.DateUtils
 import com.neochildclinic.core.database.TransactionRunner
 import com.neochildclinic.data.local.dao.ExpenseDao
 import com.neochildclinic.data.local.dao.SyncQueueDao
-import com.neochildclinic.feature.finance.domain.repository.ExpenseRepository
+import com.neochildclinic.domain.repository.ExpenseRepository
 
 import com.neochildclinic.core.logger.AuditLogger
 import com.neochildclinic.domain.model.SyncOperation
@@ -13,7 +13,7 @@ import com.neochildclinic.data.local.entity.ExpenseEntity
 import com.neochildclinic.data.local.entity.toDomain
 import com.neochildclinic.data.local.entity.toEntity
 import com.neochildclinic.domain.model.Expense
-import com.neochildclinic.feature.sync.domain.repository.SyncRepository
+import com.neochildclinic.domain.repository.SyncRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow

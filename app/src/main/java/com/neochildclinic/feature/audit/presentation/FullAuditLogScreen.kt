@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.audit.presentation
+import com.neochildclinic.core.common.IST_ZONE_ID
 import com.neochildclinic.core.common.DateUtils
 
 import com.neochildclinic.core.designsystem.*
@@ -367,7 +368,7 @@ private fun groupLogsByDate(logs: List<AuditLog>): Map<String, List<AuditLog>> {
     for (log in logs) {
         val dateStr = runCatching {
             val instant = Instant.parse(log.timestamp)
-            val localDate = instant.atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
+            val localDate = instant.atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
             localDate.format(dateFormatter)
         }.getOrElse {
             if (log.timestamp.length >= 10) {
@@ -391,7 +392,7 @@ private fun formatTimeOnly(isoTimestamp: String): String {
     val timeFormatter = com.neochildclinic.core.common.DateUtils.TIME_12H_FORMATTER
     return runCatching {
         val instant = Instant.parse(isoTimestamp)
-        instant.atZone(ZoneId.of("Asia/Kolkata")).format(timeFormatter)
+        instant.atZone(ZoneId.of(IST_ZONE_ID)).format(timeFormatter)
     }.getOrElse {
         "10:00 AM"
     }

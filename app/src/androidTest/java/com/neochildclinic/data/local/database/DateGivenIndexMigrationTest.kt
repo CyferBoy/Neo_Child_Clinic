@@ -19,14 +19,13 @@ import org.junit.runner.RunWith
  * had no `dateGiven` index, so each of those sorted the whole table into a temp B-tree.
  * EXPLAIN QUERY PLAN on a 50k-row fixture: the temp B-tree disappears once this index exists.
  *
- * Deliberately NOT using MigrationTestHelper: `room.schemaLocation` IS configured, but only
- * version 33 has ever been exported to app/schemas (hence no 32.json/33.json pair to validate
- * against - the same reason ExpenseMigrationTest is @Ignore'd). Building the v32 table by hand
- * keeps this test self-contained and runnable. The migration SQL below is kept byte-identical
- * to migration32_33 in AppDatabase (MIGRATIONS is `internal`, so a test could also reach it).
+ * Deliberately NOT using MigrationTestHelper here: app/schemas exports 33/34/35 but NOT 32,
+ * so there is no 32.json to create the starting database from. Building the minimal v32 table
+ * by hand keeps this test self-contained. The 33->34 and 34->35 hops, which DO have exported
+ * schemas, are covered by SchemaMigrationTest with MigrationTestHelper.
  *
- * Also asserts the migration SQL matches what Room itself generates for the
- * `@Index("dateGiven")` declaration on VaccinationEntity, so the two cannot drift.
+ * The migration under test is the real migration32_33 from AppDatabase.MIGRATIONS - no copied
+ * SQL - so this test fails if production changes the index name or column.
  *
  * Assertions are JUnit's `assertTrue`/`assertEquals`, not Kotlin's `assert`. Kotlin's `assert`
  * is compiled against `_Assertions.ENABLED`, which is `desiredAssertionStatus()` - false unless
@@ -37,13 +36,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DateGivenIndexMigrationTest {
 
-    /** Must stay identical to migration32_33 in AppDatabase.kt. */
-    private fun migrate32To33(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "CREATE INDEX IF NOT EXISTS `index_patient_visits_dateGiven` " +
-                "ON `patient_visits` (`dateGiven`)"
-        )
-    }
+    /** The shipped migration; this test must exercise production code, not a copy of its SQL. */
+    private val migration32To33 = AppDatabase.MIGRATIONS.first { it.startVersion == 32 }
 
     /** Minimal v32 `patient_visits`: same columns the migration's index touches. */
     private fun createV32(db: SupportSQLiteDatabase) {
@@ -89,7 +83,7 @@ class DateGivenIndexMigrationTest {
         val before = plan(db, "SELECT * FROM patient_visits ORDER BY dateGiven DESC")
         assertTrue("expected a temp sort before: $before", before.any { it.contains("TEMP B-TREE") })
 
-        migrate32To33(db)
+        migration32To33.migrate(db)
 
         // Every pre-existing row survived (index-only migration touches no data)...
         val order = mutableListOf<String>()
@@ -117,8 +111,8 @@ class DateGivenIndexMigrationTest {
     @Test
     fun migrate32To33_isIdempotent() {
         val db = helper().writableDatabase
-        migrate32To33(db)
-        migrate32To33(db)
+        migration32To33.migrate(db)
+        migration32To33.migrate(db)
         var count = 0
         db.query("SELECT COUNT(*) FROM patient_visits").use { c ->
             c.moveToFirst(); count = c.getInt(0)

@@ -1,10 +1,14 @@
-import { verifySupabaseJwt, AuthError } from "./jwt";
+import { verifySupabaseJwt, AuthError, ConfigError } from "./jwt";
 
 export interface Env {
   BACKUP_BUCKET: R2Bucket;
   DB: D1Database;
   SUPABASE_JWT_SECRET?: string;
   SUPABASE_JWKS_URL?: string;
+  /** Supabase project base URL; the token's `iss` must equal `${SUPABASE_URL}/auth/v1`. */
+  SUPABASE_URL?: string;
+  /** Set to the literal string "true" to keep accepting HS256 alongside a configured JWKS. */
+  ALLOW_LEGACY_HS256?: string;
 }
 
 interface BackupRow {
@@ -72,8 +76,18 @@ export default {
 
     let user;
     try {
-      user = await verifySupabaseJwt(request.headers.get("Authorization"), env.SUPABASE_JWT_SECRET, env.SUPABASE_JWKS_URL);
+      user = await verifySupabaseJwt(request.headers.get("Authorization"), {
+        jwtSecret: env.SUPABASE_JWT_SECRET,
+        jwksUrl: env.SUPABASE_JWKS_URL,
+        issuer: env.SUPABASE_URL ? `${env.SUPABASE_URL.replace(/\/+$/, "")}/auth/v1` : undefined,
+        allowLegacyHs256: env.ALLOW_LEGACY_HS256 === "true"
+      });
     } catch (e) {
+      // A misconfigured SUPABASE_URL is a server CONFIG problem, not a bad credential:
+      // returning 401 would hide an unconfigured deployment behind a plausible "unauthorized".
+      if (e instanceof ConfigError) {
+        return json({ code: "CONFIG", error: e.message }, 500);
+      }
       const message = e instanceof AuthError ? e.message : "Unauthorized";
       return json({ error: message }, 401);
     }
@@ -217,6 +231,11 @@ async function handleConfirm(request: Request, env: Env, accountId: string, back
   // leak whether the id exists at all.
   const existing = await env.DB.prepare("SELECT * FROM backups WHERE backup_id = ?").bind(backupId).first<BackupRow>();
   if (existing && existing.account_id !== accountId) return json({ error: "Not found" }, 404);
+
+  // Idempotent retry: the app re-sends confirm after a network hiccup. Return the stored row
+  // verbatim - rewriting confirmed_at would corrupt retention ordering, and a second write
+  // to R2 could destroy the only confirmed copy. No body/object/metadata mutation here.
+  if (existing?.status === "CONFIRMED") return json(toPublicMetadata(existing));
 
   const head = await env.BACKUP_BUCKET.head(key);
   if (!head) return json({ error: "Uploaded object not found - upload may have failed" }, 409);

@@ -43,6 +43,16 @@ fun getEnv(key: String, default: String = ""): String {
     return getPropOrEnv(key, default)
 }
 
+// Same formula as the updater's tag-derived code (AppUpdateManager.versionCodeFromTag):
+// a "0.6" build is 6000, so a second check after installing it sees no phantom update.
+fun versionCodeFromName(name: String): Int {
+    val parts = name.trim().removePrefix("v").split(".")
+    val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+    val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+    return major * 1_000_000 + minor * 1_000 + patch
+}
+
 // Emit AppDatabase/<version>.json so MigrationTestHelper can validate a migration against
 // Room's real expected schema. Both halves are required: the KSP arg supplies the output
 // directory, and sourceSets below packages that directory into the androidTest APK's assets
@@ -60,7 +70,7 @@ android {
         applicationId = "com.neochildclinic"
         minSdk = 29
         targetSdk = 35
-        versionCode = libs.versions.appVersionCode.get().toInt()
+        versionCode = versionCodeFromName(libs.versions.appVersionName.get())
         versionName = libs.versions.appVersionName.get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -116,10 +126,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            val releaseSigning = signingConfigs.findByName("release")
-            if (releaseSigning?.storeFile != null) {
-                signingConfig = releaseSigning
-            }
+            // Fail closed: always attach the release signing config. Without a configured
+            // keystore AGP fails assembleRelease instead of emitting an unsigned APK.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -132,7 +141,7 @@ android {
     }
 
     lint {
-        checkReleaseBuilds = false
+        checkReleaseBuilds = true
         abortOnError = true
         disable += "NullSafeMutableLiveData"
     }

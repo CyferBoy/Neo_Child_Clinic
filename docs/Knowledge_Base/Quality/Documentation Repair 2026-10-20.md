@@ -83,7 +83,7 @@ was installed or removed.
 - `docs/AUDIT_REPORT_2026-10-16.md` and `docs/SECURITY_AUDIT_2026-10-13.md`: dated historical
   audits, preserved as-is (the reconciliation pages exist for exactly this).
 - `README.md`, `ARCHITECTURE.md`, `CACHE_ARCHITECTURE.md`, `docs/SYNC.md`,
-  `docs/BACKUP_RESTORE.md`, `docs/GETTING_STARTED.md`: checked against the corrected numbers;
+  `docs/BACKUP_RESTORE.md` (now `[[Backup and Restore]]`), `docs/GETTING_STARTED.md`: checked against the corrected numbers;
   no contradictory count found, no change needed. `CACHE_ARCHITECTURE.md` is accurate
   (nanoTime clock, TTLs).
 

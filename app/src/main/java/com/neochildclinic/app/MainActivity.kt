@@ -23,13 +23,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.neochildclinic.core.security.BiometricLockManager
 import com.neochildclinic.core.security.BiometricAuthenticator
+import com.neochildclinic.core.security.OfflineAuthManager
 import com.neochildclinic.core.designsystem.NeoChildTheme
 import com.neochildclinic.core.preferences.PreferenceManager
 import com.neochildclinic.feature.auth.presentation.ui.LockScreen
 import com.neochildclinic.feature.update.presentation.AppUpdateDialog
 import com.neochildclinic.feature.update.presentation.AppUpdateViewModel
 import com.neochildclinic.core.sync.SyncScheduler
-import com.neochildclinic.feature.auth.domain.repository.DeviceRepository
+import com.neochildclinic.domain.repository.DeviceRepository
 import com.neochildclinic.feature.auth.presentation.AuthViewModel
 import com.neochildclinic.core.preferences.NotificationSettingsManager
 import com.neochildclinic.core.notification.NotificationHelper
@@ -71,7 +72,10 @@ class MainActivity : FragmentActivity() {
     lateinit var sessionManager: Lazy<com.neochildclinic.core.security.SessionManager>
 
     @Inject
-    lateinit var profileRepository: Lazy<com.neochildclinic.feature.profile.domain.repository.ProfileRepository>
+    lateinit var profileRepository: Lazy<com.neochildclinic.domain.repository.ProfileRepository>
+
+    @Inject
+    lateinit var offlineAuthManager: OfflineAuthManager
 
     private val authViewModel: AuthViewModel by viewModels()
     private val appUpdateViewModel: AppUpdateViewModel by viewModels()
@@ -248,6 +252,7 @@ class MainActivity : FragmentActivity() {
                 val settings = settingsManager.settingsFlow.first()
                 BiometricLockManager.setProtectionEnabled(settings.biometricLockEnabled)
                 if (!settings.biometricLockEnabled || BiometricLockManager.isLockSuppressed()) {
+                    if (!offlineUnlockGateAllows()) return@launch
                     BiometricLockManager.unlockBecauseProtectionIsDisabled()
                     com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
                     return@launch
@@ -279,15 +284,35 @@ class MainActivity : FragmentActivity() {
             title = "Clinic Access",
             subtitle = "Authenticate to access patient data"
         ) {
+            if (!offlineUnlockGateAllows()) return@authenticate
             BiometricLockManager.unlockAfterKeystoreVerification()
             com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
         }
+    }
+
+    /**
+     * SE-01: a device-local verifier must not unlock app-lock once the last online account
+     * check has aged past the 24h offline grace. Every unlock branch goes through here so
+     * biometric and protection-disabled paths cannot bypass the password path's gate.
+     */
+    private fun offlineUnlockGateAllows(): Boolean {
+        if (offlineAuthManager.isOfflineUnlockAllowed()) return true
+        BiometricLockManager.lock()
+        Toast.makeText(
+            this,
+            "Offline access has expired. Connect to the internet and sign in again.",
+            Toast.LENGTH_SHORT
+        ).show()
+        return false
     }
 
     private fun authenticateWithAccountPassword(password: String) {
         lifecycleScope.launch {
             val result = authViewModel.reauthenticateWithPassword(password)
             if (result.isSuccess) {
+                // SE-01: never unlock on a device-local verifier whose online account check
+                // has gone stale, even if the reauth path reported success.
+                if (!offlineUnlockGateAllows()) return@launch
                 BiometricAuthenticator.clearBiometricLockout(this@MainActivity)
                 BiometricLockManager.unlockAfterKeystoreVerification()
                 com.neochildclinic.feature.widget.data.WidgetUtils.updateWidget(this@MainActivity)
@@ -313,13 +338,11 @@ class MainActivity : FragmentActivity() {
 
     private fun handleAuthDeeplink(intent: Intent?) {
         val uri = intent?.data ?: return
-        val isCustomScheme = uri.scheme.equals("neochild", ignoreCase = true) &&
-            uri.host.equals("auth-callback", ignoreCase = true)
         val isVerifiedAppLink = uri.scheme.equals("https", ignoreCase = true) &&
             uri.host.equals("app.neochildclinic.com", ignoreCase = true) &&
             (uri.path?.startsWith("/auth-callback") == true)
 
-        if (isCustomScheme || isVerifiedAppLink) {
+        if (isVerifiedAppLink) {
             supabaseClient.get().handleDeeplinks(intent)
         }
     }

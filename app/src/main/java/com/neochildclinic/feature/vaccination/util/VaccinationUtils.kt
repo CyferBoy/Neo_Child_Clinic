@@ -1,4 +1,5 @@
 package com.neochildclinic.feature.vaccination.util
+import com.neochildclinic.core.common.IST_ZONE_ID
 
 import com.neochildclinic.core.common.DateClassifier
 import com.neochildclinic.core.common.DateUtils
@@ -19,9 +20,10 @@ object VaccinationUtils {
         pendingVaccinations: List<Vaccination>,
         filter: String,
     ): List<Vaccination> {
-        val today = Instant.now().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate()
+        val today = Instant.now().atZone(ZoneId.of(IST_ZONE_ID)).toLocalDate()
         val tomorrow = today.plusDays(1)
-        val weekStart = today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+        // The clinical "This Week" bucket always starts Monday, regardless of device locale.
+        val weekStart = today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.ENGLISH).firstDayOfWeek))
         val weekEnd = weekStart.plusDays(6)
         val monthStart = today.withDayOfMonth(1)
         val monthEnd = today.withDayOfMonth(today.lengthOfMonth())

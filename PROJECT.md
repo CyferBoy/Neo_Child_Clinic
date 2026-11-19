@@ -57,6 +57,12 @@ clinical vaccination predicate, 43 zero-caller DAO methods deleted across both p
 Verification: `./gradlew testDebugUnitTest --offline` — 493 tests, 0 failures;
 `python3 scripts/validate_docs.py --strict` — 0 errors.
 
+Pass 2 (2026-11-17, see `docs/audit/untangle-2026-11-17-pass2.md`) widened scope to
+supabase/cloudflare/CI: unified the IST constant and FY parsing, swapped two worker
+concrete injections for interfaces, deduped CI Firebase config and tightened the
+docs validator, and removed ~55 restating comments plus three tautological tests.
+Verification: 496 unit tests, 22 worker tests, 37 validator tests, 0 errors.
+
 ## Interface Contracts
 
 ### SyncableEntity ↔ SyncUploader
