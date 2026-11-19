@@ -26,12 +26,12 @@ external blockers rather than verified here.
 
 | ID | Workflow | Run ID | Root cause | Status |
 |---|---|---|---|---|
-| F1 | Worker CI | `44460076139` | `test/jwt.spec.ts` typed the result of `crypto.subtle.generateKey()` as `CryptoKey \| CryptoKeyPair`, so `pair.publicKey` and `CryptoKeyPair` arguments failed `tsc --noEmit` | repaired, local green |
+| F1 | Worker CI | `44460076139` | `test/jwt.spec.ts` typed the result of `crypto.subtle.generateKey()` as `CryptoKey \| CryptoKeyPair`, so `pair.publicKey` and `CryptoKeyPair` arguments failed `tsc --noEmit` | repaired, verified green |
 | F1b | Worker CI | `43812837104` | Older, different failure: `src/index.ts` read `VerifiedUser.app_metadata` that the type did not declare. Already fixed before the baseline commit; re-check on new run | historical, fixed upstream |
-| F2 | Android instrumented tests | `44460075999` | D8 rejected DEX class names generated from backtick Kotlin test names containing spaces (`BorrowDaoCountTest$empty table counts zero$1`) | repaired, local green |
+| F2 | Android instrumented tests | `44460075999` | D8 rejected DEX class names generated from backtick Kotlin test names containing spaces (`BorrowDaoCountTest$empty table counts zero$1`) | repaired, verified green |
 | F2b | Android instrumented tests | `44027097646` | Older failure at `:app:compileDebugAndroidTestKotlin`; current tree compiles and assembles androidTest locally | historical, fixed upstream |
-| F3 | Android CI | `44460076114`, `44027097683`, `43779964630` | `lintDebug` fails on non-observable `Locale.getDefault()` reads inside composables (5 errors at baseline, 6 earlier). Long-standing blocker | fix in progress |
-| F4 | Supabase SQL | `44460076014` | The child-refs step applied `20261118000000_access_hardening.sql` and its self-contained test to a minimal schema that lacks `is_active_staff()`/`auth.jwt()`; the test also drops and recreates the child-refs tables, invalidating the assertions that follow it | repaired, needs CI verification |
+| F3 | Android CI | `44460076114`, `44027097683`, `43779964630` | `lintDebug` fails on non-observable `Locale.getDefault()` reads inside composables (5 errors at baseline, 6 earlier). Long-standing blocker | repaired, verified green |
+| F4 | Supabase SQL | `44460076014` | The child-refs step applied `20261118000000_access_hardening.sql` and its self-contained test to a minimal schema that lacks `is_active_staff()`/`auth.jwt()`; the test also drops and recreates the child-refs tables, invalidating the assertions that follow it | repaired, verified green |
 | F5 | Android CI | `44027097683` | Gradle cache reservation warning (`ReserveCacheError`) appeared alongside the real lint failure; harmless, disappears when lint passes | no action needed |
 
 ## Non-findings

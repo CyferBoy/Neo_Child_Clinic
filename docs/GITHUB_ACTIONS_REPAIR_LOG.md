@@ -71,6 +71,9 @@ Down to 1 failure of 70: the two synthetic reminders shared the same unique natu
 `loc-1` projection assertion saw null. Made `vaccineName` unique per local id in the fixture.
 No production code changed.
 
-### Pending
+### Verification summary
 
-- Re-run instrumented tests; confirm final runs for all workflows.
+Final pass on commit `73aed1f`: Android CI `44473522999`, instrumented `44473523129`,
+Worker CI `44473523064`, Supabase SQL `44473522804`, CodeQL `44473523308`, plus the
+GitHub-generated code-scanning run `44473534306` — all `success`. Historical failures were
+left in GitHub history and never hidden with `continue-on-error`, skipped tests or baselines.

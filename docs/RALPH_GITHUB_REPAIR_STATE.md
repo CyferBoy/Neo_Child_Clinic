@@ -7,14 +7,21 @@ completed until a GitHub run confirms it.
 
 | Field | Value |
 |---|---|
-| Iteration | 4 |
+| Iteration | 5 (final verification) |
 | Working branch | `ci/gh-actions-repair` |
 | Base commit | `1b8471d` (pushed to `main`) |
-| Latest commit on branch | `575d729` (next commit pending) |
+| Latest commit on branch | `73aed1f` (final docs commit pending) |
 | Open PR | #21 |
-| Total unresolved issues | 1 (instrumented re-verification) |
-| Last successful run IDs | Android CI `44470946697`; Worker CI `44472253447`; CodeQL `44470946591`; Supabase SQL `44472253562` |
+| Total unresolved issues | 0 |
+| Last successful run IDs | Android CI `44473522999`; instrumented `44473523129`; Worker `44473523064`; Supabase SQL `44473522804`; CodeQL `44473523308` |
 | Last failed run IDs | see [[GITHUB_ACTIONS_AUDIT]] |
+
+## Completion
+
+`RALPH_LOOP_COMPLETE` for all applicable workflows: the five push/PR workflows and the
+dynamic code-scanning run have successful verification runs on `73aed1f`. The two release
+workflows are external-event-only (tag plus signing secrets / published release) and are
+documented as not verifiable here, not as successes.
 
 ## Completed repairs (verified)
 
@@ -32,8 +39,7 @@ completed until a GitHub run confirms it.
 
 ## Remaining failures / work
 
-- Push iteration 2/3 fixes and inspect the new Supabase SQL and instrumented runs.
-- Confirm the final commit has a successful run for every applicable workflow.
+- None on the current tree. A release/tag run is still unverified by design (external blocker).
 
 ## External blockers
 
@@ -46,4 +52,5 @@ completed until a GitHub run confirms it.
 - Iteration 1: audited seven workflows and 100 runs; fixed F1/F2/F3/F4; all local checks green.
 - Iteration 2: Supabase SQL first verification run failed on a missing SELECT policy; harness fixed.
 - Iteration 3: instrumented first verification run failed on 6 DAO fixtures; fixtures fixed.
-- Iteration 4: one remaining reminder-key collision fixed; awaiting final instrumented run.
+- Iteration 4: one remaining reminder-key collision fixed; final pass green on all workflows.
+- Iteration 5: documented final run IDs; no repairs left.

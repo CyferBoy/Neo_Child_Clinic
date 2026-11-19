@@ -31,7 +31,18 @@ with conclusion `success`. Statuses below are updated at the end of every Ralph 
 | Supabase SQL | `44472253562` | success | harness SELECT policy fixed |
 | Android CI | `44472253408` | success | docs validator advisory: `setup-python@v5` targets deprecated Node 20 |
 | Android instrumented tests | `44472253549` | failure | 1/70: reminder fixture key collision, fixed in iteration 4 |
-| CodeQL Advanced | `44472253366` | pending | |
+| CodeQL Advanced | `44472253366` | success | |
+
+### Final pass (commit `73aed1f`) — all applicable workflows green
+
+| Workflow | Run ID | Conclusion |
+|---|---|---|
+| Android CI | `44473522999` | success |
+| Android instrumented tests | `44473523129` | success (70 tests, 0 failures) |
+| Worker CI | `44473523064` | success |
+| Supabase SQL | `44473522804` | success |
+| CodeQL Advanced | `44473523308` | success |
+| Code scanning AI findings (dynamic) | `44473534306` | success |
 
 ### Not verifiable without external events
 
