@@ -83,6 +83,9 @@ grant select, update on public.patients to authenticated;
 grant select, insert, update on public.inventory_transactions to authenticated;
 grant select on public.vaccine_batches to authenticated;
 
+-- UPDATE needs a visible row: the real schema has patients_staff_select from 20260825.
+create policy patients_test_select on public.patients for select to authenticated using (true);
+
 -- Apply the migration under test.
 \ir ../migrations/20261118000000_access_hardening.sql
 

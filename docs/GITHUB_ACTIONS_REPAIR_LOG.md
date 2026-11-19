@@ -43,6 +43,27 @@ Four composables read `Locale.getDefault()`; replaced with the lint-recommended 
 The loading skeleton used `BoxWithConstraints` without reading the scope; now a plain `Box`
 (`DashboardScreen`), while the real responsive usage remains `BoxWithConstraints`.
 
-Local validation: full unit suite and `lintDebug` in progress.
+Local validation: `lintDebug` BUILD SUCCESSFUL with 0 errors; full unit suite 554/0.
 
-### Pending in this iteration
+### Iteration 2 — Supabase SQL harness (run `44470946764` failed)
+
+The new access-hardening step got past `is_active_staff()` and failed on its last assertion:
+admin UPDATE of a clinical row affected 0 rows. The minimal harness enabled RLS on
+`patients` but, unlike the real schema, had no SELECT policy, so no role could see the row
+an UPDATE needs. Added `patients_test_select` to the disposable schema. No migration or
+application RLS was changed.
+
+### Iteration 3 — instrumented DAO fixtures (run `44470946645` failed)
+
+With D8 fixed, 70 tests ran and 6 failed on real SQLite: five FK violations from fixtures
+that inserted borrow/batch/reminder rows without their parent vaccine/batch/patient rows,
+and one stale assertion that expected `@Insert(REPLACE)` to cascade children even though
+the repository now uses `@Upsert` to preserve them. Fixed by seeding the missing parents in
+`BorrowDaoCountTest`, `RemotePruneDaoTest` and `InventoryRoomTestRig`, and by updating the
+obsolete test to assert the current in-place-upsert behaviour. No assertions weakened.
+
+Local validation: `assembleDebugAndroidTest` BUILD SUCCESSFUL.
+
+### Pending
+
+- Re-run Supabase SQL and instrumented tests after these fixes; re-verify all workflows.

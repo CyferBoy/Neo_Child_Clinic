@@ -15,6 +15,7 @@ import com.neochildclinic.data.local.database.TransactionRunnerImpl
 import com.neochildclinic.data.local.entity.InventoryTransactionEntity
 import com.neochildclinic.data.local.entity.SyncQueueEntity
 import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.data.local.entity.VaccineEntity
 import com.neochildclinic.domain.model.AuditLog
 import com.neochildclinic.domain.model.SyncOperation
 import com.neochildclinic.domain.model.SyncPriority
@@ -121,6 +122,10 @@ internal class InventoryRoomTestRig(
     }
 
     suspend fun seedBatch(remaining: Int = 10) {
+        // vaccine_batches.vaccineId is an FK to vaccines.id; seed the parent first.
+        db.vaccineDao().upsertVaccine(
+            VaccineEntity(id = "vac-001", type = "VACCINE", brandName = "Test", companyName = "Test")
+        )
         db.vaccineDao().upsertBatch(
             VaccineBatchEntity(
                 batchId = BATCH_ID, vaccineId = "vac-001", batchNumber = "B-2026-X",

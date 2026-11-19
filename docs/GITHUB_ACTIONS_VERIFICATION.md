@@ -17,11 +17,12 @@ with conclusion `success`. Statuses below are updated at the end of every Ralph 
 
 | Workflow | Trigger | Run ID | Conclusion | Notes |
 |---|---|---|---|---|
-| Android CI | PR to `main` | pending | — | needs lint repair first |
-| Android instrumented tests | PR to `main` | pending | — | D8 repaired locally |
-| Worker CI | PR to `main` | pending | — | TypeScript repaired locally |
-| Supabase SQL | PR to `main` (touching `supabase/**`) | pending | — | step reordered locally |
-| CodeQL Advanced | PR to `main` | pending | — | regression check after code changes |
+| Android CI | PR to `main` | `44470946697` | success | lint, docs and unit tests pass |
+| Android instrumented tests | PR to `main` | `44470946645` | failure | D8 fixed; 6 real DAO test failures now fixed locally |
+| Worker CI | PR to `main` | `44470946559` | success | TypeScript and worker tests pass |
+| Supabase SQL | PR to `main` (touching `supabase/**`) | `44470946764` | failure | SELECT policy missing in disposable schema; fixed locally |
+| CodeQL Advanced | PR to `main` | `44470946591` | success | no new alerts |
+| Second verification pass (after iteration 2/3 fixes) | PR to `main` | pending | — | all five workflows to re-run |
 | Android release | tag / manual dispatch | not applicable | — | no release being cut; signing secrets required |
 | Notify app users about release | release published | not applicable | — | no release being published; last runs `41392904735` etc. succeeded |
 

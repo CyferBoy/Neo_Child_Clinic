@@ -7,26 +7,32 @@ completed until a GitHub run confirms it.
 
 | Field | Value |
 |---|---|
-| Iteration | 1 |
+| Iteration | 3 |
 | Working branch | `ci/gh-actions-repair` |
 | Base commit | `1b8471d` (pushed to `main`) |
-| Latest commit on branch | pending |
-| Open PR | none yet |
-| Total unresolved issues | 5 (all fixes local-green; awaiting GitHub verification) |
-| Last successful run IDs | CodeQL `44460076026`; notify `41392904735` |
+| Latest commit on branch | `75eadbb` (next commit pending) |
+| Open PR | #21 |
+| Total unresolved issues | 2 (Supabase SQL and instrumented re-verification) |
+| Last successful run IDs | Android CI `44470946697`; Worker CI `44470946559`; CodeQL `44470946591` |
 | Last failed run IDs | see [[GITHUB_ACTIONS_AUDIT]] |
+
+## Completed repairs (verified)
+
+- F1 Worker CI — run `44470946559` success.
+- F3 Android CI lint — run `44470946697` success.
+- CodeQL regression — run `44470946591` success.
 
 ## Completed repairs (local verification only)
 
-- F1 Worker CI TypeScript (typecheck clean, all worker tests pass).
-- F2 Instrumented DEX class names (`assembleDebugAndroidTest` succeeds).
-- F3 Android CI lint (`lintDebug` BUILD SUCCESSFUL, 0 errors).
-- F4 Supabase SQL step conflict (YAML parses; GitHub run required).
+- F2 Instrumented DEX class names — `assembleDebugAndroidTest` succeeds; DAO fixture fixes
+  from iteration 3 await a new GitHub run (`44470946645` failed before them).
+- F4 Supabase SQL step + harness — YAML parses; a new GitHub run is required
+  (`44470946764` failed before the SELECT-policy fix).
 
 ## Remaining failures / work
 
-- Push the branch, open a PR into `main`, and inspect every triggered run.
-- Retrieve logs for any new failure, then iterate.
+- Push iteration 2/3 fixes and inspect the new Supabase SQL and instrumented runs.
+- Confirm the final commit has a successful run for every applicable workflow.
 
 ## External blockers
 
@@ -36,5 +42,6 @@ completed until a GitHub run confirms it.
 
 ## History
 
-- Iteration 1 started: audited seven workflows and 100 runs; fixed F1/F2/F3/F4; all local
-  checks green (unit tests 554/0, lint 0 errors, androidTest assembles, worker tests pass).
+- Iteration 1: audited seven workflows and 100 runs; fixed F1/F2/F3/F4; all local checks green.
+- Iteration 2: Supabase SQL first verification run failed on a missing SELECT policy; harness fixed.
+- Iteration 3: instrumented first verification run failed on 6 DAO fixtures; fixtures fixed.

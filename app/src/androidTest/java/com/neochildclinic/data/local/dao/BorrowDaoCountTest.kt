@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.neochildclinic.data.local.database.AppDatabase
 import com.neochildclinic.data.local.entity.BorrowEntity
+import com.neochildclinic.data.local.entity.VaccineBatchEntity
+import com.neochildclinic.data.local.entity.VaccineEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -43,8 +45,20 @@ class BorrowDaoCountTest {
         isReturned = isReturned
     )
 
+    // borrow_records has FKs to both vaccines and vaccine_batches.
+    private suspend fun seedParents() {
+        db.vaccineDao().upsertVaccine(VaccineEntity(id = "v", type = "VACCINE", brandName = "Test", companyName = "Test"))
+        db.vaccineDao().upsertBatch(VaccineBatchEntity(
+            batchId = "b", vaccineId = "v", batchNumber = "B-1", manufacturer = "Test",
+            purchaseDate = "2026-01-01", expiryDate = "2030-01-01",
+            purchaseQuantity = 10, remainingQuantity = 10, supplier = "Test",
+            purchaseCost = 1.0, sellingPrice = 2.0
+        ))
+    }
+
     @Test
     fun countMatchesActiveList() = runBlocking {
+        seedParents()
         dao.upsertRecord(borrow("a1", isReturned = false))
         dao.upsertRecord(borrow("a2", isReturned = false))
         dao.upsertRecord(borrow("r1", isReturned = true))
