@@ -44,7 +44,7 @@ class BorrowDaoCountTest {
     )
 
     @Test
-    fun `count matches the active list the old tile materialized`() = runBlocking {
+    fun countMatchesActiveList() = runBlocking {
         dao.upsertRecord(borrow("a1", isReturned = false))
         dao.upsertRecord(borrow("a2", isReturned = false))
         dao.upsertRecord(borrow("r1", isReturned = true))
@@ -54,7 +54,7 @@ class BorrowDaoCountTest {
     }
 
     @Test
-    fun `empty table counts zero`() = runBlocking {
+    fun emptyTableCountsZero() = runBlocking {
         assertEquals(0, dao.getActiveBorrowCount().first())
     }
 }

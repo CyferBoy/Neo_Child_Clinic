@@ -86,6 +86,12 @@ grant select on public.vaccine_batches to authenticated;
 -- Apply the migration under test.
 \ir ../migrations/20261118000000_access_hardening.sql
 
+-- 20260825 attaches neo_stamp_accountability() to vaccine_batches in the real schema;
+-- the minimal harness needs the same trigger to exercise the deleted_by branch (b).
+drop trigger if exists neo_stamp_accountability on public.vaccine_batches;
+create trigger neo_stamp_accountability before insert or update on public.vaccine_batches
+for each row execute function public.neo_stamp_accountability();
+
 -- A minimal stand-in for update_batch_stock(): the real trigger is an AFTER trigger on
 -- inventory_transactions, so its inner UPDATE fires the guard at pg_trigger_depth()=2.
 create or replace function public.test_update_batch_stock() returns trigger language plpgsql as $$

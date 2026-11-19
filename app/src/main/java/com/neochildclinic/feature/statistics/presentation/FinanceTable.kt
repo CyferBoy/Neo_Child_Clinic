@@ -23,6 +23,7 @@ import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.feature.finance.domain.FinanceCalculator
 import com.neochildclinic.feature.finance.domain.FinanceSummaryItem
 import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 @Composable
 fun FinanceTable(
@@ -189,7 +190,7 @@ private fun FinanceMiniMetric(
 ) {
     Column(modifier = modifier) {
         Text(
-            text = label.uppercase(Locale.getDefault()),
+            text = label.uppercase(LocalLocale.current.platformLocale),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.6.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1
