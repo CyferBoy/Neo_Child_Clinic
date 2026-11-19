@@ -64,6 +64,13 @@ obsolete test to assert the current in-place-upsert behaviour. No assertions wea
 
 Local validation: `assembleDebugAndroidTest` BUILD SUCCESSFUL.
 
+### Iteration 4 — instrumented reminder collision (run `44472253549` failed)
+
+Down to 1 failure of 70: the two synthetic reminders shared the same unique natural key
+(patient, visit, date, type, vaccine), so `@Insert(REPLACE)` removed the first and the
+`loc-1` projection assertion saw null. Made `vaccineName` unique per local id in the fixture.
+No production code changed.
+
 ### Pending
 
-- Re-run Supabase SQL and instrumented tests after these fixes; re-verify all workflows.
+- Re-run instrumented tests; confirm final runs for all workflows.

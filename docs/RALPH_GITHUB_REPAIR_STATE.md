@@ -7,19 +7,20 @@ completed until a GitHub run confirms it.
 
 | Field | Value |
 |---|---|
-| Iteration | 3 |
+| Iteration | 4 |
 | Working branch | `ci/gh-actions-repair` |
 | Base commit | `1b8471d` (pushed to `main`) |
-| Latest commit on branch | `75eadbb` (next commit pending) |
+| Latest commit on branch | `575d729` (next commit pending) |
 | Open PR | #21 |
-| Total unresolved issues | 2 (Supabase SQL and instrumented re-verification) |
-| Last successful run IDs | Android CI `44470946697`; Worker CI `44470946559`; CodeQL `44470946591` |
+| Total unresolved issues | 1 (instrumented re-verification) |
+| Last successful run IDs | Android CI `44470946697`; Worker CI `44472253447`; CodeQL `44470946591`; Supabase SQL `44472253562` |
 | Last failed run IDs | see [[GITHUB_ACTIONS_AUDIT]] |
 
 ## Completed repairs (verified)
 
 - F1 Worker CI — run `44470946559` success.
 - F3 Android CI lint — run `44470946697` success.
+- F4 Supabase SQL — run `44472253562` success.
 - CodeQL regression — run `44470946591` success.
 
 ## Completed repairs (local verification only)
@@ -45,3 +46,4 @@ completed until a GitHub run confirms it.
 - Iteration 1: audited seven workflows and 100 runs; fixed F1/F2/F3/F4; all local checks green.
 - Iteration 2: Supabase SQL first verification run failed on a missing SELECT policy; harness fixed.
 - Iteration 3: instrumented first verification run failed on 6 DAO fixtures; fixtures fixed.
+- Iteration 4: one remaining reminder-key collision fixed; awaiting final instrumented run.

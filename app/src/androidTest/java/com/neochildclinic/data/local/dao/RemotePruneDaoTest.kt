@@ -100,7 +100,7 @@ class RemotePruneDaoTest {
             id = localId,
             patientId = "p-1",
             originalVisitId = "v-1",
-            vaccineName = "BCG",
+            vaccineName = "BCG-$localId",
             type = "VACCINATION",
             dueDate = "2030-01-01",
             status = "ACTIVE",

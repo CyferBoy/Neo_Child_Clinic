@@ -22,9 +22,23 @@ with conclusion `success`. Statuses below are updated at the end of every Ralph 
 | Worker CI | PR to `main` | `44470946559` | success | TypeScript and worker tests pass |
 | Supabase SQL | PR to `main` (touching `supabase/**`) | `44470946764` | failure | SELECT policy missing in disposable schema; fixed locally |
 | CodeQL Advanced | PR to `main` | `44470946591` | success | no new alerts |
-| Second verification pass (after iteration 2/3 fixes) | PR to `main` | pending | — | all five workflows to re-run |
-| Android release | tag / manual dispatch | not applicable | — | no release being cut; signing secrets required |
-| Notify app users about release | release published | not applicable | — | no release being published; last runs `41392904735` etc. succeeded |
+
+### Second pass (commit `575d729`)
+
+| Workflow | Run ID | Conclusion | Notes |
+|---|---|---|---|
+| Worker CI | `44472253447` | success | |
+| Supabase SQL | `44472253562` | success | harness SELECT policy fixed |
+| Android CI | `44472253408` | success | docs validator advisory: `setup-python@v5` targets deprecated Node 20 |
+| Android instrumented tests | `44472253549` | failure | 1/70: reminder fixture key collision, fixed in iteration 4 |
+| CodeQL Advanced | `44472253366` | pending | |
+
+### Not verifiable without external events
+
+| Workflow | Trigger | Conclusion | Notes |
+|---|---|---|---|
+| Android release | tag / manual dispatch | — | no release being cut; signing secrets required |
+| Notify app users about release | release published | — | no release being published; last runs `41392904735` etc. succeeded |
 
 ## Local checks performed
 
