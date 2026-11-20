@@ -101,9 +101,14 @@ class PatientRepositoryImpl @Inject constructor(
             val pendingPatientIds = syncQueueDao.unsyncedIdSet("PATIENT")
             val localPatients = patientDao.getAllPatientsSnapshot()
             val localById = localPatients.associateBy { it.id }.toMutableMap()
-            // patientClinicId has a unique index, so there is at most one owner per id.
+            // patientClinicId and uhid both have unique indexes, so there is at most one
+            // owner per value. Without a rename, a duplicate pulled from another device hits
+            // the index, the per-row catch swallows it, and that patient never appears here.
             val clinicIdOwner = localPatients
                 .mapNotNull { p -> p.patientClinicId?.takeIf { it.isNotBlank() }?.let { it to p.id } }
+                .toMap().toMutableMap()
+            val uhidOwner = localPatients
+                .mapNotNull { p -> p.uhid?.takeIf { it.isNotBlank() }?.let { it to p.id } }
                 .toMap().toMutableMap()
 
             for (entity in entities) {
@@ -115,6 +120,33 @@ class PatientRepositoryImpl @Inject constructor(
                         existingLocal != null && existingLocal.patientClinicId?.isNotBlank() == true && !existingLocal.patientClinicId.startsWith("TEMP-") ->
                             existingLocal.patientClinicId
                         else -> "TEMP-${entity.id}"
+                    }
+
+                    var resolvedUhid = when {
+                        entity.uhid?.isNotBlank() == true -> entity.uhid
+                        existingLocal?.uhid?.isNotBlank() == true -> existingLocal.uhid
+                        else -> null
+                    }
+                    if (!resolvedUhid.isNullOrBlank()) {
+                        val ownerId = uhidOwner[resolvedUhid]
+                        if (ownerId != null && ownerId != entity.id) {
+                            val localOwner = localById[ownerId]
+                            if (localOwner != null && (!localOwner.isSynced || localOwner.id in pendingPatientIds)) {
+                                // The local row is not uploaded yet: rename it so the remote
+                                // patient keeps the real UHID. The queue follows the patient id.
+                                val renamedId = resolvedUhid + "-CONFLICT-" + ownerId.take(4)
+                                val renamed = localOwner.copy(uhid = renamedId, isSynced = false)
+                                patientDao.upsertPatient(renamed)
+                                localById[ownerId] = renamed
+                                uhidOwner.remove(resolvedUhid)
+                                uhidOwner[renamedId] = ownerId
+                            } else {
+                                // Both rows are synced: legacy drift. Keep the remote row
+                                // printable locally under a conflict UHID.
+                                resolvedUhid = resolvedUhid + "-CONFLICT-" + entity.id.take(4)
+                            }
+                        }
+                        uhidOwner[resolvedUhid] = entity.id
                     }
 
                     if (!localClinicId.startsWith("TEMP-")) {
@@ -147,6 +179,7 @@ class PatientRepositoryImpl @Inject constructor(
                                 // pulled again) and a REPLACE would delete it and cascade its children.
                                 patientDao.upsertPatient(entity.copy(
                                     patientClinicId = resolvedId,
+                                    uhid = resolvedUhid,
                                     updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
                                     isSynced = true
                                 ))
@@ -161,6 +194,7 @@ class PatientRepositoryImpl @Inject constructor(
                         // visit/item/consultation/reminder/note under it.
                         patientDao.upsertPatient(entity.copy(
                             patientClinicId = localClinicId,
+                            uhid = resolvedUhid,
                             updatedAt = entity.updatedAt?.takeIf { it.isNotEmpty() } ?: com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp(),
                             isSynced = true
                         ))
@@ -222,6 +256,13 @@ class PatientRepositoryImpl @Inject constructor(
                     throw IllegalStateException("A patient with Clinic ID ${patient.patientClinicId} already exists.")
                 }
                 patient.patientClinicId
+            }
+
+            if (patient.uhid.isNotBlank()) {
+                val owner = patientDao.getPatientByUhid(patient.uhid)
+                if (owner != null && owner.id != patient.id) {
+                    throw IllegalStateException("A patient with UHID ${patient.uhid} already exists.")
+                }
             }
 
             val built = patient.toEntity(isSynced = false).copy(

@@ -60,4 +60,29 @@ class CreateConsultationGateTest {
     fun `no callback is not allowed`() {
         assertFalse(canCreateConsultationFromTodo(consult(), isCompleted = false, hasCallback = false))
     }
+
+    @Test
+    fun `unlinked consultation shows add patient`() {
+        assertTrue(shouldShowAddPatient(consult(patientId = null)))
+        assertTrue(shouldShowAddPatient(consult(patientId = "  ")))
+    }
+
+    @Test
+    fun `linked consultation hides add patient`() {
+        assertFalse(shouldShowAddPatient(consult(patientId = "p1")))
+    }
+
+    @Test
+    fun `unlinked vaccination shows add patient`() {
+        val item = VaccinationTodo(
+            id = "v1", name = "Asha Rao", mobile = "9876543210",
+            vaccineNames = "MMR", address = "", todoDate = "2026-11-19"
+        )
+        assertTrue(shouldShowAddPatient(item))
+    }
+
+    @Test
+    fun `unknown item hides add patient`() {
+        assertFalse(shouldShowAddPatient(null))
+    }
 }

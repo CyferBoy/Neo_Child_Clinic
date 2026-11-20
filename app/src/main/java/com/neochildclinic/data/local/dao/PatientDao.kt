@@ -21,6 +21,13 @@ interface PatientDao {
     @Query("SELECT * FROM patients WHERE patientClinicId = :clinicId LIMIT 1")
     suspend fun getPatientByClinicId(clinicId: String): PatientEntity?
 
+    @Query("SELECT * FROM patients WHERE uhid = :uhid LIMIT 1")
+    suspend fun getPatientByUhid(uhid: String): PatientEntity?
+
+    // Server assigns the UHID on first sync; mirror it back locally like receipt numbers.
+    @Query("UPDATE patients SET uhid = :uhid WHERE id = :id")
+    suspend fun updateUhid(id: String, uhid: String)
+
     // Create path: a unique-clinicId conflict must ABORT instead of REPLACE, which
     // would DELETE the other patient's row and orphan every child record (visits,
     // consultations, reminders, notes) pointing at it.

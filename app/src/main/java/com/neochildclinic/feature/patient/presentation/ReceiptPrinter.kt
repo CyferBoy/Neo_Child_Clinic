@@ -24,7 +24,14 @@ object ReceiptPrinter {
         }
     }
 
-    private fun startPrintJob(context: Context, jobName: String, drawContent: (Canvas) -> Unit) {
+    internal fun startPrintJob(
+        context: Context,
+        jobName: String,
+        pageWidth: Int = ReceiptFormatter.PAGE_WIDTH,
+        pageHeight: Int = ReceiptFormatter.PAGE_HEIGHT,
+        printAttributes: PrintAttributes? = null,
+        drawContent: (Canvas) -> Unit
+    ) {
         com.neochildclinic.core.security.BiometricLockManager.suppressLock(120_000L)
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
         printManager.print(jobName, object : PrintDocumentAdapter() {
@@ -55,7 +62,7 @@ object ReceiptPrinter {
                 callback: WriteResultCallback
             ) {
                 val pdfDocument = PdfDocument()
-                val pageInfo = PdfDocument.PageInfo.Builder(ReceiptFormatter.PAGE_WIDTH, ReceiptFormatter.PAGE_HEIGHT, 1).create()
+                val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
                 val page = pdfDocument.startPage(pageInfo)
                 
                 drawContent(page.canvas)
@@ -73,6 +80,6 @@ object ReceiptPrinter {
 
                 callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
             }
-        }, null)
+        }, printAttributes)
     }
 }

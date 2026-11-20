@@ -101,9 +101,34 @@ class SchemaMigrationTest {
         migrated.close()
     }
 
+    @Test
+    @Throws(IOException::class)
+    fun migrate35To36_addsUhidColumnAndUniqueIndexWithoutLosingPatients() {
+        helper.createDatabase(DB_35_TO_36, 35).apply {
+            execSQL(
+                """INSERT INTO patients (id, name, phone, dob, gender, isSynced)
+                   VALUES ('legacy-patient', 'Legacy Patient', '999', '2020-01-01', 'Male', 1)"""
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            DB_35_TO_36, 36, true,
+            AppDatabase.MIGRATIONS.first { it.startVersion == 35 }
+        )
+
+        migrated.query("SELECT uhid FROM patients WHERE id = 'legacy-patient'").use { c ->
+            assertTrue("legacy patient must survive 35->36", c.moveToFirst())
+            assertTrue("existing patients start with no UHID", c.isNull(0))
+        }
+        assertTrue("index_patients_uhid" in indexNames(migrated))
+        migrated.close()
+    }
+
     private companion object {
         const val DB_33_TO_34 = "schema-migration-33-34"
         const val DB_34_TO_35 = "schema-migration-34-35"
+        const val DB_35_TO_36 = "schema-migration-35-36"
 
         /** The 27 indices added by migration34_35, mirroring the diff of 34.json -> 35.json. */
         val ADDED_IN_35 = setOf(

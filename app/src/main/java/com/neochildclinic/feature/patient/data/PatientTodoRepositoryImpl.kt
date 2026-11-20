@@ -127,6 +127,20 @@ class PatientTodoRepositoryImpl @Inject constructor(
         syncRepository.enqueue(type, id, com.neochildclinic.domain.model.SyncOperation.UPDATE, com.neochildclinic.domain.model.SyncPriority.MEDIUM)
     }
 
+    override suspend fun linkTodoToPatient(type: String, id: String, patientId: String) {
+        val now = com.neochildclinic.core.common.DateUtils.getCurrentIsoTimestamp()
+        // The dirty flag and the queue row must commit together: without the queue row the
+        // dirty guard would protect this link from refresh forever and never upload it.
+        transactionRunner.run {
+            if (type == "CONSULTATION_TODO") {
+                dao.linkConsultationToPatient(id, patientId, now)
+            } else {
+                dao.linkVaccinationToPatient(id, patientId, now)
+            }
+            syncRepository.enqueue(type, id, SyncOperation.UPDATE, SyncPriority.MEDIUM)
+        }
+    }
+
     override suspend fun addConsultation(todo: ConsultationTodo) {
         val entity = todo.toEntity()
         dao.insertConsultation(entity)

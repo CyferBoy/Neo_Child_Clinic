@@ -32,6 +32,8 @@ fun AddPatientContent(
     onBack: () -> Unit,
     clinicId: String,
     onClinicIdChange: (String) -> Unit,
+    uhid: String,
+    onUhidChange: (String) -> Unit,
     name: String,
     onNameChange: (String) -> Unit,
     phone: String,
@@ -101,6 +103,14 @@ fun AddPatientContent(
                     onValueChange = onClinicIdChange,
                     label = "Patient ID (Optional)",
                     placeholder = "e.g. NEO-1042",
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                StandardTextField(
+                    value = uhid,
+                    onValueChange = onUhidChange,
+                    label = "UHID (Optional — leave blank to auto-generate)",
+                    placeholder = "e.g. 26-27/001",
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -224,6 +234,8 @@ private fun AddPatientPreview() {
             isEditMode = false,
             onBack = {},
             clinicId = "NEO-1042",
+            uhid = "",
+            onUhidChange = {},
             onClinicIdChange = {},
             name = "Aarav Sharma",
             onNameChange = {},

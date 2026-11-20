@@ -96,6 +96,7 @@ val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedVaccinationForAction by remember { mutableStateOf<Vaccination?>(null) }
     var selectedConsultationForAction by remember { mutableStateOf<com.neochildclinic.domain.model.Consultation?>(null) }
+    var selectedConsultationVisit by remember { mutableStateOf<Vaccination?>(null) }
     var documentToDelete by remember { mutableStateOf<String?>(null) }
 
     ShowSnackbar(documentError, snackbarHostState) { viewModel.clearDocumentError() }
@@ -238,6 +239,24 @@ val snackbarHostState = remember { SnackbarHostState() }
                         )
                     }
                 } else if (selectedConsultationForAction != null) {
+                    ListItem(
+                        headlineContent = { Text("Print Prescription") },
+                        leadingContent = { Icon(Icons.Default.Print, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            ConsultationPrint.printPrescription(context, patient!!, selectedConsultationForAction!!)
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text("Print Receipt") },
+                        leadingContent = { Icon(Icons.Default.ReceiptLong, null) },
+                        modifier = Modifier.clickable {
+                            showSheet = false
+                            val consultation = selectedConsultationForAction!!
+                            val doctorName = doctorMap[consultation.doctorId] ?: consultation.doctorName
+                            ConsultationPrint.printReceipt(context, patient!!, consultation, selectedConsultationVisit, doctorName)
+                        }
+                    )
                     if (canEditOrDelete) {
                         ListItem(
                             headlineContent = { Text("Edit Record") },
@@ -372,10 +391,15 @@ val snackbarHostState = remember { SnackbarHostState() }
                         selectedConsultationForAction = null
                         showSheet = true
                     },
-                    onLongClickConsultation = { 
-                        selectedConsultationForAction = it
-                        selectedVaccinationForAction = null
-                        showSheet = true
+                    onLongClickConsultation = {
+                        scope.launch {
+                            // Read the shared visit before the sheet opens, so Print Receipt
+                            // never depends on a composable-scoped coroutine staying alive.
+                            selectedConsultationVisit = viewModel.getVisitForConsultation(it.visitId)
+                            selectedConsultationForAction = it
+                            selectedVaccinationForAction = null
+                            showSheet = true
+                        }
                     },
                     onOpenVaccinationDetails = { onViewVaccination(it.id) },
                     onUploadDocument = { launcher.launch("*/*") },

@@ -34,11 +34,22 @@ internal fun NavGraphBuilder.patientGraph(
         )
     }
 
-    composable(Routes.ADD_PATIENT) {
+    composable(
+        route = "${Routes.ADD_PATIENT}?todoType={todoType}&todoId={todoId}",
+        arguments = listOf(
+            navArgument("todoType") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("todoId") { type = NavType.StringType; nullable = true; defaultValue = null }
+        )
+    ) { backStackEntry ->
+        val todoType = backStackEntry.nullableStringArg("todoType")
+        val todoId = backStackEntry.nullableStringArg("todoId")
         AddPatientScreen(
             onBack = goBack,
+            todoType = todoType,
+            todoId = todoId,
             onNavigateToDetails = { patientId ->
-                navController.navigate("patient_details/$patientId") {
+                val destination = if (todoId != null) "today_patients" else "patient_details/$patientId"
+                navController.navigate(destination) {
                     popUpTo(Routes.ADD_PATIENT) { inclusive = true }
                     launchSingleTop = true
                 }
@@ -187,6 +198,9 @@ internal fun NavGraphBuilder.patientGraph(
                     "add_consultation/$patientId?doctorId=${Uri.encode(doctorId.orEmpty())}" +
                         "&slotId=${Uri.encode(slotId.orEmpty())}&date=${Uri.encode(date)}"
                 )
+            },
+            onRegisterPatient = { todoType, todoId ->
+                navController.navigate("add_patient?todoType=${Uri.encode(todoType)}&todoId=${Uri.encode(todoId)}")
             }
         )
     }

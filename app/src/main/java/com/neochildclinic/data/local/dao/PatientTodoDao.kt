@@ -29,6 +29,12 @@ interface PatientTodoDao {
     @Query("UPDATE vaccination_todos SET status = :status, updated_at = :updatedAt, is_synced = 0 WHERE id = :id")
     suspend fun updateVaccinationStatus(id: String, status: String, updatedAt: String)
 
+    @Query("UPDATE consultation_todos SET patient_id = :patientId, updated_at = :updatedAt, is_synced = 0 WHERE id = :id")
+    suspend fun linkConsultationToPatient(id: String, patientId: String, updatedAt: String)
+
+    @Query("UPDATE vaccination_todos SET patient_id = :patientId, updated_at = :updatedAt, is_synced = 0 WHERE id = :id")
+    suspend fun linkVaccinationToPatient(id: String, patientId: String, updatedAt: String)
+
     @Query("SELECT * FROM consultation_todos WHERE id = :id LIMIT 1")
     suspend fun getConsultationTodoById(id: String): ConsultationTodoEntity?
 

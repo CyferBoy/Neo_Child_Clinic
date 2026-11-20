@@ -8,6 +8,7 @@ import com.neochildclinic.domain.model.Reminder
 import com.neochildclinic.domain.model.Vaccination
 import com.neochildclinic.domain.model.PatientDocument
 import com.neochildclinic.domain.repository.PatientRepository
+import com.neochildclinic.domain.repository.PatientTodoRepository
 import com.neochildclinic.domain.repository.VaccinationRepository
 import com.neochildclinic.domain.repository.ConsultationRepository
 import com.neochildclinic.domain.repository.DocumentRepository
@@ -29,6 +30,7 @@ class PatientViewModel @Inject constructor(
     private val vaccinationRepository: VaccinationRepository,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val patientRepository: PatientRepository,
+    private val patientTodoRepository: PatientTodoRepository,
     private val consultationRepository: ConsultationRepository,
     private val profileRepository: com.neochildclinic.domain.repository.ProfileRepository,
     private val inventoryRepository: com.neochildclinic.domain.repository.InventoryRepository,
@@ -204,7 +206,9 @@ class PatientViewModel @Inject constructor(
     fun savePatient(
         patient: Patient,
         onComplete: () -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        todoType: String? = null,
+        todoId: String? = null
     ) {
         viewModelScope.launch {
             try {
@@ -212,6 +216,9 @@ class PatientViewModel @Inject constructor(
                     throw IllegalArgumentException("Patient name and Date of Birth are required.")
                 }
                 patientRepository.addPatient(patient)
+                if (todoType != null && todoId != null) {
+                    patientTodoRepository.linkTodoToPatient(todoType, todoId, patient.id)
+                }
                 onComplete()
             } catch (e: CancellationException) {
                 throw e
@@ -220,6 +227,9 @@ class PatientViewModel @Inject constructor(
             }
         }
     }
+
+    /** Shared patient_visits row for a consultation — holds the receipt number. */
+    suspend fun getVisitForConsultation(visitId: String) = vaccinationRepository.getVaccinationById(visitId)
 
     fun deleteVaccination(id: String, onResult: (Boolean) -> Unit = {}) {
         if (id in _deletingVaccinationIds.value) return // already in flight; ignore the repeat tap

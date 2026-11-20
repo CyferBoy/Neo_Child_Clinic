@@ -14,6 +14,7 @@ import kotlinx.serialization.Serializable
     tableName = "patients",
     indices = [
         Index(value = ["patientClinicId"], unique = true),
+        Index(value = ["uhid"], unique = true),
         Index(value = ["name"]),
         Index(value = ["phone"]),
         Index(value = ["isSynced"])
@@ -22,6 +23,7 @@ import kotlinx.serialization.Serializable
 data class PatientEntity(
     @PrimaryKey @SerialName("id") val id: String,
     @SerialName("patient_clinic_id") val patientClinicId: String? = null,
+    @SerialName("uhid") val uhid: String? = null,
     @SerialName("name") val name: String,
     @SerialName("phone") val phone: String,
     @SerialName("alternate_phone") val alternatePhone: String? = null,
@@ -41,6 +43,7 @@ data class PatientEntity(
 fun PatientEntity.toPatient() = Patient(
     id = id,
     patientClinicId = patientClinicId,
+    uhid = uhid.orEmpty(),
     name = name,
     phone = phone,
     alternatePhone = alternatePhone,
@@ -59,6 +62,7 @@ fun PatientEntity.toDomain(): Patient = toPatient()
 fun Patient.toEntity(isSynced: Boolean = true) = PatientEntity(
     id = id,
     patientClinicId = patientClinicId,
+    uhid = uhid.ifBlank { null },
     name = name,
     phone = phone,
     alternatePhone = alternatePhone,

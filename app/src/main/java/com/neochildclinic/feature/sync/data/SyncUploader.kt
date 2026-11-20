@@ -570,7 +570,7 @@ class SyncUploader @Inject constructor(
             // EXPLICIT CASTING: Supabase upsert<T> requires the concrete type at compile time
             // to find the correct serializer. Passing 'Any' will fail.
             when (localData) {
-                is PatientEntity -> postgrest.from(table).upsert(localData)
+                is PatientEntity -> uploadPatient(table, localData)
                 is VisitEntity -> uploadVisit(table, localData)
                 is VaccinationItemEntity -> postgrest.from(table).upsert(localData)
                 is WasteEntity -> postgrest.from(table).upsert(localData)
@@ -738,6 +738,26 @@ class SyncUploader @Inject constructor(
             // the sync item over it. The number will still be picked up on the next
             // download/refresh.
             android.util.Log.e("SyncRepositoryImpl", "Could not read back receipt number for ${localData.id}", e)
+        }
+    }
+
+    // UHID is assigned by a database trigger on first insert (blank when the patient is
+    // created offline). Ask for the row back so the number is local without waiting for a
+    // later pull. A staff-entered UHID is non-blank and goes through a plain upsert.
+    private suspend fun uploadPatient(table: String, localData: PatientEntity) {
+        if (!localData.uhid.isNullOrBlank()) {
+            postgrest.from(table).upsert(localData)
+            return
+        }
+        val result = postgrest.from(table).upsert(localData) { select() }
+        try {
+            val savedRow = result.decodeSingleOrNull<PatientEntity>()
+            if (savedRow != null && !savedRow.uhid.isNullOrBlank()) {
+                database.patientDao().updateUhid(localData.id, savedRow.uhid)
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            android.util.Log.e("SyncRepositoryImpl", "Could not read back UHID for ${localData.id}", e)
         }
     }
 }

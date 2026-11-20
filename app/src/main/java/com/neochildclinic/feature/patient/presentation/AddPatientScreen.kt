@@ -20,10 +20,13 @@ fun AddPatientScreen(
     patientId: String? = null,
     onBack: () -> Unit = {},
     onNavigateToDetails: (String) -> Unit = {},
+    todoType: String? = null,
+    todoId: String? = null,
     viewModel: PatientViewModel = hiltViewModel(),
 ) {
     // Form State
     var clinicId by rememberSaveable { mutableStateOf("") }
+    var uhid by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var alternatePhone by rememberSaveable { mutableStateOf("") }
@@ -50,6 +53,7 @@ fun AddPatientScreen(
             val patient = viewModel.getPatientById(patientId)
             if (patient != null) {
                 clinicId = if (patient.patientClinicId?.startsWith("TEMP-") == true) "" else patient.patientClinicId ?: ""
+                uhid = patient.uhid
                 name = patient.name
                 phone = patient.phone
                 alternatePhone = patient.alternatePhone ?: ""
@@ -72,6 +76,8 @@ fun AddPatientScreen(
         onBack = onBack,
         clinicId = clinicId,
         onClinicIdChange = { clinicId = it },
+        uhid = uhid,
+        onUhidChange = { uhid = it },
         name = name,
         onNameChange = { name = it },
         phone = phone,
@@ -122,6 +128,7 @@ fun AddPatientScreen(
                 val patient = Patient(
                     id = patientId ?: UUID.randomUUID().toString(),
                     patientClinicId = clinicId,
+                    uhid = uhid.trim(),
                     name = name,
                     phone = phone,
                     alternatePhone = alternatePhone,
@@ -133,6 +140,8 @@ fun AddPatientScreen(
 
                 viewModel.savePatient(
                     patient = patient,
+                    todoType = todoType,
+                    todoId = todoId,
                     onComplete = {
                         isLoading = false
                         scope.launch { snackbarHostState.showSnackbar(if (isEditMode) "Patient Updated" else "Patient Added") }

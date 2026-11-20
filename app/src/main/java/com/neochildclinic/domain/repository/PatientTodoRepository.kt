@@ -10,6 +10,7 @@ interface PatientTodoRepository {
     fun getVaccinationsByDateAndStatus(date: String, status: String): Flow<List<VaccinationTodo>>
     fun getDatesWithData(start: String, end: String): Flow<List<String>>
     suspend fun updateStatus(type: String, id: String, status: String)
+    suspend fun linkTodoToPatient(type: String, id: String, patientId: String)
     suspend fun addConsultation(todo: ConsultationTodo)
     suspend fun addVaccination(todo: VaccinationTodo)
     suspend fun deleteConsultation(id: String)

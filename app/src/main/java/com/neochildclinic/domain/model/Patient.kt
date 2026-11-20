@@ -7,6 +7,7 @@ package com.neochildclinic.domain.model
 data class Patient(
     val id: String,
     val patientClinicId: String? = null,
+    val uhid: String = "",
     val name: String,
     val phone: String,
     val alternatePhone: String? = null,

@@ -39,7 +39,8 @@ fun TodayPatientsScreen(
     onBack: () -> Unit,
     initialTab: String? = null,
     highlightId: String? = null,
-    onCreateConsultation: (patientId: String, doctorId: String?, slotId: String?, date: String) -> Unit = { _, _, _, _ -> }
+    onCreateConsultation: (patientId: String, doctorId: String?, slotId: String?, date: String) -> Unit = { _, _, _, _ -> },
+    onRegisterPatient: (todoType: String, todoId: String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
@@ -70,6 +71,12 @@ fun TodayPatientsScreen(
         else -> uiState.visitedConsultations.filter { it.visitType == "FOLLOW_UP" }
     }
     val listState = rememberLazyListState()
+
+    fun addPatientCallback(item: Any): (() -> Unit)? = when (item) {
+        is ConsultationTodo -> ({ onRegisterPatient("CONSULTATION_TODO", item.id) })
+        is VaccinationTodo -> ({ onRegisterPatient("VACCINATION_TODO", item.id) })
+        else -> null
+    }
 
     LaunchedEffect(pendingHighlightId, pendingList, visitedList) {
         val targetId = pendingHighlightId ?: return@LaunchedEffect
@@ -396,7 +403,8 @@ fun TodayPatientsScreen(
                                         {
                                             onCreateConsultation(item.patientId!!, item.doctorId, item.availabilitySlotId, item.todoDate)
                                         }
-                                    } else null
+                                    } else null,
+                                    onAddPatient = addPatientCallback(item)
                                 )
                             }
 
@@ -444,7 +452,8 @@ fun TodayPatientsScreen(
                                                 is VaccinationTodo -> viewModel.deleteVaccination(item.id)
                                             }
                                         },
-                                        onEdit = { editingTodo = item }
+                                        onEdit = { editingTodo = item },
+                                        onAddPatient = addPatientCallback(item)
                                     )
                                 }
                             }

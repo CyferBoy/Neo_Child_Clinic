@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -45,13 +46,11 @@ internal fun TodayPatientItem(
     onStatusToggle: () -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    onCreateConsultation: (() -> Unit)? = null
+    onCreateConsultation: (() -> Unit)? = null,
+    onAddPatient: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    // Long-press menu: Edit / Delete (existing behaviour)
     var menuExpanded by remember { mutableStateOf(false) }
-    // Status-change confirmation dialog (requirement: long press initiates status change)
-    var showStatusDialog by remember { mutableStateOf(false) }
 
     val status = when (item) {
         is ConsultationTodo -> item.status
@@ -110,10 +109,8 @@ internal fun TodayPatientItem(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                // Single tap: no status change — preserves existing navigation behaviour
                 onClick = {},
-                // Long press: open status-change dialog (per requirement)
-                onLongClick = { showStatusDialog = true }
+                onLongClick = { menuExpanded = true }
             ),
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(
@@ -248,75 +245,38 @@ internal fun TodayPatientItem(
                 }
             }
 
-            // Long-press context menu: Edit / Delete
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
                     text = { Text("Edit") },
-                    onClick = {
-                        menuExpanded = false
-                        onEdit()
-                    },
+                    onClick = { menuExpanded = false; onEdit() },
                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                 )
                 DropdownMenuItem(
                     text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                    onClick = {
-                        menuExpanded = false
-                        onDelete()
-                    },
+                    onClick = { menuExpanded = false; onDelete() },
                     leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                 )
+                DropdownMenuItem(
+                    text = { Text(if (isCompleted) "Mark Waiting" else "Mark Visited") },
+                    onClick = { menuExpanded = false; onStatusToggle() },
+                    leadingIcon = { Icon(if (isCompleted) Icons.Default.Schedule else Icons.Default.Check, contentDescription = null) }
+                )
+                if (canCreateConsultationFromTodo(item, isCompleted, onCreateConsultation != null)) {
+                    DropdownMenuItem(
+                        text = { Text("Create Consultation") },
+                        onClick = { menuExpanded = false; onCreateConsultation?.invoke() },
+                        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
+                    )
+                }
+                if (onAddPatient != null && shouldShowAddPatient(item)) {
+                    DropdownMenuItem(
+                        text = { Text("Add Patient") },
+                        onClick = { menuExpanded = false; onAddPatient() },
+                        leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) }
+                    )
+                }
             }
         }
-    }
-
-    // Status-change dialog shown on long press (Edit/Delete dropdown is separate)
-    if (showStatusDialog) {
-        val targetStatus = if (isCompleted) "Waiting" else "Visited"
-        val canCreateConsultation = canCreateConsultationFromTodo(item, isCompleted, onCreateConsultation != null)
-        AlertDialog(
-            onDismissRequest = { showStatusDialog = false },
-            shape = RoundedCornerShape(20.dp),
-            title = { Text("Change Status", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    Text(
-                        "Mark $nameLine as $targetStatus?",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    if (canCreateConsultation) {
-                        OutlinedButton(onClick = {
-                            showStatusDialog = false
-                            onCreateConsultation?.invoke()
-                        }) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(Spacing.xs))
-                            Text("Create Consultation")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showStatusDialog = false
-                    onStatusToggle()
-                }) { Text("Mark $targetStatus") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStatusDialog = false }) { Text("Cancel") }
-            },
-            // Also show Edit/Delete options for power users
-            icon = {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    IconButton(onClick = { showStatusDialog = false; onEdit() }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit")
-                    }
-                    IconButton(onClick = { showStatusDialog = false; onDelete() }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-        )
     }
 }
 
@@ -335,4 +295,14 @@ internal fun canCreateConsultationFromTodo(
         !isCompleted &&
         (todo.visitType.isBlank() || todo.visitType.equals("NEW", ignoreCase = true)) &&
         !todo.patientId.isNullOrBlank()
+}
+
+/** An unregistered row needs the Add Patient action so its todo can be linked to a saved patient. */
+internal fun shouldShowAddPatient(item: Any?): Boolean {
+    val patientId = when (item) {
+        is ConsultationTodo -> item.patientId
+        is VaccinationTodo -> item.patientId
+        else -> return false
+    }
+    return patientId.isNullOrBlank()
 }
