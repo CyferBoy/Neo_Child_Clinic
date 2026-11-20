@@ -18,7 +18,7 @@ Neo Child Clinic is a robust, offline-first Android application designed for ped
 | **Getting Started** | 🚀 [Desktop Environment Setup](docs/agents/DESKTOP_SETUP.md) | Environment setup, JDK 17, Android Studio, `.env.local` keys, and first build |
 | **Offline Synchronization** | 🔄 [Offline-First Sync](docs/architecture/offline-first-sync.md) | In-depth synchronization engine, queue mechanics, and conflict resolution |
 | **Cache Architecture** | ⚡ [In-Memory Cache](docs/architecture/cache-architecture.md) | LRU cache specs, generation counters, and session boundary clearing |
-| **Database Architecture** | 🗄️ [Room Database](docs/Knowledge_Base/Room%20Database.md) | Room schema 35 (library 2.8.5), 25 entities, 21 DAOs, foreign keys, cascade rules; Supabase RLS via the [policy matrix](docs/Knowledge_Base/Row%20Level%20Security.md) |
+| **Database Architecture** | 🗄️ [Room Database](docs/Knowledge_Base/Room%20Database.md) | Room schema 36 (library 2.8.5), 25 entities, 21 DAOs, foreign keys, cascade rules; Supabase RLS via the [policy matrix](docs/Knowledge_Base/Row%20Level%20Security.md) |
 | **Features Overview** | 📋 [Project Hub](docs/Knowledge_Base/Neo%20Child%20Clinic.md) | Clinic capability overview and entry point to the feature notes |
 | **Disaster Recovery** | 🛡️ [Backup & Restore](docs/Knowledge_Base/Backup%20and%20Restore.md) | `.nccb` AES-256-GCM container format, Cloudflare R2 worker, and safety rollback |
 | **Releases & Deployment** | 📦 [Release Checklist](docs/Knowledge_Base/Release%20Checklist.md) | APK signing, ProGuard/R8 shrinking, in-app updates, and FCM alerts |
@@ -31,7 +31,7 @@ Neo Child Clinic is a robust, offline-first Android application designed for ped
 ## 📱 Application Overview & Screenshots
 
 - **Target SDK**: Android 15 (API 35) · **Compile SDK**: 35 · **Minimum SDK**: Android 10 (API 29)
-- **Local Persistence**: Encrypted Room (schema 35, Room library 2.8.5, SQLite via SQLCipher) + Android Keystore
+- **Local Persistence**: Encrypted Room (schema 36, Room library 2.8.5, SQLite via SQLCipher) + Android Keystore
 - **Cloud Backend**: Supabase PostgreSQL + Auth + Realtime + Storage
 - **Edge Infrastructure**: Cloudflare Worker + R2 Storage for offsite encrypted backups
 
@@ -60,7 +60,7 @@ Neo_Child_Clinic/
 │   │   ├── java/com/neochildclinic/
 │   │   │   ├── app/                     # MainActivity, NavHost, Routes, work/ (SyncWorker), sync/
 │   │   │   ├── core/                    # Shared infrastructure (cache, sync, security, ui, notifications)
-│   │   │   ├── data/                    # Room DB (schema 35, library 2.8.5), 21 DAOs, 25 entities, backup
+│   │   │   ├── data/                    # Room DB (schema 36, library 2.8.5), 21 DAOs, 25 entities, backup
 │   │   │   ├── di/                      # Hilt modules (DatabaseModule, RepositoryModule, SupabaseModule)
 │   │   │   ├── domain/model/            # 35 Pure Kotlin business domain models (no Android imports)
 │   │   │   └── feature/<name>/          # 20 Self-contained business features (patient, inventory, etc.)

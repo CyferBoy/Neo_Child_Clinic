@@ -59,7 +59,7 @@
 |---|---|---|
 | `local/dao/` | **21** | 4 have any test; all DAO tests are instrumented |
 | `local/entity/` | 22 files / **25 `@Entity`** | `ReminderEntity` is the only soft-delete table |
-| `local/database/` | 3 | `AppDatabase.kt` (schema 35, 18 migrations), `Converters.kt` (17 lines, 1 converter), `TransactionRunnerImpl.kt` |
+| `local/database/` | 3 | `AppDatabase.kt` (schema 36, 19 migrations), `Converters.kt` (17 lines, 1 converter), `TransactionRunnerImpl.kt` |
 | `remote/` | 2 | `PatientRemoteDataSource(+Impl)` |
 | `backup/` | 13 | `BackupCrypto` (best crypto in repo), `BackupRestorer` (318 lines, untested), `BackupValidator`, `SafetyBackupStore`, `CloudBackupApi` |
 
@@ -117,7 +117,7 @@ the `"d MMM yyyy"` non-padding hazard), `ClinicStats.kt`, `SyncEnums.kt`, `Inven
 | File | Contents |
 |---|---|
 | `app/build.gradle.kts` | Room schema location (`:29-31`), `isReturnDefaultValues = true` (`:103`) — the version numbers live in the catalogue |
-| `gradle/libs.versions.toml` | version catalogue — `appVersionName 0.6` (`:2`), from which `versionCode 6000` is derived in `app/build.gradle.kts`; Room 2.8.5, SQLCipher 4.19.0 |
+| `gradle/libs.versions.toml` | version catalogue — `appVersionName 0.6.1` (`:2`), from which `versionCode 6001` is derived in `app/build.gradle.kts:48-55`; Room 2.8.5, SQLCipher 4.19.0 |
 | `app/src/main/AndroidManifest.xml` | no backup rules (`allowBackup=false`), `POST_NOTIFICATIONS`, no boot receiver, WorkManager initializer removed (`:88-97`) |
 | `supabase/config.toml` | per-function JWT config; `auto_expose_new_tables` commented out — **removal 2026-10-30** |
 

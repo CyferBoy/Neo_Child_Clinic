@@ -12,7 +12,7 @@ This document defines the roles, capabilities, and boundaries for all 12 special
 | **`software-architect`** | Architect | Clean Architecture, MVVM boundaries, ADRs, module coupling | `docs/architecture/adr/**` | UI implementation details, quick hacks |
 | **`android-developer`** | Android Dev | Kotlin 2.4, Compose M3, ViewModels, Room DAOs, Coroutines | `app/src/main/**`, UI components | Database migrations without DB review |
 | **`backend-engineer`** | Backend Dev | Supabase, PostgreSQL triggers, Edge Functions, Cloudflare Worker | `supabase/**`, `cloudflare/**` | Relaxing RLS policies for convenience |
-| **`database-engineer`** | DB Engineer | Room schema 35 (library 2.8.5) SQLite, migrations, SQLCipher, PostgreSQL schema | `data/local/**`, `schemas/**` | Released historical migration scripts |
+| **`database-engineer`** | DB Engineer | Room schema 36 (library 2.8.5) SQLite, migrations, SQLCipher, PostgreSQL schema | `data/local/**`, `schemas/**` | Released historical migration scripts |
 | **`qa-engineer`** | QA Engineer | Unit tests, integration tests, offline-first verification | `app/src/test/**`, `androidTest/**`| Production source code |
 | **`security-auditor`** | Security Auditor | RLS audit, Keystore encryption, secret scan, vulnerability report | Security reports, test scripts | Modifying live credentials / configs |
 | **`documentation-engineer`** | Doc Engineer | Architecture documentation, Knowledge Base, validator | `docs/**` strictly | Application code, database schema |

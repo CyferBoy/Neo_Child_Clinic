@@ -17,7 +17,7 @@
              Data Layer (Repository Implementations)
                  │                           │
                  ▼                           ▼
-    Local Persistence (Room schema 35) Remote Cloud (Supabase REST / RLS)
+    Local Persistence (Room schema 36) Remote Cloud (Supabase REST / RLS)
         [SQLCipher AES-256]           [PostgreSQL + Edge Functions]
 ```
 
@@ -43,7 +43,7 @@
 
 ### 2.3 Data Layer (`com.neochildclinic.data` & `feature.<name>.data`)
 - **Repository Implementations**: Implement domain repository contracts (e.g., `PatientRepositoryImpl`, `VaccineRepositoryImpl`).
-- **Local Persistence**: Room schema 35 (library 2.8.5) with SQLCipher encryption located in `data/local/`:
+- **Local Persistence**: Room schema 36 (library 2.8.5) with SQLCipher encryption located in `data/local/`:
   - 25 SQLite entities (`*Entity.kt`)
   - 21 Data Access Objects (`*Dao.kt`)
   - Type converters for complex medical fields, dates, and JSON payloads.
@@ -63,7 +63,7 @@ sequenceDiagram
     actor Doctor as Doctor / Staff
     participant UI as Compose UI / ViewModel
     participant Repo as RepositoryImpl
-    participant Room as Encrypted Room DB (schema 35)
+    participant Room as Encrypted Room DB (schema 36)
     participant Outbox as SyncQueueEntity
     participant Worker as SyncWorker (WorkManager)
     participant Supabase as Supabase Backend (PostgreSQL)

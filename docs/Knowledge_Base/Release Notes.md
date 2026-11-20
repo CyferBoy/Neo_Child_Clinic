@@ -7,12 +7,12 @@
 
 | | |
 |---|---|
-| Version | **0.6** (`versionCode 6000`, derived from `versionName`) — `gradle/libs.versions.toml:2` |
+| Version | **0.6.1** (`versionCode 6001`, derived from `versionName`) — `gradle/libs.versions.toml:2` |
 | Latest tag | `V.0.5.1`, 2026-09-04 (pre-`vX.Y.Z` naming) |
 | Branch | `main` |
 | Commit count | 353 |
 | First commit | 2026-07-08 |
-| Room schema | **35** (18 migrations, Room library 2.8.5) |
+| Room schema | **36** (19 migrations, Room library 2.8.5) |
 | Unit tests | 277 passing, 0 failures (recorded 2026-10-18) |
 | Working tree | ✅ **no uncommitted app changes** at `0972ed9` (2026-10-19) |
 
@@ -69,7 +69,7 @@ Reconstructed from the feature directories and migrations dated after 2026-09-04
 - Shared design system (`core/designsystem/`)
 
 **Data layer**
-- Room 17 → 35: 18 migrations, three of them destructive
+- Room 17 → 36: 19 migrations, three of them destructive
 - 25 entities, 21 DAOs
 - SQLCipher encryption at rest
 - No destructive-migration fallback (deliberate — see [[Architecture Decisions]])

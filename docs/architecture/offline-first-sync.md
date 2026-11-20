@@ -8,7 +8,7 @@ This document describes how Neo Child Clinic maintains bidirectional, determinis
 
 | Layer | Responsibility |
 |---|---|
-| **Room Database (schema 35)** | **Local Source of Truth**: All UI screens read exclusively from Room via reactive Kotlin `Flow`s. Handles offline writes, transaction boundaries, foreign-key cascade integrity, and local mutation queues (`sync_queue`). |
+| **Room Database (schema 36)** | **Local Source of Truth**: All UI screens read exclusively from Room via reactive Kotlin `Flow`s. Handles offline writes, transaction boundaries, foreign-key cascade integrity, and local mutation queues (`sync_queue`). |
 | **Supabase Backend** | **Cloud Source of Truth & Coordination**: Persisted cross-device records, authentication, Row Level Security (RLS) enforcement, server-generated sequences (e.g. clinic receipt numbers), and Realtime Postgres notifications. |
 | **Feature Repositories** | **The Single Bridge**: UI screens never choose between Room and a network call. All read paths are strictly `UI → ViewModel → Repository → Room Flow → UI State`. |
 | **`sync_queue` + `SyncUploader`** | **The Outbound Pipeline**: The only mechanism that writes from Room to Supabase. |
@@ -19,7 +19,7 @@ flowchart TD
     subgraph Local Client
         UI[Compose Screen] --> VM[ViewModel]
         VM --> REPO[Repository]
-        REPO -->|Atomic Transaction| ROOM[(Room DB schema 35)]
+        REPO -->|Atomic Transaction| ROOM[(Room DB schema 36)]
         REPO -->|Atomic Transaction| QUEUE[(sync_queue Table)]
         ROOM -->|Reactive Flow| VM
     end

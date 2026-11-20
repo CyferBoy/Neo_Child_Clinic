@@ -7,7 +7,7 @@ This document represents an exhaustive, ground-truth inventory of every major di
 ## 1. Executive Summary & Inventory Scope
 
 The repository contains:
-- **Android Application**: 1 root module (`:app`), target SDK 35, compile SDK 35, Kotlin 2.0.21, Jetpack Compose with Material 3, Hilt DI, Room DB (schema 35, library 2.8.5), Offline-first sync with Supabase and Cloudflare R2 backup.
+- **Android Application**: 1 root module (`:app`), target SDK 35, compile SDK 35, Kotlin 2.0.21, Jetpack Compose with Material 3, Hilt DI, Room DB (schema 36, library 2.8.5), Offline-first sync with Supabase and Cloudflare R2 backup.
 - **Backend & Cloud Infrastructure**: Supabase migrations (23 migration scripts + catalog CSV), Supabase Edge Functions (`manage-staff`, `notify-update`), Supabase live tests & configs, and Cloudflare Worker (`cloudflare/backup-worker`) with Vitest test harness.
 - **Design System & Assets**: Material 3 theme, custom typography/color tokens, contrast validation scripts (`contrast_check.py`), and documentation in `design-system/`.
 - **Knowledge Base & Documentation**: Obsidian Vault with 66 interconnected notes in `docs/Knowledge_Base/`, 30+ historical audit notes in `docs/bug-audit/`, and scattered root architectural documents.
@@ -81,7 +81,7 @@ The repository contains:
 |---|---|---|---|---|---|---|
 | `data/local/database/` | `AppDatabase.kt`, Room TypeConverters, TransactionRunnerImpl | Yes | None | Retain | Room 33, all DAOs and Entities | High |
 | `data/local/dao/` | 21 Room DAOs (PatientDao, VaccineDao, VaccinationDao, etc.) | Yes | None | Retain | Repositories, sync engine, Room | High |
-| `data/local/entity/` | 25 Room Entity definitions | Yes | None | Retain | Room schema 35, DB migrations | Critical (Room schema) |
+| `data/local/entity/` | 25 Room Entity definitions | Yes | None | Retain | Room schema 36, DB migrations | Critical (Room schema) |
 | `data/remote/` | Supabase remote data sources (PatientRemoteDataSource) | Yes | None | Retain | Repositories, Supabase client | High |
 | `data/backup/` | Local & Cloud backup engines, encryption, serialization | Yes | None | Retain | Cloudflare R2 worker, Room DB | High |
 

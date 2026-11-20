@@ -51,5 +51,5 @@ The application organizes functionality into 20 modular business features:
 The clinic stores Protected Health Information (PHI) and financial records. The following principles govern all data operations:
 - **Zero Data Loss**: Offline changes are staged in an encrypted local database (`AppDatabase`, SQLCipher) before syncing.
 - **Atomic Multi-Table Transactions**: Administering a vaccine atomically creates a `VisitEntity`, updates `ReminderEntity`, inserts `VaccinationItemEntity`, decrements `VaccineBatchEntity`, logs `InventoryTransactionEntity`, and queues `SyncQueueEntity`.
-- **Hard Deletes with Cascading Integrity**: Clinical and patient records use hard deletes with cascading integrity (Room v35) and business audit trails to preserve historical immunization audit history.
+- **Hard Deletes with Cascading Integrity**: Clinical and patient records use hard deletes with cascading integrity (Room v36) and business audit trails to preserve historical immunization audit history.
 - **Idempotent Synchronization**: Remote mutations carry client-generated UUIDs and version timestamps to prevent duplicate rows during network retries.

@@ -9,8 +9,8 @@
 
 | | |
 |---|---|
-| Version | **0.6** (`versionCode 6000`, derived from `versionName`) |
-| Room schema | **35** — 25 entities, 21 DAOs, 18 migrations (Room library 2.8.5) |
+| Version | **0.6.1** (`versionCode 6001`, derived from `versionName`) — `gradle/libs.versions.toml:2` |
+| Room schema | **36** — 25 entities, 21 DAOs, 19 migrations (Room library 2.8.5) |
 | Supabase | 26 tables, 37 migrations, 2 edge functions |
 | Kotlin | 354 main files · 49 test files |
 | Tests | **554 unit passing**, 0 failures (2026-11-19) · 70 instrumented in 14 files, 🔍 **last recorded green 2026-10-18** |
@@ -47,7 +47,7 @@
 
 ## Data and backend
 
-- [[Room Database]] — schema 35, 25 entities, 18 migrations, converters
+- [[Room Database]] — schema 36, 25 entities, 19 migrations, converters
 - [[Database Relationships]] — the entity graph, FKs, client/server drift
 - [[Database Schema]] — Postgres tables, migration timeline, drift
 - [[Supabase]] — triggers, edge functions, rate limiting
@@ -89,7 +89,7 @@ graph TB
         VM --> REPO[Repositories]
         REPO --> DAO[Room DAOs]
         REPO --> SYNC[Sync repository]
-        DAO --> DB[("neochild_db · schema 35 · SQLCipher")]
+        DAO --> DB[("neochild_db · schema 36 · SQLCipher")]
         SYNC --> Q[("sync_queue")]
         PC[PatientCache] -.read-through.-> REPO
     end

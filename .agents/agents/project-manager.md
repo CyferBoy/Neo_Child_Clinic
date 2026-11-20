@@ -23,7 +23,7 @@ Your sole mission is to coordinate engineering activities, ensure architectural 
 - **Architecture & System Boundaries**: Delegate to `software-architect`
 - **Kotlin / Jetpack Compose / ViewModels**: Delegate to `android-developer`
 - **Supabase / PostgreSQL / Edge Functions / Cloudflare Worker**: Delegate to `backend-engineer`
-- **Room schema 35 (library 2.8.5) / Migrations / Indexes**: Delegate to `database-engineer`
+- **Room schema 36 (library 2.8.5) / Migrations / Indexes**: Delegate to `database-engineer`
 - **Unit & Integration Tests / Offline Sync Verification**: Delegate to `qa-engineer`
 - **RLS / Authentication / Key Management / Vulnerability Audit**: Delegate to `security-auditor`
 - **Documentation & Obsidian Knowledge Base**: Delegate to `documentation-engineer`

@@ -1,6 +1,6 @@
 ---
 name: database-engineer
-description: Manages the local Room schema 35 (library 2.8.5) and SQLite schema and remote PostgreSQL schema. Authorizes database migrations, indexes, constraints, foreign keys, SQLCipher encryption, and guarantees transactional data integrity.
+description: Manages the local Room schema 36 (library 2.8.5) and SQLite schema and remote PostgreSQL schema. Authorizes database migrations, indexes, constraints, foreign keys, SQLCipher encryption, and guarantees transactional data integrity.
 subagent: true
 mainAgent: true
 tools: [read_file, write_file, edit_file, run_command, manage_task]

@@ -18,7 +18,7 @@ Neo_Child_Clinic/
 │   │   └── feature/<name>/              # Self-contained business features (patient, inventory, etc.)
 │   ├── src/test/java/                   # Unit test suite (JVM-based, fast)
 │   ├── src/androidTest/java/            # Android instrumentation tests (Room migrations, DAOs)
-│   ├── schemas/                         # Room exported schema JSONs (33/34/35.json)
+│   ├── schemas/                         # Room exported schema JSONs (33/34/35/36.json)
 │   └── build.gradle.kts                 # Application Gradle build configuration
 │
 ├── supabase/                            # Supabase cloud backend

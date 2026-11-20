@@ -38,7 +38,7 @@ com.neochildclinic
 │   └── model/                   Pure Kotlin business models (35 domain models)
 ├── data/                        Shared persistence and cloud integration
 │   ├── backup/                  Encrypted `.nccb` backup and Cloudflare R2 client
-│   ├── local/                   Room database (schema 35, Room library 2.8.5), 21 DAOs,
+│   ├── local/                   Room database (schema 36, Room library 2.8.5), 21 DAOs,
 │   │                            25 SQLite entities (dao/, entity/, database/)
 │   └── remote/                  Shared remote data sources (Supabase REST)
 └── feature/                     Self-contained business modules
